@@ -1,0 +1,190 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: moodle 1.8.2-1.1\n"
+"Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
+"POT-Creation-Date: 2008-03-10 07:24+0100\n"
+"PO-Revision-Date: 2008-02-27 20:49+0200\n"
+"Last-Translator: Esko Arajärvi <edu@iki.fi>\n"
+"Language-Team: Finnish <debian-l10n-finnish@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Poedit-Language: Finnish\n"
+"X-Poedit-Country: FINLAND\n"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Web server software:"
+msgstr "Verkkopalvelinohjelma:"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Please choose the web server software you will use with Moodle."
+msgstr "Valitse palvelinohjelma, jonka kanssa käytät Moodlea."
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Database server software for Moodle:"
+msgstr "Tietokantapalvelinohjelma Moodlelle:"
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid ""
+"Moodle can work with either MySQL or PostgreSQL. Please choose which one you "
+"want to use."
+msgstr ""
+"Moodle voi käyttää joko MySQL:ää tai PostgreSQL:ää. Valitse kumpaa haluat "
+"käyttää."
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Please check that it is installed before continuing."
+msgstr "Tarkista, että se on asennettuna ennen kuin jatkat."
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Database server hostname:"
+msgstr "Tietokantapalvelimen verkkonimi:"
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Please enter the hostname of the database server host."
+msgstr "Anna tietokantapalvelimen verkkonimi."
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid "Database administrator username:"
+msgstr "Tietokantaylläpitäjän käyttäjätunnus:"
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator username, needed for the "
+"database creation."
+msgstr ""
+"Anna PostgresQL- tai MySQL-ylläpitäjän käyttäjätunnus, jota tarvitaan "
+"tietokannan luomiseen."
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid "Database administrator password:"
+msgstr "Tietokantaylläpitäjän salasana:"
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator password, needed for the "
+"database creation."
+msgstr ""
+"Anna PostgresQL- tai MySQL-ylläpitäjän salasana, jota tarvitaan tietokannan "
+"luomiseen."
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "DBA password confirmation:"
+msgstr "Salasanan varmistus:"
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "Please confirm the password in order to continue the process."
+msgstr "Varmista salasana jatkaaksesi asennusprosessia."
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid "Password mismatch"
+msgstr "Salasanat eroavat"
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid ""
+"The password and its confirmation do not match. Please reenter the passwords."
+msgstr "Salasana ja sen varmistus eivät täsmää. Anna salasanat uudelleen."
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Database owner username:"
+msgstr "Tietokannan omistajan käyttäjätunnus:"
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Please enter the username of the Moodle database owner."
+msgstr "Annan Moodle-tietokannan omistajan käyttäjätunnus."
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Database owner password:"
+msgstr "Tietokannan omistajan salasana:"
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Please enter the password of the Moodle database owner."
+msgstr "Anna Moodle-tietokannan omistajan salasana."
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Database user password confirmation:"
+msgstr "Tietokantatunnuksen salasanan varmistus:"
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Please confirm the password of the Moodle database owner."
+msgstr "Varmista Moodle-tietokannan omistajan salasana."
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid "Warning - Moodle is not configured"
+msgstr "Varoitus - Moodlen asetuksia ei ole tehty"
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid ""
+"Please note that you have not completed the Moodle configuration. For "
+"completing it, please use \"dpkg-reconfigure moodle\" later."
+msgstr ""
+"Moodlen asetuksia ei tehty loppuun. Täydentääksesi asetuksia aja komento "
+"”dpkg-reconfigure moodle” myöhemmin."
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "Warning - Moodle database tables not created"
+msgstr "Varoitus - Moodlen tietokantatauluja ei luotu"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid ""
+"The Moodle install script will create the database, but the tables are to be "
+"created with a PHP script. Please launch it right after the install:"
+msgstr ""
+"Moodlen asennuskomentosarja luo tietokannan, mutta taulut luodaan PHP-"
+"komentosarjalla. Käynnistä se heti asennuksen jälkeen:"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "http://localhost/moodle/admin"
+msgstr "http://localhost/moodle/admin"

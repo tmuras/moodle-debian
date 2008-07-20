@@ -1,7 +1,7 @@
 <?php // $Id: index.php,v 1.265.2.7 2007/07/06 17:39:55 stronk7 Exp $
 
-/// Check that config.php exists, if not then call the install script
-    if (!file_exists('../config.php')) {
+/// Check that index.php exists, if not then call the install script
+    if (!file_exists('../index.php')) {
         header('Location: ../install.php');
         die;
     }

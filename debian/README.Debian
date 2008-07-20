@@ -1,0 +1,57 @@
+Moodle quickstart for Debian
+----------------------------
+
+USAGE
+
+  The application should be available at http://localhost/moodle/ after
+  install.
+
+  If you want to continue with setup and table creation from a remote browser
+  in another host, you should edit the file /etc/moodle/apache.conf,
+  removing the comment (#) from the line "allow from all" and restart apache.
+  
+  Note that if you do not remove this comment (#), no one will have remote
+  access to your moodle installation and only local users on that
+  machine will be able to access moodle.
+
+QUICKSTART
+
+  DATABASE CREATION
+
+  For the correct database and user creation during the package installation
+  you need to have a database admin account and the password for that account.
+
+  In PostgreSQL you should verify that you have the right access policy in 
+  /etc/postgresql/pg_hba.conf.
+
+  You should change your PostgreSQL server configuration to use passwords to 
+  authenticate users writing in your /etc/postgresql/pg_hba.conf file:
+
+  local   all         all                                       password
+  host    all         all   127.0.0.1         255.255.255.255   password
+
+  Before restarting the postmaster you should check that the admin user
+  has a password to access the database.
+
+  You can do this by executing in a shell while being root:
+  su - postgres
+  psql template1
+  (and inside the psql shell)
+  ALTER USER postgres password 'new_pass';
+  \q
+
+  For further information about PostgreSQL users and passwords refer to
+  the documentation available in the postgresql-doc package.
+
+  Then, restart the postmaster with /etc/init.d/postgresql restart.
+
+  TABLE CREATION
+
+  In order to create the database tables you need to point your browser to
+  http://localhost/moodle/admin . You need to have network access to your
+  database, you can enable it in /etc/mysql/my.cnf (just comment the
+  skip-networking line) for MySQL, and in /etc/postgresql/pg_hba.conf
+  (the above pg_hba example should work) for PostgreSQL.
+
+  Remember to restart the database with /etc/init.d/<database> restart if you
+  change that files.

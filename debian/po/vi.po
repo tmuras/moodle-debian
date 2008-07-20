@@ -1,0 +1,194 @@
+# Vietnamese Translation for moodle.
+# Copyright © 2008 Free Software Foundation, Inc.
+# Clytie Siddall <clytie@riverland.net.au>, 2005-2008.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: moodle 1.8.2-1.2\n"
+"Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
+"POT-Creation-Date: 2008-03-10 07:24+0100\n"
+"PO-Revision-Date: 2008-03-12 18:56+1030\n"
+"Last-Translator: Clytie Siddall <clytie@riverland.net.au>\n"
+"Language-Team: Vietnamese <vi-VN@googlegroups.com>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: LocFactoryEditor 1.7b1\n"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Web server software:"
+msgstr "Phần mềm phục vụ Web:"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Please choose the web server software you will use with Moodle."
+msgstr "Hãy chọn phần mềm phục vụ Web bạn sẽ sử dụng với Moodle."
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Database server software for Moodle:"
+msgstr "Phần mềm phục vụ cơ sở dữ liệu cho Moodle:"
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid ""
+"Moodle can work with either MySQL or PostgreSQL. Please choose which one you "
+"want to use."
+msgstr ""
+"Moodle có thể hoạt động với hoặc MySQL hoặc PostgreSQL. Hãy chọn một kiểu cơ "
+"sở dữ liệu."
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Please check that it is installed before continuing."
+msgstr "Trước khi tiếp tục thì kiểm tra xem nó đã được cài đặt."
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Database server hostname:"
+msgstr "Tên máy có chạy trình phục vụ cơ sở dữ liệu :"
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Please enter the hostname of the database server host."
+msgstr "Hãy nhập tên máy của máy có chạy trình phục vụ cơ sở dữ liệu."
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid "Database administrator username:"
+msgstr "Tên người dùng của quản trị cơ sở dữ liệu :"
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator username, needed for the "
+"database creation."
+msgstr ""
+"Hãy nhập tên người dùng của quản trị PostgreSQL hay MySQL, mà cần thiết để "
+"tạo cơ sở dữ liệu."
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid "Database administrator password:"
+msgstr "Mật khẩu của quản trị cơ sở dữ liệu :"
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator password, needed for the "
+"database creation."
+msgstr ""
+"Hãy nhập mật khẩu của quản trị PostgreSQL hay MySQL, mà cần thiết để tạo cơ "
+"sở dữ liệu."
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "DBA password confirmation:"
+msgstr "Xác nhận mật khẩu quản trị cơ sở dữ liệu :"
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "Please confirm the password in order to continue the process."
+msgstr "Hãy xác nhận mật khẩu để tiếp tục chạy tiến trình này."
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid "Password mismatch"
+msgstr "Sai khớp mật khẩu"
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid ""
+"The password and its confirmation do not match. Please reenter the passwords."
+msgstr "Mật khẩu và mật khẩu xác nhận không trùng. Hãy nhập lại cả hai."
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Database owner username:"
+msgstr "Tên người dùng sở hữu cơ sở dữ liệu :"
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Please enter the username of the Moodle database owner."
+msgstr "Hãy nhập tên người dùng của người sở hữu cơ sở dữ liệu Moodle."
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Database owner password:"
+msgstr "Mật khẩu người sở hữu cơ sở dữ liệu :"
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Please enter the password of the Moodle database owner."
+msgstr "Hãy nhập mật khẩu của người sở hữu cơ sở dữ liệu Moodle."
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Database user password confirmation:"
+msgstr "Xác nhận mật khẩu người sở hữu cơ sở dữ liệu :"
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Please confirm the password of the Moodle database owner."
+msgstr "Hãy xác nhận mật khẩu của người sở hữu cơ sở dữ liệu Moodle."
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid "Warning - Moodle is not configured"
+msgstr "Cảnh báo — chưa cấu hình Moodle"
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid ""
+"Please note that you have not completed the Moodle configuration. For "
+"completing it, please use \"dpkg-reconfigure moodle\" later."
+msgstr ""
+"Ghi chú rằng bạn chưa cấu hình xong trình Moodle. Để cấu hình về sau, chạy "
+"lệnh « dpkg-reconfigure moodle »."
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "Warning - Moodle database tables not created"
+msgstr "Cảnh báo — chưa tạo các bảng cơ sở dữ liệu Moodle."
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid ""
+"The Moodle install script will create the database, but the tables are to be "
+"created with a PHP script. Please launch it right after the install:"
+msgstr ""
+"Văn lệnh cài đặt Moodle sẽ tạo cơ sở dữ liệu, nhưng mà các bảng nên được tạo "
+"bởi một văn lệnh PHP. Hãy khởi chạy nó đúng sau khi cài đặt:"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "http://localhost/moodle/admin"
+msgstr "http://localhost/moodle/admin"

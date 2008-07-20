@@ -1,0 +1,195 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: moodle 1.6.3-2\n"
+"Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
+"POT-Creation-Date: 2008-03-10 07:24+0100\n"
+"PO-Revision-Date: 2007-03-02 21:03+0900\n"
+"Last-Translator: TANAKA, Atushi <atanaka@hotcake.halfmoon.jp>\n"
+"Language-Team: Japanese <debian-japanese@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Web server software:"
+msgstr "ウェブサーバのソフトウェア:"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Please choose the web server software you will use with Moodle."
+msgstr "Moodle で使うウェブサーバのソフトウェアを選んでください。"
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Database server software for Moodle:"
+msgstr "Moodle 用のデータベースサーバのソフトウェア:"
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid ""
+"Moodle can work with either MySQL or PostgreSQL. Please choose which one you "
+"want to use."
+msgstr ""
+"Moodle は MySQL と PostgreSQL のどちらでも稼働します。使いたいものを選んでく"
+"ださい。"
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Please check that it is installed before continuing."
+msgstr "選んだものがインストールされているかを確かめてから続けてください。"
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Database server hostname:"
+msgstr "データベースサーバのホスト名:"
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Please enter the hostname of the database server host."
+msgstr "データベースサーバのホストのホスト名を入力してください。"
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid "Database administrator username:"
+msgstr "データベースの管理者のユーザ名:"
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator username, needed for the "
+"database creation."
+msgstr ""
+"PostgreSQL か MySQL の管理者のユーザ名を入力してください。データベースを作る"
+"のに必要です。"
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid "Database administrator password:"
+msgstr "データベースの管理者のパスワード:"
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator password, needed for the "
+"database creation."
+msgstr ""
+"PostgreSQL か MySQL の管理者のパスワードを入力してください。データベースを作"
+"るのに必要です。"
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "DBA password confirmation:"
+msgstr "DBA パスワードの確認:"
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "Please confirm the password in order to continue the process."
+msgstr "作業を続けるため、パスワードを確認してください。"
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid "Password mismatch"
+msgstr "パスワードの不一致"
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid ""
+"The password and its confirmation do not match. Please reenter the passwords."
+msgstr ""
+"パスワードとその確認で入力したものが一致しません。もう一度パスワードを入力し"
+"てください。"
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Database owner username:"
+msgstr "データベースの所有者のユーザ名:"
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Please enter the username of the Moodle database owner."
+msgstr "Moodle のデータベースの所有者のユーザ名を入力してください。"
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Database owner password:"
+msgstr "データベースの所有者のパスワード:"
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Please enter the password of the Moodle database owner."
+msgstr "Moodle のデータベースの所有者のパスワードを入力してください。"
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Database user password confirmation:"
+msgstr "データベースのユーザのパスワードの確認:"
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Please confirm the password of the Moodle database owner."
+msgstr "Moodle のデータベースの所有者のパスワードを確認してください。"
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid "Warning - Moodle is not configured"
+msgstr "警告 - Moodle は設定されていません"
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid ""
+"Please note that you have not completed the Moodle configuration. For "
+"completing it, please use \"dpkg-reconfigure moodle\" later."
+msgstr ""
+"Moodle の設定はまだ済んでいません。これを完了させるには、後で \"dpkg-"
+"reconfigure moodle\" を使ってください。"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "Warning - Moodle database tables not created"
+msgstr "警告 - Moodle のデータベースのテーブルが作られていません"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid ""
+"The Moodle install script will create the database, but the tables are to be "
+"created with a PHP script. Please launch it right after the install:"
+msgstr ""
+"Moodle のインストールスクリプトがデータベースを作る予定です。しかし、テーブル"
+"は PHP スクリプトで作られます。インストール後にそれを走らせてください:"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "http://localhost/moodle/admin"
+msgstr "http://localhost/moodle/admin"

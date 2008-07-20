@@ -1,0 +1,189 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
+"POT-Creation-Date: 2008-03-10 07:24+0100\n"
+"PO-Revision-Date: 2007-08-13 03:02+0100\n"
+"Last-Translator: Ivan Masár <helix84@centrum.sk>\n"
+"Language-Team: Slovak <sk-i18n@lists.linux.sk>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Web server software:"
+msgstr "Softvér web servera:"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Please choose the web server software you will use with Moodle."
+msgstr "Prosím, vyberte softvér, ktorý budete používať s Moodle."
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Database server software for Moodle:"
+msgstr "Databázový server pre Moodle:"
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid ""
+"Moodle can work with either MySQL or PostgreSQL. Please choose which one you "
+"want to use."
+msgstr ""
+"Moodle funguje buď s MySQL alebo s PostgreSQL. Prosím, vyberte, ktorý chcete "
+"používať."
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Please check that it is installed before continuing."
+msgstr ""
+"Prosím, skontrolujte, že je nainštalovaný predtým, než budete pokračovať."
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Database server hostname:"
+msgstr "Názov stroja databázového servera:"
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Please enter the hostname of the database server host."
+msgstr "Prosím, zadajte názov stroja, na ktorom beží databázový server:"
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid "Database administrator username:"
+msgstr "Používateľské meno účtu správcu databázy:"
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator username, needed for the "
+"database creation."
+msgstr ""
+"Prosím, zadajte používateľské meno účtu správcu PostgreSQL či MySQ, ktoré je "
+"potrebné na vytvorenie databázy."
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid "Database administrator password:"
+msgstr "Heslo účtu správcu databázy:"
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator password, needed for the "
+"database creation."
+msgstr ""
+"Prosím, zadajte heslo účtu správcu PostgreSQL či MySQ, ktoré je potrebné na "
+"vytvorenie databázy."
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "DBA password confirmation:"
+msgstr "Potvrdenie hesla správcu DB:"
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "Please confirm the password in order to continue the process."
+msgstr "Prosím, potvrďte heslo predtým, než budete pokračovať."
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid "Password mismatch"
+msgstr "Heslá sa nezhodujú"
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid ""
+"The password and its confirmation do not match. Please reenter the passwords."
+msgstr "Heslo a potvrdenie hesla sa nezhodujú. Prosím, zadajte ich znovu."
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Database owner username:"
+msgstr "Používateľské meno účtu vlastníka databázy:"
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Please enter the username of the Moodle database owner."
+msgstr "Prosím, zadajte používateľské meno účtu vlastníka databázy Moodle."
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Database owner password:"
+msgstr "Heslo účtu vlastníka databázy:"
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Please enter the password of the Moodle database owner."
+msgstr "Prosím, zadajte heslo účtu vlastníka databázy Moodle."
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Database user password confirmation:"
+msgstr "Potvrdenie hesla účtu vlastníka databázy:"
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Please confirm the password of the Moodle database owner."
+msgstr "Prosím, potvrďte heslo účtu vlastníka databázy Moodle."
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid "Warning - Moodle is not configured"
+msgstr "Upozornenie - Moodle nie je nakonfigurovaný"
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid ""
+"Please note that you have not completed the Moodle configuration. For "
+"completing it, please use \"dpkg-reconfigure moodle\" later."
+msgstr ""
+"Prosím, pamätajte, že ste nedokončili konfiguráciu Moodle. Ak ju budete "
+"chcieť dokončiť neskôr, použite \"dpkg-reconfigure moodle\"."
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "Warning - Moodle database tables not created"
+msgstr "Upozornenie - Tabuľky databázy Moodle neboli vytvorené"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid ""
+"The Moodle install script will create the database, but the tables are to be "
+"created with a PHP script. Please launch it right after the install:"
+msgstr ""
+"Inštalačný skript Moodle vytvorí databázu, ale tabuľky vytvorí PHP skript. "
+"Prosím, spustite ho hneď po inštalácii:"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "http://localhost/moodle/admin"
+msgstr "http://localhost/moodle/admin"

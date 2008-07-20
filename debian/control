@@ -1,0 +1,18 @@
+Source: moodle
+Section: web
+Priority: optional
+Maintainer: Isaac Clerencia <isaac@debian.org>
+Build-Depends-Indep: po-debconf
+Build-Depends: debhelper (>= 4.1.13), dpatch
+Standards-Version: 3.7.2
+
+Package: moodle
+Architecture: all
+Depends: ${misc:Depends}, libapache2-mod-php5 | php5-cgi, php5-pgsql | php5-mysql, php5-gd, php5-curl, php5-cli, apache2-mpm-prefork | httpd, wwwconfig-common (>= 0.0.7), mimetex, ucf, postgresql-client
+Pre-Depends: debconf (>= 0.5) | debconf-2.0
+Recommends: postgresql | mysql-server
+Description: Course Management System for Online Learning
+ Moodle (Modular Object-Oriented Dynamic Learning Environment) is a course 
+ management system - a software package designed to help educators create 
+ quality online courses. One of the main advantages of Moodle over other 
+ systems is a strong grounding in social constructionist pedagogy.

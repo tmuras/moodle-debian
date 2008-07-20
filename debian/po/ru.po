@@ -1,0 +1,194 @@
+# translation of ru.po to Russian
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+#
+# Yuri Kozlov <kozlov.y@gmail.com>, 2008.
+msgid ""
+msgstr ""
+"Project-Id-Version: moodle 1.8.2-1.1\n"
+"Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
+"POT-Creation-Date: 2008-03-10 07:24+0100\n"
+"PO-Revision-Date: 2008-03-13 20:51+0300\n"
+"Last-Translator: Yuri Kozlov <kozlov.y@gmail.com>\n"
+"Language-Team: Russian <debian-l10n-russian@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: KBabel 1.11.4\n"
+"Plural-Forms:  nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%"
+"10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Web server software:"
+msgstr "Веб-сервер:"
+
+#. Type: select
+#. Description
+#: ../templates:1001
+msgid "Please choose the web server software you will use with Moodle."
+msgstr "Выберите веб-сервер, который будет использован с Moodle."
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Database server software for Moodle:"
+msgstr "Сервер базы данных для Moodle:"
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid ""
+"Moodle can work with either MySQL or PostgreSQL. Please choose which one you "
+"want to use."
+msgstr "Moodle может работать с MySQL или PostgreSQL. Выберите нужный."
+
+#. Type: select
+#. Description
+#: ../templates:2001
+msgid "Please check that it is installed before continuing."
+msgstr "Перед тем как продолжить, проверьте что он установлен."
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Database server hostname:"
+msgstr "Имя хоста сервера базы данных:"
+
+#. Type: string
+#. Description
+#: ../templates:3001
+msgid "Please enter the hostname of the database server host."
+msgstr "Введите имя машины, на котором будет распологаться база данных."
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid "Database administrator username:"
+msgstr "Административная учётная запись базы данных:"
+
+#. Type: string
+#. Description
+#: ../templates:4001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator username, needed for the "
+"database creation."
+msgstr ""
+"Введите имя административной учётной записи для PostgreSQL или MySQL, "
+"которая требуется для создания базы данных."
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid "Database administrator password:"
+msgstr "Пароль администратора базы данных:"
+
+#. Type: password
+#. Description
+#: ../templates:5001
+msgid ""
+"Please enter the PostgreSQL or MySQL administrator password, needed for the "
+"database creation."
+msgstr ""
+"Введите пароль административной учётной записи для PostgreSQL или MySQL, "
+"который требуется для создания базы данных."
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "DBA password confirmation:"
+msgstr "Пароль DBA ещё раз:"
+
+#. Type: password
+#. Description
+#: ../templates:6001
+msgid "Please confirm the password in order to continue the process."
+msgstr "Чтобы продолжить, повторите введёный ранее пароль."
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid "Password mismatch"
+msgstr "Пароли не совпадают"
+
+#. Type: note
+#. Description
+#: ../templates:7001
+msgid ""
+"The password and its confirmation do not match. Please reenter the passwords."
+msgstr "Введённые пароли не совпадают. Повторите ввод паролей ещё раз."
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Database owner username:"
+msgstr "Имя владельца базы данных:"
+
+#. Type: string
+#. Description
+#: ../templates:8001
+msgid "Please enter the username of the Moodle database owner."
+msgstr "Введите имя, которому будет принадлежать база данных Moodle."
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Database owner password:"
+msgstr "Пароль владельца базы данных:"
+
+#. Type: password
+#. Description
+#: ../templates:9001
+msgid "Please enter the password of the Moodle database owner."
+msgstr "Введите пароль владельца базы данных Moodle."
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Database user password confirmation:"
+msgstr "Повторный ввод пароля владельца базы данных:"
+
+#. Type: password
+#. Description
+#: ../templates:10001
+msgid "Please confirm the password of the Moodle database owner."
+msgstr "Повторите ввод пароля владельца базы данных Moodle."
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid "Warning - Moodle is not configured"
+msgstr "Предупреждение: Moodle не настроен"
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid ""
+"Please note that you have not completed the Moodle configuration. For "
+"completing it, please use \"dpkg-reconfigure moodle\" later."
+msgstr ""
+"Заметим, что настройка Moodle не завершена. Чтобы завершить настройку позже, "
+"запустите \"dpkg-reconfigure moodle\"."
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "Warning - Moodle database tables not created"
+msgstr "Предупреждение: таблицы базы данных Moodle не созданы"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid ""
+"The Moodle install script will create the database, but the tables are to be "
+"created with a PHP script. Please launch it right after the install:"
+msgstr ""
+"Сценарий установки Moodle создаст базу данных, но таблицы будут созданы "
+"сценарием PHP. Войдите сразу после установки по адресу:"
+
+#. Type: note
+#. Description
+#: ../templates:12001
+msgid "http://localhost/moodle/admin"
+msgstr "http://localhost/moodle/admin"

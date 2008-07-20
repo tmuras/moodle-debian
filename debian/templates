@@ -1,0 +1,77 @@
+Template: moodle/webserver
+Type: select
+Choices: apache2, apache, apache-ssl, apache-perl
+Default: apache2
+_Description: Web server software:
+ Please choose the web server software you will use with Moodle.
+
+Template: moodle/db_server
+Type: select
+Choices: postgresql, mysql-server
+Default: postgresql
+_Description: Database server software for Moodle:
+ Moodle can work with either MySQL or PostgreSQL. Please choose which
+ one you want to use.
+ .
+ Please check that it is installed before continuing.
+
+Template: moodle/db_host
+Type: string
+Default: localhost
+_Description: Database server hostname:
+ Please enter the hostname of the database server host.
+
+Template: moodle/dba_name
+Type: string
+Default: postgres
+_Description: Database administrator username:
+ Please enter the PostgreSQL or MySQL administrator username, needed for
+ the database creation.
+
+Template: moodle/dba_password
+Type: password
+_Description: Database administrator password:
+ Please enter the PostgreSQL or MySQL administrator password, needed for
+ the database creation.
+
+Template: moodle/dba_confirm
+Type: password
+_Description: DBA password confirmation:
+ Please confirm the password in order to continue the process.
+
+Template: moodle/mismatch
+Type: note
+_Description: Password mismatch
+ The password and its confirmation do not match. Please
+ reenter the passwords.
+
+Template: moodle/dbu_name
+Type: string
+Default: moodle
+_Description: Database owner username:
+ Please enter the username of the Moodle database owner.
+
+Template: moodle/dbu_password
+Type: password
+_Description: Database owner password:
+ Please enter the password of the Moodle database owner.
+
+Template: moodle/dbu_confirm
+Type: password
+_Description: Database user password confirmation:
+ Please confirm the password of the Moodle database owner.
+
+Template: moodle/notconfigured
+Type: note
+_Description: Warning - Moodle is not configured
+ Please note that you have not completed the Moodle configuration. For
+ completing it, please use "dpkg-reconfigure moodle" later.
+
+Template: moodle/create_tables
+Type: note
+_Description: Warning - Moodle database tables not created
+ The Moodle install script will create the database, but
+ the tables are to be created with a PHP script. Please
+ launch it right after the install:
+ .
+ http://localhost/moodle/admin

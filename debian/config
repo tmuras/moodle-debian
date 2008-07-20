@@ -1,0 +1,151 @@
+#!/bin/sh -e
+
+# Source debconf library.
+. /usr/share/debconf/confmodule
+
+db_version 2.0
+db_capb backup
+
+db_input high moodle/sgbd || true
+
+STATE=1
+while [ "$STATE"  != 0 -a "$STATE" != 13 ]
+  do
+  case "$STATE" in
+      1)
+	  db_input critical moodle/webserver || true
+	  if db_go; then
+	      db_get moodle/webserver || true
+	      if [ ! -z "$RET" ]; then
+		  STATE=2
+	      fi
+	  else
+	      STATE=0
+	  fi
+	  ;;
+
+      2)
+	  db_input critical moodle/db_server || true
+	  if db_go; then
+	      db_get moodle/db_server || true
+	      if [ ! -z "$RET" ]; then
+		  STATE=3
+	      fi
+	  else
+	      STATE=1
+	  fi
+	  ;;
+
+      3)
+	  db_input critical moodle/db_host || true
+	  if db_go; then
+	      db_get moodle/db_host || true
+	      if [ ! -z "$RET" ]; then
+		  STATE=4
+	      fi
+	  else
+	      STATE=2
+	  fi
+	  ;;
+
+      4)
+	  db_input critical moodle/dba_name || true
+	  if db_go; then
+	      db_get moodle/dba_name || true
+	      if [ ! -z "$RET" ]; then
+		  STATE=5
+	      fi
+	  else
+	      STATE=2
+	  fi
+	  ;;
+
+      5)
+	  db_input critical moodle/dba_password || true
+	  if db_go; then
+	      db_get moodle/dba_password || true
+	      STATE=6
+	  else
+	      STATE=4
+	  fi
+	  ;;
+
+      6)
+	  db_input critical moodle/dba_confirm || true
+	  if db_go; then
+	      db_get moodle/dba_confirm || true
+	      CONFIRM="$RET"
+	      db_get moodle/dba_password || true
+	      if [ "$RET" != "$CONFIRM" ]; then
+		  STATE=7
+	      else
+		  STATE=8
+	      fi
+	  else
+	      STATE=3
+	  fi
+	  ;;
+
+      7)
+	  db_input critical moodle/mismatch || true
+	  db_go
+	  STATE=4
+	  ;;
+
+      8)
+	  db_input critical moodle/dbu_name || true
+	  if db_go; then
+	      db_get moodle/dbu_name || true
+	      if [ ! -z "$RET" ]; then
+		  STATE=9
+	      fi
+	  else
+	      STATE=2
+	  fi
+	  ;;
+
+      9)
+	  db_input critical moodle/dbu_password || true
+	  if db_go; then
+	      db_get moodle/dbu_password || true
+	      STATE=10
+	  else
+	      STATE=8
+	  fi
+	  ;;
+
+      10)
+	  db_input critical moodle/dbu_confirm || true
+	  if db_go; then
+	      db_get moodle/dbu_confirm || true
+	      CONFIRM="$RET"
+	      db_get moodle/dbu_password || true
+	      if [ "$RET" != "$CONFIRM" ]; then
+		  STATE=11
+	      else
+		  STATE=12
+	      fi
+	  else
+	      STATE=8
+	  fi
+	  ;;
+
+      11)
+	  db_input critical moodle/mismatch || true
+	  db_go
+	  STATE=8
+	  ;;
+
+      12)
+	  db_input critical moodle/create_tables || true
+	  db_go
+	  STATE=13
+	  ;;
+  esac
+done
+
+if [ "$STATE" = 0 ]; then
+    db_input critical moodle/notconfigured || true
+    db_go
+    exit 1
+fi
