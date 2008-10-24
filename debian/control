@@ -1,7 +1,8 @@
 Source: moodle
 Section: web
 Priority: optional
-Maintainer: Isaac Clerencia <isaac@debian.org>
+Maintainer: Moodle Packaging Team <moodle-packaging@catalyst.net.nz>
+Uploaders: Francois Marier <francois@debian.org>, Penny Leach <penny@mjollnir.org>, Mathieu Petit-Clair <mat@moodle.com>
 Build-Depends-Indep: po-debconf
 Build-Depends: debhelper (>= 4.1.13), dpatch
 Standards-Version: 3.7.2
