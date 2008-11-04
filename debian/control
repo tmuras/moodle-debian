@@ -9,7 +9,7 @@ Standards-Version: 3.7.2
 
 Package: moodle
 Architecture: all
-Depends: ${misc:Depends}, libapache2-mod-php5 | php5-cgi, php5-pgsql | php5-mysql, php5-gd, php5-curl, php5-cli, apache2-mpm-prefork | httpd, wwwconfig-common (>= 0.0.7), mimetex, ucf, postgresql-client, smarty
+Depends: ${misc:Depends}, libapache2-mod-php5 | php5-cgi, php5-pgsql | php5-mysql, php5-gd, php5-curl, php5-cli, apache2-mpm-prefork | httpd, wwwconfig-common (>= 0.0.7), mimetex, ucf, postgresql-client, smarty, libphp-snoopy
 Pre-Depends: debconf (>= 0.5) | debconf-2.0
 Recommends: postgresql | mysql-server
 Description: Course Management System for Online Learning

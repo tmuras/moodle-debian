@@ -135,6 +135,9 @@ case "$1" in
 	# Link to smarty
 	[ ! -h /usr/share/moodle/lib/smarty ] && ln -s /usr/share/php/smarty/libs /usr/share/moodle/lib/smarty
 
+	# Link to libphp-snoopy
+	[ ! -h /usr/share/moodle/lib/snoopy ] && ln -s /usr/share/php/libphp-snoopy/ /usr/share/moodle/lib/snoopy
+
 	# Care about the repository
 	repository=/var/lib/moodle
 	if [ -d $repository ]; then
