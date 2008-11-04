@@ -3,7 +3,9 @@ moodle (1.8.2-2) unstable; urgency=high
   * Adopt orphaned package (closes: #494642)
   * Acknowledge security NMU (closes: #489533, #432264)
 
- -- Francois Marier <francois@debian.org>  Tue, 04 Nov 2008 14:29:14 +1300
+  * Depend on smarty instead of using the embedded copy (closes: #471158)
+
+ -- Francois Marier <francois@debian.org>  Tue, 04 Nov 2008 15:23:15 +1300
 
 moodle (1.8.2-1.3) unstable; urgency=high
 

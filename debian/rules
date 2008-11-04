@@ -57,6 +57,8 @@ binary-indep: install
 	rm -f debian/moodle/usr/share/moodle/filter/tex/*mimetex*
 	rm -f debian/moodle/usr/share/moodle/admin/delete.php
 
+	rm -rf debian/moodle/usr/share/moodle/lib/smarty
+
 	dh_installdebconf	
 	dh_link
 	dh_compress

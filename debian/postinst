@@ -132,6 +132,9 @@ case "$1" in
 	      ln -s /etc/moodle/config.php $moodledir/config.php
 	fi
 
+	# Link to smarty
+	[ ! -h /usr/share/moodle/lib/smarty ] && ln -s /usr/share/php/smarty/libs /usr/share/moodle/lib/smarty
+
 	# Care about the repository
 	repository=/var/lib/moodle
 	if [ -d $repository ]; then
