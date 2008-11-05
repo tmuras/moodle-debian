@@ -45,6 +45,7 @@ binary-indep: install
 	rm debian/moodle/usr/share/moodle/search/Zend/LICENSE.txt
 	rm debian/moodle/usr/share/moodle/lib/smarty/COPYING.lib
 	rm debian/moodle/usr/share/moodle/iplookup/ipatlas/COPYING
+	rm debian/moodle/usr/share/moodle/lib/libcurlemu/LICENSE
 
 	find debian/moodle/usr -type f -exec chmod 644 {} \;
 	find debian/moodle/usr -type d -exec chmod 755 {} \;

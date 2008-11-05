@@ -20,9 +20,10 @@ moodle (1.8.2-2) unstable; urgency=high
     (closes: #417554, #469094)
   * Recommend php5-ldap (closes: #425839)
   * Delete unnecessary script with bashisms (closes: #489634)
-  * Remove cvsignore file (fixes lintian warning)
+  * Remove cvsignore file (lintian warning)
+  * Remove extra license file (lintian warning)
 
- -- Francois Marier <francois@debian.org>  Thu, 06 Nov 2008 11:27:13 +1300
+ -- Francois Marier <francois@debian.org>  Thu, 06 Nov 2008 12:13:18 +1300
 
 moodle (1.8.2-1.3) unstable; urgency=high
 
