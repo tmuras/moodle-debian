@@ -4,7 +4,7 @@ moodle (1.8.2-2) unstable; urgency=high
   * Acknowledge security NMU (closes: #489533, #432264)
 
   * Depend on smarty instead of using the embedded copy that is shipped
-    with Moodle (closes: #471158, #488525)
+    with Moodle (closes: #471158, #488525, #504345)
   * Patch security bug in the embedded (and customised) copy of phpmailer
     (CVE-2007-3215, closes: #429339, #429190)
   * Patch cross-site scripting bug (CVE-2008-3326, closes: #492492)
