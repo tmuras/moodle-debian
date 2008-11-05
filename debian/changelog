@@ -12,7 +12,7 @@ moodle (1.8.2-2) unstable; urgency=high
   * Patch cross-site scripting bug (CVE-2008-3326, closes: #492492)
   * Patch snoopy input sanitising (CVE-2008-4796, closes: #504235)
 
-  Small changes to the packaging:
+  Minor changes to the packaging:
 
   * Bump Standards-Version to 3.8.0
   * Depend on zip (closes: #408995)
@@ -20,6 +20,7 @@ moodle (1.8.2-2) unstable; urgency=high
     (closes: #417554, #469094)
   * Recommend php5-ldap (closes: #425839)
   * Delete unnecessary script with bashisms (closes: #489634)
+  * Remove cvsignore file (fixes lintian warning)
 
  -- Francois Marier <francois@debian.org>  Thu, 06 Nov 2008 11:27:13 +1300
 
