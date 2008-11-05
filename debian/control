@@ -6,6 +6,9 @@ Uploaders: Francois Marier <francois@debian.org>, Penny Leach <penny@mjollnir.or
 Build-Depends-Indep: po-debconf
 Build-Depends: debhelper (>= 4.1.13), dpatch
 Standards-Version: 3.8.0
+Homepage: http://www.moodle.org/
+Vcs-Git: git://git.debian.org/git/pkg-moodle/moodle.git
+Vcs-Browser: http://git.debian.org/?p=pkg-moodle/moodle.git;a=summary
 
 Package: moodle
 Architecture: all
