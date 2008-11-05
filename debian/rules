@@ -61,9 +61,7 @@ binary-indep: install
 	rm -f debian/moodle/usr/share/moodle/search/.cvsignore
 
 	rm -rf debian/moodle/usr/share/moodle/lib/smarty
-
 	rm -rf debian/moodle/usr/share/moodle/lib/yui
-	ln -s /usr/share/javascript/yui/ debian/moodle/usr/share/moodle/lib/
 
 	dh_installdebconf	
 	dh_link
