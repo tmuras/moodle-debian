@@ -8,8 +8,9 @@ moodle (1.8.2-2) unstable; urgency=high
   * Patch security bug in the embedded (and customised) copy of phpmailer
     (CVE-2007-3215, closes: #429339, #429190)
   * Patch cross-site scripting bug (CVE-2008-3326, closes: #492492)
+  * Patch snoopy input sanitising (CVE-2008-4796, closes: #504235)
 
- -- Francois Marier <francois@debian.org>  Tue, 04 Nov 2008 16:56:23 +1300
+ -- Francois Marier <francois@debian.org>  Wed, 05 Nov 2008 15:06:17 +1300
 
 moodle (1.8.2-1.3) unstable; urgency=high
 
