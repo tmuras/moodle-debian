@@ -62,6 +62,9 @@ binary-indep: install
 
 	rm -rf debian/moodle/usr/share/moodle/lib/smarty
 
+	rm -rf debian/moodle/usr/share/moodle/lib/yui
+	ln -s /usr/share/javascript/yui/ debian/moodle/usr/share/moodle/lib/
+
 	dh_installdebconf	
 	dh_link
 	dh_compress
