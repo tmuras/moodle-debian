@@ -15,6 +15,11 @@ moodle (1.8.2-2) unstable; urgency=high
   Small changes to the packaging:
 
   * Bump Standards-Version to 3.8.0
+  * Depend on zip (closes: #408995)
+  * Add mysql-client as an alternative to postgresql-client
+    (closes: #417554, #469094)
+  * Recommend php5-ldap (closes: #425839)
+  * Delete unnecessary script with bashisms (closes: #489634)
 
  -- Francois Marier <francois@debian.org>  Thu, 06 Nov 2008 11:27:13 +1300
 
