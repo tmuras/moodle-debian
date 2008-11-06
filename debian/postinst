@@ -134,7 +134,7 @@ case "$1" in
 
 	# Links to external libraries
 	[ ! -h /usr/share/moodle/lib/smarty ] && ln -s /usr/share/php/smarty/libs /usr/share/moodle/lib/smarty
-	[ ! -h /usr/share/moodle/lib/yui ] && ln -s /usr/share/javascript/yui/ /usr/share/moodle/lib/yui
+	[ ! -h /usr/share/moodle/lib/yui ] && ln -s /var/www/yui /usr/share/moodle/lib/yui
 
 	# Care about the repository
 	repository=/var/lib/moodle
