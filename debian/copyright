@@ -30,6 +30,7 @@ License:
 	htmlArea, licensed under a BSD license (see below)
 	TinyMCE, licensed under the LGPL
 	bennu, licensed under the LGPL
+	domxmlphp4-php5, licensed under the LGPL
 
 	LGPL can be found in the file /usr/share/common-licenses/LGPL,
 	GPL can be found in the file /usr/share/common-licenses/GPL, and
