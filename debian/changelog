@@ -1,6 +1,7 @@
 moodle (1.8.2.dfsg-2) unstable; urgency=low
 
   * Patch SQL injection bug in hotpot module (MSA-08-0010)
+  * Fix XSS bug in logged urls (MDL-11414)
 
 
  -- Dan Poltawski <talktodan@gmail.com>  Tue, 16 Dec 2008 20:52:36 +0000
