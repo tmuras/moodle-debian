@@ -13,6 +13,7 @@ moodle (1.8.2.dfsg-2) unstable; urgency=low
   * Insufficient cleaning of essay questions (MDL-12079)
   * Fix insufficient cleaning of PARAM_HOST (MDL-12793)
   * Fix XSS bug in logged urls (MDL-11414)
+  * Fix uncleaned params in wiki (MDL-14806)
 
  -- Dan Poltawski <talktodan@gmail.com>  Tue, 16 Dec 2008 20:52:36 +0000
 
