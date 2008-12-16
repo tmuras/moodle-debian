@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.13.2.1 2007/02/18 06:11:41 moodler Exp $
+<?php  // $Id: questiontype.php,v 1.13.2.2 2007/11/10 14:51:34 skodak Exp $
 
 //////////////////
 ///   ESSAY   ///
@@ -107,7 +107,7 @@ class question_essay_qtype extends default_questiontype {
     function grade_responses(&$question, &$state, $cmoptions) {
         // All grading takes place in Manual Grading
 
-        clean_param($state->responses[''], PARAM_CLEANHTML);
+        $state->responses[''] = clean_param($state->responses[''], PARAM_CLEAN);
         
         $state->raw_grade = 0;
         $state->penalty = 0;
