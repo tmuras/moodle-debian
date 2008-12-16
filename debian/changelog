@@ -7,6 +7,7 @@ moodle (1.8.2.dfsg-2) unstable; urgency=low
   * Profiles of deleted users were accessible allowing for spam (MSA-08-0015)
   * Deficincy in text cleaning functions allowed for XSS (MSA-08-0021)
   * Fix CSRF in messaging settings (MSA-08-0023)
+  * Fix anonymous group creation and html injection (MDL-11759)
 
 
  -- Dan Poltawski <talktodan@gmail.com>  Tue, 16 Dec 2008 20:52:36 +0000
