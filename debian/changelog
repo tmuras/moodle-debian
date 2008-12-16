@@ -1,3 +1,9 @@
+moodle (1.8.2.dfsg-1) unstable; urgency=medium
+
+  * Replace html2text with a GPL alternative (closes: #507947)
+
+ -- Francois Marier <francois@debian.org>  Tue, 16 Dec 2008 19:45:24 +1300
+
 moodle (1.8.2-2) unstable; urgency=high
 
   * Adopt orphaned package (closes: #494642)
