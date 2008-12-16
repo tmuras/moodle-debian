@@ -1,10 +1,8 @@
-<?PHP  // $Id: module.php,v 1.23.6.1 2007/04/20 07:49:39 nicolasconnault Exp $
+<?PHP  // $Id: module.php,v 1.25.4.3 2008/04/02 06:09:57 dongsheng Exp $
        // module.php - allows admin to edit all local configuration variables for a module
 
     require_once('../config.php');
     require_once($CFG->libdir.'/adminlib.php');
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('managemodules', $adminroot);
 
 /// If data submitted, then process and store.
 
@@ -12,11 +10,12 @@
         $module = optional_param('module', '', PARAM_SAFEDIR);
 
         if (!confirm_sesskey()) {
-            error(get_string('confirmsesskeybad', 'error'));
+            print_error('confirmsesskeybad', 'error');
         }
 
         if ($module != '') {
-            require_once("$CFG->dirroot/mod/$module/lib.php");
+            include_once("$CFG->dirroot/mod/$module/lib.php");
+            admin_externalpage_setup('modsetting'.$module);
             // if the config.html contains a hidden form field giving
             // the module name then the form does not have to prefix all
             // its variable names, we will do it here.
@@ -28,6 +27,8 @@
                 $moduleconfig($config);
             }
         } else {
+            admin_externalpage_setup('managemodules');
+
             $moduleprefix = '';
         }
 
@@ -43,7 +44,8 @@
 
 /// Otherwise print the form.
     $module = required_param('module', PARAM_SAFEDIR);
-    require_once("$CFG->dirroot/mod/$module/lib.php");
+    include_once("$CFG->dirroot/mod/$module/lib.php");
+    admin_externalpage_setup('modsetting'.$module);
 
     $strmodulename = get_string("modulename", $module);
 
@@ -51,7 +53,7 @@
     // of the page. It is also used to generate the link to the Moodle Docs for this view.
     $CFG->pagepath = 'mod/' . $module . '/config';
 
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
 
     print_heading($strmodulename);
 
@@ -62,6 +64,6 @@
     include("$CFG->dirroot/mod/$module/config.html");
     print_simple_box_end();
 
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 
 ?>

@@ -2,16 +2,16 @@
 
    require_once('../config.php');
    require_once($CFG->libdir.'/adminlib.php');
-   $adminroot = admin_get_root();
-   admin_externalpage_setup('toinodb', $adminroot);
+
+   admin_externalpage_setup('toinodb');
 
    $confirm = optional_param('confirm', 0, PARAM_BOOL);
 
    require_login();
 
-   require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
+   require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
 
-   admin_externalpage_print_header($adminroot);
+   admin_externalpage_print_header();
    print_heading('Convert all MySQL tables from MYISAM to InnoDB');
 
    if ($CFG->dbfamily != 'mysql') {
@@ -31,13 +31,13 @@
        }
        notify('... done.', 'notifysuccess');
        print_continue('index.php');
-       admin_externalpage_print_footer($adminroot);
+       admin_externalpage_print_footer();
 
    } else {
        $optionsyes = array('confirm'=>'1', 'sesskey'=>sesskey());
        notice_yesno('Are you sure you want convert all your tables to the InnoDB format?',
                     'innodb.php', 'index.php', $optionsyes, NULL, 'post', 'get');
-       admin_externalpage_print_footer($adminroot);
+       admin_externalpage_print_footer();
    }
 
 ?>

@@ -1,4 +1,4 @@
-<?php // $Id: edit_table_save.class.php,v 1.4.6.1 2007/04/02 22:01:21 stronk7 Exp $
+<?php // $Id: edit_table_save.class.php,v 1.7 2007/10/10 05:25:23 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -102,9 +102,11 @@ class edit_table_save extends XMLDBAction {
             $temptable = new XMLDBTable($name);
                                                                                                                                       /// Prepare the output
             $site = get_site();
-            print_header("$site->shortname: XMLDB",
-                         "$site->fullname",
-                         "<a href=\"../index.php\">" . $this->str['administration'] . "</a> -> <a href=\"index.php\">XMLDB</a>");
+            $navlinks = array();
+            $navlinks[] = array('name' => $this->str['administration'], 'link' => '../index.php', 'type' => 'misc');
+            $navlinks[] = array('name' => 'XMLDB', 'link' => 'index.php', 'type' => 'misc');
+            $navigation = build_navigation($navlinks);
+            print_header("$site->shortname: XMLDB", "$site->fullname", $navigation);
             notice ('<p>' .implode(', ', $errors) . '</p>
                      <p>' . $temptable->readableInfo(),
                      'index.php?action=edit_table&amp;table=' . $tableparam . '&amp;dir=' . urlencode(str_replace($CFG->dirroot, '', $dirpath)));

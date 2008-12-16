@@ -1,10 +1,10 @@
-<?php  // $Id: moodleblock.class.php,v 1.79.2.5 2007/03/26 02:57:55 nicolasconnault Exp $
+<?php  // $Id: moodleblock.class.php,v 1.92.2.9 2008/08/06 05:08:36 skodak Exp $
 
 /**
  * This file contains the parent class for moodle blocks, block_base.
  *
  * @author Jon Papaioannou
- * @version  $Id: moodleblock.class.php,v 1.79.2.5 2007/03/26 02:57:55 nicolasconnault Exp $
+ * @version  $Id: moodleblock.class.php,v 1.92.2.9 2008/08/06 05:08:36 skodak Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package blocks
  */
@@ -84,6 +84,10 @@ class block_base {
 
     var $cron          = NULL;
 
+    /**
+     * Indicates blocked is pinned - can not be moved, always present, does not have own context
+     */
+    var $pinned        = false;
 
 /// Class Functions
 
@@ -123,6 +127,105 @@ class block_base {
      * stores, if the $restore->course_startdateoffset is set.  
      */
     function after_restore($restore) {
+    }
+
+    /**
+     * Enable custom instance data section in backup and restore.
+     * 
+     * If return true, then {@link instance_backup()} and
+     * {@link instance_restore()} will be called during
+     * backup/restore routines.
+     *
+     * @return boolean
+     **/
+    function backuprestore_instancedata_used() {
+        return false;
+    }
+
+    /**
+     * Allows the block class to have a backup routine.  Handy 
+     * when the block has its own tables that have foreign keys to 
+     * other tables (example: user table).
+     * 
+     * Note: at the time of writing this comment, the indent level 
+     * for the {@link full_tag()} should start at 5.
+     *
+     * @param resource $bf Backup File
+     * @param object $preferences Backup preferences
+     * @return boolean
+     **/
+    function instance_backup($bf, $preferences) {
+        return true;
+    }
+
+    /**
+     * Allows the block class to restore its backup routine.
+     * 
+     * Should not return false if data is empty 
+     * because old backups would not contain block instance backup data.
+     * 
+     * @param object $restore Standard restore object
+     * @param object $data Object from backup_getid for this block instance
+     * @return boolean
+     **/
+    function instance_restore($restore, $data) {
+        return true;
+    }
+
+    /**
+     * Will be called before an instance of this block is backed up, so that any links in
+     * in config can be encoded. For example config->text, for the HTML block
+     * @return string
+     */
+    function get_backup_encoded_config() {
+        return base64_encode(serialize($this->config));
+    }
+
+    /**
+     * Return the content encoded to support interactivities linking. This function is
+     * called automatically from the backup procedure by {@link backup_encode_absolute_links()}.
+     *
+     * NOTE: There is no block instance when this method is called.
+     *
+     * @param string $content Content to be encoded
+     * @param object $restore Restore preferences object
+     * @return string The encoded content
+     **/
+    function encode_content_links($content, $restore) {
+        return $content;
+    }
+
+    /**
+     * This function makes all the necessary calls to {@link restore_decode_content_links_worker()}
+     * function in order to decode contents of this block from the backup 
+     * format to destination site/course in order to mantain inter-activities 
+     * working in the backup/restore process. 
+     * 
+     * This is called from {@link restore_decode_content_links()} function in the restore process.
+     *
+     * NOTE: There is no block instance when this method is called.
+     *
+     * @param object $restore Standard restore object
+     * @return boolean
+     **/
+    function decode_content_links_caller($restore) {
+        return true;
+    }
+
+    /**
+     * Return content decoded to support interactivities linking.
+     * This is called automatically from
+     * {@link restore_decode_content_links_worker()} function
+     * in the restore process.
+     *
+     * NOTE: There is no block instance when this method is called.
+     *
+     * @param string $content Content to be dencoded
+     * @param object $restore Restore preferences object
+     * @return string The dencoded content
+     **/
+    function decode_content_links($content, $restore) {
+        return $content;
     }
 
     /**
@@ -195,10 +298,22 @@ class block_base {
 
     /**
      * Returns true or false, depending on whether this block has any content to display
+     * and whether the user has permission to view the block
      *
      * @return boolean
      */
     function is_empty() {
+
+        if (empty($this->instance->pinned)) {
+            $context = get_context_instance(CONTEXT_BLOCK, $this->instance->id);
+        } else {
+            $context = get_context_instance(CONTEXT_SYSTEM); // pinned blocks do not have own context
+        }
+        
+        if ( !has_capability('moodle/block:view', $context) ) {
+            return true;
+        }
+
         $this->get_content();
         return(empty($this->content->text) && empty($this->content->footer));
     }
@@ -257,18 +372,18 @@ class block_base {
 
         //Accessibility: validation, can't have <div> inside <h2>, use <span>.
         $title = '<div class="title">';
-        
+
         if (!empty($CFG->allowuserblockhiding)) {
-            //Accessibility: added static 'alt' text for the +- icon.
-            //TODO (nfreear): language string 'hide OR show block'
-            $title .= '<div class="hide-show">'.
-					  '<a title="'.get_string('showhideblock','access').
-					  '" href="#" onclick="elementToggleHide(this, true, function(el) {'.
-					  'return findParentNode(el, \'DIV\', \'sideblock\'); '.
-					  '}, \''.$CFG->pixpath.'\' ); return false;">'.
-					  '<img src="'.$CFG->pixpath.'/spacer.gif" '.
-					  'id = "togglehide_inst'.$this->instance->id.'" '.
-					  'alt="'.get_string('showhideblock','access').'" class="hide-show-image" /></a></div>';
+            //Accessibility: added 'alt' text for the +- icon.
+            //Theme the buttons using, Admin - Miscellaneous - smartpix.
+            $strshow = addslashes_js(get_string('showblocka', 'access', strip_tags($this->title)));
+            $strhide = addslashes_js(get_string('hideblocka', 'access', strip_tags($this->title)));
+            $title .= '<input type="image" src="'.$CFG->pixpath.'/t/switch_minus.gif" '. 
+                'id="togglehide_inst'.$this->instance->id.'" '.
+                'onclick="elementToggleHide(this, true, function(el) {'.
+                'return findParentNode(el, \'DIV\', \'sideblock\'); },'.
+                ' \''.$strshow.'\', \''.$strhide.'\'); return false;" '.
+                'alt="'.$strhide.'" title="'.$strhide.'" class="hide-show-image" />';
         }
 
         //Accesssibility: added H2 (was in, weblib.php: print_side_block)
@@ -293,16 +408,19 @@ class block_base {
     function _add_edit_controls($options) {
         global $CFG, $USER, $PAGE;
         
-        // this is the context relevant to this particular block instance
-        $blockcontext = get_context_instance(CONTEXT_BLOCK, $this->instance->id);
+        if (empty($this->instance->pinned)) {
+            $context = get_context_instance(CONTEXT_BLOCK, $this->instance->id);
+        } else {
+            $context = get_context_instance(CONTEXT_SYSTEM); // pinned blocks do not have own context
+        }
         
         // context for site or course, i.e. participant list etc
         // check to see if user can edit site or course blocks.
         // blocks can appear on other pages such as mod and blog pages...
-        
+
         switch ($this->instance->pagetype) {
             case 'course-view':
-                if (!has_capability('moodle/site:manageblocks', $blockcontext)) {
+                if (!has_capability('moodle/site:manageblocks', $context)) {
                     return null;
                 }
             break;
@@ -324,6 +442,15 @@ class block_base {
             $this->str->assignroles = get_string('assignroles', 'role');
         }
 
+        // RTL support - exchange right and left arrows
+        if (right_to_left()) {
+            $rightarrow = 'left.gif';
+            $leftarrow  = 'right.gif';
+        } else {
+            $rightarrow = 'right.gif';
+            $leftarrow  = 'left.gif';
+        }
+
         $movebuttons = '<div class="commands">';
 
         if ($this->instance->visible) {
@@ -343,25 +470,30 @@ class block_base {
             $page = page_create_object($this->instance->pagetype, $this->instance->pageid);
         }
         $script = $page->url_get_full(array('instanceid' => $this->instance->id, 'sesskey' => $USER->sesskey));
+
+        if (empty($this->instance->pinned)) {
+            $movebuttons .= '<a class="icon roles" title="'. $this->str->assignroles .'" href="'.$CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?contextid='.$context->id.'">' .
+                            '<img src="'.$CFG->pixpath.'/i/roles.gif" alt="'.$this->str->assignroles.'" /></a>';
+        }
      
-         // place holder for roles button
-         $movebuttons .= '<a class="icon roles" title="'. $this->str->assignroles .'" href="'.$CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?contextid='.$blockcontext->id.'">' .
-                        '<img src="'.$CFG->pixpath.'/i/roles.gif" alt="'.$this->str->assignroles.'" /></a>';
-     
-        $movebuttons .= '<a class="icon hide" title="'. $title .'" href="'.$script.'&amp;blockaction=toggle">' .
-                        '<img src="'. $CFG->pixpath.$icon .'" alt="'.$title.'" /></a>';
+        if ($this->user_can_edit()) {
+            $movebuttons .= '<a class="icon hide" title="'. $title .'" href="'.$script.'&amp;blockaction=toggle">' .
+                            '<img src="'. $CFG->pixpath.$icon .'" alt="'.$title.'" /></a>';
+        }
 
         if ($options & BLOCK_CONFIGURE && $this->user_can_edit()) {
             $movebuttons .= '<a class="icon edit" title="'. $this->str->configure .'" href="'.$script.'&amp;blockaction=config">' .
                             '<img src="'. $CFG->pixpath .'/t/edit.gif" alt="'. $this->str->configure .'" /></a>';
         }
 
-        $movebuttons .= '<a class="icon delete" title="'. $this->str->delete .'" href="'.$script.'&amp;blockaction=delete">' .
-                        '<img src="'. $CFG->pixpath .'/t/delete.gif" alt="'. $this->str->delete .'" /></a>';
+        if ($this->user_can_addto($page)) {
+            $movebuttons .= '<a class="icon delete" title="'. $this->str->delete .'" href="'.$script.'&amp;blockaction=delete">' .
+                            '<img src="'. $CFG->pixpath .'/t/delete.gif" alt="'. $this->str->delete .'" /></a>';
+        }
 
         if ($options & BLOCK_MOVE_LEFT) {
             $movebuttons .= '<a class="icon left" title="'. $this->str->moveleft .'" href="'.$script.'&amp;blockaction=moveleft">' .
-                            '<img src="'. $CFG->pixpath .'/t/left.gif" alt="'. $this->str->moveleft .'" /></a>';
+                            '<img src="'. $CFG->pixpath .'/t/'.$leftarrow.'" alt="'. $this->str->moveleft .'" /></a>';
         }
         if ($options & BLOCK_MOVE_UP) {
             $movebuttons .= '<a class="icon up" title="'. $this->str->moveup .'" href="'.$script.'&amp;blockaction=moveup">' .
@@ -373,7 +505,7 @@ class block_base {
         }
         if ($options & BLOCK_MOVE_RIGHT) {
             $movebuttons .= '<a class="icon right" title="'. $this->str->moveright .'" href="'.$script.'&amp;blockaction=moveright">' .
-                            '<img src="'. $CFG->pixpath .'/t/right.gif" alt="'. $this->str->moveright .'" /></a>';
+                            '<img src="'. $CFG->pixpath .'/t/'.$rightarrow.'" alt="'. $this->str->moveright .'" /></a>';
         }
 
         $movebuttons .= '</div>';
@@ -476,7 +608,7 @@ class block_base {
      */
     function applicable_formats() {
         // Default case: the block can be used in courses and site index, but not in activities
-        return array('all' => true, 'mod' => false);
+        return array('all' => true, 'mod' => false, 'tag' => false);
     }
     
 
@@ -655,6 +787,9 @@ class block_base {
         return true;
     }
 
+    function get_extra_capabilities() {
+        return array('moodle/block:view');
+    }
 }
 
 /**
@@ -668,6 +803,17 @@ class block_list extends block_base {
     var $content_type  = BLOCK_TYPE_LIST;
 
     function is_empty() {
+
+        if (empty($this->instance->pinned)) {
+            $context = get_context_instance(CONTEXT_BLOCK, $this->instance->id);
+        } else {
+            $context = get_context_instance(CONTEXT_SYSTEM); // pinned blocks do not have own context
+        }
+        
+        if ( !has_capability('moodle/block:view', $context) ) {
+            return true;
+        }
+
         $this->get_content();
         return (empty($this->content->items) && empty($this->content->footer));
     }

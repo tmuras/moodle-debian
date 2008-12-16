@@ -1,4 +1,4 @@
-<?php // $Id: jstimer.php,v 1.13.2.2 2007/04/11 20:06:57 tjhunt Exp $
+<?php // $Id: jstimer.php,v 1.16.2.1 2007/11/02 16:19:56 tjhunt Exp $
 // QuizTimer main routines.
 // This will produce a floating timer that counts
 // how much time is left to answer the quiz.
@@ -20,7 +20,6 @@ var ec_quiz_finish = ec_page_start + <?php echo ($timerstartvalue * 1000); ?>;
 
 //]]>
 </script>
-<script type="text/javascript" src="timer.js"></script>
 <div id="timer">
 <!--EDIT BELOW CODE TO YOUR OWN MENU-->
 <table class="generalbox" border="0" cellpadding="0" cellspacing="0" style="width:150px;">

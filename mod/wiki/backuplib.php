@@ -1,4 +1,4 @@
-<?PHP //$Id: backuplib.php,v 1.6 2006/01/13 03:45:30 mjollnir_ Exp $
+<?PHP //$Id: backuplib.php,v 1.7.2.1 2008/04/28 23:08:57 stronk7 Exp $
     //This php script contains all the stuff to backup/restore
     //wiki mods
 
@@ -55,7 +55,7 @@
         fwrite ($bf,full_tag("MODTYPE",4,false,"wiki"));
         fwrite ($bf,full_tag("NAME",4,false,$wiki->name));
         fwrite ($bf,full_tag("SUMMARY",4,false,$wiki->summary));
-        fwrite ($bf,full_tag("PAGENAME",4,false,$wiki->wtype));
+        fwrite ($bf,full_tag("PAGENAME",4,false,$wiki->pagename));
         fwrite ($bf,full_tag("WTYPE",4,false,$wiki->wtype));
         fwrite ($bf,full_tag("EWIKIPRINTTITLE",4,false,$wiki->ewikiprinttitle));
         fwrite ($bf,full_tag("HTMLMODE",4,false,$wiki->htmlmode));
@@ -172,7 +172,7 @@
         return $status;
     }
     
-    function backup_wiki_files_instance($bf,$preferences,$instancid) {
+    function backup_wiki_files_instance($bf,$preferences,$instanceid) {
 
         global $CFG;
         

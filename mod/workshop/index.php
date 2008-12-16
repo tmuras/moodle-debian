@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.24 2007/01/10 08:29:42 toyomoyo Exp $
+<?php // $Id: index.php,v 1.28.2.3 2008/02/05 21:39:53 skodak Exp $
 
     require("../../config.php");
     require("lib.php");
@@ -23,10 +23,14 @@
     $strdeadline = get_string("deadline", "workshop");
     $strsubmitted = get_string("submitted", "assignment");
 
-    print_header_simple("$strworkshops", "", "$strworkshops", "", "", true, "", navmenu($course));
+    $navlinks = array();
+    $navlinks[] = array('name' => $strworkshops, 'link' => '', 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
+
+    print_header_simple("$strworkshops", "", $navigation, "", "", true, "", navmenu($course));
 
     if (! $workshops = get_all_instances_in_course("workshop", $course)) {
-        notice("There are no workshops", "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strworkshops), "../../course/view.php?id=$course->id");
         die;
     }
 

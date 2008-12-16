@@ -1,15 +1,15 @@
-<?php  // $Id: questiontype.php,v 1.43.2.9 2007/04/18 15:57:14 tjhunt Exp $
+<?php  // $Id: questiontype.php,v 1.74.2.13 2008/10/08 10:19:51 jamiesensei Exp $
 /**
-* The default questiontype class.
-*
-* @version $Id: questiontype.php,v 1.43.2.9 2007/04/18 15:57:14 tjhunt Exp $
-* @author Martin Dougiamas and many others. This has recently been completely
-*         rewritten by Alex Smith, Julian Sedding and Gustav Delius as part of
-*         the Serving Mathematics project
-*         {@link http://maths.york.ac.uk/serving_maths}
-* @license http://www.gnu.org/copyleft/gpl.html GNU Public License
-* @package question
-*//** */
+ * The default questiontype class.
+ *
+ * @author Martin Dougiamas and many others. This has recently been completely
+ *         rewritten by Alex Smith, Julian Sedding and Gustav Delius as part of
+ *         the Serving Mathematics project
+ *         {@link http://maths.york.ac.uk/serving_maths}
+ * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
+ * @package questionbank
+ * @subpackage questiontypes
+ */
 
 require_once($CFG->libdir . '/questionlib.php');
 
@@ -25,6 +25,9 @@ require_once($CFG->libdir . '/questionlib.php');
  * experiences of the first few question type implementors, and improve the
  * interface to meet their needs, rather the freeze the API prematurely and
  * condem everyone to working round a clunky interface for ever afterwards.
+ *
+ * @package questionbank
+ * @subpackage questiontypes
  */
 class default_questiontype {
 
@@ -72,12 +75,35 @@ class default_questiontype {
     }
 
     /**
-     * @return whether the question_answers.answer field needs to have 
+     * @return whether the question_answers.answer field needs to have
      * restore_decode_content_links_worker called on it.
      */
     function has_html_answers() {
         return false;
     }
+
+    /**
+     * If your question type has a table that extends the question table, and
+     * you want the base class to automatically save, backup and restore the extra fields,
+     * override this method to return an array wherer the first element is the table name,
+     * and the subsequent entries are the column names (apart from id and questionid).
+     *
+     * @return mixed array as above, or null to tell the base class to do nothing.
+     */
+    function extra_question_fields() {
+        return null;
+    }
+
+    /**
+     * If your question type has a table that extends the question_answers table,
+     * make this method return an array wherer the first element is the table name,
+     * and the subsequent entries are the column names (apart from id and answerid).
+     *
+     * @return mixed array as above, or null to tell the base class to do nothing.
+     */
+     function extra_answer_fields() {
+         return null;
+     }
 
     /**
      * Return an instance of the question editing form definition. This looks for a
@@ -88,7 +114,7 @@ class default_questiontype {
      * @param string $submiturl passed on to the constructor call.
      * @return object an instance of the form definition, or null if one could not be found.
      */
-    function create_editing_form($submiturl, $question) {
+    function create_editing_form($submiturl, $question, $category, $contexts, $formeditable) {
         global $CFG;
         require_once("{$CFG->dirroot}/question/type/edit_question_form.php");
         $definition_file = $CFG->dirroot.'/question/type/'.$this->name().'/edit_'.$this->name().'_form.php';
@@ -100,7 +126,23 @@ class default_questiontype {
         if (!class_exists($classname)) {
             return null;
         }
-        return new $classname($submiturl, $question);
+        return new $classname($submiturl, $question, $category, $contexts, $formeditable);
+    }
+
+    /**
+     * @return string the full path of the folder this plugin's files live in.
+     */
+    function plugin_dir() {
+        global $CFG;
+        return $CFG->dirroot . '/question/type/' . $this->name();
+    }
+
+    /**
+     * @return string the URL of the folder this plugin's files live in.
+     */
+    function plugin_baseurl() {
+        global $CFG;
+        return $CFG->wwwroot . '/question/type/' . $this->name();
     }
 
     /**
@@ -112,16 +154,53 @@ class default_questiontype {
      * @param string $wizardnow is '' for first page.
      */
     function display_question_editing_page(&$mform, $question, $wizardnow){
+        list($heading, $langmodule) = $this->get_heading(empty($question->id));
+        print_heading_with_help($heading, $this->name(), $langmodule);
+        $permissionstrs = array();
+        if (!empty($question->id)){
+            if ($question->formoptions->canedit){
+                $permissionstrs[] = get_string('permissionedit', 'question');
+            }
+            if ($question->formoptions->canmove){
+                $permissionstrs[] = get_string('permissionmove', 'question');
+            }
+            if ($question->formoptions->cansaveasnew){
+                $permissionstrs[] = get_string('permissionsaveasnew', 'question');
+            }
+        }
+        if (!$question->formoptions->movecontext  && count($permissionstrs)){
+            print_heading(get_string('permissionto', 'question'), 'center', 3);
+            $html = '<ul>';
+            foreach ($permissionstrs as $permissionstr){
+                $html .= '<li>'.$permissionstr.'</li>';
+            }
+            $html .= '</ul>';
+            print_box($html, 'boxwidthnarrow boxaligncenter generalbox');
+        }
+        $mform->display();
+    }
+
+    /**
+     * Method called by display_question_editing_page and by question.php to get heading for breadcrumbs.
+     *
+     * @return array a string heading and the langmodule in which it was found.
+     */
+    function get_heading($adding = false){
         $name = $this->name();
-        $strheading = get_string('editing' . $name, 'qtype_' . $name);
+        $langmodule = 'qtype_' . $name;
+        if (!$adding){
+            $strtoget = 'editing' . $name;
+        } else {
+            $strtoget = 'adding' . $name;
+        }
+        $strheading = get_string($strtoget, $langmodule);
         if ($strheading[0] == '[') {
             // Legacy behavior, if the string was not in the proper qtype_name
             // language file, look it up in the quiz one.
-            $strheading = get_string('editing' . $name, 'quiz');
+            $langmodule = 'quiz';
+            $strheading = get_string($strtoget, $langmodule);
         }
-
-        print_heading_with_help($strheading, $name, 'quiz');
-        $mform->display();
+        return array($strheading, $langmodule);
     }
 
     /**
@@ -151,14 +230,12 @@ class default_questiontype {
     *       is itself an object, shown next to the form fields.
     */
     function save_question($question, $form, $course) {
+        global $USER;
+
         // This default implementation is suitable for most
         // question types.
 
         // First, save the basic question itself
-        if (!record_exists('question_categories', 'id', $form->category)) {
-            print_error('categorydoesnotexist', 'question');
-        }
-        $question->category           = $form->category;
         $question->name               = trim($form->name);
         $question->questiontext       = trim($form->questiontext);
         $question->questiontextformat = $form->questiontextformat;
@@ -179,7 +256,7 @@ class default_questiontype {
         }
 
         if (empty($question->name)) {
-            $question->name = substr(strip_tags($question->questiontext), 0, 15);
+            $question->name = shorten_text(strip_tags($question->questiontext), 15);
             if (empty($question->name)) {
                 $question->name = '-';
             }
@@ -193,17 +270,42 @@ class default_questiontype {
             $question->defaultgrade = $form->defaultgrade;
         }
 
-        if (!empty($question->id)) { // Question already exists
+        if (!empty($question->id) && !empty($form->categorymoveto)) { // Question already exists
+            list($movetocategory, $movetocontextid) = explode(',', $form->categorymoveto);
+            if ($movetocategory != $question->category){
+                question_require_capability_on($question, 'move');
+                $question->category = $movetocategory;
+                //don't need to test add permission of category we are moving question to.
+                //Only categories that we have permission to add
+                //a question to will get through the form cleaning code for the select box.
+            }
             // keep existing unique stamp code
             $question->stamp = get_field('question', 'stamp', 'id', $question->id);
-            if (!update_record("question", $question)) {
-                error("Could not update question!");
+            $question->modifiedby = $USER->id;
+            $question->timemodified = time();
+            if (!update_record('question', $question)) {
+                error('Could not update question!');
             }
         } else {         // Question is a new one
+            if (isset($form->categorymoveto)){
+                // Doing save as new question, and we have move rights.
+                list($question->category, $notused) = explode(',', $form->categorymoveto);
+                //don't need to test add permission of category we are moving question to.
+                //Only categories that we have permission to add
+                //a question to will get through the form cleaning code for the select box.
+            } else {
+                // Really a new question.
+                list($question->category, $notused) = explode(',', $form->category);
+            }
             // Set the unique code
             $question->stamp = make_unique_id_code();
-            if (!$question->id = insert_record("question", $question)) {
-                error("Could not insert new question!");
+            $question->createdby = $USER->id;
+            $question->modifiedby = $USER->id;
+            $question->timecreated = time();
+            $question->timemodified = time();
+            if (!$question->id = insert_record('question', $question)) {
+                print_object($question);
+                error('Could not insert new question!');
             }
         }
 
@@ -248,6 +350,39 @@ class default_questiontype {
     *                          it is not a standard question object.
     */
     function save_question_options($question) {
+        $extra_question_fields = $this->extra_question_fields();
+
+        if (is_array($extra_question_fields)) {
+            $question_extension_table = array_shift($extra_question_fields);
+
+            $function = 'update_record';
+            $options = get_record($question_extension_table, 'questionid', $question->id);
+            if (!$options) {
+                $function = 'insert_record';
+                $options = new stdClass;
+                $options->questionid = $question->id;
+            }
+            foreach ($extra_question_fields as $field) {
+                if (!isset($question->$field)) {
+                    $result = new stdClass;
+                    $result->error = "No data for field $field when saving " .
+                            $this->name() . ' question id ' . $question->id;
+                    return $result;
+                }
+                $options->$field = $question->$field;
+            }
+
+            if (!$function($question_extension_table, $options)) {
+                $result = new stdClass;
+                $result->error = 'Could not save question options for ' .
+                        $this->name() . ' question id ' . $question->id;
+                return $result;
+            }
+        }
+
+        $extra_answer_fields = $this->extra_answer_fields();
+        // TODO save the answers, with any extra data.
+
         return null;
     }
 
@@ -284,11 +419,44 @@ class default_questiontype {
     *                         specific information (it is passed by reference).
     */
     function get_question_options(&$question) {
+        global $CFG;
+
         if (!isset($question->options)) {
             $question->options = new object;
         }
-        // The default implementation attaches all answers for this question
-        $question->options->answers = get_records('question_answers', 'question', $question->id, 'id ASC');
+
+        $extra_question_fields = $this->extra_question_fields();
+        if (is_array($extra_question_fields)) {
+            $question_extension_table = array_shift($extra_question_fields);
+            $extra_data = get_record($question_extension_table, 'questionid', $question->id, '', '', '', '', implode(', ', $extra_question_fields));
+            if ($extra_data) {
+                foreach ($extra_question_fields as $field) {
+                    $question->options->$field = $extra_data->$field;
+                }
+            } else {
+                notify("Failed to load question options from the table $question_extension_table for questionid " .
+                        $question->id);
+                return false;
+            }
+        }
+
+        $extra_answer_fields = $this->extra_answer_fields();
+        if (is_array($extra_answer_fields)) {
+            $answer_extension_table = array_shift($extra_answer_fields);
+            $question->options->answers = get_records_sql('
+                    SELECT qa.*, qax.' . implode(', qax.', $extra_answer_fields) . '
+                    FROM ' . $CFG->prefix . 'question_answers qa, ' . $CFG->prefix . '$answer_extension_table qax
+                    WHERE qa.questionid = ' . $question->id . ' AND qax.answerid = qa.id');
+            if (!$question->options->answers) {
+                notify("Failed to load question answers from the table $answer_extension_table for questionid " .
+                        $question->id);
+                return false;
+            }
+        } else {
+            // Don't check for success or failure because some question types do not use the answers table.
+            $question->options->answers = get_records('question_answers', 'question', $question->id, 'id ASC');
+        }
+
         return true;
     }
 
@@ -311,10 +479,25 @@ class default_questiontype {
     * @param object $question  The question being deleted
     */
     function delete_question($questionid) {
-        /// The default question type does not have any tables of its own
-        // therefore there is nothing to delete
+        global $CFG;
+        $success = true;
 
-        return true;
+        $extra_question_fields = $this->extra_question_fields();
+        if (is_array($extra_question_fields)) {
+            $question_extension_table = array_shift($extra_question_fields);
+            $success = $success && delete_records($question_extension_table, 'questionid', $questionid);
+        }
+
+        $extra_answer_fields = $this->extra_answer_fields();
+        if (is_array($extra_answer_fields)) {
+            $answer_extension_table = array_shift($extra_answer_fields);
+            $success = $success && delete_records_select($answer_extension_table,
+                    "answerid IN (SELECT qa.id FROM {$CFG->prefix}question_answers qa WHERE qa.question = $questionid)");
+        }
+
+        $success = $success && delete_records('question_answers', 'question', $questionid);
+
+        return $success;
     }
 
     /**
@@ -414,8 +597,11 @@ class default_questiontype {
     * Question types with only a single form field for the student's response
     * which is contained in ->responses[''] will not have to save this response,
     * it will already have been saved to the answer field of the question_states table.
-    * Question types with more response fields should override this method and save
-    * the responses in their own database tables.
+    * Question types with more response fields should override this method to convert
+    * the data the ->responses array into a single string field, and save it in the
+    * database. The implementation in the multichoice question type is a good model to follow.
+    * http://cvs.moodle.org/contrib/plugins/question/type/opaque/questiontype.php?view=markup
+    * has a solution that is probably quite generally applicable.
     * @return bool            Indicates success or failure.
     * @param object $question The question object for the question including
     *                         the question type specific information.
@@ -493,7 +679,7 @@ class default_questiontype {
 
     /**
     * Return the actual response to the question in a given state
-    * for the question
+    * for the question.
     *
     * @return mixed           An array containing the response or reponses (multiple answer, match)
     *                         given by the user in a particular attempt.
@@ -506,11 +692,8 @@ class default_questiontype {
     */
     // ULPGC ecastro
     function get_actual_response($question, $state) {
-       // change length to truncate responses here if you want
-       $lmax = 40;
        if (!empty($state->responses)) {
-              $responses[] = (strlen($state->responses['']) > $lmax) ?
-               substr($state->responses[''], 0, $lmax).'...' : $state->responses[''];
+           $responses[] = stripslashes($state->responses['']);
        } else {
            $responses[] = '';
        }
@@ -546,33 +729,86 @@ class default_questiontype {
         return false;
     }
 
+    // Used by the following function, so that it only returns results once per quiz page.
+    var $already_done = false;
     /**
-    * Prints the question including the number, grading details, content,
-    * feedback and interactions
-    *
-    * This function prints the question including the question number,
-    * grading details, content for the question, any feedback for the previously
-    * submitted responses and the interactions. The default implementation calls
-    * various other methods to print each of these parts and most question types
-    * will just override those methods.
-    * @param object $question The question to be rendered. Question type
-    *                         specific information is included. The
-    *                         maximum possible grade is in ->maxgrade. The name
-    *                         prefix for any named elements is in ->name_prefix.
-    * @param object $state    The state to render the question in. The grading
-    *                         information is in ->grade, ->raw_grade and
-    *                         ->penalty. The current responses are in
-    *                         ->responses. This is an associative array (or the
-    *                         empty string or null in the case of no responses
-    *                         submitted). The last graded state is in
-    *                         ->last_graded (hence the most recently graded
-    *                         responses are in ->last_graded->responses). The
-    *                         question type specific information is also
-    *                         included.
-    * @param integer $number  The number for this question.
-    * @param object $cmoptions
-    * @param object $options  An object describing the rendering options.
-    */
+     * If this question type requires extra CSS or JavaScript to function,
+     * then this method will return an array of <link ...> tags that reference
+     * those stylesheets. This function will also call require_js()
+     * from ajaxlib.php, to get any necessary JavaScript linked in too.
+     *
+     * The two parameters match the first two parameters of print_question.
+     *
+     * @param object $question The question object.
+     * @param object $state    The state object.
+     *
+     * @return an array of bits of HTML to add to the head of pages where
+     * this question is print_question-ed in the body. The array should use
+     * integer array keys, which have no significance.
+     */
+    function get_html_head_contributions(&$question, &$state) {
+        // By default, we link to any of the files styles.css, styles.php,
+        // script.js or script.php that exist in the plugin folder.
+        // Core question types should not use this mechanism. Their styles
+        // should be included in the standard theme.
+
+        // We only do this once
+        // for this question type, no matter how often this method is called.
+        if ($this->already_done) {
+            return array();
+        }
+        $this->already_done = true;
+
+        $plugindir = $this->plugin_dir();
+        $baseurl = $this->plugin_baseurl();
+        $stylesheets = array();
+        if (file_exists($plugindir . '/styles.css')) {
+            $stylesheets[] = 'styles.css';
+        }
+        if (file_exists($plugindir . '/styles.php')) {
+            $stylesheets[] = 'styles.php';
+        }
+        if (file_exists($plugindir . '/script.js')) {
+            require_js($baseurl . '/script.js');
+        }
+        if (file_exists($plugindir . '/script.php')) {
+            require_js($baseurl . '/script.php');
+        }
+        $contributions = array();
+        foreach ($stylesheets as $stylesheet) {
+            $contributions[] = '<link rel="stylesheet" type="text/css" href="' .
+                    $baseurl . '/' . $stylesheet . '" />';
+        }
+        return $contributions;
+    }
+
+    /**
+     * Prints the question including the number, grading details, content,
+     * feedback and interactions
+     *
+     * This function prints the question including the question number,
+     * grading details, content for the question, any feedback for the previously
+     * submitted responses and the interactions. The default implementation calls
+     * various other methods to print each of these parts and most question types
+     * will just override those methods.
+     * @param object $question The question to be rendered. Question type
+     *                         specific information is included. The
+     *                         maximum possible grade is in ->maxgrade. The name
+     *                         prefix for any named elements is in ->name_prefix.
+     * @param object $state    The state to render the question in. The grading
+     *                         information is in ->grade, ->raw_grade and
+     *                         ->penalty. The current responses are in
+     *                         ->responses. This is an associative array (or the
+     *                         empty string or null in the case of no responses
+     *                         submitted). The last graded state is in
+     *                         ->last_graded (hence the most recently graded
+     *                         responses are in ->last_graded->responses). The
+     *                         question type specific information is also
+     *                         included.
+     * @param integer $number  The number for this question.
+     * @param object $cmoptions
+     * @param object $options  An object describing the rendering options.
+     */
     function print_question(&$question, &$state, $number, $cmoptions, $options) {
         /* The default implementation should work for most question types
         provided the member functions it calls are overridden where required.
@@ -581,28 +817,31 @@ class default_questiontype {
         global $CFG;
         $isgraded = question_state_is_graded($state->last_graded);
 
-        // If this question is being shown in the context of a quiz
         // get the context so we can determine whether some extra links
-        // should be shown. (Don't show these links during question preview.)
-        $cm = get_coursemodule_from_instance('quiz', $cmoptions->id);
-        if (!empty($cm->id)) {
+        // should be shown.
+        if (!empty($cmoptions->id)) {
+            $cm = get_coursemodule_from_instance('quiz', $cmoptions->id);
             $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-        } else if (!empty($cm->course)) {
-            $context = get_context_instance(CONTEXT_COURSE, $cm->course);
+            $cmorcourseid = '&amp;cmid='.$cm->id;
+        } else if (!empty($cmoptions->course)) {
+            $context = get_context_instance(CONTEXT_COURSE, $cmoptions->course);
+            $cmorcourseid = '&amp;courseid='.$cmoptions->course;
         } else {
-            $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
+            error('Need to provide courseid or cmid to print_question.');
         }
 
         // For editing teachers print a link to an editing popup window
         $editlink = '';
-        if ($context && has_capability('moodle/question:manage', $context)) {
+        if (question_has_capability_on($question, 'edit')) {
             $stredit = get_string('edit');
             $linktext = '<img src="'.$CFG->pixpath.'/t/edit.gif" alt="'.$stredit.'" />';
-            $editlink = link_to_popup_window('/question/question.php?inpopup=1&amp;id='.$question->id, 'editquestion', $linktext, 450, 550, $stredit, '', true);
+            $editlink = link_to_popup_window('/question/question.php?inpopup=1&amp;id=' .
+                    $question->id . $cmorcourseid, 'editquestion',
+                    $linktext, false, false, $stredit, '', true);
         }
 
         $generalfeedback = '';
-        if ($options->generalfeedback) {
+        if ($isgraded && $options->generalfeedback) {
             $generalfeedback = $this->format_text($question->generalfeedback,
                     $question->questiontextformat, $cmoptions);
         }
@@ -620,7 +859,8 @@ class default_questiontype {
 
         if (isset($options->questioncommentlink) && $context && has_capability('mod/quiz:grade', $context)) {
             $strcomment = get_string('commentorgrade', 'quiz');
-            $commentlink = '<div class="commentlink">'.link_to_popup_window ($options->questioncommentlink.'?attempt='.$state->attempt.'&amp;question='.$question->id,
+            $question_to_comment = isset($question->randomquestionid) ? $question->randomquestionid : $question->id;
+            $commentlink = '<div class="commentlink">'.link_to_popup_window ($options->questioncommentlink.'?attempt='.$state->attempt.'&amp;question='.$question_to_comment,
                              'commentquestion', $strcomment, 450, 650, $strcomment, 'none', true).'</div>';
         }
 
@@ -642,7 +882,7 @@ class default_questiontype {
                 $states = get_records_select('question_states', "attempt = '$state->attempt' AND question = '$question->id' AND event > '0'", 'seq_number ASC');
             } else {
                 // show only graded states
-                $states = get_records_select('question_states', "attempt = '$state->attempt' AND question = '$question->id' AND event IN (".QUESTION_EVENTGRADE.','.QUESTION_EVENTCLOSEANDGRADE.")", 'seq_number ASC');
+                $states = get_records_select('question_states', "attempt = '$state->attempt' AND question = '$question->id' AND event IN (".QUESTION_EVENTS_GRADED.")", 'seq_number ASC');
             }
             if (count($states) > 1) {
                 $strreviewquestion = get_string('reviewresponse', 'quiz');
@@ -701,7 +941,7 @@ class default_questiontype {
                                                 );
                     }
                 }
-                $history = make_table($table);
+                $history = print_table($table, true);
             }
         }
         return $history;
@@ -852,22 +1092,19 @@ class default_questiontype {
         allowed. */
 
         if (($cmoptions->optionflags & QUESTION_ADAPTIVE) and !$options->readonly) {
-            echo '<input type="submit" name="';
-            echo $question->name_prefix;
-            echo 'submit" value="';
-            print_string('mark', 'quiz');
-            echo '" class="submit btn"';
-            echo ' />';
+            echo '<input type="submit" name="', $question->name_prefix, 'submit" value="',
+                    get_string('mark', 'quiz'), '" class="submit btn" onclick="',
+                    "form.action = form.action + '#q", $question->id, "'; return true;", '" />';
         }
     }
-
 
     /**
     * Return a summary of the student response
     *
     * This function returns a short string of no more than a given length that
     * summarizes the student's response in the given $state. This is used for
-    * example in the response history table
+    * example in the response history table. This string should already be,
+    * for output.
     * @return string         The summary of the student response
     * @param object $question
     * @param object $state   The state whose responses are to be summarized
@@ -880,9 +1117,9 @@ class default_questiontype {
             $responses = array();
         }
         if (is_array($responses)) {
-            $responses = implode(',', $responses);
+            $responses = implode(',', array_map('s', $responses));
         }
-        return substr($responses, 0, $length);
+        return shorten_text($responses, $length);
     }
 
     /**
@@ -938,7 +1175,16 @@ class default_questiontype {
         // Question types may wish to override this (eg. to ignore trailing
         // white space or to make "7.0" and "7" compare equal).
 
-        return $state->responses === $teststate->responses;
+        // In php neither == nor === compare arrays the way you want. The following
+        // ensures that the arrays have the same keys, with the same values.
+        $result = false;
+        $diff1 = array_diff_assoc($state->responses, $teststate->responses);
+        if (empty($diff1)) {
+            $diff2 = array_diff_assoc($teststate->responses, $state->responses);
+            $result =  empty($diff2);
+        }
+
+        return $result;
     }
 
     /**
@@ -1148,58 +1394,6 @@ class default_questiontype {
     }
 
     /**
-     * Print the start of the question editing form, including the question category,
-     * questionname, questiontext, image, defaultgrade, penalty and generalfeedback fields.
-     *
-     * Three of the fields, image, defaultgrade, penalty, are optional, and
-     * can be removed from the from using the $hidefields argument.
-     *
-     * @param object $question The question object that the form we are printing is for.
-     * @param array $err Array of optional error messages to display by each field.
-     *          Used when the form is being redisplayed after validation failed.
-     * @param object $course The course object for the course this question belongs to.
-     * @param boolean $usehtmleditor Whether the html editor should be used.
-     * @param array $hidefields An array which may contain the strings,
-     *          'image', 'defaultgrade' or 'penalty' to remove the corresponding field.
-     */
-    function print_question_form_start($question, $err, $course, $usehtmleditor, $hidefields = array()) {
-        global $CFG;
-
-        // If you edit this function, you also need to edit random/editquestion.html.
-
-        if (!in_array('image', $hidefields)) {
-            make_upload_directory("$course->id");    // Just in case
-            $coursefiles = get_directory_list("$CFG->dataroot/$course->id", $CFG->moddata);
-            foreach ($coursefiles as $filename) {
-                if (mimeinfo("icon", $filename) == "image.gif") {
-                    $images["$filename"] = $filename;
-                }
-            }
-        }
-
-        include('editquestionstart.html');
-    }
-
-    /**
-     * Print the end of the question editing form, including the submit, copy,
-     * and cancel button, and the standard hidden fields like the sesskey and
-     * the question type.
-     *
-     * @param object $question The question object that the form we are printing is for.
-     * @param string $submitscript Extra attributes, for example 'onsubmit="myfunction"',
-     *          that is added to the HTML of the submit button.
-     * @param string $hiddenfields Extra hidden fields (actually any HTML)
-     *          to be added at the end of the form.
-     */
-    function print_question_form_end($question, $submitscript = '', $hiddenfields = '') {
-        global $USER;
-
-        // If you edit this function, you also need to edit random/editquestion.html.
-
-        include('editquestionend.html');
-    }
-
-    /**
      * Call format_text from weblib.php with the options appropriate to question types.
      *
      * @param string $text the text to format.
@@ -1212,6 +1406,150 @@ class default_questiontype {
         $formatoptions->noclean = true;
         $formatoptions->para = false;
         return format_text($text, $textformat, $formatoptions, $cmoptions === NULL ? NULL : $cmoptions->course);
+    }
+
+    /*
+     * Find all course / site files linked from a question.
+     *
+     * Need to check for links to files in question_answers.answer and feedback
+     * and in question table in generalfeedback and questiontext fields. Methods
+     * on child classes will also check extra question specific fields.
+     *
+     * Needs to be overriden for child classes that have extra fields containing
+     * html.
+     *
+     * @param string html the html to search
+     * @param int courseid search for files for courseid course or set to siteid for
+     *              finding site files.
+     * @return array of url, relative url is key and array with one item = question id as value
+     *                  relative url is relative to course/site files directory root.
+     */
+    function find_file_links($question, $courseid){
+        $urls = array();
+
+    /// Question image
+        if ($question->image != ''){
+            if (substr(strtolower($question->image), 0, 7) == 'http://') {
+                $matches = array();
+
+                //support for older questions where we have a complete url in image field
+                if (preg_match('!^'.question_file_links_base_url($courseid).'(.*)!i', $question->image, $matches)){
+                    if ($cleanedurl = question_url_check($urls[$matches[2]])){
+                        $urls[$cleanedurl] = null;
+                    }
+                }
+            } else {
+                if ($question->image != ''){
+                    if ($cleanedurl = question_url_check($question->image)){
+                        $urls[$cleanedurl] = null;//will be set later
+                    }
+                }
+
+            }
+
+        }
+
+    /// Questiontext and general feedback.
+        $urls += question_find_file_links_from_html($question->questiontext, $courseid);
+        $urls += question_find_file_links_from_html($question->generalfeedback, $courseid);
+
+    /// Answers, if this question uses them.
+        if (isset($question->options->answers)){
+            foreach ($question->options->answers as $answerkey => $answer){
+            /// URLs in the answers themselves, if appropriate.
+                if ($this->has_html_answers()) {
+                    $urls += question_find_file_links_from_html($answer->answer, $courseid);
+                }
+            /// URLs in the answer feedback.
+                $urls += question_find_file_links_from_html($answer->feedback, $courseid);
+            }
+        }
+
+    /// Set all the values of the array to the question object
+        if ($urls){
+            $urls = array_combine(array_keys($urls), array_fill(0, count($urls), array($question->id)));
+        }
+        return $urls;
+    }
+    /*
+     * Find all course / site files linked from a question.
+     *
+     * Need to check for links to files in question_answers.answer and feedback
+     * and in question table in generalfeedback and questiontext fields. Methods
+     * on child classes will also check extra question specific fields.
+     *
+     * Needs to be overriden for child classes that have extra fields containing
+     * html.
+     *
+     * @param string html the html to search
+     * @param int course search for files for courseid course or set to siteid for
+     *              finding site files.
+     * @return array of files, file name is key and array with one item = question id as value
+     */
+    function replace_file_links($question, $fromcourseid, $tocourseid, $url, $destination){
+        global $CFG;
+        $updateqrec = false;
+
+    /// Question image
+        if (!empty($question->image)){
+            //support for older questions where we have a complete url in image field
+            if (substr(strtolower($question->image), 0, 7) == 'http://') {
+                $questionimage = preg_replace('!^'.question_file_links_base_url($fromcourseid).preg_quote($url, '!').'$!i', $destination, $question->image, 1);
+            } else {
+                $questionimage = preg_replace('!^'.preg_quote($url, '!').'$!i', $destination, $question->image, 1);
+            }
+            if ($questionimage != $question->image){
+                $question->image = $questionimage;
+                $updateqrec = true;
+            }
+        }
+
+    /// Questiontext and general feedback.
+        $question->questiontext = question_replace_file_links_in_html($question->questiontext, $fromcourseid, $tocourseid, $url, $destination, $updateqrec);
+        $question->generalfeedback = question_replace_file_links_in_html($question->generalfeedback, $fromcourseid, $tocourseid, $url, $destination, $updateqrec);
+
+    /// If anything has changed, update it in the database.
+        if ($updateqrec){
+            if (!update_record('question', addslashes_recursive($question))){
+                error ('Couldn\'t update question '.$question->name);
+            }
+        }
+
+
+    /// Answers, if this question uses them.
+        if (isset($question->options->answers)){
+            //answers that do not need updating have been unset
+            foreach ($question->options->answers as $answer){
+                $answerchanged = false;
+            /// URLs in the answers themselves, if appropriate.
+                if ($this->has_html_answers()) {
+                    $answer->answer = question_replace_file_links_in_html($answer->answer, $fromcourseid, $tocourseid, $url, $destination, $answerchanged);
+                }
+            /// URLs in the answer feedback.
+                $answer->feedback = question_replace_file_links_in_html($answer->feedback, $fromcourseid, $tocourseid, $url, $destination, $answerchanged);
+            /// If anything has changed, update it in the database.
+                if ($answerchanged){
+                    if (!update_record('question_answers', addslashes_recursive($answer))){
+                        error ('Couldn\'t update question ('.$question->name.') answer '.$answer->id);
+                    }
+                }
+            }
+        }
+    }
+    /**
+     * @return the best link to pass to print_error.
+     * @param $cmoptions as passed in from outside.
+     */
+    function error_link($cmoptions) {
+        global $CFG;
+        $cm = get_coursemodule_from_instance('quiz', $cmoptions->id);
+        if (!empty($cm->id)) {
+            return $CFG->wwwroot . '/mod/quiz/view.php?id=' . $cm->id;
+        } else if (!empty($cm->course)) {
+            return $CFG->wwwroot . '/course/view.php?id=' . $cm->course;
+        } else {
+            return '';
+        }
     }
 
 /// BACKUP FUNCTIONS ////////////////////////////
@@ -1248,12 +1586,28 @@ class default_questiontype {
         return $state->answer;
     }
 
-    //This function restores the question_rqp_states
-    function restore_state($state_id,$info,$restore) {
-        // The default question type does not keep its own state information
-        return true;
+    /**
+     * Abstract function implemented by each question type. It runs all the code
+     * required to set up and save a question of any type for testing purposes.
+     * Alternate DB table prefix may be used to facilitate data deletion.
+     */
+    function generate_test($name, $courseid=null) {
+        $form = new stdClass();
+        $form->name = $name;
+        $form->questiontextformat = 1;
+        $form->questiontext = 'test question, generated by script';
+        $form->defaultgrade = 1;
+        $form->penalty = 0.1;
+        $form->generalfeedback = "Well done";
+
+        $context = get_context_instance(CONTEXT_COURSE, $courseid);
+        $newcategory = question_make_default_categories(array($context));
+        $form->category = $newcategory->id . ',1';
+
+        $question = new stdClass();
+        $question->courseid = $courseid;
+        $question->qtype = $this->qtype;
+        return array($form, $question);
     }
-
 }
-
 ?>

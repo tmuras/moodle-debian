@@ -1,4 +1,4 @@
-<?php // $Id: resource.class.php,v 1.34.2.1 2007/05/15 20:55:21 skodak Exp $
+<?php // $Id: resource.class.php,v 1.38.2.3 2008/05/02 08:17:27 scyrma Exp $
 
 class resource_directory extends resource_base {
 
@@ -42,6 +42,7 @@ function display() {
 
     $formatoptions = new object();
     $formatoptions->noclean = true;
+    $formatoptions->para = false; // MDL-12061, <p> in html editor breaks xhtml strict
 
     add_to_log($course->id, "resource", "view", "view.php?id={$cm->id}", $resource->id, $cm->id);
 
@@ -61,19 +62,18 @@ function display() {
         array_shift($subs);
         $countsubs = count($subs);
         $count = 0;
-        $subnav = "<a href=\"view.php?id={$cm->id}\">".format_string($resource->name,true)."</a>";
         $backsub = '';
+
         foreach ($subs as $sub) {
             $count++;
             if ($count < $countsubs) {
                 $backsub .= "/$sub";
-                $subnav  .= " -> <a href=\"view.php?id={$cm->id}&amp;subdir=$backsub\">$sub</a>";
+                
+                $this->navlinks[] = array('name' => $sub, 'link' => "view.php?id={$cm->id}", 'type' => 'title');
             } else {
-                $subnav .= " -> $sub";
+                $this->navlinks[] = array('name' => $sub, 'link' => '', 'type' => 'title');
             }
         }
-    } else {
-        $subnav = format_string($resource->name);
     }
 
     $pagetitle = strip_tags($course->shortname.': '.format_string($resource->name));
@@ -84,7 +84,8 @@ function display() {
         $editfiles = print_single_button("$CFG->wwwroot/files/index.php", $options, get_string("editfiles"), 'get', '', true);
         $update = $editfiles.$update;
     }
-    print_header($pagetitle, $course->fullname, "$this->navigation $subnav",
+    $navigation = build_navigation($this->navlinks, $cm);
+    print_header($pagetitle, $course->fullname, $navigation,
             "", "", true, $update,
             navmenu($course, $cm));
 
@@ -125,12 +126,7 @@ function display() {
 
         } else {
             $icon = mimeinfo("icon", $file);
-
-            if ($CFG->slasharguments) {
-                $relativeurl = "/file.php/$relativepath/$file";
-            } else {
-                $relativeurl = "/file.php?file=/$relativepath/$file";
-            }
+            $relativeurl = get_file_url("$relativepath/$file");
             $filesize = display_size(filesize("$CFG->dataroot/$relativepath/$file"));
         }
 

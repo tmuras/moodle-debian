@@ -1,5 +1,9 @@
-<?php // $Id: file.php,v 1.44.2.1 2007/04/02 16:12:26 skodak Exp $
+<?php // $Id: file.php,v 1.46.2.4 2008/07/10 09:48:43 scyrma Exp $
       // This script fetches files from the dataroot directory
+      //
+      // You should use the get_file_url() function, available in lib/filelib.php, to link to file.php.
+      // This ensures proper formatting and offers useful options.
+      //
       // Syntax:      file.php/courseid/dir/dir/dir/filename.ext
       //              file.php/courseid/dir/dir/dir/filename.ext?forcedownload=1 (download instead of inline)
       //              file.php/courseid/dir (returns index.html from dir)
@@ -14,7 +18,7 @@
     require_once('config.php');
     require_once('lib/filelib.php');
 
-    if (empty($CFG->filelifetime)) {
+    if (!isset($CFG->filelifetime)) {
         $lifetime = 86400;     // Seconds for files to remain in caches
     } else {
         $lifetime = $CFG->filelifetime;
@@ -53,23 +57,25 @@
     }
 
     // security: login to course if necessary
+    // Note: file.php always calls require_login() with $setwantsurltome=false
+    //       in order to avoid messing redirects. MDL-14495
     if ($args[0] == 'blog') {
         if (empty($CFG->bloglevel)) {
             error('Blogging is disabled!');
         } else if ($CFG->bloglevel < BLOG_GLOBAL_LEVEL) {
-            require_login();
+            require_login(0, true, null, false);
         } else if ($CFG->forcelogin) {
-            require_login();
+            require_login(0, true, null, false);
         }
     } else if ($course->id != SITEID) {
-        require_login($course->id);
+        require_login($course->id, true, null, false);
     } else if ($CFG->forcelogin) {
         if (!empty($CFG->sitepolicy)
             and ($CFG->sitepolicy == $CFG->wwwroot.'/file.php'.$relativepath
                  or $CFG->sitepolicy == $CFG->wwwroot.'/file.php?file='.$relativepath)) {
             //do not require login for policy file
         } else {
-            require_login();
+            require_login(0, true, null, false);
         }
     }
 
@@ -104,10 +110,17 @@
         and (strtolower($args[2]) == 'assignment')) {
 
         $lifetime = 0;  // do not cache assignments, students may reupload them
-        if (!has_capability('mod/assignment:grade', get_context_instance(CONTEXT_COURSE, $course->id))
-          and $args[4] != $USER->id) {
-           error('Access not allowed');
-        }
+        if ($args[4] == $USER->id) {
+            //can view own assignemnt submissions
+        } else {
+            $instance = (int)$args[3];
+            if (!$cm = get_coursemodule_from_instance('assignment', $instance, $course->id)) {
+                not_found($course->id);
+            }
+            if (!has_capability('mod/assignment:grade', get_context_instance(CONTEXT_MODULE, $cm->id))) {
+                error('Access not allowed');
+            }
+        } 
     }
 
     // security: force download of all attachments submitted by students
@@ -169,6 +182,6 @@
     function not_found($courseid) {
         global $CFG;
         header('HTTP/1.0 404 not found');
-        error(get_string('filenotfound', 'error'), $CFG->wwwroot.'/course/view.php?id='.$courseid); //this is not displayed on IIS??
+        print_error('filenotfound', 'error', $CFG->wwwroot.'/course/view.php?id='.$courseid); //this is not displayed on IIS??
     }
 ?>

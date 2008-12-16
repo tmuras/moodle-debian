@@ -1,12 +1,11 @@
-<?PHP  // $Id: enrol_config.php,v 1.14 2007/02/09 07:47:14 toyomoyo Exp $
+<?PHP  // $Id: enrol_config.php,v 1.15.4.1 2008/04/02 06:09:57 dongsheng Exp $
        // enrol_config.php - allows admin to edit all enrollment variables
        //                    Yes, enrol is correct English spelling.
 
     require_once("../config.php");
     require_once($CFG->libdir.'/adminlib.php');
 
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('enrolment', $adminroot);
+    admin_externalpage_setup('enrolment');
 
     $enrol = required_param('enrol', PARAM_ALPHA);
     $CFG->pagepath = 'enrol/' . $enrol;
@@ -20,7 +19,7 @@
 
     if ($frm = data_submitted()) {
         if (!confirm_sesskey()) {
-            error(get_string('confirmsesskeybad', 'error'));
+            print_error('confirmsesskeybad', 'error');
         }
         if ($enrolment->process_config($frm)) {
             redirect("enrol.php?sesskey=$USER->sesskey", get_string("changessaved"), 1);
@@ -42,7 +41,7 @@
     }
     asort($options);
 
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
 
     echo "<form $CFG->frametarget id=\"enrolmenu\" method=\"post\" action=\"enrol_config.php\">";
     echo "<div>";
@@ -66,7 +65,7 @@
     echo "</div>";
     echo "</form>";
 
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 
     exit;
 ?>

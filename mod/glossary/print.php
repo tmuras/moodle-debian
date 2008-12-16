@@ -1,4 +1,4 @@
-<?php   // $Id: print.php,v 1.39.4.2 2007/03/30 07:02:58 toyomoyo Exp $
+<?php   // $Id: print.php,v 1.41.2.1 2007/12/14 21:21:07 skodak Exp $
 
     global $CFG;
 
@@ -181,5 +181,5 @@
         }
     }
 
-    echo '</div></div></body></html>';
+    print_footer('empty');
 ?>

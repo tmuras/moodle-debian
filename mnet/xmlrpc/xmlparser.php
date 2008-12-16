@@ -42,6 +42,9 @@ class mnet_encxml_parser {
         $this->key_URI           = '';
         $this->payload_encrypted = false;
         $this->cipher            = array();
+        $this->error             = array();
+        $this->remoteerror       = null;
+        $this->errorstarted      = false;
         return true;
     }
 
@@ -88,6 +91,33 @@ class mnet_encxml_parser {
         global $MNET, $MNET_REMOTE_CLIENT;
 
         $p = xml_parse($this->parser, $data);
+
+        if ($p == 0) {
+            // Parse failed
+            $errcode = xml_get_error_code($this->parser);
+            $errstring = xml_error_string($errcode);
+            $lineno = xml_get_current_line_number($this->parser);
+            if ($lineno !== false) {
+                $error = array('lineno' => $lineno);
+                $lineno--; // Line numbering starts at 1.
+                while ($lineno > 0) {
+                    $data = strstr($data, "\n");
+                    $lineno--;
+                }
+                $data .= "\n"; // In case there's only one line (no newline)
+                $line = substr($data, 0, strpos($data, "\n"));
+                $error['code']   = $errcode;
+                $error['string'] = $errstring;
+                $error['line']   = $line;
+                $this->error[] = $error;
+            } else {
+                $this->error[] = array('code' => $errcode, 'string' => $errstring);
+            }
+        }
+
+        if (!empty($this->remoteerror)) {
+            return false;
+        }
 
         if (count($this->cipher) > 0) {
             $this->cipher = array_values($this->cipher);
@@ -142,6 +172,8 @@ class mnet_encxml_parser {
                 $this->cipher[$this->tag_number] = '';
                 $handler = 'parse_cipher';
                 break;
+            case 'FAULT':
+                $handler = 'parse_fault';
             default:
                 break;
         }
@@ -240,7 +272,27 @@ class mnet_encxml_parser {
      * @return  bool            True
      */
     function discard_data($parser, $data) {
-        // Not interested
+        if (!$this->errorstarted) {
+            // Not interested
+            return true;
+        }
+        $data = trim($data);
+        if (isset($this->errorstarted->faultstringstarted) && !empty($data)) {
+            $this->remoteerror .= ', message: ' . $data;
+        } else if (isset($this->errorstarted->faultcodestarted)) {
+            $this->remoteerror = 'code: ' . $data;
+            unset($this->errorstarted->faultcodestarted);
+        } else if ($data == 'faultCode') {
+            $this->errorstarted->faultcodestarted = true;
+        } else if ($data == 'faultString') {
+            $this->errorstarted->faultstringstarted = true;
+        }
+        return true;
+
+    }
+
+    function parse_fault($parser, $data) {
+        $this->errorstarted = new StdClass;
         return true;
     }
 

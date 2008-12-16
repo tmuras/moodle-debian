@@ -1,4 +1,4 @@
-<?php // $Id: edit.php,v 1.71.2.1 2007/03/19 18:42:01 stronk7 Exp $
+<?php // $Id: edit.php,v 1.76.2.2 2008/04/02 06:10:03 dongsheng Exp $
 
 require_once('../../config.php');
 require_once('lib.php');
@@ -41,7 +41,7 @@ if ($e) { // if entry is specified
     $ineditperiod = ((time() - $entry->timecreated <  $CFG->maxeditingtime) || $glossary->editalways);
     if (!has_capability('mod/glossary:manageentries', $context) and !($entry->userid == $USER->id and ($ineditperiod and has_capability('mod/glossary:write', $context)))) {
         //expired edit time is the most probable cause here
-        error(get_string('erredittimeexpired', 'glossary'), "view.php?id=$cm->id&amp;mode=entry&amp;hook=$e");
+        print_error('erredittimeexpired', 'glossary', "view.php?id=$cm->id&amp;mode=entry&amp;hook=$e");
     }
 } else { // new entry
     require_capability('mod/glossary:write', $context);
@@ -174,9 +174,9 @@ if ($mform->is_cancelled()){
         $ineditperiod = ((time() - $fromdb->timecreated <  $CFG->maxeditingtime) || $glossary->editalways);
         if ((!$ineditperiod  || $USER->id != $fromdb->userid) and !has_capability('mod/glossary:manageentries', $context)) {
             if ( $USER->id != $fromdb->userid ) {
-                error(get_string('errcannoteditothers', 'glossary'));
+                print_error('errcannoteditothers', 'glossary');
             } elseif (!$ineditperiod) {
-                error(get_string('erredittimeexpired', 'glossary'));
+                print_error('erredittimeexpired', 'glossary');
             }
             die;
         }
@@ -188,17 +188,10 @@ if ($mform->is_cancelled()){
     }
 }
 
-$strglossary = get_string("modulename", "glossary");
-$strglossaries = get_string("modulenameplural", "glossary");
 $stredit = empty($e) ? get_string('addentry', 'glossary') : get_string("edit");
-
-
-print_header_simple(format_string($glossary->name), "",
-             "<a href=\"index.php?id=$course->id\">$strglossaries</a> ->
-              <a href=\"view.php?id=$cm->id\">".format_string($glossary->name,true)."</a> -> $stredit", "",
+$navigation = build_navigation($stredit, $cm);
+print_header_simple(format_string($glossary->name), "", $navigation, "",
               "", true, "", navmenu($course, $cm));
-
-
 
 print_heading(format_string($glossary->name));
 

@@ -1,6 +1,6 @@
-<?PHP // $Id: version.php,v 1.3 2006/12/15 15:41:57 tjhunt Exp $
+<?PHP // $Id: version.php,v 1.7.2.1 2007/11/02 16:20:34 tjhunt Exp $
 
-$plugin->version  = 2006121500;
-$plugin->requires = 2006032200;
+$plugin->version  = 2007081700;
+$plugin->requires = 2007101000;
 
 ?>

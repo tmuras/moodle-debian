@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.1 2006/10/26 16:33:59 stronk7 Exp $
+<?php  //$Id: upgrade.php,v 1.2 2007/07/31 17:05:51 stronk7 Exp $
 
 // This file keeps track of upgrades to 
 // the rss_client block
@@ -28,9 +28,10 @@ function xmldb_block_rss_client_upgrade($oldversion=0) {
 /// this comment lines once this file start handling proper
 /// upgrade code.
 
-/// if ($result && $oldversion < YYYYMMDD00) { //New version in version.php
-///     $result = result of "/lib/ddllib.php" function calls
-/// }
+    if ($result && $oldversion < 2007080100) { //New version in version.php
+    /// block_rss_timeout config setting must be block_rss_client_timeout
+        set_field('config', 'name', 'block_rss_client_timeout', 'name', 'block_rss_timeout');
+    }
 
     return $result;
 }

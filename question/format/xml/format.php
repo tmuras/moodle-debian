@@ -1,4 +1,4 @@
-<?php // $Id: format.php,v 1.21.2.10 2007/05/31 08:31:09 thepurpleblob Exp $
+<?php // $Id: format.php,v 1.41.2.8 2008/09/19 09:58:57 thepurpleblob Exp $
 //
 ///////////////////////////////////////////////////////////////
 // XML import/export
@@ -94,7 +94,7 @@ class qformat_xml extends qformat_default {
      */
     function getpath( $xml, $path, $default, $istext=false, $error='' ) {
         foreach ($path as $index) {
-            if (empty($xml[$index])) {
+            if (!isset($xml[$index])) {
                 if (!empty($error)) {
                     $this->error( $error );
                     return false;
@@ -105,6 +105,9 @@ class qformat_xml extends qformat_default {
             else $xml = $xml[$index];
         }
         if ($istext) {
+            if (!is_string($xml)) {
+                $this->error( 'Invalid xml file - string expected (use CDATA?)' );
+            }
             $xml = addslashes( trim( $xml ) );
         }
 
@@ -114,7 +117,7 @@ class qformat_xml extends qformat_default {
 
     /**
      * import parts of question common to all types
-     * @param array question question array from xml tree
+     * @param $question array question question array from xml tree
      * @return object question object
      */
     function import_headers( $question ) {
@@ -129,10 +132,10 @@ class qformat_xml extends qformat_default {
         $qo->name = $this->getpath( $question, array('#','name',0,'#','text',0,'#'), '', true, $error_noname );
         $qo->questiontext = $this->getpath( $question, array('#','questiontext',0,'#','text',0,'#'), '', true );
         $qo->questiontextformat = $this->getpath( $question, array('#','questiontext',0,'@','format'), '' );
-        $image = $this->getpath( $question, array('#','image',0,'#'), $qo->image );
+        $qo->image = $this->getpath( $question, array('#','image',0,'#'), $qo->image );
         $image_base64 = $this->getpath( $question, array('#','image_base64','0','#'),'' );
         if (!empty($image_base64)) {
-            $qo->image = $this->importimagefile( $image, stripslashes($image_base64) );
+            $qo->image = $this->importimagefile( $qo->image, stripslashes($image_base64) );
         }
         $qo->generalfeedback = $this->getpath( $question, array('#','generalfeedback',0,'#','text',0,'#'), $qo->generalfeedback, true );
         $qo->defaultgrade = $this->getpath( $question, array('#','defaultgrade',0,'#'), $qo->defaultgrade );
@@ -172,11 +175,17 @@ class qformat_xml extends qformat_default {
         $single = $this->getpath( $question, array('#','single',0,'#'), 'true' );
         $qo->single = $this->trans_single( $single );
         $shuffleanswers = $this->getpath( $question, array('#','shuffleanswers',0,'#'), 'false' );
+        $qo->answernumbering = $this->getpath( $question, array('#','answernumbering',0,'#'), 'abc' );
         $qo->shuffleanswers = $this->trans_single($shuffleanswers);
         $qo->correctfeedback = $this->getpath( $question, array('#','correctfeedback',0,'#','text',0,'#'), '', true );
         $qo->partiallycorrectfeedback = $this->getpath( $question, array('#','partiallycorrectfeedback',0,'#','text',0,'#'), '', true );
         $qo->incorrectfeedback = $this->getpath( $question, array('#','incorrectfeedback',0,'#','text',0,'#'), '', true );
-        
+
+        // There was a time on the 1.8 branch when it could output an empty answernumbering tag, so fix up any found.
+        if (empty($qo->answernumbering)) {
+            $qo->answernumbering = 'abc';
+        }
+
         // run through the answers
         $answers = $question['#']['answer'];  
         $a_count = 0;
@@ -202,6 +211,7 @@ class qformat_xml extends qformat_default {
         // 'header' parts particular to multianswer
         $qo->qtype = MULTIANSWER;
         $qo->course = $this->course;
+        $qo->generalfeedback = $this->getpath( $questions, array('#','generalfeedback',0,'#','text',0,'#'), '', true );
 
         if (!empty($questions)) {
             $qo->name = $this->import_text( $questions['#']['name'][0]['#']['text'] );
@@ -288,35 +298,6 @@ class qformat_xml extends qformat_default {
     }
     
     /**
-     * import regexp type question
-     * @param array question question array from xml tree
-     * @return object question object
-     */
-    function import_regexp( $question ) {
-        // get common parts
-        $qo = $this->import_headers( $question );
-
-        // header parts particular to shortanswer
-        $qo->qtype = regexp;
-
-        // get usecase
-        $qo->usecase = $question['#']['usecase'][0]['#'];
-
-        // run through the answers
-        $answers = $question['#']['answer'];  
-        $a_count = 0;
-        foreach ($answers as $answer) {
-            $ans = $this->import_answer( $answer );
-            $qo->answer[$a_count] = $ans->answer;
-            $qo->fraction[$a_count] = $ans->fraction;
-            $qo->feedback[$a_count] = $ans->feedback;
-            ++$a_count;
-        }
-
-        return $qo;
-    }
-    
-    /**
      * import description type question
      * @param array question question array from xml tree
      * @return object question object
@@ -326,6 +307,8 @@ class qformat_xml extends qformat_default {
         $qo = $this->import_headers( $question );
         // header parts particular to shortanswer
         $qo->qtype = DESCRIPTION;
+        $qo->defaultgrade = 0;
+        $qo->length = 0;
         return $qo;
     }
 
@@ -414,10 +397,7 @@ class qformat_xml extends qformat_default {
         $qo->qtype = ESSAY;
 
         // get feedback
-        $qo->feedback = $this->import_text( $question['#']['answer'][0]['#']['feedback'][0]['#']['text'] );        
-
-        // handle answer
-        $answer = $question['#']['answer'][0];
+        $qo->feedback = $this->getpath( $question, array('#','answer',0,'#','feedback',0,'#','text',0,'#'), '', true );       
 
         // get fraction - <fraction> tag is deprecated
         $qo->fraction = $this->getpath( $question, array('@','fraction'), 0 ) / 100;
@@ -525,7 +505,7 @@ class qformat_xml extends qformat_default {
     function import_category( $question ) {
         $qo = new stdClass;
         $qo->qtype = 'category';
-        $qo->category = $question['#']['category'][0]['#'];
+        $qo->category = $this->import_text($question['#']['category'][0]['#']['text']);
         return $qo;
     }
 
@@ -563,9 +543,6 @@ class qformat_xml extends qformat_default {
             elseif ($question_type=='shortanswer') {
                 $qo = $this->import_shortanswer( $question );
             }
-            //elseif ($question_type=='regexp') {
-            //    $qo = $this->import_regexp( $question );
-            //}
             elseif ($question_type=='numerical') {
                 $qo = $this->import_numerical( $question );
             }
@@ -588,9 +565,14 @@ class qformat_xml extends qformat_default {
                 $qo = $this->import_category( $question );
             }
             else {
-                $notsupported = get_string( 'xmltypeunsupported','quiz',$question_type );
-                $this->error( $notsupported );
-                $qo = null;
+                // try for plugin support
+                // no default question, as the plugin can call 
+                // import_headers() itself if it wants to
+                if (!$qo=$this->try_importing_using_qtypes( $question )) {
+                    $notsupported = get_string( 'xmltypeunsupported','quiz',$question_type );
+                    $this->error( $notsupported );
+                    $qo = null;
+                }
             }
 
             // stick the result in the $questions array
@@ -628,9 +610,6 @@ class qformat_xml extends qformat_default {
         case SHORTANSWER:
             $name = 'shortanswer';
             break;
-        //case regexp:
-        //    $name = 'regexp';
-        //    break;
         case NUMERICAL:
             $name = 'numerical';
             break;
@@ -650,7 +629,7 @@ class qformat_xml extends qformat_default {
             $name = 'calculated';
             break;
         default:
-            $name = 'unknown';
+            $name = false;
         }
         return $name;
     }
@@ -713,8 +692,10 @@ class qformat_xml extends qformat_default {
     function writetext( $raw, $ilev=0, $short=true) {
         $indent = str_repeat( "  ",$ilev );
 
-        // encode the text to 'disguise' HTML content 
-        $raw = htmlspecialchars( $raw );
+        // if required add CDATA tags
+        if (!empty($raw) and (htmlspecialchars($raw)!=$raw)) {
+            $raw = "<![CDATA[$raw]]>";
+        }
 
         if ($short) {
             $xml = "$indent<text>$raw</text>\n";
@@ -791,18 +772,19 @@ class qformat_xml extends qformat_default {
         // add comment
         $expout .= "\n\n<!-- question: $question->id  -->\n";
 
-        // check question type - make sure valid
-        $question_type = $this->get_qtype( $question->qtype );
-        if ($question_type=='unknown') {
-            $expout .= "<!-- question: $question->name is not a supported type -->\n\n";
+        // check question type
+        if (!$question_type = $this->get_qtype( $question->qtype )) {
+            // must be a plugin then, so just accept the name supplied
+            $question_type = $question->qtype;
         }
 
         // add opening tag
         // generates specific header for Cloze and category type question
         if ($question->qtype == 'category') {
+            $categorypath = $this->writetext( $question->category );
             $expout .= "  <question type=\"category\">\n";
             $expout .= "    <category>\n";
-            $expout .= "        $question->category\n";
+            $expout .= "        $categorypath\n";
             $expout .= "    </category>\n";
             $expout .= "  </question>\n";
             return $expout;
@@ -831,11 +813,15 @@ class qformat_xml extends qformat_default {
             // for Cloze type only
             $name_text = $this->writetext( $question->name );
             $question_text = $this->writetext( $question->questiontext );
+            $generalfeedback = $this->writetext( $question->generalfeedback );
             $expout .= "  <question type=\"$question_type\">\n";
             $expout .= "    <name>$name_text</name>\n";
             $expout .= "    <questiontext>\n";
             $expout .= $question_text;
             $expout .= "    </questiontext>\n";
+            $expout .= "    <generalfeedback>\n";
+            $expout .= $generalfeedback;
+            $expout .= "    </generalfeedback>\n";
         }
 
         if (!empty($question->options->shuffleanswers)) {
@@ -872,6 +858,7 @@ class qformat_xml extends qformat_default {
             $expout .= "    <correctfeedback>".$this->writetext($question->options->correctfeedback, 3)."</correctfeedback>\n";
             $expout .= "    <partiallycorrectfeedback>".$this->writetext($question->options->partiallycorrectfeedback, 3)."</partiallycorrectfeedback>\n";
             $expout .= "    <incorrectfeedback>".$this->writetext($question->options->incorrectfeedback, 3)."</incorrectfeedback>\n";
+            $expout .= "    <answernumbering>{$question->options->answernumbering}</answernumbering>\n";
             foreach($question->options->answers as $answer) {
                 $percent = $answer->fraction * 100;
                 $expout .= "      <answer fraction=\"$percent\">\n";
@@ -894,18 +881,6 @@ class qformat_xml extends qformat_default {
                 $expout .= "    </answer>\n";
             }
             break;
-        //case regexp:
-        //$expout .= "    <usecase>{$question->options->usecase}</usecase>\n ";
-        //    foreach($question->options->answers as $answer) {
-        //        $percent = 100 * $answer->fraction;
-        //        $expout .= "    <answer fraction=\"$percent\">\n";
-        //        $expout .= $this->writetext( $answer->answer,3,false );
-        //        $expout .= "      <feedback>\n";
-        //        $expout .= $this->writetext( $answer->feedback,4,false );
-        //        $expout .= "      </feedback>\n";
-        //        $expout .= "    </answer>\n";
-        //    }
-        //    break;
         case NUMERICAL:
             foreach ($question->options->answers as $answer) {
                 $tolerance = $answer->tolerance;
@@ -953,15 +928,16 @@ class qformat_xml extends qformat_default {
             }
         break;
         case ESSAY:
-            foreach ($question->options->answers as $answer) {
-                $percent = 100 * $answer->fraction;
-                $expout .= "<answer fraction=\"$percent\">\n";
-                $expout .= "    <feedback>".$this->writetext( $answer->feedback )."</feedback>\n";
-                // fraction tag is deprecated
-                // $expout .= "    <fraction>{$answer->fraction}</fraction>\n";
-                $expout .= "</answer>\n";
+            if (!empty($question->options->answers)) {
+                foreach ($question->options->answers as $answer) {
+                    $percent = 100 * $answer->fraction;
+                    $expout .= "<answer fraction=\"$percent\">\n";
+                    $expout .= "    <feedback>".$this->writetext( $answer->feedback )."</feedback>\n";
+                    // fraction tag is deprecated
+                    // $expout .= "    <fraction>{$answer->fraction}</fraction>\n";
+                    $expout .= "</answer>\n";
+                }
             }
-            
             break;
         case CALCULATED:
             foreach ($question->options->answers as $answer) {
@@ -1025,8 +1001,11 @@ class qformat_xml extends qformat_default {
             }                      
             break;
         default:
-            // should not get here
-            error( 'Unsupported question type detected in strange circumstances!' );
+            // try support by optional plugin
+            if (!$data = $this->try_exporting_using_qtypes( $question->qtype, $question )) { 
+                error( "Unsupported question type $question->qtype" );
+            }
+            $expout .= $data;
         }
 
         // close the question tag

@@ -1,4 +1,4 @@
-<?php // $Id: reportsgraph.php,v 1.7 2006/11/24 18:31:41 skodak Exp $
+<?php // $Id: reportsgraph.php,v 1.8.2.2 2008/04/02 06:09:58 dongsheng Exp $
 
     require_once('../../../config.php');
     require_once($CFG->dirroot.'/lib/statslib.php');
@@ -10,9 +10,9 @@
 
     require_login();
 
-    require_capability('moodle/site:viewreports', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    require_capability('moodle/site:viewreports', get_context_instance(CONTEXT_SYSTEM));
 
-    stats_check_uptodate($course->id);
+    stats_check_uptodate();
 
     $param = stats_get_parameters($time,$report,SITEID,STATS_MODE_RANKED);
 
@@ -20,7 +20,7 @@
         $sql = $param->sql;
     } else {
         $sql = "SELECT courseid,".$param->fields." FROM ".$CFG->prefix.'stats_'.$param->table
-            ." WHERE timeend >= ".$param->timeafter.' AND stattype = \'activity\''
+            ." WHERE timeend >= $param->timeafter AND stattype = 'activity' AND roleid = 0"
             ." GROUP BY courseid "
             .$param->extras
             ." ORDER BY ".$param->orderby;
@@ -29,7 +29,7 @@
     $courses = get_records_sql($sql, 0, $numcourses);
 
     if (empty($courses)) {
-        error(get_string('statsnodata'),$CFG->wwwroot.'/'.$CFG->admin.'/report/course/index.php');
+        print_error('statsnodata', "", $CFG->wwwroot.'/'.$CFG->admin.'/report/course/index.php');
     }
 
 

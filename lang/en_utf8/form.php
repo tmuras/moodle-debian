@@ -1,4 +1,4 @@
-<?PHP // $Id: form.php,v 1.13.2.3 2007/06/22 05:45:19 moodler Exp $
+<?PHP // $Id: form.php,v 1.17.4.1 2007/12/06 09:02:02 skodak Exp $
 
 $string['somefieldsrequired'] = 'There are required fields in this form marked$a.'; 
 $string['err_alphanumeric']='You must enter only letters or numbers here.';
@@ -16,6 +16,7 @@ $string['nonexistentformelements'] = 'Trying to add help buttons to nonexistent 
 $string['requiredelement'] = 'Required field';
 $string['general'] = 'General';
 $string['optional'] = 'Optional';
+$string['unmaskpassword'] = 'Unmask';
 $string['revealpassword'] = 'Reveal';
 $string['modstandardels']='Common module settings';
 $string['miscellaneoussettings']='Miscellaneous Settings';
@@ -34,4 +35,6 @@ $string['showadvanced']='Show Advanced';
 $string['timing'] = 'Timing';
 $string['security'] = 'Security';
 $string['display'] = 'Display';
+
+$string['selectallornone'] = 'Select all/none';
 ?>

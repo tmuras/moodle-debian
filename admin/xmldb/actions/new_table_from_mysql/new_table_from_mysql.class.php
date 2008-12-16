@@ -1,4 +1,4 @@
-<?php // $Id: new_table_from_mysql.class.php,v 1.5 2007/02/08 07:12:55 toyomoyo Exp $
+<?php // $Id: new_table_from_mysql.class.php,v 1.8 2007/10/10 05:25:25 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -88,7 +88,7 @@ class new_table_from_mysql extends XMLDBAction {
             $dbtables = $db->MetaTables('TABLES');
             $selecttables = array();
             foreach ($dbtables as $dbtable) {
-                $dbtable = str_replace($CFG->prefix, '', $dbtable);
+                $dbtable = strtolower(str_replace($CFG->prefix, '', $dbtable));
                 $i = $structure->findTableInArray($dbtable);
                 if ($i === NULL) {
                     $selecttables[$dbtable] = $dbtable;
@@ -160,7 +160,6 @@ class new_table_from_mysql extends XMLDBAction {
                         $key->setFromADOKey($dbindex);
                     /// Set default comment to PKs
                         if ($key->getType() == XMLDB_KEY_PRIMARY) {
-                            $key->setComment('Primary key for ' . $table->getName());
                         }
                     /// Add key to the table
                         $table->addKey($key);

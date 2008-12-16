@@ -1,4 +1,4 @@
-<?php // $Id: report.php,v 1.34.6.1 2007/05/15 18:26:50 skodak Exp $
+<?php // $Id: report.php,v 1.42.2.1 2007/10/12 16:09:47 tjhunt Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -13,7 +13,7 @@
         error("Course module is misconfigured");
     }
 
-    require_login($course->id, false);
+    require_login($course->id, false, $cm);
 
     if (!isteacher($course->id)) {
         error("Only teachers can look at this page");
@@ -38,10 +38,8 @@
     $strentries = get_string("entries", "journal");
     $strjournals = get_string("modulenameplural", "journal");
 
-    print_header_simple("$strjournals", "",
-                 "<a href=\"index.php?id=$course->id\">$strjournals</a> ->
-                  <a href=\"view.php?id=$cm->id\">".format_string($journal->name,true)."</a> -> $strentries", "", "", true);
-
+    $navigation = build_navigation($strentries, $cm);
+    print_header_simple("$strjournals", "", $navigation, "", "", true);
 
 /// Check to see if groups are being used in this journal
     $groupmode = groupmode($course, $cm);
@@ -107,7 +105,7 @@
         $grades = make_grades_menu($journal->assessed);
         $teachers = get_course_teachers($course->id);
 
-        $allowedtograde = ($groupmode != VISIBLEGROUPS or isteacheredit($course->id) or ismember($currentgroup));
+        $allowedtograde = ($groupmode != VISIBLEGROUPS or isteacheredit($course->id) or groups_is_member($currentgroup));
 
         if ($allowedtograde) {
             echo '<form action="report.php" method="post">';
@@ -116,7 +114,7 @@
         if ($usersdone = journal_get_users_done($journal)) {
             foreach ($usersdone as $user) {
                 if ($currentgroup) {
-                    if (!ismember($currentgroup, $user->id)) {    /// Yes, it's inefficient, but this module will die
+                    if (!groups_is_member($currentgroup, $user->id)) {    /// Yes, it's inefficient, but this module will die
                         continue;
                     }
                 }
@@ -141,4 +139,3 @@
     print_footer($course);
 
 ?>
-

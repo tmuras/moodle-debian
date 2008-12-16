@@ -1,10 +1,10 @@
-<?php // $Id: htmlarea.class.php,v 1.2.2.1 2007/03/02 05:04:38 nicolasconnault Exp $
+<?php // $Id: htmlarea.class.php,v 1.4.2.1 2008/05/02 03:31:50 scyrma Exp $
 
 /**
  * This file contains the htmlarea subclass for moodle editorObject.
  *
  * @author Janne Mikkonen
- * @version  $Id: htmlarea.class.php,v 1.2.2.1 2007/03/02 05:04:38 nicolasconnault Exp $
+ * @version  $Id: htmlarea.class.php,v 1.4.2.1 2008/05/02 03:31:50 scyrma Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package editorObject
  */
@@ -346,16 +346,16 @@ class htmlarea extends editorObject {
         if (!$usehtmleditor) {
             echo 'function openSpellChecker() {'."\n";
             echo "\tvar speller = new spellChecker();\n";
-            echo "\tspeller.popUpUrl = \"" . $this->cfg->wwwroot ."/lib/speller/spellchecker.html\";\n";
-            echo "\tspeller.spellCheckScript = \"". $this->cfg->wwwroot ."/lib/speller/server-scripts/spellchecker.php\";\n";
+            echo "\tspeller.popUpUrl = \"" . $this->cfg->httpswwwroot ."/lib/speller/spellchecker.html\";\n";
+            echo "\tspeller.spellCheckScript = \"". $this->cfg->httpswwwroot ."/lib/speller/server-scripts/spellchecker.php\";\n";
             echo "\tspeller.spellCheckAll();\n";
             echo '}'."\n";
         } else {
             echo "\n\tfunction spellClickHandler(editor, buttonId) {\n";
             echo "\t\teditor._textArea.value = editor.getHTML();\n";
             echo "\t\tvar speller = new spellChecker( editor._textArea );\n";
-            echo "\t\tspeller.popUpUrl = \"" . $this->cfg->wwwroot ."/lib/speller/spellchecker.html\";\n";
-            echo "\t\tspeller.spellCheckScript = \"". $this->cfg->wwwroot ."/lib/speller/server-scripts/spellchecker.php\";\n";
+            echo "\t\tspeller.popUpUrl = \"" . $this->cfg->httpswwwroot ."/lib/speller/spellchecker.html\";\n";
+            echo "\t\tspeller.spellCheckScript = \"". $this->cfg->httpswwwroot ."/lib/speller/server-scripts/spellchecker.php\";\n";
             echo "\t\tspeller._moogle_edit=1;\n";
             echo "\t\tspeller._editor=editor;\n";
             echo "\t\tspeller.openChecker();\n\t";
@@ -363,7 +363,7 @@ class htmlarea extends editorObject {
         }
         echo '//]]>'."\n";
         echo '</script>'."\n";
-        
+
     }
 
 }

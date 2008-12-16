@@ -1,4 +1,4 @@
-<?php // $Id: category.php,v 1.93.2.10 2007/04/30 17:59:29 andreabix Exp $
+<?php // $Id: category.php,v 1.119.2.9 2008/10/06 22:29:00 skodak Exp $
       // Displays the top level category or all courses
       // In editing mode, allows the admin to edit a category,
       // and rearrange courses
@@ -15,17 +15,24 @@
     $moveup       = optional_param('moveup', 0, PARAM_INT);
     $movedown     = optional_param('movedown', 0, PARAM_INT);
     $moveto       = optional_param('moveto', 0, PARAM_INT);
-    $rename       = optional_param('rename', '', PARAM_NOTAGS);
+    $rename       = optional_param('rename', '', PARAM_TEXT);
     $resort       = optional_param('resort', 0, PARAM_BOOL);
+    $categorytheme= optional_param('categorytheme', false, PARAM_SAFEDIR);
+
+    if ($CFG->forcelogin) {
+        require_login();
+    }
 
     if (!$site = get_site()) {
         error("Site isn't defined!");
     }
-    
-    $context = get_context_instance(CONTEXT_COURSECAT, $id);
-    
-    if ($CFG->forcelogin) {
-        require_login();
+
+    if (empty($id)) {
+        error("Category not known!");
+    }
+
+    if (!$context = get_context_instance(CONTEXT_COURSECAT, $id)) {
+        error("Category not known!");
     }
 
     if (!$category = get_record("course_categories", "id", $id)) {
@@ -38,24 +45,33 @@
         }
         $navbaritem = update_category_button($category->id);
         $creatorediting = !empty($USER->categoryediting);
-        $adminediting = (has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID)) and $creatorediting);
+        $adminediting = (has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM)) and $creatorediting);
 
     } else {
         if (!$category->visible) {
-            error(get_string('notavailable', 'error'));
+            print_error('notavailable', 'error');
         }
         $navbaritem = print_course_search("", true, "navbar");
         $adminediting = false;
         $creatorediting = false;
     }
 
-
     if (has_capability('moodle/category:update', $context)) {
         /// Rename the category if requested
         if (!empty($rename) and confirm_sesskey()) {
-            $category->name = $rename;
-            if (! set_field("course_categories", "name", $category->name, "id", $category->id)) {
+            if (! set_field("course_categories", "name", $rename, "id", $category->id)) {
                 notify("An error occurred while renaming the category");
+            }
+            $category->name = stripslashes($rename);
+            //trigger events
+            events_trigger('course_category_updated', $category);
+        }
+
+        /// Set the category theme if requested
+        if (($categorytheme !== false) and confirm_sesskey()) {
+            $category->theme = $categorytheme;
+            if (! set_field('course_categories', 'theme', $category->theme, 'id', $category->id)) {
+                notify('An error occurred while setting the theme');
             }
         }
 
@@ -78,6 +94,12 @@
         }
     }
 
+    if(! empty($CFG->allowcategorythemes) ){
+        if(isset($category->theme)){
+            // specifying theme here saves us some dbqs
+            theme_setup($category->theme);
+        }
+    }
 
 /// Print headings
 
@@ -88,31 +110,33 @@
     $strcategory = get_string("category");
     $strcourses = get_string("courses");
 
+    $navlinks = array();
+    $navlinks[] = array('name' => $strcategories, 'link' => 'index.php', 'type' => 'misc');
+    $navlinks[] = array('name' => format_string($category->name), 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+
     if ($creatorediting) {
         if ($adminediting) {
             // modify this to treat this as an admin page
 
             require_once($CFG->libdir.'/adminlib.php');
-            $adminroot = admin_get_root();
-            admin_externalpage_setup('coursemgmt', $adminroot);
-            admin_externalpage_print_header($adminroot);
+            admin_externalpage_setup('coursemgmt');
+            admin_externalpage_print_header();
         } else {
-            print_header("$site->shortname: $category->name", "$site->fullname: $strcourses",
-                         "<a href=\"index.php\">$strcategories</a> -> $category->name", "", "", true, $navbaritem);
+            print_header("$site->shortname: $category->name", "$site->fullname: $strcourses", $navigation, "", "", true, $navbaritem);
         }
     } else {
-        print_header("$site->shortname: $category->name", "$site->fullname: $strcourses",
-                     "<a href=\"index.php\">$strcategories</a> -> $category->name", "", "", true, $navbaritem);
+        print_header("$site->shortname: $category->name", "$site->fullname: $strcourses", $navigation, "", "", true, $navbaritem);
     }
 
 /// Print button to turn editing off
     if ($adminediting) {
-        echo '<div class="categoryediting button" align="right">'.update_category_button($category->id).'</div>';
+        echo '<div class="categoryediting button">'.update_category_button($category->id).'</div>';
     }
 
 /// Print link to roles
 
-    if (has_capability('moodle/role:assign', $context)) { 
+    if (has_capability('moodle/role:assign', $context)) {
         echo '<div class="rolelink"><a href="'.$CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?contextid='.
          $context->id.'">'.get_string('assignroles','role').'</a></div>';
     }
@@ -127,6 +151,12 @@
     popup_form('category.php?id=', $displaylist, 'switchcategory', $category->id, '', '', '', false, 'self', $strcategories.':');
     echo '</div>';
 
+/// Print current category description
+    if (!$creatorediting && $category->description) {
+        print_box_start();
+        echo format_text($category->description); // for multilang filter
+        print_box_end();
+    }
 
 /// Editing functions
 
@@ -137,19 +167,19 @@
 
             // user must have category update in both cats to perform this
             require_capability('moodle/category:update', $context);
-            require_capability('moodle/category:update', get_context_instance(CONTEXT_COURSECAT, $moveto)); 
-            
+            require_capability('moodle/category:update', get_context_instance(CONTEXT_COURSECAT, $moveto));
+
             if (! $destcategory = get_record("course_categories", "id", $data->moveto)) {
                 error("Error finding the category");
             }
 
-            
-            $courses = array();        
+
+            $courses = array();
             foreach ( $data as $key => $value ) {
                 if (preg_match('/^c\d+$/', $key)) {
                     array_push($courses, substr($key, 1));
                 }
-            } 
+            }
             move_courses($courses, $data->moveto);
         }
 
@@ -214,6 +244,24 @@
         }
 
     } // End of editing stuff
+
+
+    if ($creatorediting) {   
+        echo '<div class="buttons">'; 
+        if (has_capability('moodle/category:update', $context)) {   // Print button to update this category
+            unset($options);
+            $options['id'] = $category->id;
+            print_single_button('editcategory.php', $options, get_string('editcategorythis'), 'get');
+        }
+
+        if (has_capability('moodle/category:create', $context)) {   // Print button for creating new categories
+            unset($options);
+            $options['categoryadd'] = 1;
+            $options['id'] = $id;
+            print_single_button('editcategory.php', $options, get_string('addsubcategory'), 'get');
+        }
+        echo '</div>';
+    }
 
 /// Print out all the sub-categories
     if ($subcategories = get_records("course_categories", "parent", $category->id, "sortorder ASC")) {
@@ -300,16 +348,23 @@
         // be moved up and down beyond the paging border
         if ($totalcount > $perpage) {
             $atfirstpage = ($page == 0);
-            $atlastpage = (($page + 1) == ceil($totalcount / $perpage));
+            if ($perpage > 0) {
+                $atlastpage = (($page + 1) == ceil($totalcount / $perpage));
+            } else {
+                $atlastpage = true;
+            }
         } else {
             $atfirstpage = true;
             $atlastpage = true;
         }
 
         foreach ($courses as $acourse) {
-          
-            $coursecontext = get_context_instance(CONTEXT_COURSE, $acourse->id);
-          
+            if (isset($acourse->context)) {
+                $coursecontext = $acourse->context;
+            } else {
+                $coursecontext = get_context_instance(CONTEXT_COURSE, $acourse->id);
+            }
+
             $count++;
             $up = ($count > 1 || !$atfirstpage);
             $down = ($count < $numcourses || !$atlastpage);
@@ -323,12 +378,12 @@
                     echo '<a title="'.$strsettings.'" href="'.$CFG->wwwroot.'/course/edit.php?id='.
                          $acourse->id.'">'.
                          '<img src="'.$CFG->pixpath.'/t/edit.gif" class="iconsmall" alt="'.$stredit.'" /></a> ';        }
-                
-                // role assignment link     
-                if (has_capability('moodle/role:assign', $coursecontext)) { 
+
+                // role assignment link
+                if (has_capability('moodle/role:assign', $coursecontext)) {
                     echo'<a title="'.get_string('assignroles', 'role').'" href="'.$CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?contextid='.$coursecontext->id.'"><img src="'.$CFG->pixpath.'/i/roles.gif" class="iconsmall" alt="'.get_string('assignroles', 'role').'" /></a>';
-                }                       
-                         
+                }
+
                 if (can_delete_course($acourse->id)) {
                     echo '<a title="'.$strdelete.'" href="delete.php?id='.$acourse->id.'">'.
                             '<img src="'.$CFG->pixpath.'/t/delete.gif" class="iconsmall" alt="'.$strdelete.'" /></a> ';
@@ -351,7 +406,7 @@
                     echo '<a title="'.$strbackup.'" href="../backup/backup.php?id='.$acourse->id.'">'.
                             '<img src="'.$CFG->pixpath.'/t/backup.gif" class="iconsmall" alt="'.$strbackup.'" /></a> ';
                 }
-                    
+
                 if (has_capability('moodle/site:restore', $coursecontext)) {
                     echo '<a title="'.$strrestore.'" href="../files/index.php?id='.$acourse->id.
                          '&amp;wdir=/backupdata">'.
@@ -376,17 +431,17 @@
                     }
                     $abletomovecourses = true;
                 }
-                
+
                 echo '</td>';
                 echo '<td align="center">';
                 echo '<input type="checkbox" name="c'.$acourse->id.'" />';
-                echo '</td>';        
+                echo '</td>';
             } else {
                 echo '<td align="right">';
                 if (!empty($acourse->guest)) {
                     echo '<a href="view.php?id='.$acourse->id.'"><img title="'.
                          $strallowguests.'" class="icon" src="'.
-                         $CFG->pixpath.'/i/user.gif" alt="'.$strallowguests.'" /></a>';
+                         $CFG->pixpath.'/i/guest.gif" alt="'.$strallowguests.'" /></a>';
                 }
                 if (!empty($acourse->password)) {
                     echo '<a href="view.php?id='.$acourse->id.'"><img title="'.
@@ -405,18 +460,18 @@
 
         if ($abletomovecourses) {
             echo '<tr><td colspan="3" align="right">';
-            echo '<br />';    
+            echo '<br />';
             unset($displaylist[$category->id]);
 
             // loop and unset categories the user can't move into
-            
+
             foreach ($displaylist as $did=>$dlist) {
                 if (!has_capability('moodle/category:update', get_context_instance(CONTEXT_COURSECAT, $did))) {
-                    unset($displaylist[$did]);  
+                    unset($displaylist[$did]);
                 }
             }
-            
-            choose_from_menu ($displaylist, "moveto", "", get_string("moveselectedcoursesto"), "javascript: getElementById('movecourses').submit()");
+
+            choose_from_menu ($displaylist, "moveto", "", get_string("moveselectedcoursesto"), "javascript: submitFormById('movecourses')");
             echo '<input type="hidden" name="id" value="'.$category->id.'" />';
             echo '</td></tr>';
         }
@@ -425,8 +480,9 @@
         echo '</div></form>';
         echo '<br />';
     }
-    
-    if (has_capability('moodle/category:update', get_context_instance(CONTEXT_SYSTEM, SITEID)) and $numcourses > 1) {           /// Print button to re-sort courses by name
+
+    echo '<div class="buttons">'; 
+    if (has_capability('moodle/category:update', get_context_instance(CONTEXT_SYSTEM)) and $numcourses > 1) {           /// Print button to re-sort courses by name
         unset($options);
         $options['id'] = $category->id;
         $options['resort'] = 'name';
@@ -438,26 +494,13 @@
         unset($options);
         $options['category'] = $category->id;
         print_single_button('edit.php', $options, get_string('addnewcourse'), 'get');
-        echo '<br />';
     }
+    echo '</div>'; 
 
-    if (has_capability('moodle/category:update', $context)) {           /// Print form to rename the category
-        $strrename= get_string('rename');
-        echo '<form id="renameform" action="category.php" method="post"><div>';
-        echo '<input type="hidden" name="id" value="'.$category->id.'" />';
-        echo '<input type="hidden" name="sesskey" value="'.$USER->sesskey.'" />';
-        echo '<input type="text" size="30" name="rename" value="'.format_string($category->name).'" alt="'.$strrename.'" />';
-        echo '<input type="submit" value="'.$strrename.'" />';
-        echo '</div></form>';
-        echo '<br />';
-    }
-    
+
+
     print_course_search();
-    
-    if ($adminediting) {
-        admin_externalpage_print_footer($adminroot);
-    } else {
-        print_footer();
-    }
+
+    print_footer();
 
 ?>

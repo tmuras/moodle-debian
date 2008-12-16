@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.10.2.3 2007/04/02 14:12:02 exe-cutor Exp $
+<?php // $Id: index.php,v 1.15.2.3 2008/05/02 04:07:29 dongsheng Exp $
       // Designed to be redirected from moodle/login/index.php
 
     require('../../config.php');
@@ -21,12 +21,12 @@
     
     // Check whether Shibboleth is configured properly
     if (empty($pluginconfig->user_attribute)) {
-        error(get_string( 'shib_not_set_up_error', 'auth'));
+        print_error('shib_not_set_up_error', 'auth');
      }
 
 /// If we can find the Shibboleth attribute, save it in session and return to main login page
     if (!empty($_SERVER[$pluginconfig->user_attribute])) {    // Shibboleth auto-login
-        $frm->username = $_SERVER[$pluginconfig->user_attribute];
+        $frm->username = strtolower($_SERVER[$pluginconfig->user_attribute]);
         $frm->password = substr(base64_encode($_SERVER[$pluginconfig->user_attribute]),0,8);
         // The random password consists of the first 8 letters of the base 64 encoded user ID
         // This password is never used unless the user account is converted to manual
@@ -44,7 +44,7 @@
             
             // Don't show username on login page
             set_moodle_cookie('nobody');
-	    
+
             set_login_session_preferences();
             
             unset($SESSION->lang);
@@ -66,12 +66,13 @@
             }
 
             /// Go to my-moodle page instead of homepage if mymoodleredirect enabled
-            if (!has_capability('moodle/site:config',get_context_instance(CONTEXT_SYSTEM, SITEID)) and !empty($CFG->mymoodleredirect) and !isguest()) {
+            if (!has_capability('moodle/site:config',get_context_instance(CONTEXT_SYSTEM)) and !empty($CFG->mymoodleredirect) and !isguest()) {
                 if ($urltogo == $CFG->wwwroot or $urltogo == $CFG->wwwroot.'/' or $urltogo == $CFG->wwwroot.'/index.php') {
                     $urltogo = $CFG->wwwroot.'/my/';
                 }
             }
 
+            check_enrolment_plugins($USER);
             load_all_capabilities();     /// This is what lets the user do anything on the site  :-)
 
             redirect($urltogo);
@@ -87,9 +88,9 @@
     // If we can find any (user independent) Shibboleth attributes but no user
     // attributes we probably didn't receive any user attributes
     elseif (!empty($_SERVER['HTTP_SHIB_APPLICATION_ID'])) {
-        error(get_string( 'shib_no_attributes_error', 'auth' , '\''.$pluginconfig->user_attribute.'\', \''.$pluginconfig->field_map_firstname.'\', \''.$pluginconfig->field_map_lastname.'\' and \''.$pluginconfig->field_map_email.'\''));
+        print_error('shib_no_attributes_error', 'auth' , '', '\''.$pluginconfig->user_attribute.'\', \''.$pluginconfig->field_map_firstname.'\', \''.$pluginconfig->field_map_lastname.'\' and \''.$pluginconfig->field_map_email.'\'');
     } else {
-         error(get_string( 'shib_not_set_up_error', 'auth'));
+        print_error('shib_not_set_up_error', 'auth');
     }
 
 ?>

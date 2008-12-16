@@ -1,10 +1,14 @@
-<?php    // $Id: format.php,v 1.3 2006/08/10 18:23:40 tjhunt Exp $ 
+<?php    // $Id: format.php,v 1.4.4.1 2007/11/02 16:21:06 tjhunt Exp $ 
 // Alton College, Hampshire, UK - Tom Flannaghan, Andrew Walker
 // Imports learnwise multiple choice quizzes (single and multiple answers)
 // currently ignores the deduct attribute for multiple answer questions
 // deductions are currently simply found by dividing the award for the incorrect 
 // answer by the total number of options
 // Based on format.php, included by ../../import.php
+/**
+ * @package questionbank
+ * @subpackage importexport
+ */
 
 class qformat_learnwise extends qformat_default {
 

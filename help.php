@@ -8,7 +8,7 @@
  * See {@link helpbutton()} in {@link lib/moodlelib.php}
  *
  * @author Martin Dougiamas
- * @version $Id: help.php,v 1.38.2.2 2007/05/23 13:36:29 nfreear Exp $
+ * @version $Id: help.php,v 1.40.2.4 2008/06/17 01:47:57 jerome Exp $
  * @package moodlecore
  */
 require_once('config.php');
@@ -18,8 +18,9 @@ $file   = optional_param('file', '', PARAM_PATH);
 $text   = optional_param('text', 'No text to display', PARAM_CLEAN);
 $module = optional_param('module', 'moodle', PARAM_ALPHAEXT);
 $forcelang = optional_param('forcelang', '', PARAM_SAFEDIR);
+$skiplocal = optional_param('skiplocal', 0, PARAM_INT);     // shall _local help files be skipped?
 
-// Start the output. TODO: improve the page title.
+// Start the output.
 print_header(get_string('help'));
 print_simple_box_start();
 
@@ -35,20 +36,21 @@ if (!empty($file)) {
     if (empty($forcelang)) {
         $langs = array(current_language(), get_string('parentlanguage'), 'en_utf8');  // Fallback
     } else {
-        $langs = array($forcelang);
+        $langs = array($forcelang, 'en_utf8');
     }
     
-    // _local language packs take precedence with both forced language and non-forced language settings
-    $xlangs = array();
-    foreach ($langs as $lang) {
-        if (!empty($lang)) {
-            $xlangs[] = $lang . '_local';
-            $xlangs[] = $lang;
+    if (!$skiplocal) {
+        // _local language packs take precedence with both forced language and non-forced language settings
+        $xlangs = array();
+        foreach ($langs as $lang) {
+            if (!empty($lang)) {
+                $xlangs[] = $lang . '_local';
+                $xlangs[] = $lang;
+            }
         }
+        $langs = $xlangs;
+        unset($xlangs);
     }
-    $langs = $xlangs;
-    unset($xlangs);
-
 
 // Define possible locations for help file similar to locations for language strings
 // Note: Always retain module directory as before
@@ -149,7 +151,7 @@ function include_help_for_each_module($file, $langs, $helpdir) {
         $strmodulename = get_string('modulename', $mod->name);
         $modulebyname[$strmodulename] = $mod;
     }
-    ksort($modulebyname);
+    ksort($modulebyname, SORT_LOCALE_STRING);
 
     foreach ($modulebyname as $mod) {
         foreach ($langs as $lang) {
@@ -178,18 +180,27 @@ function include_help_for_each_resource($file, $langs, $helpdir) {
 
     require_once($CFG->dirroot .'/mod/resource/lib.php');
     $typelist = resource_get_types();
-    $typelist['label'] = get_string('resourcetypelabel', 'resource');
+    
+    //add label type
+    $labelType = new object();
+    $labelType->modclass = MOD_CLASS_RESOURCE;
+    $resourcetype = 'label';
+    $labelType->name = $resourcetype;
+    $labelType->type = "resource&amp;type=$resourcetype";
+    $labelType->typestr = get_string("resourcetype$resourcetype", 'resource');
+    $typelist[] = $labelType;
 
-    foreach ($typelist as $type => $name) {
+    foreach ($typelist as $type) {
+   
         foreach ($langs as $lang) {
             if (empty($lang)) {
                 continue;
             }
 
-            $filepath = "$helpdir/resource/type/$type.html";
+            $filepath = "$helpdir/resource/type/".$type->name.".html";
 
             if (file_exists_and_readable($filepath)) {
-                echo '<hr size="1" />';
+                echo '<hr />';
                 @include($filepath); // The actual helpfile
                 break; // Out of loop over languages.
             }

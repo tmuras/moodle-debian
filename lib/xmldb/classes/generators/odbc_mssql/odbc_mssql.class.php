@@ -1,4 +1,4 @@
-<?php // $Id: odbc_mssql.class.php,v 1.1 2006/10/09 22:29:52 stronk7 Exp $
+<?php // $Id: odbc_mssql.class.php,v 1.2 2007/10/10 05:25:17 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //

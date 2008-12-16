@@ -1,4 +1,4 @@
-<?php // $Id: oci8po.class.php,v 1.30.2.2 2007/04/08 22:56:23 stronk7 Exp $
+<?php // $Id: oci8po.class.php,v 1.38.2.1 2008/04/26 22:45:04 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -370,7 +370,7 @@ class XMLDBoci8po extends XMLDBgenerator {
     ///     - fill the new column with the values from the old one
     ///     - drop the old column
     ///     - rename the temp column to the original name
-        if (($typechanged) || ($oldmetatype == 'N' && ($precisionchanged || $decimalchanged))) {
+        if (($typechanged) || (($oldmetatype == 'N' || $oldmetatype == 'I')  && ($precisionchanged || $decimalchanged))) {
             $tempcolname = $xmldb_field->getName() . '_alter_column_tmp';
         /// Prevent temp field to have both NULL/NOT NULL and DEFAULT constraints
             $this->alter_column_skip_notnull = true;
@@ -451,9 +451,16 @@ class XMLDBoci8po extends XMLDBgenerator {
      * (usually invoked from getModifyEnumSQL()
      */         
     function getDropEnumSQL($xmldb_table, $xmldb_field) {
-    /// All we have to do is to drop the check constraint
-        return array('ALTER TABLE ' . $this->getTableName($xmldb_table) . 
-                     ' DROP CONSTRAINT ' . $this->getNameForObject($xmldb_table->getName(), $xmldb_field->getName(), 'ck'));
+    /// Let's introspect to know the real name of the check constraint
+        if ($check_constraints = $this->getCheckConstraintsFromDB($xmldb_table, $xmldb_field)) {
+            $check_constraint = array_shift($check_constraints); /// Get the 1st (should be only one)
+            $constraint_name = strtolower($check_constraint->name); /// Extract the REAL name
+        /// All we have to do is to drop the check constraint
+            return array('ALTER TABLE ' . $this->getTableName($xmldb_table) . 
+                     ' DROP CONSTRAINT ' . $constraint_name);
+        } else { /// Constraint not found. Nothing to do
+            return array();
+        }
     }   
 
     /**
@@ -477,12 +484,14 @@ class XMLDBoci8po extends XMLDBgenerator {
     }   
 
     /**
-     * Given one XMLDBTable returns one array with all the check constrainsts 
+     * Given one XMLDBTable returns one array with all the check constrainsts
      * in the table (fetched from DB)
+     * Optionally the function allows one xmldb_field to be specified in
+     * order to return only the check constraints belonging to one field.
      * Each element contains the name of the constraint and its description
      * If no check constraints are found, returns an empty array
      */
-    function getCheckConstraintsFromDB($xmldb_table) {
+    function getCheckConstraintsFromDB($xmldb_table, $xmldb_field = null) {
 
         $results = array();
 
@@ -498,6 +507,21 @@ class XMLDBoci8po extends XMLDBgenerator {
             }
         }
 
+    /// Filter by the required field if specified
+        if ($xmldb_field) {
+            $filtered_results = array();
+            $filter = $xmldb_field->getName();
+        /// Lets clean a bit each constraint description, looking for the filtered field
+            foreach ($results as $key => $result) {
+            /// description starts by "$filter IN" assume it's a constraint beloging to the field
+                if (preg_match("/^{$filter} IN/i", $result->description)) {
+                    $filtered_results[$key] = $result;
+                }
+            }
+        /// Assign filtered results to the final results array
+            $results =  $filtered_results;
+        }
+
         return $results;
     }
 
@@ -511,12 +535,14 @@ class XMLDBoci8po extends XMLDBgenerator {
      */
     function getSequenceFromDB($xmldb_table) {
 
-         $tablename = strtoupper($this->getTableName($xmldb_table));
+         $tablename    = strtoupper($this->getTableName($xmldb_table));
+         $prefixupper  = strtoupper($this->prefix);
          $sequencename = false;
 
         if ($trigger = get_record_sql("SELECT trigger_name, trigger_body
                                          FROM user_triggers
-                                        WHERE table_name = '{$tablename}'")) {
+                                        WHERE table_name = '{$tablename}'
+                                          AND trigger_name LIKE '{$prefixupper}%_ID%_TRG'")) {
         /// If trigger found, regexp it looking for the sequence name
             preg_match('/.*SELECT (.*)\.nextval/i', $trigger->trigger_body, $matches);
             if (isset($matches[1])) {
@@ -534,12 +560,14 @@ class XMLDBoci8po extends XMLDBgenerator {
      */
     function getTriggerFromDB($xmldb_table) {
 
-        $tablename = strtoupper($this->getTableName($xmldb_table));
+        $tablename   = strtoupper($this->getTableName($xmldb_table));
+        $prefixupper = strtoupper($this->prefix);
         $triggername = false;
 
         if ($trigger = get_record_sql("SELECT trigger_name, trigger_body
                                          FROM user_triggers
-                                        WHERE table_name = '{$tablename}'")) {
+                                        WHERE table_name = '{$tablename}'
+                                          AND trigger_name LIKE '{$prefixupper}%_ID%_TRG'")) {
             $triggername = $trigger->trigger_name;
         }
 

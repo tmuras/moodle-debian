@@ -1,10 +1,14 @@
-<?php  // $Id: questiontype.php,v 1.21.2.5 2007/05/04 10:03:56 tjhunt Exp $
+<?php  // $Id: questiontype.php,v 1.32.2.5 2008/08/20 09:46:03 tjhunt Exp $
 
 /////////////
 /// MATCH ///
 /////////////
 
 /// QUESTION TYPE CLASS //////////////////
+/**
+ * @package questionbank
+ * @subpackage questiontypes
+ */
 class question_match_qtype extends default_questiontype {
 
     function name() {
@@ -30,7 +34,7 @@ class question_match_qtype extends default_questiontype {
         // Insert all the new question+answer pairs
         foreach ($question->subquestions as $key => $questiontext) {
             $answertext = $question->subanswers[$key];
-            if (!empty($questiontext) or !empty($answertext)) {
+            if ($questiontext != '' || $answertext != '') {
                 if ($subquestion = array_shift($oldsubquestions)) {  // Existing answer, so reuse it
                     $subquestion->questiontext = $questiontext;
                     $subquestion->answertext   = $answertext;
@@ -55,7 +59,7 @@ class question_match_qtype extends default_questiontype {
                 }
                 $subquestions[] = $subquestion->id;
             }
-            if (!empty($questiontext) && empty($answertext)) {
+            if ($questiontext != '' && $answertext == '') {
                 $result->notice = get_string('nomatchinganswer', 'quiz', $questiontext);
             }
         }
@@ -166,7 +170,7 @@ class question_match_qtype extends default_questiontype {
             // answers per question, each with different marks and feedback.
             $answer = new stdClass();
             $answer->id       = $subquestion->code;
-            $answer->answer   = $subquestion->answertext;
+            $answer->answer   = format_string($subquestion->answertext);
             $answer->fraction = 1.0;
             $state->options->subquestions[$key]->options
              ->answers[$subquestion->code] = clone($answer);
@@ -219,7 +223,7 @@ class question_match_qtype extends default_questiontype {
         $responses = array();
         foreach ($state->options->subquestions as $sub) {
             foreach ($sub->options->answers as $answer) {
-                if (1 == $answer->fraction && $sub->questiontext) {
+                if (1 == $answer->fraction && $sub->questiontext != '') {
                     $responses[$sub->id] = $answer->id;
                 }
             }
@@ -264,11 +268,11 @@ class question_match_qtype extends default_questiontype {
         // Print formulation
         $questiontext = $this->format_text($question->questiontext,
                 $question->questiontextformat, $cmoptions);
-        $image = get_question_image($question, $cmoptions->course);
+        $image = get_question_image($question);
 
         // Print the input controls
         foreach ($subquestions as $key => $subquestion) {
-            if ($subquestion->questiontext) {
+            if ($subquestion->questiontext != '') {
                 // Subquestion text:
                 $a = new stdClass;
                 $a->text = $this->format_text($subquestion->questiontext,
@@ -413,7 +417,7 @@ class question_match_qtype extends default_questiontype {
 
     function response_summary($question, $state, $length=80) {
         // This should almost certainly be overridden
-        return substr(implode(', ', $this->get_actual_response($question, $state)), 0, $length);
+        return shorten_text(implode(', ', $this->get_actual_response($question, $state)), $length);
     }
 
 /// BACKUP FUNCTIONS ////////////////////////////
@@ -592,16 +596,30 @@ class question_match_qtype extends default_questiontype {
             //Extract the match_sub for the question and the answer
             $exploded = explode("-",$tok);
             $match_question_id = $exploded[0];
-            $match_answer_code = $exploded[1];
+            $match_answer_id = $exploded[1];
             //Get the match_sub from backup_ids (for the question)
             if (!$match_que = backup_getid($restore->backup_unique_code,"question_match_sub",$match_question_id)) {
-                echo 'Could not recode question_match_sub '.$match_question_id.'<br />';
+                echo 'Could not recode question in question_match_sub '.$match_question_id.'<br />';
             }
-            if ($in_first) {
-                $answer_field .= $match_que->new_id."-".$match_answer_code;
-                $in_first = false;
-            } else {
-                $answer_field .= ",".$match_que->new_id."-".$match_answer_code;
+            //Get the match_sub from backup_ids (for the answer)
+            if ($match_answer_id) { // only recode answer if not 0, not answered yet
+              if (!$match_ans = backup_getid($restore->backup_unique_code,"question_match_sub",$match_answer_id)) {
+                  echo 'Could not recode answer in question_match_sub '.$match_answer_id.'<br />';
+              }
+            }
+
+            if ($match_que) {
+                //If the question hasn't response, it must be 0
+                if (!$match_ans and $match_answer_id == 0) {
+                    $match_ans->new_id = 0;
+                }
+
+                if ($in_first) {
+                    $answer_field .= $match_que->new_id."-".$match_ans->new_id;
+                    $in_first = false;
+                } else {
+                    $answer_field .= ",".$match_que->new_id."-".$match_ans->new_id;
+                }
             }
             //check for next
             $tok = strtok(",");
@@ -612,7 +630,7 @@ class question_match_qtype extends default_questiontype {
     /**
      * Decode links in question type specific tables.
      * @return bool success or failure.
-     */ 
+     */
     function decode_content_links_caller($questionids, $restore, &$i) {
         $status = true;
 
@@ -641,6 +659,59 @@ class question_match_qtype extends default_questiontype {
         }
 
         return $status;
+    }
+
+    function find_file_links($question, $courseid){
+        // find links in the question_match_sub table.
+        $urls = array();
+        if (isset($question->options->subquestions)){
+            foreach ($question->options->subquestions as $subquestion) {
+                $urls += question_find_file_links_from_html($subquestion->questiontext, $courseid);
+            }
+
+            //set all the values of the array to the question object
+            if ($urls){
+                $urls = array_combine(array_keys($urls), array_fill(0, count($urls), array($question->id)));
+            }
+        }
+        $urls = array_merge_recursive($urls, parent::find_file_links($question, $courseid));
+
+        return $urls;
+    }
+
+    function replace_file_links($question, $fromcourseid, $tocourseid, $url, $destination){
+        parent::replace_file_links($question, $fromcourseid, $tocourseid, $url, $destination);
+        // replace links in the question_match_sub table.
+        if (isset($question->options->subquestions)){
+            foreach ($question->options->subquestions as $subquestion) {
+                $subquestionchanged = false;
+                $subquestion->questiontext = question_replace_file_links_in_html($subquestion->questiontext, $fromcourseid, $tocourseid, $url, $destination, $subquestionchanged);
+                if ($subquestionchanged){//need to update rec in db
+                    if (!update_record('question_match_sub', addslashes_recursive($subquestion))) {
+                        error('Couldn\'t update \'question_match_sub\' record '.$subquestion->id);
+                    }
+
+                }
+            }
+        }
+    }
+
+    /**
+     * Runs all the code required to set up and save an essay question for testing purposes.
+     * Alternate DB table prefix may be used to facilitate data deletion.
+     */
+    function generate_test($name, $courseid = null) {
+        list($form, $question) = parent::generate_test($name, $courseid);
+        $form->shuffleanswers = 1;
+        $form->noanswers = 3;
+        $form->subquestions = array('cat', 'dog', 'cow');
+        $form->subanswers = array('feline', 'canine', 'bovine');
+
+        if ($courseid) {
+            $course = get_record('course', 'id', $courseid);
+        }
+
+        return $this->save_question($question, $form, $course);
     }
 }
 //// END OF CLASS ////

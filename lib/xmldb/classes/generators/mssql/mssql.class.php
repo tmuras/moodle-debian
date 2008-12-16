@@ -1,4 +1,4 @@
-<?php // $Id: mssql.class.php,v 1.34.2.1 2007/04/08 22:56:23 stronk7 Exp $
+<?php // $Id: mssql.class.php,v 1.41 2007/10/10 05:25:18 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -154,7 +154,8 @@ class XMLDBmssql extends XMLDBgenerator {
 
     /**
      * Given one XMLDBTable and one XMLDBField, return the SQL statements needded to drop the field from the table
-     * MSSQL overwrites the standard sentence because it needs to do some extra work dropping the default constraints
+     * MSSQL overwrites the standard sentence because it needs to do some extra work dropping the default and
+     * check constraints
      */
     function getDropFieldSQL($xmldb_table, $xmldb_field) {
 
@@ -166,21 +167,17 @@ class XMLDBmssql extends XMLDBgenerator {
         $tablename = $this->getTableName($xmldb_table);
         $fieldname = $this->getEncQuoted($xmldb_field->getName());
 
-        $checkconsname = $this->getNameForObject($xmldb_table->getName(), $xmldb_field->getName(), 'ck');
-
     /// Look for any default constraint in this field and drop it
         if ($defaultname = $this->getDefaultConstraintName($xmldb_table, $xmldb_field)) {
             $results[] = 'ALTER TABLE ' . $tablename . ' DROP CONSTRAINT ' . $defaultname;
         }
 
     /// Look for any check constraint in this field and drop it
-        if ($check = get_record_sql("SELECT id, object_name(constid) AS checkconstraint
-                                     FROM sysconstraints
-                                     WHERE id = object_id('{$tablename}') AND
-                                           object_name(constid) = '$checkconsname'")) {
-            $results[] = 'ALTER TABLE ' . $tablename . ' DROP CONSTRAINT ' . $check->checkconstraint;
+        if ($drop_check = $this->getDropEnumSQL($xmldb_table, $xmldb_field)) {
+            $results = array_merge($results, $drop_check);
         }
-    /// Build the standard alter table drop
+
+    /// Build the standard alter table drop column
         $results[] = 'ALTER TABLE ' . $tablename . ' DROP COLUMN ' . $fieldname;
 
         return $results;
@@ -295,6 +292,7 @@ class XMLDBmssql extends XMLDBgenerator {
         $olddefault = empty($metac->has_default) ? null : strtok($metac->default_value, ':');
 
         $typechanged = true;  //By default, assume that the column type has changed
+        $lengthchanged = true;  //By default, assume that the column length has changed
 
     /// Detect if we are changing the type of the column
         if (($xmldb_field->getType() == XMLDB_TYPE_INTEGER && substr($oldmetatype, 0, 1) == 'I') ||
@@ -306,8 +304,14 @@ class XMLDBmssql extends XMLDBgenerator {
             $typechanged = false;
         }
 
-    /// If type has changed drop the default if exists
-        if ($typechanged) {
+    /// Detect if we are changing the length of the column, not always necessary to drop defaults
+    /// if only the length changes, but it's safe to do it always
+        if ($xmldb_field->getLength() == $oldlength) {
+            $lengthchanged = false;
+        }
+
+    /// If type or length have changed drop the default if exists
+        if ($typechanged || $lengthchanged) {
             $results = $this->getDropDefaultSQL($xmldb_table, $xmldb_field);
         }
 
@@ -316,7 +320,7 @@ class XMLDBmssql extends XMLDBgenerator {
         $results = array_merge($results, parent::getAlterFieldSQL($xmldb_table, $xmldb_field)); // Call parent
 
     /// Finally, process the default clause to add it back if necessary
-        if ($typechanged) {
+        if ($typechanged || $lengthchanged) {
             $results = array_merge($results, $this->getCreateDefaultSQL($xmldb_table, $xmldb_field));
         }
 
@@ -361,14 +365,21 @@ class XMLDBmssql extends XMLDBgenerator {
                      ' ADD ' . $this->getEnumExtraSQL($xmldb_table, $xmldb_field));
     }
 
-    /**     
-     * Given one XMLDBTable and one XMLDBField, return the SQL statements needded to drop its enum 
+    /**
+     * Given one XMLDBTable and one XMLDBField, return the SQL statements needded to drop its enum
      * (usually invoked from getModifyEnumSQL()
      */
     function getDropEnumSQL($xmldb_table, $xmldb_field) {
-    /// All we have to do is to drop the check constraint
-        return array('ALTER TABLE ' . $this->getTableName($xmldb_table) .
-                     ' DROP CONSTRAINT ' . $this->getNameForObject($xmldb_table->getName(), $xmldb_field->getName(), 'ck'));
+    /// Let's introspect to know the real name of the check constraint
+        if ($check_constraints = $this->getCheckConstraintsFromDB($xmldb_table, $xmldb_field)) {
+            $check_constraint = array_shift($check_constraints); /// Get the 1st (should be only one)
+            $constraint_name = strtolower($check_constraint->name); /// Extract the REAL name
+        /// All we have to do is to drop the check constraint
+            return array('ALTER TABLE ' . $this->getTableName($xmldb_table) .
+                     ' DROP CONSTRAINT ' . $constraint_name);
+        } else { /// Constraint not found. Nothing to do
+            return array();
+        }
     }
 
     /**
@@ -437,12 +448,14 @@ class XMLDBmssql extends XMLDBgenerator {
     }
 
     /**
-     * Given one XMLDBTable returns one array with all the check constrainsts 
+     * Given one XMLDBTable returns one array with all the check constrainsts
      * in the table (fetched from DB)
+     * Optionally the function allows one xmldb_field to be specified in
+     * order to return only the check constraints belonging to one field.
      * Each element contains the name of the constraint and its description
      * If no check constraints are found, returns an empty array
      */
-    function getCheckConstraintsFromDB($xmldb_table) {
+    function getCheckConstraintsFromDB($xmldb_table, $xmldb_field = null) {
 
         $results = array();
 
@@ -459,6 +472,22 @@ class XMLDBmssql extends XMLDBgenerator {
             foreach ($constraints as $constraint) {
                 $results[$constraint->name] = $constraint;
             }
+        }
+
+    /// Filter by the required field if specified
+        if ($xmldb_field) {
+            $filtered_results = array();
+            $filter = $xmldb_field->getName();
+        /// Lets clean a bit each constraint description, looking for the filtered field
+            foreach ($results as $key => $result) {
+                $description = trim(preg_replace('/[\(\)]/', '',  $result->description));   // Parenthesis out & trim
+                /// description starts by [$filter] assume it's a constraint beloging to the field
+                if (preg_match("/^\[{$filter}\]/i", $description)) {
+                    $filtered_results[$key] = $result;
+                }
+            }
+        /// Assign filtered results to the final results array
+            $results =  $filtered_results;
         }
 
         return $results;

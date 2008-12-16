@@ -5,7 +5,7 @@
  * Normally this is only called by the main config.php file
  * Normally this file does not need to be edited.
  * @author Martin Dougiamas
- * @version $Id: setup.php,v 1.198.2.2 2007/04/05 05:00:40 martinlanghoff Exp $
+ * @version $Id: setup.php,v 1.212.2.19 2008/08/17 22:22:51 skodak Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package moodlecore
  */
@@ -89,6 +89,9 @@ global $HTTPSPAGEREQUIRED;
         die;
     }
 
+/// store settings from config.php in array in $CFG - we can use it later to detect problems and overrides
+    $CFG->config_php_settings = (array)$CFG;
+
 /// Set httpswwwroot default value (this variable will replace $CFG->wwwroot
 /// inside some URLs used in HTTPSPAGEREQUIRED pages.
     $CFG->httpswwwroot = $CFG->wwwroot;
@@ -114,10 +117,9 @@ global $HTTPSPAGEREQUIRED;
 
 /// Connect to the database using adodb
 
-/// Some defines required BEFORE including AdoDB library
-    define ('ADODB_ASSOC_CASE', 0); //Use lowercase fieldnames for ADODB_FETCH_ASSOC
-                                    //(only meaningful for oci8po, it's the default
-                                    //for other DB drivers so this won't affect them)
+/// Set $CFG->dbfamily global
+/// and configure some other specific variables for each db BEFORE attempting the connection
+    preconfigure_dbconnection();
 
     require_once($CFG->libdir .'/adodb/adodb.inc.php'); // Database access functions
 
@@ -153,10 +155,27 @@ global $HTTPSPAGEREQUIRED;
         echo '</td></tr></table>';
         echo '</body></html>';
 
-        if (!empty($CFG->emailconnectionerrorsto)) {
-            mail($CFG->emailconnectionerrorsto, 
-                 'WARNING: Database connection error: '.$CFG->wwwroot, 
-                 'Connection error: '.$CFG->wwwroot);
+        error_log('ADODB Error: '.$db->ErrorMsg()); // see MDL-14628
+
+        if (empty($CFG->noemailever) and !empty($CFG->emailconnectionerrorsto)) {
+            if (file_exists($CFG->dataroot.'/emailcount')){
+                $fp = fopen($CFG->dataroot.'/emailcount', 'r');
+                $content = fread($fp, 24);
+                fclose($fp);
+                if((time() - (int)$content) > 600){
+                    mail($CFG->emailconnectionerrorsto, 
+                        'WARNING: Database connection error: '.$CFG->wwwroot, 
+                        'Connection error: '.$CFG->wwwroot);
+                    $fp = fopen($CFG->dataroot.'/emailcount', 'w');
+                    fwrite($fp, time());
+                }
+            } else {
+               mail($CFG->emailconnectionerrorsto, 
+                    'WARNING: Database connection error: '.$CFG->wwwroot, 
+                    'Connection error: '.$CFG->wwwroot);
+               $fp = fopen($CFG->dataroot.'/emailcount', 'w');
+               fwrite($fp, time());
+            }
         }
         die;
     }
@@ -193,6 +212,12 @@ global $HTTPSPAGEREQUIRED;
     require_once($CFG->libdir .'/accesslib.php');       // Access control functions
     require_once($CFG->libdir .'/deprecatedlib.php');   // Deprecated functions included for backward compatibility
     require_once($CFG->libdir .'/moodlelib.php');       // Other general-purpose functions
+    require_once($CFG->libdir .'/eventslib.php');       // Events functions
+    require_once($CFG->libdir .'/grouplib.php');        // Groups functions
+
+    //point pear include path to moodles lib/pear so that includes and requires will search there for files before anywhere else
+    //the problem is that we need specific version of quickforms and hacked excel files :-(
+    ini_set('include_path', $CFG->libdir.'/pear' . PATH_SEPARATOR . ini_get('include_path'));
 
 /// Disable errors for now - needed for installation when debug enabled in config.php
     if (isset($CFG->debug)) {
@@ -207,7 +232,6 @@ global $HTTPSPAGEREQUIRED;
     configure_dbconnection();
 
 /// Load up any configuration from the config table
-    unset($CFG->rcache);
     $CFG = get_config();
 
 /// Turn on SQL logging if required
@@ -225,11 +249,11 @@ global $HTTPSPAGEREQUIRED;
 
 
 /// For now, only needed under apache (and probably unstable in other contexts)
-    if (function_exists('apache_child_terminate')) {
+    if (function_exists('register_shutdown_function')) {
         register_shutdown_function('moodle_request_shutdown');
     }
 
-//// Defining the site
+/// Defining the site
     if ($SITE = get_site()) {
         /**
          * If $SITE global from {@link get_site()} is set then SITEID to $SITE->id, otherwise set to 1.
@@ -247,6 +271,10 @@ global $HTTPSPAGEREQUIRED;
         $COURSE->id = 1;
     }
 
+    // define SYSCONTEXTID in config.php if you want to save some queries (after install or upgrade!)
+    if (!defined('SYSCONTEXTID')) {
+        get_system_context();
+    }
 
 /// Set error reporting back to normal
     if ($originaldatabasedebug == -1) {
@@ -262,6 +290,10 @@ global $HTTPSPAGEREQUIRED;
     error_reporting($CFG->debug);
 
 
+/// find out if PHP cofigured to display warnings
+    if (ini_get_bool('display_errors')) {
+        define('WARN_DISPLAY_ERRORS_ENABLED', true);
+    }
 /// If we want to display Moodle errors, then try and set PHP errors to match
     if (!isset($CFG->debugdisplay)) {
         //keep it as is during installation
@@ -271,29 +303,49 @@ global $HTTPSPAGEREQUIRED;
     } else {
         @ini_set('display_errors', '1');
     }
+// Even when users want to see errors in the output,
+// some parts of Moodle cannot display them at all.
+// (Once we are XHTML strict compliant, debugdisplay
+//  _must_ go away).
+    if (defined('MOODLE_SANE_OUTPUT')) {
+        @ini_set('display_errors', '0');
+        @ini_set('log_errors', '1');
+    }
 
 /// Shared-Memory cache init -- will set $MCACHE
 /// $MCACHE is a global object that offers at least add(), set() and delete()
 /// with similar semantics to the memcached PHP API http://php.net/memcache
+/// Ensure we define rcache - so we can later check for it
+/// with a really fast and unambiguous $CFG->rcache === false
     if (!empty($CFG->cachetype)) {
+        if (empty($CFG->rcache)) {
+            $CFG->rcache = false;
+        } else {
+            $CFG->rcache = true;
+        }
+
+        // do not try to initialize if cache disabled
+        if (!$CFG->rcache) {
+            $CFG->cachetype = '';
+        }
+
         if ($CFG->cachetype === 'memcached' && !empty($CFG->memcachedhosts)) {
             if (!init_memcached()) {
                 debugging("Error initialising memcached");
+                $CFG->cachetype = '';
+                $CFG->rcache = false;
             }
-        } elseif ($CFG->cachetype === 'eaccelerator') {
+        } else if ($CFG->cachetype === 'eaccelerator') {
             if (!init_eaccelerator()) {
                 debugging("Error initialising eaccelerator cache");
+                $CFG->cachetype = '';
+                $CFG->rcache = false;                
             }
         }
+
     } else { // just make sure it is defined
         $CFG->cachetype = '';
-    }
-/// Ensure we define rcache - so we can later check for it
-/// with a really fast and unambiguous $CFG->rcache === false
-    if (empty($CFG->rcache)) {
-        $CFG->rcache = false;
-    } else {
-        $CFG->rcache = true;
+        $CFG->rcache    = false;
     }
 
 /// Set a default enrolment configuration (see bug 1598)
@@ -376,14 +428,21 @@ global $HTTPSPAGEREQUIRED;
             require_once($CFG->libdir. '/adodb/session/adodb-session2.php');
         }
     }
-/// Set sessioncookie variable if it isn't already
+/// Set sessioncookie and sessioncookiepath variable if it isn't already
     if (!isset($CFG->sessioncookie)) {
         $CFG->sessioncookie = '';
+    }
+    if (!isset($CFG->sessioncookiepath)) {
+        $CFG->sessioncookiepath = '/';
     }
 
 /// Configure ampersands in URLs
 
     @ini_set('arg_separator.output', '&amp;');
+
+/// Work around for a PHP bug   see MDL-11237
+  
+    @ini_set('pcre.backtrack_limit', 20971520);  // 20 MB 
 
 /// Location of standard files
 
@@ -391,11 +450,15 @@ global $HTTPSPAGEREQUIRED;
     $CFG->javascript  = $CFG->libdir .'/javascript.php';
     $CFG->moddata     = 'moddata';
 
-
+// Alas, in some cases we cannot deal with magic_quotes.
+    if (defined('MOODLE_SANE_INPUT') && ini_get_bool('magic_quotes_gpc')) {
+        mdie("Facilities that require MOODLE_SANE_INPUT "
+             . "cannot work with magic_quotes_gpc. Please disable "
+             . "magic_quotes_gpc.");
+    }
 /// A hack to get around magic_quotes_gpc being turned off
 /// It is strongly recommended to enable "magic_quotes_gpc"!
-
-    if (!ini_get_bool('magic_quotes_gpc') ) {
+    if (!ini_get_bool('magic_quotes_gpc') && !defined('MOODLE_SANE_INPUT') ) {
         function addslashes_deep($value) {
             $value = is_array($value) ?
                     array_map('addslashes_deep', $value) :
@@ -431,13 +494,12 @@ global $HTTPSPAGEREQUIRED;
 /// This hack is no longer being applied as of Moodle 1.6 unless you really 
 /// really want to use it (by defining  $CFG->enableglobalshack = true)
 
-    if (!empty($CFG->enableglobalshack)) {
+    if (!empty($CFG->enableglobalshack) && !defined('MOODLE_SANE_INPUT')) {
         if (!empty($CFG->detect_unchecked_vars)) {
             global $UNCHECKED_VARS;
             $UNCHECKED_VARS->url = $_SERVER['PHP_SELF'];
             $UNCHECKED_VARS->vars = array();
         }
-    
         if (isset($_GET)) {
             extract($_GET, EXTR_SKIP);    // Skip existing variables, ie CFG
             if (!empty($CFG->detect_unchecked_vars)) {
@@ -462,11 +524,17 @@ global $HTTPSPAGEREQUIRED;
 
 /// Load up global environment variables
 
-    class object {};
+    if (!isset($CFG->cookiesecure) or strpos($CFG->wwwroot, 'https://') !== 0) {
+        $CFG->cookiesecure = false;
+    }
+
+    if (!isset($CFG->cookiehttponly)) {
+        $CFG->cookiehttponly = false;
+    }
 
     //discard session ID from POST, GET and globals to tighten security,
     //this session fixation prevention can not be used in cookieless mode
-    if (empty($CFG->usesid)) {
+    if (empty($CFG->usesid) && !defined('MOODLE_SANE_INPUT')) {
         unset(${'MoodleSession'.$CFG->sessioncookie});
         unset($_GET['MoodleSession'.$CFG->sessioncookie]);
         unset($_POST['MoodleSession'.$CFG->sessioncookie]);
@@ -485,6 +553,11 @@ global $HTTPSPAGEREQUIRED;
 
     if (empty($nomoodlecookie)) {
         session_name('MoodleSession'.$CFG->sessioncookie);
+        if (check_php_version('5.2.0')) {
+            session_set_cookie_params(0, $CFG->sessioncookiepath, '', $CFG->cookiesecure, $CFG->cookiehttponly);
+        } else {
+            session_set_cookie_params(0, $CFG->sessioncookiepath, '', $CFG->cookiesecure);
+        }
         @session_start();
         if (! isset($_SESSION['SESSION'])) {
             $_SESSION['SESSION'] = new object;
@@ -492,7 +565,11 @@ global $HTTPSPAGEREQUIRED;
             if (!empty($_COOKIE['MoodleSessionTest'.$CFG->sessioncookie])) {
                 $_SESSION['SESSION']->has_timed_out = true;
             }
-            setcookie('MoodleSessionTest'.$CFG->sessioncookie, $_SESSION['SESSION']->session_test, 0, '/');
+            if (check_php_version('5.2.0')) {
+                setcookie('MoodleSessionTest'.$CFG->sessioncookie, $_SESSION['SESSION']->session_test, 0, $CFG->sessioncookiepath, '', $CFG->cookiesecure, $CFG->cookiehttponly);
+            } else {
+                setcookie('MoodleSessionTest'.$CFG->sessioncookie, $_SESSION['SESSION']->session_test, 0, $CFG->sessioncookiepath, '', $CFG->cookiesecure);
+            }
             $_COOKIE['MoodleSessionTest'.$CFG->sessioncookie] = $_SESSION['SESSION']->session_test;
         }
         if (! isset($_SESSION['USER']))    {
@@ -509,6 +586,9 @@ global $HTTPSPAGEREQUIRED;
         $SESSION  = NULL;
         $USER     = new object();
         $USER->id = 0; // user not logged in when session disabled
+        if (isset($CFG->mnet_localhost_id)) {
+            $USER->mnethostid = $CFG->mnet_localhost_id;
+        }
     }
 
     if (defined('FULLME')) {     // Usually in command-line scripts like admin/cron.php
@@ -586,7 +666,7 @@ global $HTTPSPAGEREQUIRED;
             $CFG->lang = $SESSION->lang;
         }
     }
-
+    
     // set default locale and themes - might be changed again later from require_login()
     course_setup();
 
@@ -595,11 +675,13 @@ global $HTTPSPAGEREQUIRED;
             if (!empty($_SERVER['HTTP_USER_AGENT'])) {
                 if (strpos($_SERVER['HTTP_USER_AGENT'], 'Googlebot') !== false ) {
                     $USER = guest_user();
-                } else if (strpos($_SERVER['HTTP_USER_AGENT'], 'google.com') !== false ) {
+                } else if (strpos($_SERVER['HTTP_USER_AGENT'], 'google.com') !== false ) { // Google
                     $USER = guest_user();
-                } else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Yahoo! Slurp') !== false ) {
+                } else if (strpos($_SERVER['HTTP_USER_AGENT'], 'Yahoo! Slurp') !== false ) {  // Yahoo
                     $USER = guest_user();
-                } else if (strpos($_SERVER['HTTP_USER_AGENT'], 'MSNBOT') !== false ) {
+                } else if (strpos($_SERVER['HTTP_USER_AGENT'], '[ZSEBOT]') !== false ) {  // Zoomspider
+                    $USER = guest_user();
+                } else if (strpos($_SERVER['HTTP_USER_AGENT'], 'MSNBOT') !== false ) {  // MSN Search
                     $USER = guest_user();
                 }
             }
@@ -631,10 +713,17 @@ global $HTTPSPAGEREQUIRED;
 
 /// Apache log intergration. In apache conf file one can use ${MOODULEUSER}n in
 /// LogFormat to get the current logged in username in moodle.
-    if ($USER && function_exists('apache_note') && !empty($CFG->apacheloguser)) {
-        $apachelog_username = clean_filename($USER->username);
-        $apachelog_name = clean_filename($USER->firstname. " ".$USER->lastname);
+    if ($USER && function_exists('apache_note')
+        && !empty($CFG->apacheloguser) && isset($USER->username)) {
         $apachelog_userid = $USER->id;
+        $apachelog_username = clean_filename($USER->username);
+        $apachelog_name = '';
+        if (isset($USER->firstname)) {
+            // We can assume both will be set
+            // - even if to empty.
+            $apachelog_name = clean_filename($USER->firstname . " " .
+                                             $USER->lastname);
+        }
         if (isset($USER->realuser)) {
             if ($realuser = get_record('user', 'id', $USER->realuser)) {
                 $apachelog_username = clean_filename($realuser->username." as ".$apachelog_username);

@@ -1,56 +1,51 @@
-<?php // $Id: assignment.class.php,v 1.30.2.1 2007/04/05 03:18:45 nicolasconnault Exp $
+<?php // $Id: assignment.class.php,v 1.33.2.5 2008/04/08 03:02:49 scyrma Exp $
 
 /**
  * Extend the base assignment class for assignments where you upload a single file
  *
  */
 class assignment_uploadsingle extends assignment_base {
-    
+
 
     function print_student_answer($userid, $return=false){
            global $CFG, $USER;
-       
+
         $filearea = $this->file_area_name($userid);
 
         $output = '';
-    
+
         if ($basedir = $this->file_area($userid)) {
             if ($files = get_directory_list($basedir)) {
-                
+                require_once($CFG->libdir.'/filelib.php');
                 foreach ($files as $key => $file) {
-                    require_once($CFG->libdir.'/filelib.php');
-                    
+
                     $icon = mimeinfo('icon', $file);
-                    
-                    if ($CFG->slasharguments) {
-                        $ffurl = "$CFG->wwwroot/file.php/$filearea/$file";
-                    } else {
-                        $ffurl = "$CFG->wwwroot/file.php?file=/$filearea/$file";
-                    }
+                    $ffurl = get_file_url("$filearea/$file");
+
                     //died right here
-                    //require_once($ffurl);                
-                    $output = '<img align="middle" src="'.$CFG->pixpath.'/f/'.$icon.'" class="icon" alt="'.$icon.'" />'.
+                    //require_once($ffurl);
+                    $output = '<img src="'.$CFG->pixpath.'/f/'.$icon.'" class="icon" alt="'.$icon.'" />'.
                             '<a href="'.$ffurl.'" >'.$file.'</a><br />';
                 }
             }
         }
 
         $output = '<div class="files">'.$output.'</div>';
-        return $output;    
+        return $output;
     }
 
-    function assignment_uploadsingle($cmid=0) {
-        parent::assignment_base($cmid);
-
+    function assignment_uploadsingle($cmid='staticonly', $assignment=NULL, $cm=NULL, $course=NULL) {
+        parent::assignment_base($cmid, $assignment, $cm, $course);
+        $this->type = 'uploadsingle';
     }
 
     function view() {
-    
+
         global $USER;
-        
+
         $context = get_context_instance(CONTEXT_MODULE,$this->cm->id);
         require_capability('mod/assignment:view', $context);
-        
+
         add_to_log($this->course->id, "assignment", "view", "view.php?id={$this->cm->id}", $this->assignment->id, $this->cm->id);
 
         $this->view_header();
@@ -81,7 +76,9 @@ class assignment_uploadsingle extends assignment_base {
     function view_upload_form() {
         global $CFG;
         $struploadafile = get_string("uploadafile");
-        $strmaxsize = get_string("maxsize", "", display_size($this->assignment->maxbytes));
+
+        $maxbytes = $this->assignment->maxbytes == 0 ? $this->course->maxbytes : $this->assignment->maxbytes;
+        $strmaxsize = get_string('maxsize', '', display_size($maxbytes));
 
         echo '<div style="text-align:center">';
         echo '<form enctype="multipart/form-data" method="post" '.
@@ -99,9 +96,9 @@ class assignment_uploadsingle extends assignment_base {
 
 
     function upload() {
-        
+
         global $CFG, $USER;
-        
+
         require_capability('mod/assignment:submit', get_context_instance(CONTEXT_MODULE, $this->cm->id));
 
         $this->view_header(get_string('upload'));
@@ -129,8 +126,10 @@ class assignment_uploadsingle extends assignment_base {
                     unset($submission->data1);  // Don't need to update this.
                     unset($submission->data2);  // Don't need to update this.
                     if (update_record("assignment_submissions", $submission)) {
-                        add_to_log($this->course->id, 'assignment', 'upload', 
+                        add_to_log($this->course->id, 'assignment', 'upload',
                                 'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
+                        $submission = $this->get_submission($USER->id);
+                        $this->update_grade($submission);
                         $this->email_teachers($submission);
                         print_heading(get_string('uploadedfile'));
                     } else {
@@ -141,8 +140,10 @@ class assignment_uploadsingle extends assignment_base {
                     $newsubmission->timemodified = time();
                     $newsubmission->numfiles = 1;
                     if (insert_record('assignment_submissions', $newsubmission)) {
-                        add_to_log($this->course->id, 'assignment', 'upload', 
+                        add_to_log($this->course->id, 'assignment', 'upload',
                                 'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
+                        $submission = $this->get_submission($USER->id);
+                        $this->update_grade($submission);
                         $this->email_teachers($newsubmission);
                         print_heading(get_string('uploadedfile'));
                     } else {
@@ -173,7 +174,6 @@ class assignment_uploadsingle extends assignment_base {
         $mform->setDefault('emailteachers', 0);
 
         $choices = get_max_upload_sizes($CFG->maxbytes, $COURSE->maxbytes);
-        $choices[1] = get_string('uploadnotallowed');
         $choices[0] = get_string('courseuploadlimit') . ' ('.display_size($COURSE->maxbytes).')';
         $mform->addElement('select', 'maxbytes', get_string('maximumsize', 'assignment'), $choices);
         $mform->setDefault('maxbytes', $CFG->assignment_maxbytes);

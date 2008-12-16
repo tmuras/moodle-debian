@@ -1,4 +1,4 @@
-<?PHP // $Id: hotpot.php,v 1.9.4.1 2007/03/30 05:21:02 nicolasconnault Exp $ 
+<?PHP // $Id: hotpot.php,v 1.10.4.1 2007/12/22 20:04:11 poltawski Exp $ 
       // hotpot.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -36,6 +36,7 @@ $string['error_nofeedbackurlwebpage'] = 'Please enter a URL for the webpage';
 $string['error_nofilename'] = 'Please enter a file name';
 $string['error_noquizzesfound'] = 'No Hot Potatoes quizzes found';
 $string['error_notfileorfolder'] = '&quot;$a&quot; is not file or folder';
+$string['excelencodings'] = 'Excel encodings';
 $string['feedbackformmail'] = 'Feedback form';
 $string['feedbackmoodleforum'] = 'Moodle forum';
 $string['feedbackmoodlemessaging'] = 'Moodle messaging';
@@ -139,6 +140,7 @@ $string['resultssaved'] = 'Quiz results were saved';
 $string['score'] = 'Score';
 $string['showhtmlsource'] = 'Show HTML source';
 $string['shownextquiz'] = 'Show next quiz';
+$string['showtimes'] = 'Show processing times';
 $string['showxmlsource'] = 'Show XML source';
 $string['showxmltree'] = 'Show XML tree';
 $string['specifictime'] = 'Specific time';

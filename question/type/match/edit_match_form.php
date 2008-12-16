@@ -5,7 +5,8 @@
  * @copyright &copy; 2007 Jamie Pratt
  * @author Jamie Pratt me@jamiep.org
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package questions
+ * @package questionbank
+ * @subpackage questiontypes
  */
 
 /**
@@ -35,8 +36,12 @@ class question_edit_match_form extends question_edit_form {
         } else {
             $countsubquestions = 0;
         }
-        $repeatsatstart = (QUESTION_NUMANS_START > ($countsubquestions + QUESTION_NUMANS_ADD))?
-                            QUESTION_NUMANS_START : ($countsubquestions + QUESTION_NUMANS_ADD);
+        if ($this->question->formoptions->repeatelements){
+            $repeatsatstart = (QUESTION_NUMANS_START > ($countsubquestions + QUESTION_NUMANS_ADD))?
+                                QUESTION_NUMANS_START : ($countsubquestions + QUESTION_NUMANS_ADD);
+        } else {
+            $repeatsatstart = $countsubquestions;
+        }
         $mform->setType('subanswer', PARAM_TEXT);
         $mform->setType('subquestion', PARAM_TEXT);
 
@@ -65,18 +70,18 @@ class question_edit_match_form extends question_edit_form {
         return 'match';
     }
 
-    function validation($data){
-        $errors = array();
+    function validation($data, $files) {
+        $errors = parent::validation($data, $files);
         $answers = $data['subanswers'];
         $questions = $data['subquestions'];
         $questioncount = 0;
         foreach ($questions as $key => $question){
             $trimmedquestion = trim($question);
             $trimmedanswer = trim($answers[$key]);
-            if (!empty($trimmedanswer) && !empty($trimmedquestion)){
+            if ($trimmedanswer != '' && $trimmedquestion != ''){
                 $questioncount++;
             }
-            if (!empty($trimmedquestion) && empty($trimmedanswer)){
+            if ($trimmedquestion != '' && $trimmedanswer == ''){
                 $errors['subanswers['.$key.']'] = get_string('nomatchinganswerforq', 'qtype_match', $trimmedquestion);
             }
         }

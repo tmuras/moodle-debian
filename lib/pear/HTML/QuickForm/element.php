@@ -17,7 +17,7 @@
 // |          Bertrand Mansion <bmansion@mamasam.com>                     |
 // +----------------------------------------------------------------------+
 //
-// $Id: element.php,v 1.1 2006/09/24 17:04:54 jamiesensei Exp $
+// $Id: element.php,v 1.1.12.1 2007/12/04 10:27:14 nicolasconnault Exp $
 
 require_once('HTML/Common.php');
 

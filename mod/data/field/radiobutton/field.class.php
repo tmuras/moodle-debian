@@ -1,4 +1,4 @@
-<?php // $Id: field.class.php,v 1.8 2006/12/13 20:26:13 skodak Exp $
+<?php // $Id: field.class.php,v 1.9 2007/02/26 06:56:09 toyomoyo Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -65,6 +65,27 @@ class data_field_radiobutton extends data_field_base {
         $str .= '</fieldset>';
         $str .= '</div>';
         return $str;
+    }
+    
+     function display_search_field($value = '') {
+        global $CFG;
+        $temp = get_records_sql_menu('SELECT id, content from '.$CFG->prefix.'data_content WHERE fieldid='.$this->field->id.' GROUP BY content ORDER BY content');
+        $options = array();
+        if(!empty($temp)) {
+            $options[''] = '';              //Make first index blank.
+            foreach ($temp as $key) {
+                $options[$key] = $key;  //Build following indicies from the sql.
+            }
+        }
+        return choose_from_menu($options, 'f_'.$this->field->id, $value, 'choose', '', 0, true);
+    }
+
+    function parse_search_field() {
+        return optional_param('f_'.$this->field->id, '', PARAM_NOTAGS);
+    }
+    
+    function generate_sql($tablealias, $value) {
+        return " ({$tablealias}.fieldid = {$this->field->id} AND {$tablealias}.content = '$value') "; 
     }
 
 }

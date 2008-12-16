@@ -1,4 +1,4 @@
-<?php  // $Id: format.php,v 1.3 2006/08/17 17:38:31 tjhunt Exp $ 
+<?php  // $Id: format.php,v 1.4.4.1 2007/11/02 16:20:29 tjhunt Exp $ 
 
 ////////////////////////////////////////////////////////////////////////////
 /// MULTIANSWER FORMAT
@@ -8,7 +8,10 @@
 ////////////////////////////////////////////////////////////////////////////
 
 // Based on format.php, included by ../../import.php
-
+/**
+ * @package questionbank
+ * @subpackage importexport
+ */
 class qformat_multianswer extends qformat_default {
 
     function provide_import() {

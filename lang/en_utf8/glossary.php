@@ -1,4 +1,4 @@
-<?PHP // $Id: glossary.php,v 1.6.2.1 2007/04/04 03:34:01 nicolasconnault Exp $
+<?PHP // $Id: glossary.php,v 1.8.2.1 2007/11/29 14:40:44 skodak Exp $
       // glossary.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -17,7 +17,7 @@ $string['approve'] = 'Approve';
 $string['areyousuredelete'] = 'Are you sure you want to delete this entry?';
 $string['areyousuredeletecomment'] = 'Are you sure you want to delete this comment?';
 $string['areyousureexport'] = 'Are you sure you want to export this entry to';
-$string['ascending'] = '(ascending)';
+$string['ascending'] = 'ascending';
 $string['attachment'] = 'Attachment';
 $string['authorview'] = 'Browse by Author';
 $string['back'] = 'Back';
@@ -50,8 +50,10 @@ $string['commentson'] = 'Comments on';
 $string['commentupdated'] = 'The comment has been updated.';
 $string['concept'] = 'Concept';
 $string['concepts'] = 'Concepts';
-$string['configenablerssfeeds'] = 'This switch will enable the possibility of RSS feeds for all glosaries.  You will still need to turn feeds on manually in the settings for each glossary.';
+$string['configenablerssfeeds'] = 'This switch will enable the possibility of RSS feeds for all glossaries.  You will still need to turn feeds on manually in the settings for each glossary.';
 $string['currentglossary'] = 'Current glossary';
+$string['changeto'] = 'change to $a';
+$string['current']= 'Currently sorted $a';
 $string['errconceptalreadyexists'] = 'This concept already exists. No duplicates allowed in this glossary.';
 $string['erredittimeexpired'] = 'The editing time for this entry has expired.';
 $string['errcannoteditothers'] = 'You cannot edit other people\'s entries.';
@@ -60,9 +62,10 @@ $string['defaultapproval'] = 'Approved by default';
 $string['definition'] = 'Definition';
 $string['definitions'] = 'Definitions';
 $string['deleteentry'] = 'Delete entry';
+$string['deletenotenrolled'] = 'Delete entries by users not enrolled';
 $string['deletingcomment'] = 'Deleting comment';
 $string['deletingnoneemptycategory'] = 'Deleting this category will not delete the entries it contains - they will be marked as uncategorised.';
-$string['descending'] = '(descending)';
+$string['descending'] = 'descending';
 $string['destination'] = 'Destination';
 $string['displayformat'] = 'Display format';
 $string['displayformatcontinuous'] = 'Continuous without author';
@@ -148,6 +151,8 @@ $string['numberofentries'] = 'Number of entries';
 $string['onebyline'] = '(one per line)';
 $string['printerfriendly'] = 'Printer-friendly version';
 $string['printviewnotallowed'] = 'Print view isn\'t allowed';
+$string['resetglossariesall'] = 'Delete entries from all glossaries';
+$string['resetglossaries'] = 'Delete entries from';
 $string['question'] = 'Question';
 $string['rate'] = 'Rate';
 $string['rating'] = 'Rating';

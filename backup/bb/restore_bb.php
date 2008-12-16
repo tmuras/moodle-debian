@@ -1,4 +1,4 @@
-<?php // $Id: restore_bb.php,v 1.7 2006/03/07 23:41:22 skodak Exp $
+<?php // $Id: restore_bb.php,v 1.7.16.1 2007/10/15 05:42:22 nicolasconnault Exp $
 // This file facilitates the conversion of a Blackboard course export
 // into a Moodle course export.  It assumes an unzipped directory and makes in-place alterations.
 
@@ -9,7 +9,7 @@ require_once($CFG->dirroot.'/backup/bb/xsl_emulate_xslt.inc');
   
 function get_subdirs($directory){
     $opendirectory = opendir( $directory );
-    while($filename = readdir($opendirectory)) {
+    while(false !== ($filename = readdir($opendirectory))) {
         if (is_dir($directory.$filename) and $filename != ".." and $filename != "."){
             $subdirs[] = $filename;
         }

@@ -1,4 +1,4 @@
-<?php    // $Id: localpath.php,v 1.5 2007/01/09 10:42:24 vyshane Exp $
+<?php    // $Id: localpath.php,v 1.5.4.2 2008/09/26 05:15:45 tjhunt Exp $
 
     require('../../../../config.php');
     require('../../lib.php');
@@ -49,9 +49,9 @@
            onClick="return set_value(getElementById('myform').myfile.value)">
     <input type="button" value="<?php print_string('cancel') ?>" 
            onClick="window.close()">
-    </form>
     </fieldset>
+    </form>
     </div>
-
-    </body>
-    </html>
+<?php
+    print_footer('empty');
+?>

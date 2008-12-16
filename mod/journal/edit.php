@@ -1,4 +1,4 @@
-<?php // $Id: edit.php,v 1.26 2006/08/08 22:09:56 skodak Exp $
+<?php // $Id: edit.php,v 1.31.2.1 2007/10/12 16:09:47 tjhunt Exp $
 
     require_once("../../config.php");
 
@@ -75,9 +75,8 @@
         $entry->format = $defaultformat;
     }
 
-    print_header_simple(format_string($journal->name), "",
-                 "<a href=\"index.php?id=$course->id\">$strjournals</a> ->
-                  <a href=\"view.php?id=$cm->id\">".format_string($journal->name,true)."</a> -> $stredit", "",
+    $navigation = build_navigation($stredit, $cm);
+    print_header_simple(format_string($journal->name), "", $navigation, "",
                   "", true, "", navmenu($course, $cm));
 
     echo "<center>\n";
@@ -91,7 +90,7 @@
     if ($usehtmleditor) {
         use_html_editor("text");
     }
-
+    echo "</center>\n";
     print_footer($course);
 
 ?>

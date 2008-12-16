@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.20 2006/09/22 02:52:48 vyshane Exp $
+<?php // $Id: index.php,v 1.24.2.6 2008/02/05 21:39:52 skodak Exp $
 
 /// This page lists all the instances of glossary in a particular course
 /// Replace glossary with the name of your module
@@ -6,6 +6,7 @@
     require_once("../../config.php");
     require_once("lib.php");
     require_once("$CFG->libdir/rsslib.php");
+    require_once("$CFG->dirroot/course/lib.php");
 
     $id = required_param('id', PARAM_INT);   // course
 
@@ -27,13 +28,16 @@
 
 
 /// Print the header
+    $navlinks = array();
+    $navlinks[] = array('name' => $strglossarys, 'link' => "index.php?id=$course->id", 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
 
-    print_header_simple("$strglossarys", "", "$strglossarys", "", "", true, "", navmenu($course));
+    print_header_simple("$strglossarys", "", $navigation, "", "", true, "", navmenu($course));
 
 /// Get all the appropriate data
 
     if (! $glossarys = get_all_instances_in_course("glossary", $course)) {
-        notice("There are no glossaries", "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strglossarys), "../../course/view.php?id=$course->id");
         die;
     }
 
@@ -85,6 +89,8 @@
             }
             $currentsection = $glossary->section;
         }
+
+        // TODO: count only approved if not allowed to see them
 
         $count = count_records_sql("SELECT COUNT(*) FROM {$CFG->prefix}glossary_entries where (glossaryid = $glossary->id or sourceglossaryid = $glossary->id)");
 

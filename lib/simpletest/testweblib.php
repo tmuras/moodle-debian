@@ -8,12 +8,9 @@
  * @package moodlecore
  */
 
-/** */
-require_once(dirname(__FILE__) . '/../../config.php');
-
-global $CFG;
-require_once($CFG->libdir . '/simpletestlib.php');
-require_once($CFG->libdir . '/weblib.php');
+if (!defined('MOODLE_INTERNAL')) {
+    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
+}
 
 class web_test extends UnitTestCase {
 
@@ -42,6 +39,20 @@ class web_test extends UnitTestCase {
     
     function test_s() {
           $this->assertEqual(s("This Breaks \" Strict"), "This Breaks &quot; Strict"); 
+    }
+    
+    function test_format_text_email() {
+        $this->assertEqual('This is a test',
+            format_text_email('<p>This is a <strong>test</strong></p>',FORMAT_HTML));
+        $this->assertEqual('This is a test',
+            format_text_email('<p class="frogs">This is a <strong class=\'fishes\'>test</strong></p>',FORMAT_HTML));
+        $this->assertEqual('& so is this',
+            format_text_email('<p>&amp; so is this</p>',FORMAT_HTML));
+        $tl = textlib_get_instance();
+        $this->assertEqual('Two bullets: '.$tl->code2utf8(8226).' '.$tl->code2utf8(8226),
+            format_text_email('<p>Two bullets: &#x2022; &#8226;</p>',FORMAT_HTML));
+        $this->assertEqual($tl->code2utf8(0x7fd2).$tl->code2utf8(0x7fd2),
+            format_text_email('<p>&#x7fd2;&#x7FD2;</p>',FORMAT_HTML));
     }
 }
 ?>

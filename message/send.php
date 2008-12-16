@@ -1,17 +1,20 @@
-<?php // $Id: send.php,v 1.18 2007/01/04 21:32:55 skodak Exp $
+<?php // $Id: send.php,v 1.22.2.4 2008/05/08 03:41:11 jerome Exp $
 
-    require('../config.php');
-    require('lib.php');
+require('../config.php');
+require('lib.php');
 
-    require_login();
+require_login();
 
-    if (isguest()) {
-        redirect($CFG->wwwroot);
-    }
+if (isguest()) {
+    redirect($CFG->wwwroot);
+}
 
-    if (empty($CFG->messaging)) {
-        error("Messaging is disabled on this site");
-    }
+if (empty($CFG->messaging)) {
+    error("Messaging is disabled on this site");
+}
+
+if (has_capability('moodle/site:sendmessage', get_context_instance(CONTEXT_SYSTEM))) {
+
 
 /// Don't use print_header, for more speed
     $stylesheetshtml = '';
@@ -31,6 +34,7 @@
     echo "<html $direction xmlns=\"http://www.w3.org/1999/xhtml\">\n<head>\n";
     echo '<meta http-equiv="content-type" content="text/html; charset=utf-8" />';
     echo $stylesheetshtml;
+    include($CFG->javascript);
 
 /// Script parameters
     $userid   = required_param('id', PARAM_INT);
@@ -44,17 +48,20 @@
 
 /// Check that the user is not blocking us!!
     if ($contact = get_record('message_contacts', 'userid', $user->id, 'contactid', $USER->id)) {
-        if ($contact->blocked and !has_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+        if ($contact->blocked and !has_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_SYSTEM))) {
             print_heading(get_string('userisblockingyou', 'message'));
             exit;
         }
     }
-    if (get_user_preferences('message_blocknoncontacts', 0, $user->id)) {  // User is blocking non-contacts
+    $userpreferences = get_user_preferences(NULL, NULL, $user->id);
+
+    if (!empty($userpreferences['message_blocknoncontacts'])) {  // User is blocking non-contacts
         if (empty($contact)) {   // We are not a contact!
             print_heading(get_string('userisblockingyounoncontact', 'message'));
             exit;
         }
     }
+
 
     if ($message!='' and confirm_sesskey()) {   /// Current user has just sent a message
 
@@ -67,7 +74,7 @@
         $options->newlines = true;
         $message = format_text($message, $format, $options);
 
-        $time = userdate(time(), get_string('strftimedaytime'));
+        $time = userdate(time(), get_string('strftimedatetimeshort'));
         $message = '<div class="message me"><span class="author">'.fullname($USER).'</span> '.
                    '<span class="time">['.$time.']</span>: '.
                    '<span class="content">'.$message.'</span></div>';
@@ -82,28 +89,34 @@
         add_to_log(SITEID, 'message', 'write', 'history.php?user1='.$user->id.'&amp;user2='.$USER->id.'#m'.$messageid, $user->id);
     }
 
-    echo '<title></title></head>';
+    echo '<title> </title></head>';
 
 
     echo '<body class="message course-1" id="message-send">';
     echo '<center>';
     echo '<form id="editing" method="post" action="send.php">';
+    echo '<div>';
     echo '<input type="hidden" name="id" value="'.$user->id.'" />';
     echo '<input type="hidden" name="sesskey" value="'.$USER->sesskey.'" />';
 
     $usehtmleditor = (can_use_html_editor() && get_user_preferences('message_usehtmleditor', 0));
     if ($usehtmleditor) {
-        echo '<table align="center"><tr><td align="center">';
-        print_textarea($usehtmleditor, 8, 34, 0, 0, 'message', '');
+        echo '<table><tr><td class="fixeditor" align="center">';
+        print_textarea($usehtmleditor, 9, 200, 0, 0, 'message', '');
         echo '</td></tr></table>';
+        echo '<input type="submit" value="'.get_string('sendmessage', 'message').'" />';
         use_html_editor('message', 'formatblock subscript superscript copy cut paste clean undo redo justifyleft justifycenter justifyright justifyfull lefttoright righttoleft insertorderedlist insertunorderedlist outdent indent inserthorizontalrule createanchor nolink inserttable');
         echo '<input type="hidden" name="format" value="'.FORMAT_HTML.'" />';
     } else {
         print_textarea(false, 5, 34, 0, 0, 'message', '');
         echo '<input type="hidden" name="format" value="'.FORMAT_MOODLE.'" />';
+        echo '<br /><input type="submit" value="'.get_string('sendmessage', 'message').'" />';
     }
-    echo '<br /><input type="submit" value="'.get_string('sendmessage', 'message').'" />';
+    echo '</div>';
     echo '</form>';
+    if (!empty($CFG->messagewasjustemailed)) {
+        notify(get_string('mailsent', 'message'), 'notifysuccess');
+    }
     echo '<div class="noframesjslink"><a target="_parent" href="discussion.php?id='.$userid.'&amp;noframesjs=1">'.get_string('noframesjs', 'message').'</a></div>';
     echo '</center>';
 
@@ -112,5 +125,5 @@
     echo "\n-->\n</script>\n\n";
 
     echo '</body></html>';
-
+}
 ?>

@@ -5,7 +5,8 @@
  * @copyright &copy; 2007 Jamie Pratt
  * @author Jamie Pratt me@jamiep.org
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package questions
+ * @package questionbank
+ * @subpackage questiontypes
  */
 
 /**
@@ -18,7 +19,8 @@ class question_edit_essay_form extends question_edit_form {
      * @param MoodleQuickForm $mform the form being built.
      */
     function definition_inner(&$mform) {
-        $mform->addElement('htmleditor', 'feedback', get_string("feedback", "quiz"));
+        $mform->addElement('htmleditor', 'feedback', get_string("feedback", "quiz"),
+                                array('course' => $this->coursefilesid));
         $mform->setType('feedback', PARAM_RAW);
 
         $mform->addElement('hidden', 'fraction', 0);
@@ -29,7 +31,7 @@ class question_edit_essay_form extends question_edit_form {
     }
 
     function set_data($question) {
-        if (isset($question->options) && isset($question->options->answers)) {
+        if (!empty($question->options) && !empty($question->options->answers)) {      	
             $answer = reset($question->options->answers);
             $question->feedback = $answer->feedback;
         }

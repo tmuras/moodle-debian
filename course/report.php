@@ -1,4 +1,4 @@
-<?php // $Id: report.php,v 1.4 2006/09/05 08:50:23 toyomoyo Exp $
+<?php // $Id: report.php,v 1.6 2007/08/17 19:09:12 nicolasconnault Exp $
       // Display all the interfaces for importing data into a specific course
 
     require_once('../config.php');
@@ -9,12 +9,16 @@
         error("That's an invalid course id");
     }
 
-    require_capability('moodle/site:viewreports', get_context_instance(CONTEXT_COURSE, $id));
+    require_login($course->id);
+
+    require_capability('moodle/site:viewreports', get_context_instance(CONTEXT_COURSE, $course->id));
 
     $strreports = get_string('reports');
 
-    print_header($course->fullname.': '.$strreports, $course->fullname.': '.$strreports, 
-                 '<a href="view.php?id='.$course->id.'">'.$course->shortname.'</a> -> '.$strreports);
+    $navlinks = array();
+    $navlinks[] = array('name' => $strreports, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+    print_header($course->fullname.': '.$strreports, $course->fullname.': '.$strreports, $navigation);
 
     $directories = get_list_of_plugins('course/report');
 
@@ -27,6 +31,6 @@
             echo '</div>';
         }
     }
-    
+
     print_footer();
 ?>

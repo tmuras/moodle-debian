@@ -1,4 +1,4 @@
-<?php // $Id: new_index.class.php,v 1.3 2006/09/20 21:00:48 skodak Exp $
+<?php // $Id: new_index.class.php,v 1.5 2007/10/10 05:25:18 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -89,7 +89,6 @@ class new_index extends XMLDBAction {
         }
         if (!$changeme_exists) { /// Lets create the Index
             $index = new XMLDBIndex('changeme');
-            $index->setComment('Default comment for the index, please edit me');
             $table->addIndex($index);
 
         /// We have one new key, so the structure has changed

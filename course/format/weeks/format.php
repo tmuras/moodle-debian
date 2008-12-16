@@ -1,4 +1,4 @@
-<?php // $Id: format.php,v 1.67.2.2 2007/05/09 08:37:59 poltawski Exp $
+<?php // $Id: format.php,v 1.74.2.5 2008/04/07 12:15:20 skodak Exp $
       // Display the whole course as "weeks" made of of modules
       // Included from "view.php"
 
@@ -63,17 +63,9 @@
     if (blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $editing) {
         echo '<td style="width:'.$preferred_width_left.'px" id="left-column">';
 
-        if (!empty($THEME->roundcorners)) {
-            echo '<div class="bt"><div></div></div>';
-            echo '<div class="i1"><div class="i2"><div class="i3">';
-        }
-        
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
-
-        if (!empty($THEME->roundcorners)) {
-            echo '</div></div></div>';
-            echo '<div class="bb"><div></div></div>';
-        }
+        print_container_end();
 
         echo '</td>';
     }
@@ -82,12 +74,9 @@
 /// Start main column
     echo '<td id="middle-column">';
 
-    if (!empty($THEME->roundcorners)) {
-       echo '<div class="bt"><div></div></div>';
-       echo '<div class="i1"><div class="i2"><div class="i3">';
-    }
+    print_container_start();
         
-    echo '<a name="startofcontent"></a>';
+    echo skip_main_destination();
 
     print_heading_block(get_string('weeklyoutline'), 'outline');
 
@@ -118,7 +107,7 @@
         $summaryformatoptions->noclean = true;
         echo format_text($thissection->summary, FORMAT_HTML, $summaryformatoptions);
 
-        if (isediting($course->id)) {
+        if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
             echo '<a title="'.$streditsummary.'" '.
                  ' href="editsection.php?id='.$thissection->id.'"><img src="'.$CFG->pixpath.'/t/edit.gif" '.
                  'class="iconsmall edit" alt="'.$streditsummary.'" /></a><br /><br />';
@@ -187,41 +176,33 @@
 
             $currentweek = (($weekdate <= $timenow) && ($timenow < $nextweekdate));
 
+            $currenttext = '';
             if (!$thissection->visible) {
                 $sectionstyle = ' hidden';
             } else if ($currentweek) {
                 $sectionstyle = ' current';
+                $currenttext = get_accesshide(get_string('currentweek','access'));
             } else {
                 $sectionstyle = '';
             }
 
             echo '<tr id="section-'.$section.'" class="section main'.$sectionstyle.'">';
-            echo '<td class="left side">&nbsp;</td>';
+            echo '<td class="left side">&nbsp;'.$currenttext.'</td>';
 
-
-            if (ajaxenabled() && $editing) {
-                // Temporarily hide the dates for the weeks. We do it this way
-                // for now. Eventually, we'll have to modify the javascript code
-                // to handle re-calculation of dates when sections are moved
-                // around. For now, just hide all the dates to avoid confusion.
-                $weekperiod = '';
-            } else {
-                $weekperiod = $weekday.' - '.$endweekday;
-            }
-
+            $weekperiod = $weekday.' - '.$endweekday;
 
             echo '<td class="content">';
             if (!has_capability('moodle/course:viewhiddensections', $context) and !$thissection->visible) {   // Hidden for students
-                echo '<div class="weekdates">'.$weekperiod.' ('.get_string('notavailable').')</div>';
+                print_heading($weekperiod.' ('.get_string('notavailable').')', null, 3, 'weekdates');
 
             } else {
-                echo '<div class="weekdates">'.$weekperiod.'</div>';
+                print_heading($weekperiod, null, 3, 'weekdates');
 
                 echo '<div class="summary">';
                 $summaryformatoptions->noclean = true;
                 echo format_text($thissection->summary, FORMAT_HTML, $summaryformatoptions);
 
-                if (isediting($course->id)) {
+                if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
                     echo ' <a title="'.$streditsummary.'" href="editsection.php?id='.$thissection->id.'">'.
                          '<img src="'.$CFG->pixpath.'/t/edit.gif" class="iconsmall edit" alt="'.$streditsummary.'" /></a><br /><br />';
                 }
@@ -246,7 +227,7 @@
                      '<img src="'.$CFG->pixpath.'/i/one.gif" class="icon wkone" alt="'.$strshowonlyweek.'" /></a><br />';
             }
 
-            if (isediting($course->id)) {
+            if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
                 if ($thissection->visible) {        // Show the hide/show eye
                     echo '<a href="view.php?id='.$course->id.'&amp;hide='.$section.'&amp;sesskey='.$USER->sesskey.'#section-'.$section.'" title="'.$strweekhide.'">'.
                          '<img src="'.$CFG->pixpath.'/i/hide.gif" class="icon hide" alt="'.$strweekhide.'" /></a><br />';
@@ -281,10 +262,7 @@
         echo '</div>';
     }
 
-    if (!empty($THEME->roundcorners)) {
-        echo '</div></div></div>';
-        echo '<div class="bb"><div></div></div>';
-    }
+    print_container_end();
 
     echo '</td>';
 
@@ -294,17 +272,9 @@
     if (blocks_have_content($pageblocks, BLOCK_POS_RIGHT) || $editing) {
         echo '<td style="width: '.$preferred_width_right.'px;" id="right-column">';
 
-        if (!empty($THEME->roundcorners)) {
-            echo '<div class="bt"><div></div></div>';
-            echo '<div class="i1"><div class="i2"><div class="i3">';
-        }
-
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_RIGHT);
-
-        if (!empty($THEME->roundcorners)) {
-            echo '</div></div></div>';
-            echo '<div class="bb"><div></div></div>';
-        }
+        print_container_end();
 
         echo '</td>';
     }

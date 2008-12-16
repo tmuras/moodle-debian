@@ -1,8 +1,8 @@
-<?php // $Id: delete.php,v 1.7 2006/09/30 19:49:41 mark-nielsen Exp $
+<?php // $Id: delete.php,v 1.7.8.1 2008/10/09 11:04:12 mudrd8mz Exp $
 /**
  * Action for deleting a page
  *
- * @version $Id: delete.php,v 1.7 2006/09/30 19:49:41 mark-nielsen Exp $
+ * @version $Id: delete.php,v 1.7.8.1 2008/10/09 11:04:12 mudrd8mz Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -21,7 +21,9 @@
     delete_records("lesson_pages", "id", $pageid);
 
     // repair the hole in the linkage
-    if (!$thispage->prevpageid) {
+    if (!$thispage->prevpageid AND !$thispage->nextpageid) {
+        //This is the only page, no repair needed
+    } elseif (!$thispage->prevpageid) {
         // this is the first page...
         if (!$page = get_record("lesson_pages", "id", $thispage->nextpageid)) {
             error("Delete: next page not found");

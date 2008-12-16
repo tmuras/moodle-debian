@@ -38,11 +38,8 @@
         $path .= '/rss.xml';
         $rsspix = $CFG->pixpath .'/i/rss.gif';
 
-        if ($CFG->slasharguments) {
-            $path = $CFG->wwwroot.'/rss/file.php/'.$path;
-        } else {
-            $path = $CFG->wwwroot.'/rss/file.php?file='.$path;
-        }
+        require_once($CFG->libdir.'/filelib.php');
+        $path = get_file_url($path, null, 'rssfile');
         print '<div align="right"><a href="'. $path .'"><img src="'. $rsspix .'" title="'. strip_tags($tooltiptext) .'" alt="'.get_string('rss').'" /></a></div>';
 
     }
@@ -67,7 +64,7 @@
 
     /// Get all the posts from the database
 
-        $blogposts = fetch_entries('', 20, '', $type, $id, $tagid);
+        $blogposts = blog_fetch_entries('', 20, '', $type, $id, $tagid);
 
     /// Now generate an array of RSS items
         if ($blogposts) {

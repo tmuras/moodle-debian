@@ -6,8 +6,7 @@
     include_once($CFG->dirroot.'/mnet/lib.php');
 
     require_login();
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('mnetpeers', $adminroot);
+    admin_externalpage_setup('mnetpeers');
 
     $context = get_context_instance(CONTEXT_SYSTEM);
 
@@ -34,6 +33,7 @@
     $strconfiguration    = get_string('configuration');
     $strmnetsettings     = get_string('mnetsettings', 'mnet');
     $strmnetservices     = get_string('mnetservices', 'mnet');
+    $strmnetthemes       = get_string('mnetthemes', 'mnet');
     $strmnetlog          = get_string('mnetlog', 'mnet');
     $strmnetedithost     = get_string('reviewhostdetails', 'mnet');
     $strmneteditservices = get_string('reviewhostservices', 'mnet');
@@ -48,7 +48,14 @@
             $publish        = (isset($_POST['publish'][$key]) && $_POST['publish'][$key] == 'on')? 1 : 0;
             $subscribe      = (isset($_POST['subscribe'][$key]) && $_POST['subscribe'][$key] == 'on')? 1 : 0;
 
-            if (false == $host2service && ($publish == 1 || $subscribe == 1)) {
+            if ($publish != 1 && $subscribe != 1) {
+                if (false == $host2service) {
+                    // We don't have or need a record - do nothing!
+                } else {
+                    // We don't need the record - delete it
+                    delete_records('mnet_host2service', 'hostid', $_POST['hostid'], 'serviceid', $key);
+                }
+            } elseif (false == $host2service && ($publish == 1 || $subscribe == 1)) {
                 $host2service = new stdClass();
                 $host2service->hostid = $_POST['hostid'];
                 $host2service->serviceid = $key;

@@ -1,4 +1,4 @@
-<?php  // $Id: editcategories.php,v 1.34.2.2 2007/03/30 07:02:57 toyomoyo Exp $
+<?php  // $Id: editcategories.php,v 1.41.2.1 2007/12/16 18:15:00 poltawski Exp $
 
 /// This page allows to edit entries categories for a particular instance of glossary
 
@@ -39,7 +39,7 @@
         }
     }
 
-    require_login($course->id, false);
+    require_login($course->id, false, $cm);
 
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_capability('mod/glossary:managecategories', $context);
@@ -47,8 +47,14 @@
     $strglossaries   = get_string("modulenameplural", "glossary");
     $strglossary     = get_string("modulename", "glossary");
 
-    print_header_simple(format_string($glossary->name), "",
-                        "<a href=\"index.php?id=$course->id\">$strglossaries</a> -> <a href=\"view.php?id=$cm->id&amp;tab=GLOSSARY_CATEGORY_VIEW\">".format_string($glossary->name,true)."</a> -> " . get_string("categories","glossary"),
+    $navlinks = array();
+    $navlinks[] = array('name' => $strglossaries, 'link' => "index.php?id=$course->id", 'type' => 'activity');
+    $navlinks[] = array('name' => format_string($glossary->name), 'link' => "view.php?id=$cm->id&amp;tab=GLOSSARY_CATEGORY_VIEW", 'type' => 'activityinstance');
+    $navlinks[] = array('name' => get_string("categories","glossary"), 'link' => '', 'type' => 'title');
+    
+    $navigation = build_navigation($navlinks);
+
+    print_header_simple(format_string($glossary->name), "", $navigation,
                         "", "", true, update_module_button($cm->id, $course->id, $strglossary),
                         navmenu($course, $cm));
 
@@ -202,8 +208,8 @@
                </td>
                <td style="width:10%" align="center"><b>
                <?php
-                echo "<a href=\"editcategories.php?id=$cm->id&amp;action=delete&amp;mode=cat&amp;hook=$category->id\"><img  alt=\"" . get_string("delete") . "\"src=\"../../pix/t/delete.gif\" class=\"iconsmall\" /></a> ";
-                echo "<a href=\"editcategories.php?id=$cm->id&amp;action=edit&amp;mode=cat&amp;hook=$category->id\"><img  alt=\"" . get_string("edit") . "\" src=\"../../pix/t/edit.gif\" class=\"iconsmall\" /></a>";
+                echo "<a href=\"editcategories.php?id=$cm->id&amp;action=delete&amp;mode=cat&amp;hook=$category->id\"><img  alt=\"" . get_string("delete") . "\"src=\"{$CFG->pixpath}/t/delete.gif\" class=\"iconsmall\" /></a> ";
+                echo "<a href=\"editcategories.php?id=$cm->id&amp;action=edit&amp;mode=cat&amp;hook=$category->id\"><img  alt=\"" . get_string("edit") . "\" src=\"{$CFG->pixpath}/t/edit.gif\" class=\"iconsmall\" /></a>";
                ?>
                </b></td>
              </tr>

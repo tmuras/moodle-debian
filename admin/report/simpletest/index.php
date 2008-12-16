@@ -10,14 +10,14 @@
  */
 
 /** */
-require_once(dirname(__FILE__) . '/../../../config.php');
-require_once($CFG->libdir . '/moodlelib.php');
+require_once(dirname(__FILE__).'/../../../config.php');
 require_once($CFG->libdir.'/adminlib.php');
+require_once($CFG->libdir.'/simpletestlib.php');
 require_once('ex_simple_test.php');
 require_once('ex_reporter.php');
 
 require_login();
-require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
+require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
 
 /* The UNITTEST constant can be checked elsewhere if you need to know
  * when your code is being run as part of a unit test. */
@@ -31,10 +31,9 @@ $showsearch = optional_param('showsearch', false, PARAM_BOOL);
 $thorough = optional_param('thorough', false, PARAM_BOOL);
 
 // Print the header.
-$adminroot = admin_get_root();
-admin_externalpage_setup('reportsimpletest', $adminroot);
+admin_externalpage_setup('reportsimpletest');
 $strtitle = get_string('unittests', $langfile);
-admin_externalpage_print_header($adminroot);
+admin_externalpage_print_header();
 
 if (!is_null($path)) {
     // Create the group of tests.
@@ -106,6 +105,6 @@ echo '</form>';
 print_simple_box_end();
 
 // Footer.
-admin_externalpage_print_footer($adminroot);
+admin_externalpage_print_footer();
 
 ?>

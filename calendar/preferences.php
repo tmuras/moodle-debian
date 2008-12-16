@@ -1,4 +1,4 @@
-<?PHP  // $Id: preferences.php,v 1.16.4.1 2007/05/06 04:26:39 martinlanghoff Exp $
+<?PHP  // $Id: preferences.php,v 1.19.2.2 2008/01/24 14:10:45 nicolasconnault Exp $
        // preferences.php - user prefs for calendar
 
     require_once('../config.php');
@@ -15,7 +15,7 @@
     }
     // Initialize the session variables
     calendar_session_vars();
-    
+
 /// If data submitted, then process and store.
 
     if ($form = data_submitted()) {
@@ -49,7 +49,7 @@
                 break;
             }
         }
-        redirect('view.php', get_string('changessaved'), 1);
+        redirect('view.php?course='.$course->id, get_string('changessaved'), 1);
         exit;
     }
 
@@ -58,13 +58,14 @@
     $strcalendar = get_string('calendar', 'calendar');
     $strpreferences = get_string('preferences', 'calendar');
 
+    $navlinks = array();
     if ($course->id != SITEID) {
-        $navigation = "<a href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</a> ->
-                       <a href=\"view.php\">$strcalendar</a> -> $strpreferences";
-    } else {
-        $navigation = "<a href=\"view.php\">$strcalendar</a> -> $strpreferences";
+        $navlinks[] = array('name' => $course->shortname,
+                            'link' => "$CFG->wwwroot/course/view.php?id=$course->id",
+                            'type' => 'misc');
     }
-
+    $navlinks[] = array('name' => $strpreferences, 'link' => 'view.php', 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
 
     print_header("$site->shortname: $strcalendar: $strpreferences", $strcalendar, $navigation,
                  '', '', true, '', user_login_string($site));

@@ -1,15 +1,13 @@
-<?php // $Id: index.php,v 1.4 2007/01/15 07:59:59 vyshane Exp $
+<?php // $Id: index.php,v 1.5 2007/04/30 17:08:54 skodak Exp $
 
     require_once('../../../config.php');
     require_once($CFG->dirroot.'/course/lib.php');
     require_once($CFG->dirroot.'/course/report/log/lib.php');
     require_once($CFG->libdir.'/adminlib.php');
 
-    $adminroot = admin_get_root();
+    admin_externalpage_setup('reportlog');
 
-    admin_externalpage_setup('reportlog', $adminroot);
-
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
 
 
     $course = get_site();
@@ -28,6 +26,6 @@
     print_heading($heading, 'center', 3);
 
 
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 
 ?>

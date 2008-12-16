@@ -1,4 +1,4 @@
-<?php //  $Id: config_form.php,v 1.3 2007/02/09 07:47:14 toyomoyo Exp $
+<?php //  $Id: config_form.php,v 1.4.2.2 2008/07/04 17:07:00 ethem Exp $
 
 if (!isset($frm->enrol_cost)) $frm->enrol_cost = '5';
 if (!isset($frm->enrol_currency)) $frm->enrol_currency = 'USD';
@@ -26,7 +26,7 @@ if (isset($CFG->an_cutoff)) {
     $frm->an_cutoff_hour = $hrs; $frm->an_cutoff_min = $mins;
 }
 if (!isset($frm->an_cutoff_hour)) {
-    $timezone = format_float(get_user_timezone_offset(), 1);
+    $timezone = round(get_user_timezone_offset(), 1);
     $frm->an_cutoff_hour = intval($timezone);
     $frm->an_cutoff_min = (intval(round($timezone)) != intval($timezone)) ? 35 : 5;
 }
@@ -69,18 +69,6 @@ if (!isset($frm->acceptechecktypes)) {
     </td>
 </tr>
 
-<?php if (substr($CFG->wwwroot, 0, 5) !== 'https') { /* https && loginhttps */ ?>
-<tr valign="top">
-    <td align="right">loginhttps:</td>
-    <td><?php
-          echo (empty($CFG->loginhttps) ? "<span style=\"color:red\"><b>off</b></span>" : "<font color=\"green\">on</font>");
-          $a->url = "$CFG->wwwroot/$CFG->admin/settings.php?section=httpsecurity";
-          echo '<br />'; print_string("logindesc", "enrol_authorize", $a);
-        ?>
-    </td>
-</tr>
-<?php } /* end: https && loginhttps */ ?>
-
 <tr valign="top"><td colspan="2"><h4><?php print_string("adminauthorizesettings", "enrol_authorize") ?></h4></td></tr>
 
 <tr valign="top">
@@ -89,17 +77,17 @@ if (!isset($frm->acceptechecktypes)) {
 </tr>
 
 <tr valign="top">
-    <td align="right">an_login:<br /><?php echo (isset($mconfig->an_login)) ? '<span style="color:green">'.get_string('ok').'</span>' : ''; ?></td>
+    <td align="right">an_login:<br /><?php echo (isset($mconfig->an_login)) ? '<span style="color:green">'.get_string('dataentered', 'enrol_authorize').'</span>' : ''; ?></td>
     <td><?php print_string("anlogin", "enrol_authorize") ?><br /><input type="text" name="an_login" size="26" value="" /><sup>*</sup></td>
 </tr>
 
 <tr valign="top">
-    <td align="right">an_tran_key:<br /><?php echo (isset($mconfig->an_tran_key)) ? '<span style="color:green">'.get_string('ok').'</span>' : ''; ?></td>
+    <td align="right">an_tran_key:<br /><?php echo (isset($mconfig->an_tran_key)) ? '<span style="color:green">'.get_string('dataentered', 'enrol_authorize').'</span>' : ''; ?></td>
     <td><?php print_string("antrankey", "enrol_authorize") ?><br /><input type="text" name="an_tran_key" size="26" value="" /><sup>#1</sup></td>
 </tr>
 
 <tr valign="top">
-    <td align="right">an_password:<br /><?php echo (isset($mconfig->an_password)) ? '<span style="color:green">'.get_string('ok').'</span>' : ''; ?></td>
+    <td align="right">an_password:<br /><?php echo (isset($mconfig->an_password)) ? '<span style="color:green">'.get_string('dataentered', 'enrol_authorize').'</span>' : ''; ?></td>
     <td><?php print_string("anpassword", "enrol_authorize") ?><br /><input type="text" name="an_password" size="26" value="" /><sup>#2</sup></td>
 </tr>
 
@@ -130,7 +118,7 @@ if (!isset($frm->acceptechecktypes)) {
 <tr valign="top">
     <td align="right">an_authcode:</td>
     <td><?php print_checkbox('an_authcode', '1', !empty($frm->an_authcode)) ?>
-        <?php helpbutton('authcode', '', 'enrol/authorize'); ?><br />
+        <?php helpbutton('authcode', 'authcode', 'enrol/authorize'); ?><br />
         <?php print_string("adminauthcode", "enrol_authorize") ?></td>
 </tr>
 
@@ -148,7 +136,7 @@ if (!isset($frm->acceptechecktypes)) {
     foreach ($allpaymentmethods as $key) {
         if ($key == AN_METHOD_CC) {
             print_checkbox('acceptmethods[]', AN_METHOD_CC, in_array(AN_METHOD_CC, $paymentmethodsenabled), get_string('method'.AN_METHOD_CC,'enrol_authorize'));
-            echo("<ul>"); // blockquote breaks <span> and <br> tags 
+            echo("<ul>"); // blockquote breaks <span> and <br> tags
             $acceptedccs = array_keys(get_list_of_creditcards());
             $allccs = get_list_of_creditcards(true);
             foreach ($allccs as $key => $val) {
@@ -160,7 +148,7 @@ if (!isset($frm->acceptechecktypes)) {
         }
         elseif ($key == AN_METHOD_ECHECK) {
             print_checkbox('acceptmethods[]', AN_METHOD_ECHECK, in_array(AN_METHOD_ECHECK, $paymentmethodsenabled), get_string('method'.AN_METHOD_ECHECK,'enrol_authorize'));
-            echo("<ul>"); // blockquote breaks <span> and <br> tags 
+            echo("<ul>"); // blockquote breaks <span> and <br> tags
             $echecktypesenabled = get_list_of_bank_account_types();
             $allechecktypes = get_list_of_bank_account_types(true);
             foreach ($allechecktypes as $key) {
@@ -175,7 +163,7 @@ if (!isset($frm->acceptechecktypes)) {
 </tr>
 
 <tr valign="top"><td colspan="2"><h4><?php print_string("adminauthorizeccapture", "enrol_authorize") ?>
-                                     <?php helpbutton('orderreview', '', 'enrol/authorize'); ?>
+                                     <?php helpbutton('orderreview', 'orderreview', 'enrol/authorize'); ?>
                                  </h4></td></tr>
 
 <tr valign="top">

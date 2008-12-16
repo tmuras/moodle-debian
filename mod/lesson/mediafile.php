@@ -1,4 +1,4 @@
-<?php  // $Id: mediafile.php,v 1.10.2.2 2007/05/28 18:48:52 mark-nielsen Exp $
+<?php  // $Id: mediafile.php,v 1.13.2.1 2008/07/10 09:48:47 scyrma Exp $
 /**
  * This file plays the mediafile set in lesson settings.
  *
@@ -7,7 +7,7 @@
  *  If there is a way to use the resource class instead of this code, please change to do so
  *
  *
- * @version $Id: mediafile.php,v 1.10.2.2 2007/05/28 18:48:52 mark-nielsen Exp $
+ * @version $Id: mediafile.php,v 1.13.2.1 2008/07/10 09:48:47 scyrma Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -30,7 +30,12 @@
         error('Course module is incorrect');
     }
 
-    if (!is_url($lesson->mediafile)) {
+    require_login($course->id, false, $cm);
+
+    // Get the mimetype
+    $mimetype = mimeinfo("type", $lesson->mediafile);
+
+    if (!is_url($lesson->mediafile) and !in_array($mimetype, array('text/plain', 'text/html'))) {
         print_header($course->shortname);
     }
 
@@ -49,22 +54,11 @@
         exit();
     }
 
-    require_login($course->id, false, $cm);
-
     if (is_url($lesson->mediafile)) {
         $fullurl = $lesson->mediafile;        
     } else {
-        // get the full url to the file while taking into consideration $CFG->slasharguments    
-        if ($CFG->slasharguments) {
-            $relativeurl = "/file.php/{$course->id}/{$lesson->mediafile}";
-        } else {
-            $relativeurl = "/file.php?file=/{$course->id}/{$lesson->mediafile}";
-        }
-        $fullurl = "$CFG->wwwroot$relativeurl";
+        $fullurl = get_file_url($course->id .'/'. $lesson->mediafile);
     }
-    
-    // Get the mimetype
-    $mimetype = mimeinfo("type", $lesson->mediafile);    
 
     // find the correct type and print it out
     if ($mimetype == "audio/mp3") {    // It's an MP3 audio file

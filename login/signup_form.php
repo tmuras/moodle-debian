@@ -1,6 +1,7 @@
-<?php  // $Id: signup_form.php,v 1.23.2.4 2007/03/26 19:27:04 skodak Exp $
+<?php  // $Id: signup_form.php,v 1.35.2.6 2008/07/23 05:21:21 nicolasconnault Exp $
 
 require_once($CFG->libdir.'/formslib.php');
+require_once($CFG->dirroot.'/user/profile/lib.php');
 
 class login_signup_form extends moodleform {
     function definition() {
@@ -11,42 +12,70 @@ class login_signup_form extends moodleform {
         $mform->addElement('header', '', get_string('createuserandpass'), '');
 
 
-        $mform->addElement('text', 'username', get_string('username'), 'size="12"');
+        $mform->addElement('text', 'username', get_string('username'), 'maxlength="100" size="12"');
         $mform->setType('username', PARAM_NOTAGS);
-        $mform->addRule('username', get_string('missingusername'), 'required', null, 'client');
+        $mform->addRule('username', get_string('missingusername'), 'required', null, 'server');
 
-        $mform->addElement('password', 'password', get_string('password'), 'size="12"');
+        $mform->addElement('passwordunmask', 'password', get_string('password'), 'maxlength="32" size="12"');
         $mform->setType('password', PARAM_RAW);
-        $mform->addRule('password', get_string('missingpassword'), 'required', null, 'client');
+        $mform->addRule('password', get_string('missingpassword'), 'required', null, 'server');
 
         $mform->addElement('header', '', get_string('supplyinfo'),'');
 
-        $mform->addElement('text', 'email', get_string('email'), 'size="25"');
+        $mform->addElement('text', 'email', get_string('email'), 'maxlength="100" size="25"');
         $mform->setType('email', PARAM_NOTAGS);
-        $mform->addRule('email', get_string('missingemail'), 'required', null, 'client');
+        $mform->addRule('email', get_string('missingemail'), 'required', null, 'server');
 
-        $mform->addElement('text', 'email2', get_string('emailagain'), 'size="25"');
+        $mform->addElement('text', 'email2', get_string('emailagain'), 'maxlength="100" size="25"');
         $mform->setType('email2', PARAM_NOTAGS);
-        $mform->addRule('email2', get_string('missingemail'), 'required', null, 'client');
+        $mform->addRule('email2', get_string('missingemail'), 'required', null, 'server');
 
-        $mform->addElement('text', 'firstname', get_string('firstname'), 'size="25"');
+        $nameordercheck = new object();
+        $nameordercheck->firstname = 'a';
+        $nameordercheck->lastname  = 'b';
+        if (fullname($nameordercheck) == 'b a' ) {  // See MDL-4325
+            $mform->addElement('text', 'lastname',  get_string('lastname'),  'maxlength="100" size="30"');
+            $mform->addElement('text', 'firstname', get_string('firstname'), 'maxlength="100" size="30"');
+        } else {
+            $mform->addElement('text', 'firstname', get_string('firstname'), 'maxlength="100" size="30"');
+            $mform->addElement('text', 'lastname',  get_string('lastname'),  'maxlength="100" size="30"');
+        }
+
         $mform->setType('firstname', PARAM_TEXT);
-        $mform->addRule('firstname', get_string('missingfirstname'), 'required', null, 'client');
+        $mform->addRule('firstname', get_string('missingfirstname'), 'required', null, 'server');
 
-        $mform->addElement('text', 'lastname', get_string('lastname'), 'size="25"');
         $mform->setType('lastname', PARAM_TEXT);
-        $mform->addRule('lastname', get_string('missinglastname'), 'required', null, 'client');
+        $mform->addRule('lastname', get_string('missinglastname'), 'required', null, 'server');
 
-        $mform->addElement('text', 'city', get_string('city'), 'size="20"');
+        $mform->addElement('text', 'city', get_string('city'), 'maxlength="20" size="20"');
         $mform->setType('city', PARAM_TEXT);
-        $mform->addRule('city', get_string('missingcity'), 'required', null, 'client');
+        $mform->addRule('city', get_string('missingcity'), 'required', null, 'server');
 
         $country = get_list_of_countries();
         $default_country[''] = get_string('selectacountry');
         $country = array_merge($default_country, $country);
         $mform->addElement('select', 'country', get_string('country'), $country);
-        $mform->addRule('country', get_string('missingcountry'), 'required', null, 'client');
-        $mform->setDefault('country', '');
+        $mform->addRule('country', get_string('missingcountry'), 'required', null, 'server');
+
+        if( !empty($CFG->country) ){
+            $mform->setDefault('country', $CFG->country);
+        }else{
+            $mform->setDefault('country', '');
+        }
+
+        if (signup_captcha_enabled()) {
+            $mform->addElement('recaptcha', 'recaptcha_element', get_string('recaptcha', 'auth'), array('https' => $CFG->loginhttps));
+            $mform->setHelpButton('recaptcha_element', array('recaptcha', get_string('recaptcha', 'auth')));
+        }
+
+        profile_signup_fields($mform);
+
+        if (!empty($CFG->sitepolicy)) {
+            $mform->addElement('header', '', get_string('policyagreement'), '');
+            $mform->addElement('static', 'policylink', '', '<a href="'.$CFG->sitepolicy.'" onclick="this.target=\'_blank\'">'.get_String('policyagreementclick').'</a>');
+            $mform->addElement('checkbox', 'policyagreed', get_string('policyaccept'));
+            $mform->addRule('policyagreed', get_string('policyagree'), 'required', null, 'server');
+        }
 
         // buttons
         $this->add_action_buttons(true, get_string('createaccount'));
@@ -60,9 +89,9 @@ class login_signup_form extends moodleform {
         $mform->applyFilter('username', 'trim');
     }
 
-    function validation($data) {
+    function validation($data, $files) {
         global $CFG;
-        $errors = array();
+        $errors = parent::validation($data, $files);
 
         $authplugin = get_auth_plugin($CFG->registerauth);
 
@@ -103,12 +132,25 @@ class login_signup_form extends moodleform {
 
         }
 
-
-        if (0 == count($errors)){
-            return true;
-        } else {
-            return $errors;
+        $errmsg = '';
+        if (!check_password_policy($data['password'], $errmsg)) {
+            $errors['password'] = $errmsg;
         }
+
+        if (signup_captcha_enabled()) {
+            $recaptcha_element = $this->_form->getElement('recaptcha_element');
+            if (!empty($this->_form->_submitValues['recaptcha_challenge_field'])) {
+                $challenge_field = $this->_form->_submitValues['recaptcha_challenge_field'];
+                $response_field = $this->_form->_submitValues['recaptcha_response_field'];
+                if (true !== ($result = $recaptcha_element->verify($challenge_field, $response_field))) {
+                    $errors['recaptcha'] = $result;
+                }
+            } else {
+                $errors['recaptcha'] = get_string('missingrecaptchachallengefield');
+            }
+        }
+
+        return $errors;
 
 
     }

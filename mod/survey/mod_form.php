@@ -14,7 +14,11 @@ class mod_survey_mod_form extends moodleform_mod {
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
         $mform->addElement('text', 'name', get_string('name'), array('size'=>'64'));
-        $mform->setType('name', PARAM_TEXT);
+        if (!empty($CFG->formatstringstriptags)) {
+            $mform->setType('name', PARAM_TEXT);
+        } else {
+            $mform->setType('name', PARAM_CLEAN);
+        }
         $mform->addRule('name', null, 'required', null, 'client');
 
         if (!$options = get_records_menu("survey", "template", 0, "name", "id, name")) {
@@ -33,7 +37,11 @@ class mod_survey_mod_form extends moodleform_mod {
         $mform->addElement('textarea', 'intro', get_string('customintro', 'survey'), 'wrap="virtual" rows="20" cols="75"');
         $mform->setType('intro', PARAM_RAW);
 
-        $this->standard_coursemodule_elements();
+        $features = new stdClass;
+        $features->groups = true;
+        $features->groupings = true;
+        $features->groupmembersonly = true;
+        $this->standard_coursemodule_elements($features);
 
 //-------------------------------------------------------------------------------
         // buttons

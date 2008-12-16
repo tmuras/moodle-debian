@@ -38,7 +38,7 @@
 body, table, td, th, li {
   font-family:Arial, Verdana, Helvetica, sans-serif;
   font-size:100%;
-  letter-spacing:0.02em;
+  /*letter-spacing:0.02em;*/
 }
 
 th {
@@ -49,8 +49,14 @@ a:link,
 a:visited {
   text-decoration:none;
 }
-
 a:hover {
+  text-decoration: underline;
+}
+
+.img-text a:hover {
+  text-decoration: none;
+}
+.img-text a:hover span {
   text-decoration: underline;
 }
 
@@ -244,13 +250,66 @@ body#admin-index .copyright {
   font-size: 0.75em;
 }
 
+#adminsettings .form-defaultinfo {
+  font-size: 0.8em;
+}
+
 #admin-roles-override .cell.c1,
+#admin-roles-assign .cell.c3,
 #admin-roles-assign .cell.c1 {
   font-size: 0.7em;
 }
 
 #admin-lang .translator .strkey {
   font-size: 0.75em;
+}
+
+#admin-uploaduser table#uupreview {
+  font-size: 0.8em;
+}
+#admin-uploaduser table#uuresults {
+  font-size: 0.9em;
+}
+
+#adminsettings .form-warning,
+#adminsettings .form-overridden {
+  font-size: 0.8em;
+}
+
+.plugincompattable {
+    font-size: 70%;
+}
+
+.plugincompattable td.standard {
+    font-weight: normal;
+}
+
+.plugincompattable td.nonstandard {
+    font-weight: bold;
+}
+
+.plugincompattable td.missingplugin {
+    font-weight: bold;
+}
+
+.plugincompattable td.warning {
+    font-style: normal;
+}
+
+.plugincompattable { 
+    text-align: left;
+}
+
+.plugincheckwrapper { 
+    text-align: center;
+}
+
+.course-report-outline td.lastaccess {
+  font-size:0.8em;
+}
+
+.course-report-outline tr.section {
+  text-align: center;
 }
 
 
@@ -421,6 +480,12 @@ table.minicalendar {
   line-height:1em;
 }
 
+#course-view .section .weekdates {
+  margin: 0;
+  font-weight: normal;
+  font-size: 1em;
+}
+
 #course-view .section .left {
   font-weight:bold;
 }
@@ -451,6 +516,26 @@ table.minicalendar {
   font-size:1.1em;
 }
 
+#course-recent .user {
+  font-size:0.75em;
+}
+
+#course-recent .grade {
+  font-style: italic;
+  font-size:0.9em;
+}
+
+#course-recent .forum-recent .reply .title {
+  font-style: italic;
+  font-size:0.9em;
+}
+
+#course-recent .forum-recent .discussion .title {
+  font-weight:bold;
+  font-style: italic;
+  font-size:0.9em;
+}
+
 h2.headingblock {
   font-size:1.1em;
 }
@@ -460,6 +545,9 @@ h2.headingblock {
   font-style: italic;
 }
 
+.section .groupinglabel {
+  color: #666666;
+}
 
 /***
  *** Doc
@@ -481,6 +569,22 @@ body#grade-index .grades .header {
   font-size: 0.7em;
 }
 
+.grade-edit-scale .scale_options {
+  font-size: 0.7em;
+}
+
+#grade-aggregation-help dt {
+    font-weight: bold;
+}
+
+
+#grade-aggregation-help dd.example {
+    font-style: italic;
+}
+
+#grade-aggregation-help code {
+    font-style: normal;
+}
 
 /***
  *** Login
@@ -603,6 +707,83 @@ body#grade-index .grades .header {
  *** Tabs
  ***/
 
+.tabtree a.nolink:hover {
+  text-decoration: none;
+}
+
+/***
+ *** Tags
+ ***/
+
+.tag_cloud .s20 {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+.tag_cloud .s19 {
+  font-size: 1.5em;
+}
+
+.tag_cloud .s18 {
+  font-size: 1.4em;
+  font-weight: bold;
+}
+
+.tag_cloud .s17 {
+  font-size: 1.4em;
+}
+
+.tag_cloud .s16 {
+  font-size: 1.3em;
+  font-weight: bold;
+}
+
+.tag_cloud .s15 {
+  font-size: 1.3em;
+}
+
+.tag_cloud .s14 {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.tag_cloud .s13 {
+  font-size: 1.2em;
+}
+
+.tag_cloud .s12,
+.tag_cloud .s11 {
+  font-size: 1.1em;
+  font-weight: bold;
+}
+
+.tag_cloud .s10,
+.tag_cloud .s9 {
+  font-size: 1.1em;
+}
+
+.tag_cloud .s8,
+.tag_cloud .s7 {
+  font-size: 1em;
+  font-weight: bold;
+}
+
+.tag_cloud .s6,
+.tag_cloud .s5 {
+  font-size: 1em;
+}
+
+.tag_cloud .s4,
+.tag_cloud .s3 {
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.tag_cloud .s2,
+.tag_cloud .s1 {
+  font-size: 0.9em;
+}
+
 
 /***
  *** User
@@ -624,6 +805,14 @@ body#user-index #longtimenosee {
   font-size: 0.8em;
 }
 
+.iplookup #header h1.headermain {
+  font-size:1em;
+}
+
+.iplookup #note {
+  font-size:0.8em;
+  font-style: italic;
+}
 
 /***
  *** Modules: Assignment
@@ -631,6 +820,10 @@ body#user-index #longtimenosee {
 
 #mod-assignment-index .cell {
   font-size:0.8em;
+}
+
+#wordcount {
+  font-size: 0.8em;
 }
 
 /***
@@ -707,8 +900,18 @@ body#mod-forum-index .generalbox .cell {
 .glossarypost .time {
   font-size: 0.8em;
 }
-.concept {
-  font-weight: bold;
+.glossarycategoryheader h2,
+.glossarypost .concept h3 {
+  font-size: 1em;
+  margin: 0;
+}
+.glossarypost div.concept h3,
+.glossarypost.continuous .concept {
+  display: inline;
+}
+.glossarypost .entryheader {
+  font-weight: normal;
+  text-align: left;
 }
 .glossarycomment .author {
   font-size: 0.8em;
@@ -765,15 +968,6 @@ body#mod-forum-index .generalbox .cell {
 /***
  *** Modules: Quiz
  ***/
-
-/* .editorhelptext {
-  font-size:0.7em;
-}
-
-#mod-quiz-index .cell {
-  font-size:0.8em;
-}
- */
 
 /***
  *** Modules: Resource
@@ -835,7 +1029,7 @@ body#mod-forum-index .generalbox .cell {
 
 #thegroup, #thegrouping, #dummygrouping {
   font-size: 0.8em;
-  letter-spacing: -0.01em;
+  /*letter-spacing: -0.01em;*/
   display: block;
 }
 
@@ -866,4 +1060,8 @@ body#mod-forum-index .generalbox .cell {
 .phpinfo .v {
   background-color: #cccccc;
   color: #000000;
+}
+
+.sideblock .content h3.eventskey {
+    font-size:0.8em;
 }

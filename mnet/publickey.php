@@ -1,7 +1,7 @@
-<?php
+<?php // $Id: publickey.php,v 1.2 2007/08/29 10:48:46 stronk7 Exp $
 /**
  * Print this server's public key and exit
- * 
+ *
  * @author  Donal McMullan  donal@catalyst.net.nz
  * @version 0.0.1
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License

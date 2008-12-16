@@ -1,4 +1,4 @@
-<?php // $Id: deleteentry.php,v 1.33 2006/11/15 03:15:59 toyomoyo Exp $
+<?php // $Id: deleteentry.php,v 1.37.2.1 2007/10/12 16:09:44 tjhunt Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -39,11 +39,10 @@
 
     $strareyousuredelete = get_string("areyousuredelete","glossary");
 
-    print_header_simple(format_string($glossary->name), "",
-                 "<a href=\"index.php?id=$course->id\">$strglossaries</a> -> ".format_string($glossary->name),
+    $navigation = build_navigation('', $cm);
+    print_header_simple(format_string($glossary->name), "", $navigation,
                   "", "", true, update_module_button($cm->id, $course->id, $strglossary),
                   navmenu($course, $cm));
-
 
     if (($entry->userid != $USER->id) and !$manageentries) { // guest id is never matched, no need for special check here
         error("You can't delete other people's entries!");

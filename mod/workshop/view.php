@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.59.2.2 2007/05/15 18:26:50 skodak Exp $
+<?php  // $Id: view.php,v 1.67.2.3 2008/01/21 13:39:52 nicolasconnault Exp $
 
 /*************************************************
     ACTIONS handled are:
@@ -40,7 +40,6 @@
 
     $strworkshops = get_string("modulenameplural", "workshop");
     $strworkshop  = get_string("modulename", "workshop");
-    $straction = ($action) ? '-> '.get_string($action, 'workshop') : '';
 
     // ...and if necessary set default action
     if (workshop_is_teacher($workshop)) {
@@ -69,9 +68,8 @@
     }
 
     // ...display header...
-    print_header_simple(format_string($workshop->name), "",
-                 "<a href=\"index.php?id=$course->id\">$strworkshops</a> ->
-                  <a href=\"view.php?id=$cm->id\">".format_string($workshop->name,true)."</a> $straction",
+    $navigation = build_navigation($action, $cm);    
+    print_header_simple(format_string($workshop->name), "", $navigation,
                   "", "", true, update_module_button($cm->id, $course->id, $strworkshop), navmenu($course, $cm));
 
 
@@ -303,8 +301,9 @@
         $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
         /// find out current groups mode
-        $groupmode = groupmode($course, $cm);
-        $currentgroup = setup_and_print_groups($course, $groupmode, "view.php?id=$cm->id");
+        $groupmode = groups_get_activity_groupmode($cm);
+        $currentgroup = groups_get_activity_group($cm, true);
+        groups_print_activity_menu($cm, "view.php?id=$cm->id");
 
         /// Print admin links
         echo "<table width=\"100%\"><tr><td>";
@@ -362,6 +361,15 @@
             print_footer($course);
             exit;
         }
+        
+        if (!empty($CFG->enablegroupings) && !empty($cm->groupingid) && !empty($users)) {
+            $groupingusers = groups_get_grouping_members($cm->groupingid, 'u.id', 'u.id');
+            foreach($users as $key => $user) {
+                if (!isset($groupingusers[$user->id])) {
+                    unset($users[$key]);
+                }
+            }
+        }
 
         /// Now prepare table with student assessments and submissions
         $tablesort->data = array();
@@ -369,7 +377,7 @@
         foreach ($users as $user) {
             // skip if student not in group
             if ($currentgroup) {
-                if (!ismember($currentgroup, $user->id)) {
+                if (!groups_is_member($currentgroup, $user->id)) {
                     continue;
                 }
             }
@@ -499,6 +507,14 @@
                     STDDEV(gradinggrade) AS stddev, MIN(gradinggrade) AS min, MAX(gradinggrade) AS max
                     FROM {$CFG->prefix}groups_members g, {$CFG->prefix}workshop_assessments a
                     WHERE g.groupid = $currentgroup AND a.userid = g.userid AND a.timegraded > 0
+                    AND a.workshopid = $workshop->id");
+        } elseif (!empty($cm->groupingid) && !empty($CFG->enablegroupings)) {
+            $stats = get_record_sql("SELECT COUNT(*) as count, AVG(gradinggrade) AS mean,
+                    STDDEV(gradinggrade) AS stddev, MIN(gradinggrade) AS min, MAX(gradinggrade) AS max
+                    FROM {$CFG->prefix}workshop_assessments a
+                    INNER JOIN {$CFG->prefix}groups_members g ON a.userid = g.userid
+                    INNER JOIN {$CFG->prefix}groupings_groups gg ON g.groupid = gg.groupid
+                    WHERE gg.groupingid = {$cm->groupingid} AND a.timegraded > 0
                     AND a.workshopid = $workshop->id");
         } else { // no group/all participants
             $stats = get_record_sql("SELECT COUNT(*) as count, AVG(gradinggrade) AS mean,

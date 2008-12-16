@@ -1,8 +1,8 @@
-<?php // $Id: updatepage.php,v 1.17 2006/09/30 19:49:41 mark-nielsen Exp $
+<?php // $Id: updatepage.php,v 1.17.8.1 2008/10/07 05:13:51 scyrma Exp $
 /**
  * Action for processing the form in editpage action and saves the page
  *
- * @version $Id: updatepage.php,v 1.17 2006/09/30 19:49:41 mark-nielsen Exp $
+ * @version $Id: updatepage.php,v 1.17.8.1 2008/10/07 05:13:51 scyrma Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -83,7 +83,7 @@
         for ($i = 0; $i < $lesson->maxanswers; $i++) {
             // strip tags because the editor gives <p><br />...
             // also save any answers where the editor is (going to be) used
-            if ((!empty($form->answer[$i]) and trim(strip_tags($form->answer[$i]))) or isset($form->answereditor[$i]) or isset($form->responseeditor[$i])) {
+            if ((isset($form->answer[$i]) and (trim(strip_tags($form->answer[$i]))) != '') or isset($form->answereditor[$i]) or isset($form->responseeditor[$i])) {
                 if ($form->answerid[$i]) {
                     $oldanswer = new stdClass;
                     $oldanswer->id = clean_param($form->answerid[$i], PARAM_INT);

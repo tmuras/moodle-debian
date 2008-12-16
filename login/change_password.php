@@ -1,9 +1,11 @@
-<?PHP // $Id: change_password.php,v 1.54.2.4 2007/03/22 12:40:24 skodak Exp $
+<?PHP // $Id: change_password.php,v 1.62.2.2 2008/07/06 17:55:57 skodak Exp $
 
     require_once('../config.php');
     require_once('change_password_form.php');
 
     $id = optional_param('id', SITEID, PARAM_INT); // current course
+
+    $strparticipants = get_string('participants');
 
     //HTTPS is potentially required in this page
     httpsrequired();
@@ -14,13 +16,17 @@
         error('No such course!');
     }
 
-    // require proper login; guest can not change password
-    // TODO: add change password capability so that we can prevent participants from changing password
-    if (empty($USER->id) or isguestuser() or has_capability('moodle/legacy:guest', $systemcontext, $USER->id, false)) {
+    // require proper login; guest user can not change password
+    if (empty($USER->id) or isguestuser()) {
         if (empty($SESSION->wantsurl)) {
             $SESSION->wantsurl = $CFG->httpswwwroot.'/login/change_password.php';
         }
         redirect($CFG->httpswwwroot.'/login/index.php');
+    }
+
+    // do not require change own password cap if change forced
+    if (!get_user_preferences('auth_forcepasswordchange', false)) {
+        require_capability('moodle/user:changeownpassword', $systemcontext);
     }
 
     // do not allow "Logged in as" users to change any passwords
@@ -40,23 +46,26 @@
     $userauth = get_auth_plugin($USER->auth);
 
     if (!$userauth->can_change_password()) {
-        error(get_string('nopasswordchange', 'auth'));
+        print_error('nopasswordchange', 'auth');
     }
 
-    if ($userauth->change_password_url()) {
+    if ($changeurl = $userauth->change_password_url()) {
         // this internal scrip not used
-        redirect($userauth->change_password_url());
+        redirect($changeurl);
     }
 
     $mform = new login_change_password_form();
     $mform->set_data(array('id'=>$course->id));
+
+    $navlinks = array();
+    $navlinks[] = array('name' => $strparticipants, 'link' => "$CFG->wwwroot/user/index.php?id=$course->id", 'type' => 'misc');
 
     if ($mform->is_cancelled()) {
         redirect($CFG->wwwroot.'/user/view.php?id='.$USER->id.'&amp;course='.$course->id);
     } else if ($data = $mform->get_data()) {
 
         if (!$userauth->user_update_password(addslashes_recursive($USER), $data->newpassword1)) {
-            error(get_string('errorpasswordupdate', 'auth'));
+            print_error('errorpasswordupdate', 'auth');
         }
 
         // register success changing password
@@ -68,14 +77,13 @@
 
         $fullname = fullname($USER, true);
 
-        if ($course->id != SITEID) {
-            $navstr = "<a href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</a> -> ";
-        } else {
-            $navstr = '';
-        }
-        $navstr .= "<a href=\"$CFG->wwwroot/user/index.php?id=$course->id\">".get_string("participants")."</a> -> <a href=\"$CFG->wwwroot/user/view.php?id=$USER->id&amp;course=$course->id\">$fullname</a> -> $strpasswordchanged";
+        $navlinks[] = array('name' => $fullname,
+                            'link' => "$CFG->wwwroot/user/view.php?id=$USER->id&amp;course=$course->id",
+                            'type' => 'misc');
+        $navlinks[] = array('name' => $strpasswordchanged, 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
 
-        print_header($strpasswordchanged, $strpasswordchanged, $navstr);
+        print_header($strpasswordchanged, $strpasswordchanged, $navigation);
 
         if (empty($SESSION->wantsurl) or $SESSION->wantsurl == $CFG->httpswwwroot.'/login/change_password.php') {
             $returnto = "$CFG->wwwroot/user/view.php?id=$USER->id&amp;course=$id";
@@ -94,15 +102,11 @@
 
     $fullname = fullname($USER, true);
 
-    if ($course->id != SITEID) {
-        $navstr = "<a href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</a> -> ";
-    } else {
-        $navstr = '';
-    }
-    $navstr .= "<a href=\"$CFG->wwwroot/user/index.php?id=$course->id\">".get_string('participants')."</a> -> <a href=\"$CFG->wwwroot/user/view.php?id=$USER->id&amp;course=$course->id\">$fullname</a> -> $strchangepassword";
+    $navlinks[] = array('name' => $fullname, 'link' => "$CFG->wwwroot/user/view.php?id=$USER->id&amp;course=$course->id", 'type' => 'misc');
+    $navlinks[] = array('name' => $strchangepassword, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
 
-
-    print_header($strchangepassword, $strchangepassword, $navstr);
+    print_header($strchangepassword, $strchangepassword, $navigation);
     if (get_user_preferences('auth_forcepasswordchange')) {
         notify(get_string('forcepasswordchangenotice'));
     }

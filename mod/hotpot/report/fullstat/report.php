@@ -1,4 +1,4 @@
-<?php  // $Id: report.php,v 1.7 2007/01/03 14:44:49 moodler Exp $
+<?php  // $Id: report.php,v 1.7.4.3 2008/03/06 07:34:04 gbateson Exp $
 /// Overview report just displays a big table of all the attempts
 class hotpot_report extends hotpot_default_report {
 	function display(&$hotpot, &$cm, &$course, &$users, &$attempts, &$questions, &$options) {
@@ -39,9 +39,9 @@ class hotpot_report extends hotpot_default_report {
 		}
 		// headings for name, attempt number, score/grade and penalties
 		$table->head = array(
-			get_string("name"), 
+			get_string("name"),
 			hotpot_grade_heading($hotpot, $options),
-			get_string('attempt', 'quiz'), 
+			get_string('attempt', 'quiz'),
 		);
 		$table->align = array('left', 'center', 'center');
 		$table->size = array(150, 80, 10);
@@ -50,8 +50,8 @@ class hotpot_report extends hotpot_default_report {
 		// question headings
 		$this->add_question_headings($questions, $table, 'left', 0, false, 2);
 		// penalties (not always needed) and raw score
-		array_push($table->head, 
-			get_string('penalties', 'hotpot'), 
+		array_push($table->head,
+			get_string('penalties', 'hotpot'),
 			get_string('score', 'quiz')
 		);
 		array_push($table->align, 'center', 'center');
@@ -72,17 +72,17 @@ class hotpot_report extends hotpot_default_report {
 				$name = "$u->firstname $u->lastname";
 			}
 			if ($is_html) {
-				$name = '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$u->userid.'&course='.$course->id.'">'.$name.'</a>';
+				$name = '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$u->userid.'&amp;course='.$course->id.'">'.$name.'</a>';
 			}
 			$grade = isset($user->grade) ? $user->grade : $blank;
 			foreach ($user->attempts as $attempt) {
 				$attemptnumber = $attempt->attempt;
 				if ($allow_review) {
-					$attemptnumber = ' <a href="review.php?hp='.$hotpot->id.'&attempt='.$attempt->id.'">'.$attemptnumber.'</a>';
+					$attemptnumber = ' <a href="review.php?hp='.$hotpot->id.'&amp;attempt='.$attempt->id.'">'.$attemptnumber.'</a>';
 				}
 				$cells = array ($name, $grade, $attemptnumber);
 				// $name and $grade are only printed on first line per user
-				$name = $blank; 
+				$name = $blank;
 				$grade = $blank;
 				$start_col = count($cells);
 				foreach ($questionids as $col => $id) {
@@ -259,7 +259,7 @@ class hotpot_report extends hotpot_default_report {
 			$br = $is_html ? '<br />' : "\n";
 			$space = $is_html ? '&nbsp;' : "";
 			$no_value = $is_html ? '--' : "";
-			$help_button = $is_html ? helpbutton("discrimination", "", "quiz", true, false, "", true) : "";
+			$help_button = $is_html ? helpbutton("discrimination", get_string('discrimination', 'quiz'), "quiz", true, false, "", true) : "";
 			// table properties
 			unset($table);
 			$table->border = 1;

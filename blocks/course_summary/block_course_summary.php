@@ -1,9 +1,9 @@
-<?PHP //$Id: block_course_summary.php,v 1.25.2.1 2007/02/14 21:04:54 skodak Exp $
+<?PHP //$Id: block_course_summary.php,v 1.26.2.2 2008/03/03 11:41:02 moodler Exp $
 
 class block_course_summary extends block_base {
     function init() {
         $this->title = get_string('pagedescription', 'block_course_summary');
-        $this->version = 2004052600;
+        $this->version = 2007101509;
     }
 
     function specialization() {
@@ -24,10 +24,11 @@ class block_course_summary extends block_base {
             return '';
         }
 
-        $this->content = New stdClass;
+        $this->content = new object();
+        $options = new object();
         $options->noclean = true;    // Don't clean Javascripts etc
         $this->content->text = format_text($COURSE->summary, FORMAT_HTML, $options);
-        if(isediting($COURSE->id)) {
+        if (isediting($COURSE->id)) { // ?? courseid param not there??
             if($COURSE->id == SITEID) {
                 $editpage = $CFG->wwwroot.'/'.$CFG->admin.'/settings.php?section=frontpagesettings';
             } else {

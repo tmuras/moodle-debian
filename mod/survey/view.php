@@ -1,4 +1,4 @@
-<?php // $Id: view.php,v 1.45.2.3 2007/04/20 17:51:30 skodak Exp $
+<?php // $Id: view.php,v 1.53.2.2 2007/10/17 14:35:34 tjhunt Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -34,26 +34,25 @@
 
     $showscales = ($template->name != 'ciqname');
 
-    $strsurveys = get_string("modulenameplural", "survey");
     $strsurvey = get_string("modulename", "survey");
-
-    print_header_simple(format_string($survey->name), "",
-                 "<a href=\"index.php?id=$course->id\">$strsurveys</a> -> ".format_string($survey->name), "", "", true,
+    $navigation = build_navigation('', $cm);
+    print_header_simple(format_string($survey->name), "", $navigation, "", "", true,
                   update_module_button($cm->id, $course->id, $strsurvey), navmenu($course, $cm));
 
 /// Check to see if groups are being used in this survey
-    if ($groupmode = groupmode($course, $cm)) {   // Groups are being used
-        $currentgroup = get_current_group($course->id);
+    if ($groupmode = groups_get_activity_groupmode($cm)) {   // Groups are being used
+        $currentgroup = groups_get_activity_group($cm);
     } else {
         $currentgroup = 0;
     }
-
+    $groupingid = $cm->groupingid;
+    
     if (has_capability('mod/survey:readresponses', $context) or ($groupmode == VISIBLEGROUPS)) {    
         $currentgroup = 0;
     }
     
     if (has_capability('mod/survey:readresponses', $context)) {
-        $numusers = survey_count_responses($survey->id, $currentgroup);
+        $numusers = survey_count_responses($survey->id, $currentgroup, $groupingid);
         echo "<div class=\"reportlink\"><a href=\"report.php?id=$cm->id\">".
               get_string("viewsurveyresponses", "survey", $numusers)."</a></div>";
     } else if (!$cm->visible) {
@@ -70,7 +69,7 @@
     if (survey_already_done($survey->id, $USER->id)) {
 
         add_to_log($course->id, "survey", "view graph", "view.php?id=$cm->id", $survey->id, $cm->id);
-        $numusers = survey_count_responses($survey->id, $currentgroup);
+        $numusers = survey_count_responses($survey->id, $currentgroup, $groupingid);
 
         if ($showscales) {
             print_heading(get_string("surveycompleted", "survey"));

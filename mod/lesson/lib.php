@@ -1,199 +1,66 @@
-<?php  // $Id: lib.php,v 1.33 2006/11/28 05:54:43 mark-nielsen Exp $
+<?php  // $Id: lib.php,v 1.41.2.5 2008/09/15 11:56:14 mudrd8mz Exp $
 /**
  * Standard library of functions and constants for lesson
  *
- * @version $Id: lib.php,v 1.33 2006/11/28 05:54:43 mark-nielsen Exp $
+ * @version $Id: lib.php,v 1.41.2.5 2008/09/15 11:56:14 mudrd8mz Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
 
 define("LESSON_MAX_EVENT_LENGTH", "432000");   // 5 days maximum
 
-/*******************************************************************/
+/**
+ * Given an object containing all the necessary data,
+ * (defined by the form in mod_form.php) this function
+ * will create a new instance and return the id number
+ * of the new instance.
+ *
+ * @param object $lesson Lesson post data from the form
+ * @return int
+ **/
 function lesson_add_instance($lesson) {
-/// Given an object containing all the necessary data,
-/// (defined by the form in mod.html) this function
-/// will create a new instance and return the id number
-/// of the new instance.
     global $SESSION;
 
-    $lesson->timemodified = time();
-
-
-    if(empty($lesson->timespent) or !is_numeric($lesson->timespent) or $lesson->timespent < 0) {
-        $lesson->timespent = 0;
-    }
-    if(!isset($lesson->completed)) {
-        $lesson->completed = 0;
-    }
-    if(empty($lesson->gradebetterthan) or !is_numeric($lesson->gradebetterthan) or $lesson->gradebetterthan < 0) {
-        $lesson->gradebetterthan = 0;
-    } else if ($lesson->gradebetterthan > 100) {
-        $lesson->gradebetterthan = 100;
-    }
-    // conditions for dependency
-    $conditions = new stdClass;
-    $conditions->timespent = $lesson->timespent;
-    $conditions->completed = $lesson->completed;
-    $conditions->gradebetterthan = clean_param($lesson->gradebetterthan, PARAM_INT);
-    $lesson->conditions = addslashes(serialize($conditions));
-    unset($lesson->timespent);
-    unset($lesson->completed);
-    unset($lesson->gradebetterthan);
-
-    if (!empty($lesson->password)) {
-        $lesson->password = md5($lesson->password);
-    } else {
-        unset($lesson->password);
-    }
+    lesson_process_pre_save($lesson);
 
     if (!$lesson->id = insert_record("lesson", $lesson)) {
         return false; // bad
     }
 
-    if ($lesson->lessondefault) {
-        $default = new stdClass;
-        $default = clone($lesson);
-        unset($default->lessondefault);
-        unset($default->name);
-        unset($default->timemodified);
-        unset($default->available);
-        unset($default->deadline);
-        if ($default->id = get_field("lesson_default", "id", "course", $default->course)) {
-            update_record("lesson_default", $default);
-        } else {
-            insert_record("lesson_default", $default);
-        }
-    } else {
-        unset($lesson->lessondefault);
-    }
+    lesson_process_post_save($lesson);
 
-    // got this code from quiz, thanks quiz!!!
-    delete_records('event', 'modulename', 'lesson', 'instance', $lesson->id);  // Just in case
-
-    $event = new stdClass;
-    $event->name        = $lesson->name;
-    $event->description = $lesson->name;
-    $event->courseid    = $lesson->course;
-    $event->groupid     = 0;
-    $event->userid      = 0;
-    $event->modulename  = 'lesson';
-    $event->instance    = $lesson->id;
-    $event->eventtype   = 'open';
-    $event->timestart   = $lesson->available;
-    $event->visible     = instance_is_visible('lesson', $lesson);
-    $event->timeduration = ($lesson->deadline - $lesson->available);
-
-    if ($event->timeduration > LESSON_MAX_EVENT_LENGTH) {  /// Long durations create two events
-        $event2 = $event;
-
-        $event->name         .= ' ('.get_string('lessonopens', 'lesson').')';
-        $event->timeduration  = 0;
-
-        $event2->timestart    = $lesson->deadline;
-        $event2->eventtype    = 'close';
-        $event2->timeduration = 0;
-        $event2->name        .= ' ('.get_string('lessoncloses', 'lesson').')';
-
-        add_event($event2);
-    }
-
-    add_event($event);
+    lesson_grade_item_update(stripslashes_recursive($lesson));
 
     return $lesson->id;
 }
 
-
-/*******************************************************************/
+/**
+ * Given an object containing all the necessary data,
+ * (defined by the form in mod_form.php) this function
+ * will update an existing instance with new data.
+ *
+ * @param object $lesson Lesson post data from the form
+ * @return boolean
+ **/
 function lesson_update_instance($lesson) {
-/// Given an object containing all the necessary data,
-/// (defined by the form in mod.html) this function
-/// will update an existing instance with new data.
 
-    $lesson->timemodified = time();
     $lesson->id = $lesson->instance;
 
-    if(empty($lesson->timespent) or !is_numeric($lesson->timespent) or $lesson->timespent < 0) {
-        $lesson->timespent = 0;
-    }
-    if(!isset($lesson->completed)) {
-        $lesson->completed = 0;
-    }
-    if(empty($lesson->gradebetterthan) or !is_numeric($lesson->gradebetterthan) or $lesson->gradebetterthan < 0) {
-        $lesson->gradebetterthan = 0;
-    } else if ($lesson->gradebetterthan > 100) {
-        $lesson->gradebetterthan = 100;
-    }
-    // conditions for dependency
-    $conditions = new stdClass;
-    $conditions->timespent = $lesson->timespent;
-    $conditions->completed = $lesson->completed;
-    $conditions->gradebetterthan = $lesson->gradebetterthan;
-    $lesson->conditions = addslashes(serialize($conditions));
-    unset($lesson->timespent);
-    unset($lesson->completed);
-    unset($lesson->gradebetterthan);
+    lesson_process_pre_save($lesson);
 
-    if (!empty($lesson->password)) {
-        $lesson->password = md5($lesson->password);
-    } else {
-        unset($lesson->password);
+    if (!$result = update_record("lesson", $lesson)) {
+        return false; // Awe man!
     }
 
-    if ($lesson->lessondefault) {
-        $default = new stdClass;
-        $default = clone($lesson);
-        unset($default->lessondefault);
-        unset($default->name);
-        unset($default->timemodified);
-        unset($default->available);
-        unset($default->deadline);
-        if ($default->id = get_field("lesson_default", "id", "course", $default->course)) {
-            update_record("lesson_default", $default);
-        } else {
-            insert_record("lesson_default", $default);
-        }
-    } else {
-        unset($lesson->lessondefault);
-    }
+    lesson_process_post_save($lesson);
 
-    // update the calendar events (credit goes to quiz module)
-    if ($events = get_records_select('event', "modulename = 'lesson' and instance = '$lesson->id'")) {
-        foreach($events as $event) {
-            delete_event($event->id);
-        }
-    }
+    // update grade item definition
+    lesson_grade_item_update(stripslashes_recursive($lesson));
 
-    $event = new stdClass;
-    $event->name        = $lesson->name;
-    $event->description = $lesson->name;
-    $event->courseid    = $lesson->course;
-    $event->groupid     = 0;
-    $event->userid      = 0;
-    $event->modulename  = 'lesson';
-    $event->instance    = $lesson->id;
-    $event->eventtype   = 'open';
-    $event->timestart   = $lesson->available;
-    $event->visible     = instance_is_visible('lesson', $lesson);
-    $event->timeduration = ($lesson->deadline - $lesson->available);
+    // update grades - TODO: do it only when grading style changes
+    lesson_update_grades(stripslashes_recursive($lesson), 0, false);
 
-    if ($event->timeduration > LESSON_MAX_EVENT_LENGTH) {  /// Long durations create two events
-        $event2 = $event;
-
-        $event->name         .= ' ('.get_string('lessonopens', 'lesson').')';
-        $event->timeduration  = 0;
-
-        $event2->timestart    = $lesson->deadline;
-        $event2->eventtype    = 'close';
-        $event2->timeduration = 0;
-        $event2->name        .= ' ('.get_string('lessoncloses', 'lesson').')';
-
-        add_event($event2);
-    }
-
-    add_event($event);
-
-    return update_record("lesson", $lesson);
+    return $result;
 }
 
 
@@ -238,6 +105,14 @@ function lesson_delete_instance($id) {
             delete_event($event->id);
         }
     }
+    $pagetypes = page_import_types('mod/lesson/');
+    foreach ($pagetypes as $pagetype) {
+        if (!delete_records('block_instance', 'pageid', $lesson->id, 'pagetype', $pagetype)) {
+            $result = false;
+        }
+    }
+
+    lesson_grade_item_delete($lesson);
 
     return $result;
 }
@@ -357,15 +232,68 @@ function lesson_user_complete($course, $user, $mod, $lesson) {
     return true;
 }
 
-/*******************************************************************/
-function lesson_print_recent_activity($course, $isteacher, $timestart) {
-/// Given a course and a time, this module should find recent activity
-/// that has occurred in lesson activities and print it out.
-/// Return true if there was output, or false is there was none.
+/**
+ * Prints lesson summaries on MyMoodle Page
+ *
+ * Prints lesson name, due date and attempt information on
+ * lessons that have a deadline that has not already passed
+ * and it is available for taking.
+ *
+ * @param array $courses An array of course objects to get lesson instances from
+ * @param array $htmlarray Store overview output array( course ID => 'lesson' => HTML output )
+ */
+function lesson_print_overview($courses, &$htmlarray) {
+    global $USER, $CFG;
 
-    global $CFG;
+    if (!$lessons = get_all_instances_in_courses('lesson', $courses)) {
+        return;
+    }
 
-    return false;  //  True if anything was printed, otherwise false
+/// Get Necessary Strings
+    $strlesson       = get_string('modulename', 'lesson');
+    $strnotattempted = get_string('nolessonattempts', 'lesson');
+    $strattempted    = get_string('lessonattempted', 'lesson');
+
+    $now = time();
+    foreach ($lessons as $lesson) {
+        if ($lesson->deadline != 0                                         // The lesson has a deadline
+            and $lesson->deadline >= $now                                  // And it is before the deadline has been met
+            and ($lesson->available == 0 or $lesson->available <= $now)) { // And the lesson is available
+
+            // Lesson name
+            if (!$lesson->visible) {
+                $class = ' class="dimmed"';
+            } else {
+                $class = '';
+            }
+            $str = print_box("$strlesson: <a$class href=\"$CFG->wwwroot/mod/lesson/view.php?id=$lesson->coursemodule\">".
+                             format_string($lesson->name).'</a>', 'name', '', true);
+
+            // Deadline
+            $str .= print_box(get_string('lessoncloseson', 'lesson', userdate($lesson->deadline)), 'info', '', true);
+
+            // Attempt information
+            if (has_capability('mod/lesson:manage', get_context_instance(CONTEXT_MODULE, $lesson->coursemodule))) {
+                // Number of user attempts
+                $attempts = count_records('lesson_attempts', 'lessonid', $lesson->id);
+                $str     .= print_box(get_string('xattempts', 'lesson', $attempts), 'info', '', true);
+            } else {
+                // Determine if the user has attempted the lesson or not
+                if (count_records('lesson_attempts', 'lessonid', $lesson->id, 'userid', $USER->id)) {
+                    $str .= print_box($strattempted, 'info', '', true);
+                } else {
+                    $str .= print_box($strnotattempted, 'info', '', true);
+                }
+            }
+            $str = print_box($str, 'lesson overview', '', true);
+
+            if (empty($htmlarray[$lesson->course]['lesson'])) {
+                $htmlarray[$lesson->course]['lesson'] = $str;
+            } else {
+                $htmlarray[$lesson->course]['lesson'] .= $str;
+            }
+        }
+    }
 }
 
 /*******************************************************************/
@@ -379,47 +307,144 @@ function lesson_cron () {
     return true;
 }
 
-/*******************************************************************/
-function lesson_grades($lessonid) {
-/// Must return an array of grades for a given instance of this module,
-/// indexed by user.  It also returns a maximum allowed grade.
+/**
+ * Return grade for given user or all users.
+ *
+ * @param int $lessonid id of lesson
+ * @param int $userid optional user id, 0 means all users
+ * @return array array of grades, false if none
+ */
+function lesson_get_user_grades($lesson, $userid=0) {
     global $CFG;
 
-    if (!$lesson = get_record("lesson", "id", $lessonid)) {
-        return NULL;
-    }
+    $user = $userid ? "AND u.id = $userid" : "";
+    $fuser = $userid ? "AND uu.id = $userid" : "";
+
     if ($lesson->retake) {
         if ($lesson->usemaxgrade) {
-            $grades = get_records_sql_menu("SELECT userid,MAX(grade) FROM {$CFG->prefix}lesson_grades WHERE
-            lessonid = $lessonid GROUP BY userid");
+            $sql = "SELECT u.id, u.id AS userid, MAX(g.grade) AS rawgrade
+                      FROM {$CFG->prefix}user u, {$CFG->prefix}lesson_grades g
+                     WHERE u.id = g.userid AND g.lessonid = $lesson->id
+                           $user
+                  GROUP BY u.id";
         } else {
-            $grades = get_records_sql_menu("SELECT userid,AVG(grade) FROM {$CFG->prefix}lesson_grades WHERE
-            lessonid = $lessonid GROUP BY userid");
+            $sql = "SELECT u.id, u.id AS userid, AVG(g.grade) AS rawgrade
+                      FROM {$CFG->prefix}user u, {$CFG->prefix}lesson_grades g
+                     WHERE u.id = g.userid AND g.lessonid = $lesson->id
+                           $user
+                  GROUP BY u.id";
         }
-    } else {
-        // Retakes is turned Off; only count first attempt
-        $firstgrades = get_records_sql("SELECT userid, MIN(completed), grade FROM {$CFG->prefix}lesson_grades WHERE lessonid = $lessonid GROUP BY userid");
-        $grades = array();
-        if (!empty($firstgrades)) {
-            foreach($firstgrades as $userid => $info) {
-                $grades[$userid] = $info->grade;
-            }
-        }
-    }
-    // convert grades from percentages and tidy the numbers
-    if (!$lesson->practice) {  // dont display practice lessons
-        if ($grades) {
-            foreach ($grades as $userid => $grade) {
-                $return->grades[$userid] = number_format($grade * $lesson->grade / 100.0, 1);
-            }
-        }
-        $return->maxgrade = $lesson->grade;
 
-        return $return;
     } else {
-        return NULL;
+        // use only first attempts (with lowest id in lesson_grades table)
+        $firstonly = "SELECT uu.id AS userid, MIN(gg.id) AS firstcompleted
+                        FROM {$CFG->prefix}user uu, {$CFG->prefix}lesson_grades gg
+                       WHERE uu.id = gg.userid AND gg.lessonid = $lesson->id
+                             $fuser
+                       GROUP BY uu.id";
+
+        $sql = "SELECT u.id, u.id AS userid, g.grade AS rawgrade
+                  FROM {$CFG->prefix}user u, {$CFG->prefix}lesson_grades g, ($firstonly) f
+                 WHERE u.id = g.userid AND g.lessonid = $lesson->id
+                       AND g.id = f.firstcompleted AND g.userid=f.userid
+                       $user";
+    }
+
+    return get_records_sql($sql);
+}
+
+/**
+ * Update grades in central gradebook
+ *
+ * @param object $lesson null means all lessons
+ * @param int $userid specific user only, 0 mean all
+ */
+function lesson_update_grades($lesson=null, $userid=0, $nullifnone=true) {
+    global $CFG;
+    if (!function_exists('grade_update')) { //workaround for buggy PHP versions
+        require_once($CFG->libdir.'/gradelib.php');
+    }
+
+    if ($lesson != null) {
+        if ($grades = lesson_get_user_grades($lesson, $userid)) {
+            lesson_grade_item_update($lesson, $grades);
+
+        } else if ($userid and $nullifnone) {
+            $grade = new object();
+            $grade->userid   = $userid;
+            $grade->rawgrade = NULL;
+            lesson_grade_item_update($lesson, $grade);
+
+        } else {
+            lesson_grade_item_update($lesson);
+        }
+
+    } else {
+        $sql = "SELECT l.*, cm.idnumber as cmidnumber, l.course as courseid
+                  FROM {$CFG->prefix}lesson l, {$CFG->prefix}course_modules cm, {$CFG->prefix}modules m
+                 WHERE m.name='lesson' AND m.id=cm.module AND cm.instance=l.id";
+        if ($rs = get_recordset_sql($sql)) {
+            while ($lesson = rs_fetch_next_record($rs)) {
+                if ($lesson->grade != 0) {
+                    lesson_update_grades($lesson, 0, false);
+                } else {
+                    lesson_grade_item_update($lesson);
+                }
+            }
+            rs_close($rs);
+        }
     }
 }
+
+/**
+ * Create grade item for given lesson
+ *
+ * @param object $lesson object with extra cmidnumber
+ * @param mixed optional array/object of grade(s); 'reset' means reset grades in gradebook
+ * @return int 0 if ok, error code otherwise
+ */
+function lesson_grade_item_update($lesson, $grades=NULL) {
+    global $CFG;
+    if (!function_exists('grade_update')) { //workaround for buggy PHP versions
+        require_once($CFG->libdir.'/gradelib.php');
+    }
+
+    if (array_key_exists('cmidnumber', $lesson)) { //it may not be always present
+        $params = array('itemname'=>$lesson->name, 'idnumber'=>$lesson->cmidnumber);
+    } else {
+        $params = array('itemname'=>$lesson->name);
+    }
+
+    if ($lesson->grade > 0) {
+        $params['gradetype']  = GRADE_TYPE_VALUE;
+        $params['grademax']   = $lesson->grade;
+        $params['grademin']   = 0;
+
+    } else {
+        $params['gradetype']  = GRADE_TYPE_NONE;
+    }
+
+    if ($grades  === 'reset') {
+        $params['reset'] = true;
+        $grades = NULL;
+    }
+
+    return grade_update('mod/lesson', $lesson->course, 'mod', 'lesson', $lesson->id, 0, $grades, $params);
+}
+
+/**
+ * Delete grade item for given lesson
+ *
+ * @param object $lesson object
+ * @return object lesson
+ */
+function lesson_grade_item_delete($lesson) {
+    global $CFG;
+    require_once($CFG->libdir.'/gradelib.php');
+
+    return grade_update('mod/lesson', $lesson->course, 'mod', 'lesson', $lesson->id, 0, NULL, array('deleted'=>1));
+}
+
 
 /*******************************************************************/
 function lesson_get_participants($lessonid) {
@@ -446,6 +471,194 @@ function lesson_get_view_actions() {
 
 function lesson_get_post_actions() {
     return array('end','start', 'update grade attempt');
+}
+
+/**
+ * Runs any processes that must run before
+ * a lesson insert/update
+ *
+ * @param object $lesson Lesson form data
+ * @return void
+ **/
+function lesson_process_pre_save(&$lesson) {
+    $lesson->timemodified = time();
+
+    if (empty($lesson->timed)) {
+        $lesson->timed = 0;
+    }
+    if (empty($lesson->timespent) or !is_numeric($lesson->timespent) or $lesson->timespent < 0) {
+        $lesson->timespent = 0;
+    }
+    if (!isset($lesson->completed)) {
+        $lesson->completed = 0;
+    }
+    if (empty($lesson->gradebetterthan) or !is_numeric($lesson->gradebetterthan) or $lesson->gradebetterthan < 0) {
+        $lesson->gradebetterthan = 0;
+    } else if ($lesson->gradebetterthan > 100) {
+        $lesson->gradebetterthan = 100;
+    }
+
+    // Conditions for dependency
+    $conditions = new stdClass;
+    $conditions->timespent = $lesson->timespent;
+    $conditions->completed = $lesson->completed;
+    $conditions->gradebetterthan = $lesson->gradebetterthan;
+    $lesson->conditions = addslashes(serialize($conditions));
+    unset($lesson->timespent);
+    unset($lesson->completed);
+    unset($lesson->gradebetterthan);
+
+    if (!empty($lesson->password)) {
+        $lesson->password = md5($lesson->password);
+    } else {
+        unset($lesson->password);
+    }
+
+    if ($lesson->lessondefault) {
+        $default = new stdClass;
+        $default = clone($lesson);
+        unset($default->name);
+        unset($default->timemodified);
+        unset($default->available);
+        unset($default->deadline);
+        if ($default->id = get_field('lesson_default', 'id', 'course', $default->course)) {
+            update_record('lesson_default', $default);
+        } else {
+            insert_record('lesson_default', $default);
+        }
+    }
+    unset($lesson->lessondefault);
+}
+
+/**
+ * Runs any processes that must be run
+ * after a lesson insert/update
+ *
+ * @param object $lesson Lesson form data
+ * @return void
+ **/
+function lesson_process_post_save(&$lesson) {
+    if ($events = get_records_select('event', "modulename = 'lesson' and instance = '$lesson->id'")) {
+        foreach($events as $event) {
+            delete_event($event->id);
+        }
+    }
+
+    $event = new stdClass;
+    $event->description = $lesson->name;
+    $event->courseid    = $lesson->course;
+    $event->groupid     = 0;
+    $event->userid      = 0;
+    $event->modulename  = 'lesson';
+    $event->instance    = $lesson->id;
+    $event->eventtype   = 'open';
+    $event->timestart   = $lesson->available;
+    $event->visible     = instance_is_visible('lesson', $lesson);
+    $event->timeduration = ($lesson->deadline - $lesson->available);
+
+    if ($lesson->deadline and $lesson->available and $event->timeduration <= LESSON_MAX_EVENT_LENGTH) {
+        // Single event for the whole lesson.
+        $event->name = $lesson->name;
+        add_event($event);
+    } else {
+        // Separate start and end events.
+        $event->timeduration  = 0;
+        if ($lesson->available) {
+            $event->name = $lesson->name.' ('.get_string('lessonopens', 'lesson').')';
+            add_event($event);
+            unset($event->id); // So we can use the same object for the close event.
+        }
+        if ($lesson->deadline) {
+            $event->name      = $lesson->name.' ('.get_string('lessoncloses', 'lesson').')';
+            $event->timestart = $lesson->deadline;
+            $event->eventtype = 'close';
+            add_event($event);
+        }
+    }
+}
+
+
+/**
+ * Implementation of the function for printing the form elements that control
+ * whether the course reset functionality affects the lesson.
+ * @param $mform form passed by reference
+ */
+function lesson_reset_course_form_definition(&$mform) {
+    $mform->addElement('header', 'lessonheader', get_string('modulenameplural', 'lesson'));
+    $mform->addElement('advcheckbox', 'reset_lesson', get_string('deleteallattempts','lesson'));
+}
+
+/**
+ * Course reset form defaults.
+ */
+function lesson_reset_course_form_defaults($course) {
+    return array('reset_lesson'=>1);
+}
+
+/**
+ * Removes all grades from gradebook
+ * @param int $courseid
+ * @param string optional type
+ */
+function lesson_reset_gradebook($courseid, $type='') {
+    global $CFG;
+
+    $sql = "SELECT l.*, cm.idnumber as cmidnumber, l.course as courseid
+              FROM {$CFG->prefix}lesson l, {$CFG->prefix}course_modules cm, {$CFG->prefix}modules m
+             WHERE m.name='lesson' AND m.id=cm.module AND cm.instance=l.id AND l.course=$courseid";
+
+    if ($lessons = get_records_sql($sql)) {
+        foreach ($lessons as $lesson) {
+            lesson_grade_item_update($lesson, 'reset');
+        }
+    }
+}
+
+/**
+ * Actual implementation of the rest coures functionality, delete all the
+ * lesson attempts for course $data->courseid.
+ * @param $data the data submitted from the reset course.
+ * @return array status array
+ */
+function lesson_reset_userdata($data) {
+    global $CFG;
+
+    $componentstr = get_string('modulenameplural', 'lesson');
+    $status = array();
+
+    if (!empty($data->reset_lesson)) {
+        $lessonssql = "SELECT l.id
+                         FROM {$CFG->prefix}lesson l
+                        WHERE l.course={$data->courseid}";
+
+
+        delete_records_select('lesson_timer', "lessonid IN ($lessonssql)");
+        delete_records_select('lesson_high_scores', "lessonid IN ($lessonssql)");
+        delete_records_select('lesson_grades', "lessonid IN ($lessonssql)");
+        delete_records_select('lesson_attempts', "lessonid IN ($lessonssql)");
+
+        // remove all grades from gradebook
+        if (empty($data->reset_gradebook_grades)) {
+            lesson_reset_gradebook($data->courseid);
+        }
+
+        $status[] = array('component'=>$componentstr, 'item'=>get_string('deleteallattempts', 'lesson'), 'error'=>false);
+    }
+
+    /// updating dates - shift may be negative too
+    if ($data->timeshift) {
+        shift_course_mod_dates('lesson', array('available', 'deadline'), $data->timeshift, $data->courseid);
+        $status[] = array('component'=>$componentstr, 'item'=>get_string('datechanged'), 'error'=>false);
+    }
+
+    return $status;
+}
+
+/**
+ * Returns all other caps used in module
+ */
+function lesson_get_extra_capabilities() {
+    return array('moodle/site:accessallgroups');
 }
 
 ?>

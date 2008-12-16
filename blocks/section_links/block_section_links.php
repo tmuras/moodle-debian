@@ -1,10 +1,10 @@
-<?PHP //$Id: block_section_links.php,v 1.24 2007/01/23 03:39:56 moodler Exp $
+<?PHP //$Id: block_section_links.php,v 1.25.2.2 2008/03/03 11:41:04 moodler Exp $
 
 class block_section_links extends block_base {
 
     function init() {
         $this->title = get_string('blockname', 'block_section_links');
-        $this->version = 2004052800;
+        $this->version = 2007101509;
     }
 
     function instance_config($instance) {
@@ -26,7 +26,7 @@ class block_section_links extends block_base {
     }
 
     function get_content() {
-        global $CFG, $USER;
+        global $CFG, $USER, $COURSE;
 
         $highlight = 0;
 
@@ -42,7 +42,11 @@ class block_section_links extends block_base {
             return $this->content;
         }
 
-        $course = get_record('course', 'id', $this->instance->pageid);
+        if ($this->instance->pageid == $COURSE->id) {
+            $course = $COURSE;
+        } else {
+            $course = get_record('course', 'id', $this->instance->pageid);
+        }
         $context = get_context_instance(CONTEXT_COURSE, $course->id);
 
         if ($course->format == 'weeks' or $course->format == 'weekscss') {
@@ -71,25 +75,37 @@ class block_section_links extends block_base {
         } else {
             $link = '#section-';
         }
-        $text = '<ol class="inline-list">';
-        for ($i = $inc; $i <= $course->numsections; $i += $inc) {
-            $isvisible = get_field('course_sections', 'visible', 'course', $this->instance->pageid, 'section', $i);
-            if (!$isvisible and !has_capability('moodle/course:update', $context)) {
-                continue;
-            }
-            $style = ($isvisible) ? '' : ' class="dimmed"';
-            if ($i == $highlight) {
-                $text .= "<li><a href=\"$link$i\"$style><strong>$i</strong></a></li>\n";
-            } else {
-                $text .= "<li><a href=\"$link$i\"$style>$i</a></li>\n";
-            }
-        }
-        $text .= '</ol>';
-        if ($highlight) {
-            $isvisible = get_field('course_sections', 'visible', 'course', $this->instance->pageid, 'section', $highlight);
-            if ($isvisible or has_capability('moodle/course:update', $context)) {
+
+        $sql = "SELECT section, visible
+                  FROM {$CFG->prefix}course_sections
+                 WHERE course = $course->id AND
+                       section < ".($course->numsections+1)."
+              ORDER BY section";
+
+        if ($sections = get_records_sql($sql)) {
+            $text = '<ol class="inline-list">';
+            for ($i = $inc; $i <= $course->numsections; $i += $inc) {
+                if (!isset($sections[$i])) {
+                    continue;
+                }
+                $isvisible = $sections[$i]->visible;
+                if (!$isvisible and !has_capability('moodle/course:update', $context)) {
+                    continue;
+                }
                 $style = ($isvisible) ? '' : ' class="dimmed"';
-                $text .= "\n<a href=\"$link$highlight\"$style>$linktext</a>";
+                if ($i == $highlight) {
+                    $text .= "<li><a href=\"$link$i\"$style><strong>$i</strong></a></li>\n";
+                } else {
+                    $text .= "<li><a href=\"$link$i\"$style>$i</a></li>\n";
+                }
+            }
+            $text .= '</ol>';
+            if ($highlight and isset($sections[$highlight])) {
+                $isvisible = $sections[$highlight]->visible;
+                if ($isvisible or has_capability('moodle/course:update', $context)) {
+                    $style = ($isvisible) ? '' : ' class="dimmed"';
+                    $text .= "\n<a href=\"$link$highlight\"$style>$linktext</a>";
+                }
             }
         }
 

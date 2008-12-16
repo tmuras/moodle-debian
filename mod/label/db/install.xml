@@ -13,7 +13,7 @@
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" ENUM="false" PREVIOUS="content"/>
       </FIELDS>
       <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id" COMMENT="Primary key for label"/>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
       </KEYS>
       <INDEXES>
         <INDEX NAME="course" UNIQUE="false" FIELDS="course"/>
@@ -23,8 +23,8 @@
   <STATEMENTS>
     <STATEMENT NAME="insert log_display" TYPE="insert" TABLE="log_display" COMMENT="Initial insert of records on table log_display">
       <SENTENCES>
-        <SENTENCE TEXT="(module, action, mtable, field) VALUES ('label', 'add', 'quiz', 'name')" />
-        <SENTENCE TEXT="(module, action, mtable, field) VALUES ('label', 'update', 'quiz', 'name')" />
+        <SENTENCE TEXT="(module, action, mtable, field) VALUES ('label', 'add', 'label', 'name')" />
+        <SENTENCE TEXT="(module, action, mtable, field) VALUES ('label', 'update', 'label', 'name')" />
       </SENTENCES>
     </STATEMENT>
   </STATEMENTS>

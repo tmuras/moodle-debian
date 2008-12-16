@@ -1,4 +1,4 @@
-<?php  // $Id: faq_format.php,v 1.12 2007/01/12 06:57:34 toyomoyo Exp $
+<?php  // $Id: faq_format.php,v 1.12.4.2 2007/11/09 14:35:07 nfreear Exp $
 
 function glossary_show_entry_faq($course, $cm, $glossary, $entry, $mode="", $hook="", $printicons=1, $ratings=NULL, $aliases=true) {
     global $USER;
@@ -8,16 +8,16 @@ function glossary_show_entry_faq($course, $cm, $glossary, $entry, $mode="", $hoo
         echo '<table class="glossarypost faq" cellspacing="0">';
 
         echo '<tr valign="top">';
-        echo '<td class="entryheader">';
+        echo '<th class="entryheader">';
         $entry->course = $course->id;
 
-        echo '<span class="concept">' . get_string('question','glossary') . ': ';
+        echo '<div class="concept">' . get_string('question','glossary') . ': ';
         glossary_print_entry_concept($entry);
-        echo '</span><br />';
+        echo '</div>';
 
         echo '<span class="time">('.get_string('lastedited').': '.
              userdate($entry->timemodified).')</span>';
-        echo '</td>';
+        echo '</th>';
         echo '<td class="entryattachment">';
 
         glossary_print_entry_approval($cm, $entry, $mode);

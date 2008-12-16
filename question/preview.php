@@ -1,20 +1,19 @@
-<?php // $Id: preview.php,v 1.13.2.4 2007/05/02 19:34:57 tjhunt Exp $
+<?php // $Id: preview.php,v 1.23.2.4 2008/07/02 09:14:56 tjhunt Exp $
 /**
-* This page displays a preview of a question
-*
-* The preview uses the option settings from the activity within which the question
-* is previewed or the default settings if no activity is specified. The question session
-* information is stored in the session as an array of subsequent states rather
-* than in the database.
-*
-* TODO: make this work with activities other than quiz
-*
-* @version $Id: preview.php,v 1.13.2.4 2007/05/02 19:34:57 tjhunt Exp $
-* @author Alex Smith as part of the Serving Mathematics project
-*         {@link http://maths.york.ac.uk/serving_maths}
-* @license http://www.gnu.org/copyleft/gpl.html GNU Public License
-* @package question
-*/
+ * This page displays a preview of a question
+ *
+ * The preview uses the option settings from the activity within which the question
+ * is previewed or the default settings if no activity is specified. The question session
+ * information is stored in the session as an array of subsequent states rather
+ * than in the database.
+ *
+ * TODO: make this work with activities other than quiz
+ *
+ * @author Alex Smith as part of the Serving Mathematics project
+ *         {@link http://maths.york.ac.uk/serving_maths}
+ * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
+ * @package questionbank
+ */
 
     require_once("../config.php");
     require_once($CFG->libdir.'/questionlib.php');
@@ -23,6 +22,11 @@
     $id = required_param('id', PARAM_INT);        // question id
     // if no quiz id is specified then a dummy quiz with default options is used
     $quizid = optional_param('quizid', 0, PARAM_INT);
+    // if no quiz id is specified then tell us the course
+    if (empty($quizid)) {
+        $courseid = required_param('courseid', PARAM_INT);
+    }
+
     // Test if we are continuing an attempt at a question
     $continue = optional_param('continue', 0, PARAM_BOOL);
     // Check for any of the submit buttons
@@ -39,39 +43,39 @@
         $continue = false;
     }
 
-    require_login();
-
-    // this might break things in the future
-    if (!isteacherinanycourse()) {
-        error('This page is for teachers only');
+    $url = new moodle_url($CFG->wwwroot . '/question/preview.php');
+    $url->param('id', $id);
+    if ($quizid) {
+        $url->param('quizid', $quizid);
+    } else {
+        $url->param('courseid', $courseid);
     }
-
+    $url->param('continue', 1);
     if (!$continue) {
         // Start a new attempt; delete the old session
         unset($SESSION->quizpreview);
         // Redirect to ourselves but with continue=1; prevents refreshing the page
         // from restarting an attempt (needed so that random questions don't change)
-        $url = $CFG->wwwroot . '/question/preview.php?id=' . $id;
-        if ($quizid) {
-            $url .= '&amp;quizid=' . $quizid;
-        }
-        $url .= '&amp;continue=1';
-        redirect($url);
+        redirect($url->out());
     }
-
-    if (empty($quizid)) {
-        $quiz = new cmoptions;
-        $quiz->id = 0;
-        $quiz->review = $CFG->quiz_review;
-
-    } else if (!$quiz = get_record('quiz', 'id', $quizid)) {
-        error("Quiz id $quizid does not exist");
-    }
-
     // Load the question information
     if (!$questions = get_records('question', 'id', $id)) {
         error('Could not load question');
     }
+    if (empty($quizid)) {
+        $quiz = new cmoptions;
+        $quiz->id = 0;
+        $quiz->review = $CFG->quiz_review;
+        require_login($courseid, false);
+        $quiz->course = $courseid;
+    } else if (!$quiz = get_record('quiz', 'id', $quizid)) {
+        error("Quiz id $quizid does not exist");
+    } else {
+        require_login($quiz->course, false, get_coursemodule_from_instance('quiz', $quizid, $quiz->course));
+    }
+
+
+
     if ($maxgrade = get_field('quiz_question_instances', 'grade', 'quiz', $quiz->id, 'question', $id)) {
         $questions[$id]->maxgrade = $maxgrade;
     } else {
@@ -85,14 +89,16 @@
         error("This question doesn't belong to a valid category!");
     }
 
-    if (!has_capability('moodle/question:manage', get_context_instance(CONTEXT_COURSE, $category->course)) and !$category->publish) {
+    if (!question_has_capability_on($questions[$id], 'use', $questions[$id]->category)){
         error("You can't preview these questions!");
     }
-    $quiz->course = $category->course;
+    if (isset($COURSE)){
+        $quiz->course = $COURSE->id;
+    }
 
     // Load the question type specific information
     if (!get_question_options($questions)) {
-        error(get_string('newattemptfail', 'quiz'));
+        print_error('newattemptfail', 'quiz');
     }
 
     // Create a dummy quiz attempt
@@ -112,8 +118,7 @@
     // Restore the history of question sessions from the moodle session or create
     // new sessions. Make $states a reference to the states array in the moodle
     // session.
-    if (isset($SESSION->quizpreview->states) and $SESSION->quizpreview->questionid
-     == $id) {
+    if (isset($SESSION->quizpreview->states) and $SESSION->quizpreview->questionid == $id) {
         // Reload the question session history from the moodle session
         $states =& $SESSION->quizpreview->states;
         $historylength = count($states) - 1;
@@ -128,7 +133,7 @@
         // Create an empty session for the question
         if (!$newstates =
          get_question_states($questions, $quiz, $attempt)) {
-            error(get_string('newattemptfail', 'quiz'));
+            print_error('newattemptfail', 'quiz');
         }
         $SESSION->quizpreview->states = array($newstates);
         $states =& $SESSION->quizpreview->states;
@@ -158,7 +163,10 @@
         $event = $finishattempt ? QUESTION_EVENTCLOSE : QUESTION_EVENTSUBMIT;
         if ($actions = question_extract_responses($questions, $form, $event)) {
             $actions[$id]->timestamp = 0; // We do not care about timelimits here
-            question_process_responses($questions[$id], $curstate, $actions[$id], $quiz, $attempt);
+            if (!question_process_responses($questions[$id], $curstate, $actions[$id], $quiz, $attempt)) {
+                unset($SESSION->quizpreview);
+                print_error('errorprocessingresponses', 'question', $url->out());
+            }
             if (!$curstate->changed) {
                 // Update the current state rather than creating a new one
                 $historylength--;
@@ -182,25 +190,22 @@
     }
 
     $strpreview = get_string('preview', 'quiz').' '.format_string($questions[$id]->name);
-    print_header($strpreview);
+    $questionlist = array($id);
+    $headtags = get_html_head_contributions($questionlist, $questions, $states[$historylength]);
+    print_header($strpreview, '', '', '', $headtags);
     print_heading($strpreview);
 
     if (!empty($quizid)) {
         echo '<p class="quemodname">'.get_string('modulename', 'quiz') . ': ';
-        p($quiz->name);
+        p(format_string($quiz->name));
         echo "</p>\n";
     }
     $number = 1;
-    echo "<form method=\"post\" action=\"preview.php\">\n";
+    echo '<form method="post" action="'.$url->out(true).'" enctype="multipart/form-data" id="responseform">', "\n";
     print_question($questions[$id], $curstate, $number, $quiz, $options);
-    echo '<br />';
 
-
-    
     echo '<div class="controls">';
-    echo "<input type=\"hidden\" name=\"id\" value=\"$id\" />\n";
-    echo "<input type=\"hidden\" name=\"quizid\" value=\"$quizid\" />\n";
-    echo "<input type=\"hidden\" name=\"continue\" value=\"1\" />\n";
+    echo $url->hidden_params_out();
 
     // Print the mark and finish attempt buttons
     echo '<input name="markall" type="submit" value="' . get_string('markall',

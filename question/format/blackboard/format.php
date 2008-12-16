@@ -1,5 +1,4 @@
-
-<?php // $Id: format.php,v 1.8.2.1 2007/03/14 15:14:14 thepurpleblob Exp $
+<?php // $Id: format.php,v 1.12.4.2 2008/08/28 10:04:23 thepurpleblob Exp $
 
 ////////////////////////////////////////////////////////////////////////////
 /// Blackboard 6.0 Format
@@ -10,7 +9,10 @@
 ////////////////////////////////////////////////////////////////////////////
 
 // Based on default.php, included by ../import.php
-
+/**
+ * @package questionbank
+ * @subpackage importexport
+ */
 require_once ("$CFG->libdir/xmlize.php");
 require_once ("$CFG->libdir/tcpdf/html_entity_decode_php4.php");
 
@@ -70,9 +72,47 @@ class qformat_blackboard extends qformat_default {
     $this->process_ma($xml, $questions);
     $this->process_fib($xml, $questions);
     $this->process_matching($xml, $questions);
+    $this->process_essay($xml, $questions);
 
     return $questions;
-  }
+}
+
+//----------------------------------------
+// Process Essay Questions
+//----------------------------------------
+function process_essay($xml, &$questions ) {
+  
+    if (isset($xml["POOL"]["#"]["QUESTION_ESSAY"])) {
+    	$essayquestions = $xml["POOL"]["#"]["QUESTION_ESSAY"];
+    }
+    else {
+    	return;
+    }	
+    
+    foreach ($essayquestions as $essayquestion) {
+        
+        $question = $this->defaultquestion();
+        
+        $question->qtype = ESSAY;	
+        
+        // determine if the question is already escaped html
+        $ishtml = $essayquestion["#"]["BODY"][0]["#"]["FLAGS"][0]["#"]["ISHTML"][0]["@"]["value"];
+
+        // put questiontext in question object
+        if ($ishtml) {
+            $question->questiontext = html_entity_decode_php4(trim($essayquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]));
+        }
+        $question->questiontext = addslashes($question->questiontext);
+        
+        // put name in question object
+        $question->name = substr($question->questiontext, 0, 254);
+        $question->answer = '';
+        $question->feedback = '';
+        $question->fraction = 0;
+        
+        $questions[] = $question;
+    } 	
+}
 
 //----------------------------------------
 // Process True / False Questions
@@ -269,7 +309,6 @@ function process_fib($xml, &$questions) {
     else {
         return;
     }
-    
 
     for ($i = 0; $i < sizeof ($fibquestions); $i++) {
         $question = $this->defaultquestion();
@@ -310,7 +349,7 @@ function process_fib($xml, &$questions) {
         }        
          
         $questions[] = $question;
-      } 
+    }
 }
 
 //----------------------------------------

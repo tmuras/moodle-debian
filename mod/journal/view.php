@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.48.2.2 2007/06/18 06:34:13 moodler Exp $
+<?php  // $Id: view.php,v 1.54.2.1 2007/10/12 16:09:47 tjhunt Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -27,9 +27,9 @@
 
     $strjournal = get_string("modulename", "journal");
     $strjournals = get_string("modulenameplural", "journal");
-
-    print_header_simple(format_string($journal->name), '',
-                 "<a href=\"index.php?id=$course->id\">$strjournals</a> -> ".format_string($journal->name), '', '', true,
+    
+    $navigation = build_navigation('', $cm);
+    print_header_simple(format_string($journal->name), '', $navigation, '', '', true,
                   update_module_button($cm->id, $course->id, $strjournal), navmenu($course, $cm));
 
 /// Check to see if groups are being used here

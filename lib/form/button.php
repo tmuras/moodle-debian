@@ -17,7 +17,7 @@
 // |          Bertrand Mansion <bmansion@mamasam.com>                     |
 // +----------------------------------------------------------------------+
 //
-// $Id: button.php,v 1.2 2007/01/04 10:23:07 jamiesensei Exp $
+// $Id: button.php,v 1.3 2007/05/27 05:01:51 jamiesensei Exp $
 
 require_once("HTML/QuickForm/button.php");
 
@@ -67,6 +67,18 @@ class MoodleQuickForm_button extends HTML_QuickForm_button
      */
     function getHelpButton(){
         return $this->_helpbutton;
+    }
+    /**
+     * Slightly different container template when frozen.
+     *
+     * @return string
+     */
+    function getElementTemplateType(){
+        if ($this->_flagFrozen){
+            return 'nodisplay';
+        } else {
+            return 'default';
+        }
     }
 } //end class MoodleQuickForm_button
 ?>

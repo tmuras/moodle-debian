@@ -9,15 +9,17 @@ $string['yourpeers']                    = 'Your Peers';
 $string['settings']                     = 'Settings';
 $string['hostsettings']                 = 'Host Settings';
 $string['mnetpeers']                    = 'Peers';
+$string['themesavederror']              = 'An error occurred: Theme change not saved';
 $string['mnetservices']                 = 'Moodle network services';
+$string['mnetthemes']                   = 'Themes';
 $string['trustedhosts']                 = 'XML-RPC hosts';
 $string['trustedhostsexplain']          = '<p>The trusted hosts mechanism allows specific machines to
                                            execute calls via XML-RPC to any part of the Moodle API. This
                                            is available for scripts to control Moodle behaviour and can be
                                            a very dangerous option to enable. If in doubt, keep it off.</p>
                                            <p>This is <strong>not</strong> needed for Moodle Networking.</p>
-                                           <p>To enable it, enter a list of IP addresses or networks, 
-                                           one on each line. 
+                                           <p>To enable it, enter a list of IP addresses or networks,
+                                           one on each line.
                                            Some examples:</p>'.
                                           'Your local host:<br />'.
                                           '127.0.0.1<br />'.
@@ -50,11 +52,12 @@ $string['selectahost']                  = 'Please select a remote Moodle host.';
 $string['selectaccesslevel']            = 'Please select an access level from the list.';
 $string['noaclentries']                 = 'No entries in the SSO access control list';
 $string['deleteaserver']                = 'Deleting a Server';
+$string['deletehost']                   = 'Delete host';
 $string['nosite']                       = 'Could not find site-level course';
 $string['postrequired']                 = 'The delete function requires a POST request.';
 $string['hostdeleted']                  = 'Ok - host deleted';
 $string['reenableserver']               = 'No - select this option to re-enable this server.';
-$string['nocurl']                       = 'PHP Curl library is not installed';
+$string['nocurl']                       = 'PHP cURL library is not installed';
 $string['publish']                      = 'Publish';
 $string['subscribe']                    = 'Subscribe';
 $string['failedaclwrite']               = 'Failed to write to the MNET access control list for user \'$a\'.';
@@ -75,7 +78,7 @@ $string['expireyourkeyexplain']         = 'Moodle automatically rotates your key
                                           'key has been compromised. A replacement will be immediately automatically generated.<br />'.
                                           'Deleting this key will make it impossible for other Moodles to communicate with you, until you '.
                                           'manually contact each administrator and provide them with your new key.';
-$string['deleteoutoftime']              = 'Your 60-second window for deleting this key has expired. Please start again.'; 
+$string['deleteoutoftime']              = 'Your 60-second window for deleting this key has expired. Please start again.';
 $string['deletewrongkeyvalue']          = 'An error has occurred. If you were not trying to delete your server\'s SSL key, it is possible '.
                                           'you have been the subject of a malicious attack. No action has been taken.';
 
@@ -92,7 +95,7 @@ $string['forbidden-function']           = 'That function has not been enabled fo
 $string['forbidden-transport']          = 'The transport method you are trying to use is not permitted.';
 
 $string['registerallhosts']             = 'Register all hosts (<em>Hub mode</em>)';
-$string['registerallhostsexplain']      = 'You can choose to register all hosts that try to connect to you automatically. 
+$string['registerallhostsexplain']      = 'You can choose to register all hosts that try to connect to you automatically.
                                            This means that a record will appear in your hosts list for any '.
                                           'Moodle site that connects to you and requests your public key.<br />'.
                                           'You have the option below to configure services for \'All Hosts\' and by enabling some services there, you are able to provide '.
@@ -104,7 +107,7 @@ $string['ssl_acl_deny']                = 'SSO ACL: Deny user $a[0] from $a[1]';
 $string['enabled_for_all']              = '(This service has been enabled for all hosts).';
 $string['nosuchfile']                   = 'The file/function $a does not exist.';
 $string['nosuchfunction']               = 'Unable to locate function, or function prohibited for RPC.';
-$string['nosuchmodule']                 = 'The function was incorrectly addressed and could not be located. Please use the 
+$string['nosuchmodule']                 = 'The function was incorrectly addressed and could not be located. Please use the
 mod/modulename/lib/functionname format.';
 $string['nosuchpublickey']              = 'Unable to obtain public key for signature verification.';
 $string['nosuchservice']                = 'The RPC service is not running on this host.';
@@ -117,6 +120,7 @@ $string['verifysignature-error']        = 'The signature verification failed. An
 $string['verifysignature-invalid']      = 'The signature verification failed. It appears that this payload was not signed by you.';
 $string['mnetsettings']                 = 'Moodle network settings';
 $string['mnetservices']                 = 'Services';
+$string['mnetthemes']                   = 'Themes';
 $string['mnetlog']                      = 'Logs';
 
 $string['issubscribed']                 = 'The $a Moodle is subscribing to this service on your host.';
@@ -228,11 +232,18 @@ $string['logs'] = 'logs';
 $string['courses'] = 'courses';
 
 $string['enrolcourses_desc'] = 'Courses offered for remote enrolment by this host.';
-$string['enrolcourseenrol_desc'] = 'Enrol/unenrol users from this course using Moodle Network enrolments. 
+$string['enrolcourseenrol_desc'] = 'Enrol/unenrol users from this course using Moodle Network enrolments.
                                     Note that users may have been enrolled in this course via other enrolment
                                     methods if the remote hosts allows them. Such enrolments are listed under
                                     <em>Other enrolled users</em>';
 $string['host'] = 'host';
 $string['loginlinkmnetuser'] = '<br/>If you are a Moodle Network remote user and can <a href=\"$a\">confirm your email address here</a>, you can be redirected to your login page.<br />';
+
+$string['error7020'] = 'This error normally occurs if the remote site has created a record for you with the wrong wwwroot, for example, http://yoursite.com instead of http://www.yoursite.com. You should contact the administrator of the remote site with your wwwroot (as specified in config.php) asking her to update her record for your host.';
+$string['error7023'] = 'The remote site has tried to decrypt your message with all the keys it has on record for your site. They have all failed. You might be able to fix this problem by manually re-keying with the remote site. This is unlikely to occur unless you\'ve been out of communication with the remote site for a few months.';
+$string['error7022'] = 'The message you sent to the remote site was encrypted properly, but not signed. This is very unexpected; you should probably file a bug if this occurs (giving as much information as possible about the Moodle versions in question, etc.';
+$string['error7024'] = 'You send an unencrypted message to the remote site, but the remote site doesn\'t accept unencrypted communication from your site. This is very unexpected; you should probably file a bug if this occurs (giving as much information as possible about the Moodle versions in question, etc.';
+$string['error709']  = 'The remote site failed to obtain a SSL key from you.';
+$string['error7026'] = 'The key that your message was signed with differs from the key that the remote host has on file for your server. Further, the remote host attempted to fetch your current key and failed to do so. Please manually re-key with the remote host and try again.';
 
 ?>

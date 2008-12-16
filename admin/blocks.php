@@ -1,4 +1,4 @@
-<?PHP // $Id: blocks.php,v 1.32.2.3 2007/02/22 18:47:18 stronk7 Exp $
+<?PHP // $Id: blocks.php,v 1.40.4.5 2008/01/03 15:02:59 skodak Exp $
 
     // Allows the admin to configure blocks (hide/show, delete and configure)
 
@@ -8,8 +8,7 @@
     require_once($CFG->libdir.'/tablelib.php');
     require_once($CFG->libdir.'/ddllib.php');
 
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('manageblocks', $adminroot);
+    admin_externalpage_setup('manageblocks');
 
     $confirm  = optional_param('confirm', 0, PARAM_BOOL);
     $hide     = optional_param('hide', 0, PARAM_INT);
@@ -30,10 +29,6 @@
     $strmultiple = get_string('blockmultiple', 'admin');
     $strshowblockcourse = get_string('showblockcourse');
 
-    admin_externalpage_print_header($adminroot);
-
-    print_heading($strmanageblocks);
-
 /// If data submitted, then process and store.
 
     if (!empty($hide) && confirm_sesskey()) {
@@ -41,6 +36,7 @@
             error("Block doesn't exist!");
         }
         set_field('block', 'visible', '0', 'id', $block->id);      // Hide block
+        admin_get_root(true, false);  // settings not required - only pages
     }
 
     if (!empty($show) && confirm_sesskey() ) {
@@ -48,6 +44,7 @@
             error("Block doesn't exist!");
         }
         set_field('block', 'visible', '1', 'id', $block->id);      // Show block
+        admin_get_root(true, false);  // settings not required - only pages
     }
 
     if (!empty($multiple) && confirm_sesskey()) {
@@ -56,9 +53,12 @@
         }
         $block->multiple = !$block->multiple;
         update_record('block', $block);
+        admin_get_root(true, false);  // settings not required - only pages
     }
 
     if (!empty($delete) && confirm_sesskey()) {
+        admin_externalpage_print_header();
+        print_heading($strmanageblocks);
 
         if (!$block = blocks_get_record($delete)) {
             error("Block doesn't exist!");
@@ -76,7 +76,7 @@
             notice_yesno(get_string('blockdeleteconfirm', '', $strblockname),
                          'blocks.php?delete='.$block->id.'&amp;confirm=1&amp;sesskey='.$USER->sesskey,
                          'blocks.php');
-            admin_externalpage_print_footer($adminroot);
+            admin_externalpage_print_footer();
             exit;
 
         } else {
@@ -100,33 +100,23 @@
                 notify("Error occurred while deleting the $strblockname record from blocks table");
             }
 
-            // Then the tables themselves
-            if ($tables = $db->Metatables()) {
-                $prefix = $CFG->prefix.$block->name;
-                $prefix2 = $CFG->prefix.'block_'.$block->name;
-                foreach ($tables as $table) {
-                    if (strpos($table, $prefix) === 0 || strpos($table, $prefix2) === 0) {
-                    /// If the match has been due to the 1st condition, debug to developers
-                        if (strpos($table, $prefix) === 0) {
-                            debugging('This block has some wrongly named tables. See Moodle Docs coding guidelines (and MDL-6786)', DEBUG_DEVELOPER);
-                        }
-                    /// Strip prefix from $table
-                        $table = preg_replace("/^{$CFG->prefix}/", '', $table);
-                        $xmldb_table = new XMLDBTable($table);
-                        if (!drop_table($xmldb_table, true, false)) {
-                            notify("ERROR: while trying to drop table $table");
-                        }
-                    }
-                }
-            }
+            drop_plugin_tables($block->name, "$CFG->dirroot/blocks/$block->name/db/install.xml", false); // old obsoleted table names
+            drop_plugin_tables('block_'.$block->name, "$CFG->dirroot/blocks/$block->name/db/install.xml", false);
+
             // Delete the capabilities that were defined by this block
             capabilities_cleanup('block/'.$block->name);
+
+            // remove entent handlers and dequeue pending events
+            events_uninstall('block/'.$block->name);
 
             $a->block = $strblockname;
             $a->directory = $CFG->dirroot.'/blocks/'.$block->name;
             notice(get_string('blockdeletefiles', '', $a), 'blocks.php');
         }
     }
+
+    admin_externalpage_print_header();
+    print_heading($strmanageblocks);
 
 /// Main display starts here
 
@@ -172,21 +162,35 @@
     foreach ($blockbyname as $blockname => $blockid) {
 
         $blockobject = $blockobjects[$blockid];
+        $block       = $blocks[$blockid];
 
         $delete = '<a href="blocks.php?delete='.$blockid.'&amp;sesskey='.$USER->sesskey.'">'.$strdelete.'</a>';
 
         $settings = ''; // By default, no configuration
-        if($blockobject->has_config()) {
-            $settings = '<a href="block.php?block='.$blockid.'">'.$strsettings.'</a>';
+        if ($blockobject->has_config()) {
+            if (file_exists($CFG->dirroot.'/blocks/'.$block->name.'/settings.php')) {
+                $settings = '<a href="'.$CFG->wwwroot.'/'.$CFG->admin.'/settings.php?section=blocksetting'.$block->name.'">'.$strsettings.'</a>';
+            } else {
+                $settings = '<a href="block.php?block='.$blockid.'">'.$strsettings.'</a>';
+            }
         }
 
-        $count = count_records('block_instance', 'blockid', $blockid);
+        // MDL-11167, blocks can be placed on mymoodle, or the blogs page
+        // and it should not show up on course search page
+
+        $totalcount = count_records('block_instance', 'blockid', $blockid);
+
+        $count = count_records_sql('SELECT COUNT(*)
+                                        FROM '.$CFG->prefix.'block_instance
+                                        WHERE blockid = '.$blockid.' AND
+                                        pagetype = \'course-view\'');
+
         if ($count>0) {
             $blocklist = "<a href=\"{$CFG->wwwroot}/course/search.php?blocklist=$blockid&amp;sesskey={$USER->sesskey}\" ";
-            $blocklist .= "title=\"$strshowblockcourse\" >$count</a>";
+            $blocklist .= "title=\"$strshowblockcourse\" >$totalcount</a>";
         }
         else {
-            $blocklist = "$count";
+            $blocklist = "$totalcount";
         }
         $class = ''; // Nothing fancy, by default
 
@@ -246,6 +250,6 @@
         $table->print_html();
     }
 
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 
 ?>

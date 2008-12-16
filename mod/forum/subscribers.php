@@ -1,4 +1,4 @@
-<?php  // $Id: subscribers.php,v 1.34.8.1 2007/05/15 18:27:00 skodak Exp $
+<?php  // $Id: subscribers.php,v 1.40.2.2 2008/02/13 17:01:42 skodak Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -36,23 +36,23 @@
     $strsubscribers = get_string("subscribers", "forum");
     $strforums      = get_string("forums", "forum");
 
-    $navigation = "<a href=\"index.php?id=$course->id\">$strforums</a> ->
-       <a href=\"view.php?f=$forum->id\">".format_string($forum->name,true)."</a> -> $strsubscribers";
+    $navigation = build_navigation($strsubscribers, $cm);
 
     if (has_capability('mod/forum:managesubscriptions', $context)) {
-        print_header_simple("$strsubscribers", "", "$navigation",
+        print_header_simple("$strsubscribers", "", $navigation,
             "", "", true, forum_update_subscriptions_button($course->id, $id));
         if ($edit != -1) {
             $USER->subscriptionsediting = $edit;
         }
     } else {
-        print_header_simple("$strsubscribers", "", "$navigation", "", "", true, '');
+        print_header_simple("$strsubscribers", "", $navigation, "", "", true, '');
         unset($USER->subscriptionsediting);
     }
 
 /// Check to see if groups are being used in this forum
-    $groupmode = groupmode($course, $cm);
-    $currentgroup = setup_and_print_groups($course, $groupmode, "subscribers.php?id=$forum->id");
+    groups_print_activity_menu($cm, "subscribers.php?id=$forum->id");
+    $currentgroup = groups_get_activity_group($cm);
+    $groupmode = groups_get_activity_groupmode($cm);
 
     if (empty($USER->subscriptionsediting)) {         /// Display an overview of subscribers
 
@@ -67,7 +67,7 @@
             echo '<table align="center" cellpadding="5" cellspacing="5">';
             foreach ($users as $user) {
                 echo '<tr><td>';
-                print_user_picture($user->id, $course->id, $user->picture);
+                print_user_picture($user, $course->id);
                 echo '</td><td>';
                 echo fullname($user);
                 echo '</td><td>';

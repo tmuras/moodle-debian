@@ -63,7 +63,7 @@ function scorm_get_manifest($blocks,$scoes) {
                     }
                 break;
                 case 'ORGANIZATIONS':
-                    if (!isset($scoes->defaultorg)) {
+                    if (!isset($scoes->defaultorg) && isset($block['attrs']['DEFAULT'])) {
                         $scoes->defaultorg = addslashes($block['attrs']['DEFAULT']);
                     }
                     $scoes = scorm_get_manifest($block['children'],$scoes);
@@ -275,7 +275,11 @@ function scorm_get_manifest($blocks,$scoes) {
                                                 $mapinfos = array();
                                                 foreach ($objective['children'] as $objectiveparam) {
                                                     if ($objectiveparam['name']=='IMSSS:MINNORMALIZEDMEASURE') {
-                                                        $objectivedata->minnormalizedmeasure = $objectiveparam['tagData'];
+                                                        if (isset($objectiveparam['tagData'])) {
+                                                        	$objectivedata->minnormalizedmeasure = $objectiveparam['tagData'];
+                                                        } else {
+                                                            $objectivedata->minnormalizedmeasure = 0;
+                                                        }
                                                     }
                                                     if ($objectiveparam['name']=='IMSSS:MAPINFO') {
                                                         $mapinfo = new stdClass();
@@ -485,19 +489,17 @@ function scorm_parse_scorm($pkgdir,$scormid) {
                         $newitem->organization = $organization;
                         $standarddatas = array('parent', 'identifier', 'launch', 'scormtype', 'title');
                         foreach ($standarddatas as $standarddata) {
-                            $newitem->$standarddata = addslashes($item->$standarddata);
+                            if (isset($item->$standarddata)) {
+                                $newitem->$standarddata = addslashes($item->$standarddata);
+                            }
                         }
                         
-                        $id = 0; 
+                        // Insert the new SCO, and retain the link between the old and new for later adjustment
+                        $id = insert_record('scorm_scoes',$newitem);
                         if (!empty($olditems) && ($olditemid = scorm_array_search('identifier',$newitem->identifier,$olditems))) {
-                            $newitem->id = $olditemid;
-                            $id = update_record('scorm_scoes',$newitem);
-                            unset($olditems[$olditemid]);
-                            delete_records('scorm_scoes_data','scoid',$olditemid);
-                        } else {
-                            $id = insert_record('scorm_scoes',$newitem);
+                            $olditems[$olditemid]->newid = $id;
                         }
-
+                        
                         if ($optionaldatas = scorm_optionals_data($item,$standarddatas)) {
                             $data = new stdClass();
                             $data->scoid = $id;
@@ -590,15 +592,18 @@ function scorm_parse_scorm($pkgdir,$scormid) {
             }
             if (!empty($olditems)) {
                 foreach($olditems as $olditem) {
-                   delete_records('scorm_scoes','id',$olditem->id);
-                   delete_records('scorm_scoes_data','scoid',$olditem->id);
-                   delete_records('scorm_scoes_track','scoid',$olditem->id);
-                   delete_records('scorm_seq_objective','scoid',$olditem->id);
-                   delete_records('scorm_seq_mapinfo','scoid',$olditem->id);
-                   delete_records('scorm_seq_ruleconds','scoid',$olditem->id);
-                   delete_records('scorm_seq_rulecond','scoid',$olditem->id);
-                   delete_records('scorm_seq_rolluprule','scoid',$olditem->id);
-                   delete_records('scorm_seq_rollupcond','scoid',$olditem->id);
+                    delete_records('scorm_scoes','id',$olditem->id);
+                    delete_records('scorm_scoes_data','scoid',$olditem->id);
+                    if (isset($olditem->newid)) {
+                        set_field('scorm_scoes_track', 'scoid', $olditem->newid, 'scoid', $olditem->id);
+                    }
+                    delete_records('scorm_scoes_track','scoid',$olditem->id);
+                    delete_records('scorm_seq_objective','scoid',$olditem->id);
+                    delete_records('scorm_seq_mapinfo','scoid',$olditem->id);
+                    delete_records('scorm_seq_ruleconds','scoid',$olditem->id);
+                    delete_records('scorm_seq_rulecond','scoid',$olditem->id);
+                    delete_records('scorm_seq_rolluprule','scoid',$olditem->id);
+                    delete_records('scorm_seq_rolluprulecond','scoid',$olditem->id);
                 }
             }
             set_field('scorm','version',$scoes->version,'id',$scormid);
@@ -638,13 +643,38 @@ function scorm_get_parent($sco) {
 }
 
 function scorm_get_children($sco) {
-    if ($parent = get_records('scorm_scoes','scorm',$sco->scorm,'parent',$sco->identifier)) {
+    if ($children = get_records('scorm_scoes','scorm',$sco->scorm,'parent',$sco->identifier)) {//originally this said parent instead of childrean
         return $children;
     }
     return null;
 }
 
-function scorm_get_sibling($sco) {
+function scorm_get_available_children($sco){
+    $res = get_record('scorm_scoes_track','scoid',$scoid,'userid',$userid,'element','availablechildren');
+    if(!$res || $res == null){
+        return false;
+    }
+    else{
+        return unserialize($res->value);
+    }
+}
+
+function scorm_get_available_descendent($descend = array(),$sco){
+    if($sco == null){
+        return $descend;
+    }
+    else{
+        $avchildren = scorm_get_available_children($sco);
+        foreach($avchildren as $avchild){
+            array_push($descend,$avchild);
+        }
+        foreach($avchildren as $avchild){
+            scorm_get_available_descendent($descend,$avchild);
+        }
+    }
+}
+
+function scorm_get_siblings($sco) {
     if ($siblings = get_records('scorm_scoes','scorm',$sco->scorm,'parent',$sco->parent)) {
         unset($siblings[$sco->id]);
         if (!empty($siblings)) {
@@ -659,6 +689,20 @@ function scorm_get_ancestors($sco) {
         return array_push(scorm_get_ancestors(scorm_get_parent($sco)));
     } else {
         return $sco;
+    }
+}
+
+function scorm_get_preorder($preorder=array(),$sco) {
+
+
+    if ($sco != null) {
+        array_push($preorder,$sco);
+        $children = scorm_get_children($sco);
+        foreach ($children as $child){
+            scorm_get_preorder($sco);
+        }
+    } else {
+        return $preorder;
     }
 }
 

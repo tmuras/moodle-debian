@@ -1,4 +1,4 @@
-<?php // $Id: filter.php,v 1.17.2.1 2007/03/19 06:32:24 martinlanghoff Exp $
+<?php // $Id: filter.php,v 1.18.2.1 2007/12/26 17:41:48 poltawski Exp $
     //This function provides automatic linking to
     //resources when its name (title) is found inside every Moodle text
     //Williams, Stronk7, Martin D
@@ -32,9 +32,23 @@
 
         if (empty($resourcelist)) {
 
-        /// The resources are sorted from long to short so longer ones can be linked first.
+            /* get all non-hidden resources from this course
+             * sorted from long to short so longer ones can be 
+             * linked first. And order by section so we try to 
+             * link to the top resource first.
+             */
+            $resource_sql  = "SELECT r.id, r.name 
+                FROM {$CFG->prefix}resource r, 
+                     {$CFG->prefix}course_modules cm, 
+                     {$CFG->prefix}modules m
+                WHERE m.name = 'resource' AND
+                        cm.module = m.id AND
+                        cm.visible =  1 AND
+                        r.id = cm.instance AND
+                        cm.course = {$courseid}
+                ORDER BY CHAR_LENGTH(r.name) DESC, cm.section ASC;";
 
-            if (!$resources = get_records('resource', 'course', $courseid, 'CHAR_LENGTH(name) DESC', 'id,name')) {
+            if (!$resources = get_records_sql($resource_sql) ){
                 $nothingtodo = true;
                 return $text;
             }

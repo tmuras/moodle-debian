@@ -1,7 +1,7 @@
-<?php //$Id: backup_form.html,v 1.29 2007/02/06 08:24:37 toyomoyo Exp $
+<?php //$Id: backup_form.html,v 1.35.2.5 2008/04/13 01:25:55 stronk7 Exp $
     //This page prints the backup form to select everything
 
-    //Check login   
+    //Check login
     require_login();
 
     if (!empty($course->id)) {
@@ -15,7 +15,7 @@
             }
         }
     } else {
-        if (!has_capability('moodle/site:backup', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+        if (!has_capability('moodle/site:backup', get_context_instance(CONTEXT_SYSTEM))) {
             error("You need to be an admin user to use this page.", "$CFG->wwwroot/login/index.php");
         }
     }
@@ -26,9 +26,9 @@
     }
 
     //Checks for the required files/functions to backup every mod
-    //And check if there is data about it 
+    //And check if there is data about it
     $count = 0;
-    if ($allmods = get_records("modules") ) {
+    if ($allmods = get_records('modules', 'visible', 1) ) {
         foreach ($allmods as $mod) {
             $modname = $mod->name;
             $modfile = "$CFG->dirroot/mod/$modname/backuplib.php";
@@ -64,7 +64,10 @@
     $backup_logs = optional_param('backup_logs',0);
     $backup_user_files = optional_param('backup_user_files',1);
     $backup_course_files = optional_param('backup_course_files',1);
+    $backup_site_files = optional_param('backup_site_files',1);
+    $backup_gradebook_history =  optional_param('backup_gradebook_history', 0, PARAM_INT);
     $backup_messages = optional_param('backup_messages',1);
+    $backup_blogs = optional_param('backup_blogs',1);
 
     if ($count == 0) {
         notice("No backupable modules are installed!");
@@ -115,12 +118,14 @@ function selectItemInCheckboxByName(formId, checkName, checked ) {
 <form id="form1" method="post" action="backup.php">
 <table cellpadding="5" style="margin-left:auto;margin-right:auto;">
 <?php
+/// Acummulator for hidden options and proper XHTML output
+    $hidden_options = '';
     //Now, check modules and info and show posibilities
-    if ($allmods = get_records("modules") ) {
+    if ($allmods = get_records('modules', 'visible', 1) ) {
         //Print option to select/deselect everything with 1 click.
         echo "<tr>";
         echo "<td align=\"right\">";
-        echo '<b>'.get_string("include").":</b>";
+        echo '<b>'.get_string("include")."</b>";
         echo "</td><td>";
         echo "<a href=\"javascript:void(0);\" onclick=\"selectItemInCheckboxByName('form1', 'backup_', true);\">". get_string("all")."</a>/";
         echo "<a href=\"javascript:void(0);\" onclick=\"selectItemInCheckboxByName('form1', 'backup_', false);\">".  get_string("none")."</a>";
@@ -138,13 +143,14 @@ function selectItemInCheckboxByName(formId, checkName, checked ) {
             $modname = $mod->name;
             $modbackup = $modname."_backup_mods";
             //If exists the lib & function
-            $var = "exists_".$modname;
-            if (isset($$var) && $$var) {
+            $var   = 'exists_'.$modname;
+            $exvar = 'exists_one_'.$modname;
+            if (!empty($$var) and !empty($$exvar)) {
                 //Print the full tr
                 echo "<tr class=\"r".$currentrow."\">";
                 echo "  <td align=\"right\">&nbsp;";
                 echo "</td><td>\n";
-                $backup_options[0] = get_string("no"); 
+                $backup_options[0] = get_string("no");
                 $backup_options[1] = get_string("yes");
                 $var = "backup_".$modname;
                 //choose_from_menu($backup_options, $var, $$var, "");
@@ -154,62 +160,58 @@ function selectItemInCheckboxByName(formId, checkName, checked ) {
                 echo "</td><td>";
                 $var = "backup_user_info_".$modname;
                 if (empty($to)) {
-                    $backup_user_options[0] = get_string("withoutuserdata"); 
+                    $backup_user_options[0] = get_string("withoutuserdata");
                     $backup_user_options[1] = get_string("withuserdata");
                     //choose_from_menu($backup_user_options, $var, $$var, "");
                     print_checkbox($var, $$var, $$var, get_string("userdata"),'','selectItemInCheckboxByName(\'form1\',\'backup_user_info_'.$modname.'\',this.checked)');
                 } else {
                     echo '<input type="hidden" name="'.$var.'" value="0" />';
                 }
-                echo "</td></tr>\n"; 
-                // if we have the backup_one_mod function, loop here.
-                $var = 'exists_one_'.$modname;
-                if (!empty($$var)) {
-                    echo '<tr><td></td><td colspan="3"><table class="backup-form-instances">';
-                    $instances = get_all_instances_in_course($modname,$course);
-                    foreach ($instances as $instance) {
-                        echo '<tr><td>';
-                        $var = 'backup_'.$modname.'_instance_'.$instance->id;
-                        $$var = optional_param($var,1);
-                        print_checkbox($var,$$var,$$var,$instance->name,$instance->name,'this.form.elements[\'backup_'.$modname.'\'].checked=1;');
-                        echo '</td><td align="right">&nbsp;';
-                        $var = 'backup_user_info_'.$modname.'_instance_'.$instance->id;
-                        $$var = optional_param($var,1);
-                        if (empty($to)) {
-                            print_checkbox($var,$$var,$$var,get_string('userdata'),'','this.form.elements[\'backup_user_info_'.$modname.'\'].checked=1;');
-                        } else {
-                            echo '<input type="hidden" name="'.$var.'" value="0" />';
-                        }
-                        echo '</td></tr>';
+                echo "</td></tr>\n";
+                echo '<tr><td></td><td colspan="3"><table class="backup-form-instances">';
+                $instances = get_all_instances_in_course($modname, $course, NULL, true);
+                $var = $exvar;
+                foreach ($instances as $instance) {
+                    echo '<tr><td>';
+                    $var = 'backup_'.$modname.'_instance_'.$instance->id;
+                    $$var = optional_param($var,1);
+                    print_checkbox($var,$$var,$$var,$instance->name,$instance->name,'this.form.elements[\'backup_'.$modname.'\'].checked=1;');
+                    echo '</td><td align="right">&nbsp;';
+                    $var = 'backup_user_info_'.$modname.'_instance_'.$instance->id;
+                    $$var = optional_param($var,1);
+                    if (empty($to)) {
+                        print_checkbox($var,$$var,$$var,get_string('userdata'),'','this.form.elements[\'backup_user_info_'.$modname.'\'].checked=1;');
+                    } else {
+                        echo '<input type="hidden" name="'.$var.'" value="0" />';
                     }
-                    echo '</table></td></tr>';
+                    echo '</td></tr>';
                 }
-              
+                echo '</table></td></tr>';
             }
         }
         //Line
         echo "<tr><td colspan=\"4\"><hr /></td></tr>\n";
-        
-        if (empty($to)) {
+
+        if (empty($to) && !empty($course->metacourse)) {
             //Now print the Metacourse tr
             echo "<tr>";
             echo "<td align=\"right\" colspan=\"2\"><b>";
-            echo get_string ("metacourse").":";
+            echo '<label for="menubackup_metacourse">'.get_string ("metacourse").'</label>';
             echo "</b></td><td colspan=\"2\">";
-            $meta_options[0] = get_string("no"); 
-            $meta_options[1] = get_string("yes"); 
+            $meta_options[0] = get_string("no");
+            $meta_options[1] = get_string("yes");
             choose_from_menu($meta_options, "backup_metacourse", $backup_metacourse, "");
             echo "</td></tr>";
         }
         else {
-            echo '<input type="hidden" name="backup_metacourse" value="0" />';
+            $hidden_options .= '<input type="hidden" name="backup_metacourse" value="0" />';
         }
 
         if (empty($to)) {
             //Now print the Users tr
             echo "<tr>";
             echo "<td align=\"right\" colspan=\"2\"><b>";
-            echo get_string("users").":";
+            echo '<label for="menubackup_users">'.get_string ("users").'</label>';
             echo "</b></td><td colspan=\"2\">";
             $user_options[0] = get_string("all");
             $user_options[1] = get_string("course");
@@ -218,108 +220,142 @@ function selectItemInCheckboxByName(formId, checkName, checked ) {
             echo "</td></tr>";
         }
         else {
-            echo '<input type="hidden" name="backup_users" value="0" />';
+            $hidden_options .= '<input type="hidden" name="backup_users" value="0" />';
         }
-        
+
         if (empty($to)) {
             //Now print the Logs tr
             echo "<tr>";
             echo "<td align=\"right\" colspan=\"2\"><b>";
-            echo get_string("logs").":";                                               
+            echo '<label for="menubackup_logs">'.get_string ("logs").'</label>';
             echo "</b></td><td colspan=\"2\">";
             $log_options[0] = get_string("no");
-            $log_options[1] = get_string("yes"); 
-            choose_from_menu($log_options, "backup_logs", $backup_logs, ""); 
+            $log_options[1] = get_string("yes");
+            choose_from_menu($log_options, "backup_logs", $backup_logs, "");
             echo "</td></tr>";
         }
         else {
-            echo '<input type="hidden" name="backup_logs" value="0" />';
+            $hidden_options .= '<input type="hidden" name="backup_logs" value="0" />';
         }
- 
+
         if (empty($to)) {
             //Now print the User Files tr
             echo "<tr>";
             echo "<td align=\"right\" colspan=\"2\"><b>";
-            echo get_string ("userfiles").":";
+            echo '<label for="menubackup_user_files">'.get_string ("userfiles").'</label>';
             echo "</b></td><td colspan=\"2\">";
-            $user_file_options[0] = get_string("no"); 
-            $user_file_options[1] = get_string("yes"); 
+            $user_file_options[0] = get_string("no");
+            $user_file_options[1] = get_string("yes");
             choose_from_menu($user_file_options, "backup_user_files", $backup_user_files, "");
             echo "</td></tr>";
         }
         else {
-            echo '<input type="hidden" name="backup_user_files" value="0" />';
+            $hidden_options .= '<input type="hidden" name="backup_user_files" value="0" />';
         }
+
         //Now print the Course Files tr
         echo "<tr>";
         echo "<td align=\"right\" colspan=\"2\"><b>";
-        echo get_string ("coursefiles").":";
+        echo '<label for="menubackup_course_files">'.get_string ("coursefiles").'</label>';
         echo "</b></td><td colspan=\"2\">";
         $course_file_options[0] = get_string("no");
         $course_file_options[1] = get_string("yes");
         choose_from_menu($course_file_options, "backup_course_files", $backup_course_files, "");
         echo "</td></tr>";
 
+
+        if ($course->id != SITEID){
+            //Now print the site Files tr
+            echo "<tr>";
+            echo "<td align=\"right\" colspan=\"2\"><b>";
+            echo '<label for="menubackup_site_files">'.get_string ("sitefilesused").'</label>';
+            helpbutton('sitefilesused', get_string('sitefilesused'));
+            echo "</b></td><td colspan=\"2\">";
+            $course_file_options[0] = get_string("no");
+            $course_file_options[1] = get_string("yes");
+            choose_from_menu($course_file_options, "backup_site_files", $backup_site_files, "");
+            echo "</td></tr>";
+        }
+
+        // do you want grade histories to be backed up?
+        if (empty($CFG->disablegradehistory)) {
+            echo "<tr>";
+            echo "<td align=\"right\" colspan=\"2\"><b>";
+            echo '<label for="menubackup_gradebook_history">'.get_string ('gradebookhistories', 'grades').'</label>';
+            echo "</b></td><td colspan=\"2\">";
+            $gradebook_history_options[0] = get_string("no");
+            $gradebook_history_options[1] = get_string("yes");
+            choose_from_menu($gradebook_history_options, "backup_gradebook_history", $backup_gradebook_history, "");
+            echo "</td></tr>";
+        } else {
+            $hidden_options .= '<input type="hidden" name="backup_gradebook_history" value="0" />';
+        }
+
         if (empty($to) && $course->id == SITEID) {
             //If we are in a SITEID backup print the Messages tr
             echo "<tr>";
             echo "<td align=\"right\" colspan=\"2\"><b>";
-            echo get_string ('messages','message').":";
+            echo '<label for="menubackup_messages">'.get_string ('messages', 'message').'</label>';
             echo "</b></td><td colspan=\"2\">";
-            $mess_options[0] = get_string("no"); 
-            $mess_options[1] = get_string("yes"); 
+            $mess_options[0] = get_string("no");
+            $mess_options[1] = get_string("yes");
             choose_from_menu($mess_options, "backup_messages", $backup_messages, "");
             echo "</td></tr>";
         }
         else {
-            echo '<input type="hidden" name="backup_messages" value="0" />';
+            $hidden_options .= '<input type="hidden" name="backup_messages" value="0" />';
         }
+
+        if (empty($to) && $course->id == SITEID && !empty($CFG->bloglevel)) {
+            //If we are in a SITEID backup and blogs are enabled print the Blogs tr
+            echo "<tr>";
+            echo "<td align=\"right\" colspan=\"2\"><b>";
+            echo get_string ('blogs','blog').":";
+            echo "</b></td><td colspan=\"2\">";
+            $blog_options[0] = get_string("no");
+            $blog_options[1] = get_string("yes");
+            choose_from_menu($blog_options, "backup_blogs", $backup_blogs, "");
+            echo "</td></tr>";
+        }
+        else {
+            $hidden_options .= '<input type="hidden" name="backup_blogs" value="0" />';
+        }
+    }
+
+    //Now print a place to select which role assignments to back up.
+    if (empty($to)) {
+        //Line
+        echo "<tr><td colspan=\"4\"><hr /></td></tr>\n";
+
+        echo "<tr>";
+        echo "<td align=\"right\" valign=\"top\" colspan=\"2\"><b>";
+        echo get_string("backuproleassignments");
+        echo "</b></td><td colspan=\"2\">";
+        $roles = get_records('role', '', '', 'sortorder');
+        foreach ($roles as $role) {
+            print_checkbox('backupassignments_' . $role->shortname, 1, true, strip_tags(format_string($role->name, true)));
+            echo "<br />";
+        }
+        echo "<a href=\"#\" onclick=\"selectItemInCheckboxByName('form1', 'backupassignments_', true); return false;\">". get_string("all")."</a>/";
+        echo "<a href=\"#\" onclick=\"selectItemInCheckboxByName('form1', 'backupassignments_', false); return false;\">". get_string("none")."</a>";
+        echo "</td></tr>";
     }
 
     $backup_unique_code = time();
 
     //Calculate the backup string
-
-    //Calculate the backup word
-    //Take off some characters in the filename !!
-    $takeoff = array(" ", ":", "/", "\\", "|");
-    $backup_word = str_replace($takeoff,"_",moodle_strtolower(get_string("backupfilename")));
-    //If non-translated, use "backup"
-    if (substr($backup_word,0,1) == "[") {
-        $backup_word= "backup";
-    }
-
-    //Calculate the date format string
-    $backup_date_format = str_replace(" ","_",get_string("backupnameformat"));
-    //If non-translated, use "%Y%m%d-%H%M"
-    if (substr($backup_date_format,0,1) == "[") {
-        $backup_date_format = "%%Y%%m%%d-%%H%%M";
-    }
-
-    //Calculate the shortname
-    $backup_shortname = clean_filename($course->shortname);
-    if (empty($backup_shortname) or $backup_shortname == '_' ) {
-        $backup_shortname = $course->id;
-    }
-
-    //Calculate the final backup filename
-    //The backup word
-    $backup_name = $backup_word."-";
-    //The shortname
-    $backup_name .= moodle_strtolower($backup_shortname)."-";
-    //The date format
-    $backup_name .= userdate(time(),$backup_date_format,99,false);
-    //The extension
-    $backup_name .= ".zip";
-    //And finally, clean everything
-    $backup_name = clean_filename($backup_name);
-
     //Calculate the backup unique code to allow simultaneus backups (to define
     //the temp-directory name and records in backup temp tables
+    $backup_name = backup_get_zipfile_name($course, $backup_unique_code);
+
+
 ?>
 </table>
-
 <div style="text-align:center;margin-left:auto;margin-right:auto">
+<?php
+/// Print captured hidden options, now that we have closed the table
+    echo $hidden_options;
+?>
 <input type="hidden" name="id"     value="<?php  p($id) ?>" />
 <input type="hidden" name="to"     value="<?php p($to) ?>" />
 <input type="hidden" name="backup_unique_code" value="<?php p($backup_unique_code); ?>" />

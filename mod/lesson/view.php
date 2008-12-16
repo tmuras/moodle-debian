@@ -1,18 +1,21 @@
-<?php  // $Id: view.php,v 1.124.2.3 2007/04/08 20:47:23 mark-nielsen Exp $
+<?php  // $Id: view.php,v 1.131.2.1 2007/12/29 22:47:48 mark-nielsen Exp $
 /**
  * This page prints a particular instance of lesson
  *
- * @version $Id: view.php,v 1.124.2.3 2007/04/08 20:47:23 mark-nielsen Exp $
+ * @version $Id: view.php,v 1.131.2.1 2007/12/29 22:47:48 mark-nielsen Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
 
     require_once('../../config.php');
-    require_once('locallib.php');
-    require_once('lib.php');
+    require_once($CFG->dirroot.'/mod/lesson/locallib.php');
+    require_once($CFG->dirroot.'/mod/lesson/lib.php');
+    require_once($CFG->dirroot.'/mod/lesson/pagelib.php');
+    require_once($CFG->libdir.'/blocklib.php');
 
     $id      = required_param('id', PARAM_INT);             // Course Module ID
     $pageid  = optional_param('pageid', NULL, PARAM_INT);   // Lesson Page ID
+    $edit    = optional_param('edit', -1, PARAM_BOOL);
     
     list($cm, $course, $lesson) = lesson_get_basics($id);
 
@@ -27,8 +30,9 @@
 ///     Check for high scores
     if (!has_capability('mod/lesson:manage', $context)) {
 
-        if (time() < $lesson->available or time() > $lesson->deadline) {  // Deadline restrictions
-            if (time() > $lesson->deadline) {
+        if (($lesson->available != 0 and time() < $lesson->available) or
+            ($lesson->deadline != 0 and time() > $lesson->deadline)) {  // Deadline restrictions
+            if ($lesson->deadline != 0 and time() > $lesson->deadline) {
                 $message = get_string('lessonclosed', 'lesson', userdate($lesson->deadline));
             } else {
                 $message = get_string('lessonopen', 'lesson', userdate($lesson->available));
@@ -442,14 +446,17 @@
             if(has_capability('mod/lesson:manage', $context)) {
                 lesson_set_message(get_string('teachertimerwarning', 'lesson'));
             } else {
-                if ((($timer->starttime + $lesson->maxtime * 60) - time()) <= 0) {
+                $timeleft = ($timer->starttime + $lesson->maxtime * 60) - time();
+
+                if ($timeleft <= 0) {
+                    // Out of time
                     lesson_set_message(get_string('eolstudentoutoftime', 'lesson'));
-                    redirect("$CFG->wwwroot/mod/lesson/view.php?id=$cm->id&amp;pageid=".LESSON_EOL."&amp;outoftime=normal", get_string("outoftime", "lesson"));
-                }
-                // update clock when viewing a new page... no special treatment
-                if ((($timer->starttime + $lesson->maxtime * 60) - time()) < 60) {
+                    redirect("$CFG->wwwroot/mod/lesson/view.php?id=$cm->id&amp;pageid=".LESSON_EOL."&amp;outoftime=normal");
+                    die; // Shouldn't be reached, but make sure
+                } else if ($timeleft < 60) {
+                    // One minute warning
                     lesson_set_message(get_string('studentoneminwarning', 'lesson'));
-                }    
+                }
             }
         }
 
@@ -492,8 +499,30 @@
                 }
             }
         }
-         
-        lesson_print_header($cm, $course, $lesson, 'view');
+
+        $PAGE = page_create_instance($lesson->id);
+        $PAGE->set_lessonpageid($page->id);
+        $pageblocks = blocks_setup($PAGE);
+
+        $leftcolumnwidth  = bounded_number(180, blocks_preferred_width($pageblocks[BLOCK_POS_LEFT]), 210);
+        $rightcolumnwidth = bounded_number(180, blocks_preferred_width($pageblocks[BLOCK_POS_RIGHT]), 210);
+
+        if (($edit != -1) and $PAGE->user_allowed_editing()) {
+            $USER->editing = $edit;
+        }
+
+    /// Print the page header, heading and tabs
+        $PAGE->print_header();
+
+        if ($attemptflag) {
+            print_heading(get_string('attempt', 'lesson', $retries + 1));
+        }
+
+        /// This calculates and prints the ongoing score
+        if ($lesson->ongoing and !empty($pageid)) {
+            lesson_print_ongoing_score($lesson);
+        }
+
         require($CFG->dirroot.'/mod/lesson/viewstart.html');
 
         // now starting to print the page's contents   
@@ -622,7 +651,6 @@
                     break;
                     
                 case LESSON_MATCHING :
-                    echo '<tr><td><table width="100%">';
                     // don't suffle answers (could be an option??)
                     foreach ($answers as $answer) {
                         // get all the response
@@ -663,7 +691,7 @@
                             } 
                         }
                     }
-                    echo '</table></td></tr></table>';
+                    echo '</table>';
                     print_simple_box_end();
                     lesson_print_submit_link(get_string('pleasematchtheabovepairs', 'lesson'), 'answerform');
                     break;
@@ -896,7 +924,11 @@
                 } else {
                     echo get_string("welldone", "lesson");
                 }
-            }   
+            }
+
+            // update central gradebook
+            lesson_update_grades($lesson, $USER->id);
+
         } else { 
             // display for teacher
             echo "<p style=\"text-align:center;\">".get_string("displayofgrade", "lesson")."</p>\n";

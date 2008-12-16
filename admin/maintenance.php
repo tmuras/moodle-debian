@@ -1,4 +1,4 @@
-<?php // $Id: maintenance.php,v 1.11 2007/02/06 08:24:37 toyomoyo Exp $
+<?php // $Id: maintenance.php,v 1.12 2007/04/30 17:08:44 skodak Exp $
       // Enables/disables maintenance mode
 
     require('../config.php');
@@ -6,8 +6,7 @@
 
     $action = optional_param('action', '', PARAM_ALPHA);
 
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('maintenancemode', $adminroot);
+    admin_externalpage_setup('maintenancemode');
 
     //Check folder exists
     if (! make_upload_directory(SITEID)) {   // Site folder
@@ -32,7 +31,7 @@
 
 /// Print the header stuff
 
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
 
 /// Print the appropriate form
 
@@ -66,5 +65,5 @@
         }
     }
 
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 ?>

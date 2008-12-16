@@ -1,4 +1,4 @@
-<?php // $Id: comments.php,v 1.23 2007/01/12 06:57:33 toyomoyo Exp $
+<?php // $Id: comments.php,v 1.28.2.1 2007/10/12 16:09:44 tjhunt Exp $
 
 /// This page prints a particular instance of glossary
     require_once('../../config.php');
@@ -42,8 +42,8 @@
     $strcomments = get_string("comments", "glossary");
     $straddcomment = get_string("addcomment", "glossary");
 
-    print_header_simple(strip_tags("$strcomments: $entry->concept"), "",
-        "<a href=index.php?id=$course->id>$strglossaries</a> -> <a href=view.php?id=$cm->id>".format_string($glossary->name,true)."</a> -> $strcomments",
+    $navigation = build_navigation($strcomments, $cm);
+    print_header_simple(strip_tags("$strcomments: $entry->concept"), "", $navigation,
         "", "", true, update_module_button($cm->id, $course->id, $strglossary),
         navmenu($course, $cm));
 
@@ -57,7 +57,7 @@
 
     print_heading(format_string(get_string('commentson','glossary')." <b>\"$entry->concept\"</b>"));
 
-    if ($glossary->allowcomments || has_capability('mod/glossary:managecomments', $context)) {
+    if (has_capability('mod/glossary:comment', $context) and $glossary->allowcomments) {
         print_heading("<a href=\"comment.php?action=add&amp;eid=$entry->id\">$straddcomment <img title=\"$straddcomment\" src=\"comment.gif\" class=\"iconsmall\" alt=\"$straddcomment\" /></a>");
     }
 

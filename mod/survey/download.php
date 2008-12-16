@@ -1,4 +1,4 @@
-<?php // $Id: download.php,v 1.24 2006/12/21 19:46:29 skodak Exp $
+<?php // $Id: download.php,v 1.27 2007/10/09 21:43:30 iarenaza Exp $
 
     require ("../../config.php");
 
@@ -16,7 +16,7 @@
         error("Course is misconfigured");
     }
 
-    require_login($course->id, false);
+    require_login($course->id, false, $cm);
     require_capability('mod/survey:download', get_context_instance(CONTEXT_MODULE, $cm->id)) ;
 
     if (! $survey = get_record("survey", "id", $cm->instance)) {
@@ -27,10 +27,10 @@
 
 /// Check to see if groups are being used in this survey
 
-    $groupmode = groupmode($course, $cm);   // Groups are being used
+    $groupmode = groups_get_activity_groupmode($cm);   // Groups are being used
 
     if ($groupmode and $group) {
-        $users = get_group_users($group);
+        $users = groups_get_members($group);
     } else {
         $users = get_course_users($course->id);
         $group = false;
@@ -309,4 +309,3 @@
 
 
 ?>
-

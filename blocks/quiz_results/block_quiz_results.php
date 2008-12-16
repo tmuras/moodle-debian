@@ -1,4 +1,4 @@
-<?php //$Id: block_quiz_results.php,v 1.24 2007/01/03 04:55:19 moodler Exp $
+<?php //$Id: block_quiz_results.php,v 1.26.2.2 2008/03/03 11:41:03 moodler Exp $
 
 define('B_QUIZRESULTS_NAME_FORMAT_FULL', 1);
 define('B_QUIZRESULTS_NAME_FORMAT_ID',   2);
@@ -10,7 +10,7 @@ define('B_QUIZRESULTS_GRADE_FORMAT_ABS', 3);
 class block_quiz_results extends block_base {
     function init() {
         $this->title = get_string('formaltitle', 'block_quiz_results');
-        $this->version = 2005082300;
+        $this->version = 2007101509;
     }
 
     function applicable_formats() {
@@ -112,7 +112,7 @@ class block_quiz_results extends block_base {
         switch($groupmode) {
             case VISIBLEGROUPS:
             // Display group-mode results
-            $groups = get_groups($courseid);
+            $groups = groups_get_all_groups($courseid);
 
             if(empty($groups)) {
                 // No groups exist, sorry
@@ -127,10 +127,10 @@ class block_quiz_results extends block_base {
             }
 
             // Now find which groups these users belong in
-            $groupofuser = groups_get_groups_users($userids, $courseid); /*TODO: get_records_sql(
+            $groupofuser = get_records_sql(
             'SELECT m.userid, m.groupid, g.name FROM '.$CFG->prefix.'groups g LEFT JOIN '.$CFG->prefix.'groups_members m ON g.id = m.groupid '.
             'WHERE g.courseid = '.$courseid.' AND m.userid IN ('.implode(',', $userids).')'
-            );*/
+            );
 
             $groupgrades = array();
 
@@ -183,6 +183,16 @@ class block_quiz_results extends block_base {
                 $this->content->text .= '<h1><a href="'.$CFG->wwwroot.'/mod/quiz/view.php?q='.$quizid.'">'.$quiz->name.'</a></h1>';
             }
 
+            if ($nameformat = B_QUIZRESULTS_NAME_FORMAT_FULL) {
+                if (has_capability('moodle/course:managegroups', $context)) {
+                    $grouplink = $CFG->wwwroot.'/group/overview.php?courseid='.$courseid.'&amp;id=';
+                } else if (has_capability('moodle/course:viewparticipants', $context)) {
+                    $grouplink = $CFG->wwwroot.'/user/index.php?id='.$courseid.'&amp;group=';
+                } else {
+                    $grouplink = '';
+                }
+            }
+
             $rank = 0;
             if(!empty($best)) {
                 $this->content->text .= '<table class="grades"><caption>';
@@ -196,7 +206,11 @@ class block_quiz_results extends block_base {
                         break;
                         default:
                         case B_QUIZRESULTS_NAME_FORMAT_FULL:
-                            $thisname = '<a href="'.$CFG->wwwroot.'/course/group.php?group='.$groupid.'&amp;id='.$courseid.'">'.$groupgrades[$groupid]['group'].'</a>';
+                            if ($grouplink) {
+                                $thisname = '<a href="'.$grouplink.$groupid.'">'.$groupgrades[$groupid]['group'].'</a>';
+                            } else {
+                                $thisname = $groupgrades[$groupid]['group'];
+                            }
                         break;
                     }
                     $this->content->text .= '<tr><td>'.(++$rank).'.</td><td>'.$thisname.'</td><td>';
@@ -262,7 +276,7 @@ class block_quiz_results extends block_base {
                 return $this->content;
             }
 
-            $mygroups = get_groups($courseid, $USER->id);
+            $mygroups = groups_get_all_groups($courseid, $USER->id);
             if(empty($mygroups)) {
                 // Not member of a group, show nothing
                 return $this->content;

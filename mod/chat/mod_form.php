@@ -3,22 +3,26 @@ require_once ($CFG->dirroot.'/course/moodleform_mod.php');
 
 class mod_chat_mod_form extends moodleform_mod {
 
-	function definition() {
+    function definition() {
 
-		global $CFG;
-		$mform    =& $this->_form;
+        global $CFG;
+        $mform    =& $this->_form;
 
 //-------------------------------------------------------------------------------
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
         $mform->addElement('text', 'name', get_string('chatname', 'chat'), array('size'=>'64'));
-		$mform->setType('name', PARAM_TEXT);
-		$mform->addRule('name', null, 'required', null, 'client');
+        if (!empty($CFG->formatstringstriptags)) {
+            $mform->setType('name', PARAM_TEXT);
+        } else {
+            $mform->setType('name', PARAM_CLEAN);
+        }
+        $mform->addRule('name', null, 'required', null, 'client');
 
-		$mform->addElement('htmleditor', 'intro', get_string('chatintro', 'chat'));
-		$mform->setType('intro', PARAM_RAW);
+        $mform->addElement('htmleditor', 'intro', get_string('chatintro', 'chat'));
+        $mform->setType('intro', PARAM_RAW);
         $mform->setHelpButton('intro', array('writing', 'questions', 'richtext'), false, 'editorhelpbutton');
-		$mform->addRule('intro', get_string('required'), 'required', null, 'client');
+        $mform->addRule('intro', get_string('required'), 'required', null, 'client');
 
         $mform->addElement('date_time_selector', 'chattime', get_string('chattime', 'chat'));
 
@@ -47,10 +51,14 @@ class mod_chat_mod_form extends moodleform_mod {
 
         $mform->addElement('selectyesno', 'studentlogs', get_string('studentseereports', 'chat'));
 
-        $this->standard_coursemodule_elements();
+        $features = new stdClass;
+        $features->groups = true;
+        $features->groupings = true;
+        $features->groupmembersonly = true;
+        $this->standard_coursemodule_elements($features);
 
         $this->add_action_buttons();
-	}
+    }
 
 
 

@@ -1,7 +1,7 @@
-<?PHP // $Id: chat.php,v 1.5 2006/11/01 09:44:04 moodler Exp $ 
+<?PHP // $Id: chat.php,v 1.5.8.5 2008/06/18 03:57:50 dongsheng Exp $ 
       // chat.php - created with Moodle 1.7 beta + (2006101003)
 
-
+$string['autoscroll'] = 'Auto Scroll';
 $string['beep'] = 'beep';
 $string['chat:chat'] = 'Talk in a chat';
 $string['chat:deletelog'] = 'Delete chat logs';
@@ -26,7 +26,7 @@ $string['deletesessionsure'] = 'Are you sure you want to delete this session?';
 $string['donotusechattime'] = 'Don\'t publish any chat times';
 $string['enterchat'] = 'Click here to enter the chat now';
 $string['errornousers'] = 'Could not find any users!';
-$string['explaingeneralconfig'] = 'These settings are <strong>always</strong> into effect';
+$string['explaingeneralconfig'] = 'These settings are <strong>always</strong> used';
 $string['explainmethoddaemon'] = 'These settings matter <strong>only</strong> if you have selected \"Chat server daemon\" for chat_method';
 $string['explainmethodnormal'] = 'These settings matter <strong>only</strong> if you have selected \"Normal method\" for chat_method';
 $string['generalconfig'] = 'General configuration';
@@ -37,6 +37,7 @@ $string['messagebeepsyou'] = '$a has just beeped you!';
 $string['messageenter'] = '$a has just entered this chat';
 $string['messageexit'] = '$a has left this chat';
 $string['messages'] = 'Messages';
+$string['method'] = 'Chat method';
 $string['methoddaemon'] = 'Chat server daemon';
 $string['methodnormal'] = 'Normal method';
 $string['modulename'] = 'Chat';
@@ -48,15 +49,25 @@ $string['nomessages'] = 'No messages yet';
 $string['normalkeepalive'] = 'KeepAlive';
 $string['normalstream'] = 'Stream';
 $string['noscheduledsession'] = 'No scheduled session';
+$string['oldping'] = 'Disconnect timeout';
+$string['pastchats'] = 'Past chat sessions';
+$string['refreshroom'] = 'Refresh room';
+$string['refreshuserlist'] = 'Refresh user list';
+$string['removemessages'] = 'Remove all messages';
 $string['repeatdaily'] = 'At the same time every day';
 $string['repeatnone'] = 'No repeats - publish the specified time only';
 $string['repeattimes'] = 'Repeat sessions';
 $string['repeatweekly'] = 'At the same time every week';
+$string['serverhost'] = 'Server name';
+$string['serverip'] = 'Server ip';
+$string['servermax'] = 'Max users';
+$string['serverport'] = 'Server port';
 $string['savemessages'] = 'Save past sessions';
 $string['seesession'] = 'See this session';
 $string['sessions'] = 'Chat sessions';
 $string['strftimemessage'] = '%%H:%%M';
 $string['studentseereports'] = 'Everyone can view past sessions';
+$string['updatemethod'] = 'Update method';
 $string['viewreport'] = 'View past chat sessions';
 
 ?>

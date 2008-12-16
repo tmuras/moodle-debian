@@ -1,4 +1,4 @@
-<?php    // $Id: localfile.php,v 1.6 2007/01/11 19:21:18 skodak Exp $
+<?php    // $Id: localfile.php,v 1.6.4.1 2007/12/14 21:21:07 skodak Exp $
 
     require('../../../../config.php');
     require('../../lib.php');
@@ -45,5 +45,6 @@
     </form>
     </div>
 
-    </body>
-    </html>
+<?php
+    print_footer('empty');
+?>

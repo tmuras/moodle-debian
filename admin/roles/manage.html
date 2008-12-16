@@ -1,4 +1,4 @@
-<?php  //$Id: manage.html,v 1.30.2.7 2007/04/05 09:16:34 skodak Exp $
+<?php  //$Id: manage.html,v 1.38.2.2 2008/03/02 15:02:25 moodler Exp $
 
     switch ($action) {
         case 'add':
@@ -58,7 +58,7 @@
     <tr valign="top">
         <td align="right"><label for="shortname"><?php print_string('shortname') ?></label></td>
         <td><?php
-            echo '<input type="text" id="shortname" name="shortname" maxlength="20" size="15" value="'.s($role->shortname).'" />';
+            echo '<input type="text" id="shortname" name="shortname" maxlength="100" size="15" value="'.s($role->shortname).'" />';
             if (isset($errors["shortname"])) formerr($errors["shortname"]);
             ?>
         </td>
@@ -113,7 +113,8 @@ $contextlevel = 0;
 $component = '';
 
 $strrisks = s(get_string('risks', 'role'));
-$strcapabilities = s(get_string('capabilities', 'role'));
+// MDL-11687
+$strcapabilities = 'Capabilities';//s(get_string('capabilities', 'role'));
 
 // prepare legacy defaults
 if (!empty($role->legacytype)) {
@@ -130,7 +131,8 @@ foreach ($capabilities as $capability) {
     }
 
     // prints a breaker if component or name or context level
-    if ($capability->component != $component or $capability->contextlevel != $contextlevel) {
+    if (component_level_changed($capability, $component, $contextlevel)) {
+    //if ($capability->component != $component or $capability->contextlevel != $contextlevel) {
         echo ('<tr class="rolecapheading header"><td colspan="10" class="header"><strong>'.
                get_component_string($capability->component, $capability->contextlevel).'</strong></td></tr>');
     }

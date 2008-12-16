@@ -1,4 +1,4 @@
-<?PHP /*  $Id: styles.php,v 1.17 2006/04/07 15:07:53 moodler Exp $ */
+<?PHP /*  $Id: styles.php,v 1.17.14.1 2008/03/10 15:13:35 andreabix Exp $ */
 
 /// Every theme should contain a copy of this script.  It lets us 
 /// set up variables and so on before we include the raw CSS files.
@@ -12,7 +12,8 @@
     require_once("../../config.php");                   // Load up the Moodle libraries
     $themename = basename(dirname(__FILE__));           // Name of the folder we are in
     $forceconfig = optional_param('forceconfig', '', PARAM_FILE);   // Get config from this theme
+    $lang        = optional_param('lang', '', PARAM_FILE);          // Look for styles in this language
 
-    style_sheet_setup(time(), $lifetime, $themename, $forceconfig);
+    style_sheet_setup(time(), $lifetime, $themename, $forceconfig, $lang);
    
 ?>

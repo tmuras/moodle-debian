@@ -1,4 +1,4 @@
-<?php  // $Id: request_form.php,v 1.8.2.1 2007/06/04 12:41:38 moodler Exp $
+<?php  // $Id: request_form.php,v 1.11.2.1 2007/11/23 22:12:35 skodak Exp $
 
 require_once($CFG->libdir.'/formslib.php');
 
@@ -10,7 +10,7 @@ class course_request_form extends moodleform {
         $mform->addRule('fullname', get_string('missingfullname'), 'required', null, 'client');
         $mform->setType('fullname', PARAM_TEXT);
 
-        $mform->addElement('text', 'shortname', get_string('shortname'), 'maxlength="15" size="10"');
+        $mform->addElement('text', 'shortname', get_string('shortname'), 'maxlength="100" size="20"');
         $mform->addRule('shortname', get_string('missingshortname'), 'required', null, 'client');
         $mform->setType('shortname', PARAM_TEXT);
 
@@ -31,8 +31,8 @@ class course_request_form extends moodleform {
         $this->add_action_buttons();
     }
 
-    function validation($data) {
-        $errors = array();
+    function validation($data, $files) {
+        $errors = parent::validation($data, $files);
         $foundcourses = null;
         $foundreqcourses = null;
 
@@ -67,12 +67,8 @@ class course_request_form extends moodleform {
                 }
             }
         }
-        if (0 == count($errors)){
-            return true;
-        } else {
-            return $errors;
-        }
 
+        return $errors;
     }
 
 }

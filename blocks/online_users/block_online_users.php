@@ -1,4 +1,4 @@
-<?php //$Id: block_online_users.php,v 1.46.2.4 2007/05/15 18:23:51 skodak Exp $
+<?php //$Id: block_online_users.php,v 1.54.2.3 2008/03/03 11:41:03 moodler Exp $
 
 /**
  * This block needs to be reworked.
@@ -8,7 +8,7 @@
 class block_online_users extends block_base {
     function init() {
         $this->title = get_string('blockname','block_online_users');
-        $this->version = 2006030100;
+        $this->version = 2007101509;
     }
 
     function has_config() {return true;}
@@ -43,61 +43,66 @@ class block_online_users extends block_base {
                              && !has_capability('moodle/site:accessallgroups', $context));
 
         //Get the user current group
-        $currentgroup = $isseparategroups ? get_and_set_current_group($COURSE, groupmode($COURSE)) : NULL;
+        $currentgroup = $isseparategroups ? groups_get_course_group($COURSE) : NULL;
 
         $groupmembers = "";
         $groupselect = "";
 
         //Add this to the SQL to show only group users
         if ($currentgroup !== NULL) {
-            $groupmembers = ', '.groups_members_from_sql(); //TODO: ", {$CFG->prefix}groups_members gm ";
-            $groupselect = ' AND '.groups_members_where_sql($currentgroup, 'u.id'); //" AND u.id = gm.userid AND gm.groupid = '$currentgroup'";
+            $groupmembers = ",  {$CFG->prefix}groups_members gm ";
+            $groupselect = " AND u.id = gm.userid AND gm.groupid = '$currentgroup'";
         }
 
         if ($COURSE->id == SITEID) {  // Site-level
-            $courseselect = '';
-            $timeselect = "AND (ul.timeaccess > $timefrom OR u.lastaccess > $timefrom)";
-        } else {
+            $select = "SELECT u.id, u.username, u.firstname, u.lastname, u.picture, max(u.lastaccess) as lastaccess ";
+            $from = "FROM {$CFG->prefix}user u 
+                          $groupmembers ";
+            $where = "WHERE u.lastaccess > $timefrom
+                      $groupselect ";
+            $order = "ORDER BY lastaccess DESC ";
+            
+        } else { // Course-level
             $courseselect = "AND ul.courseid = '".$COURSE->id."'";
-            $timeselect = "AND ul.timeaccess > $timefrom";
+            $select = "SELECT u.id, u.username, u.firstname, u.lastname, u.picture, max(ul.timeaccess) as lastaccess ";
+            $from = "FROM {$CFG->prefix}user_lastaccess ul,
+                          {$CFG->prefix}user u
+                          $groupmembers ";
+            $where =  "WHERE ul.timeaccess > $timefrom
+                       AND u.id = ul.userid
+                       AND ul.courseid = $COURSE->id
+                       $groupselect ";
+            $order = "ORDER BY lastaccess DESC ";
         }
+        
+        $groupby = "GROUP BY u.id, u.username, u.firstname, u.lastname, u.picture ";
+        
+        $SQL = $select . $from . $where . $groupby . $order;
 
-        $users = array();
-
-        $SQL = "SELECT u.id, u.username, u.firstname, u.lastname, u.picture, u.lastaccess, ul.timeaccess
-                FROM {$CFG->prefix}user_lastaccess ul,
-                     {$CFG->prefix}user u
-                     $groupmembers
-                WHERE 
-                      ul.userid = u.id
-                      $courseselect
-                      $timeselect
-                      $groupselect
-                GROUP BY u.id 
-                ORDER BY ul.timeaccess DESC";
-        
-        
-        
+        $users = array();        
         $pcontext = get_related_contexts_string($context);
     
         if ($pusers = get_records_sql($SQL, 0, 50)) {   // We'll just take the most recent 50 maximum
-            foreach ($pusers as $puser) {
-                
+            $hidden = false;
+
+            if (!has_capability('moodle/role:viewhiddenassigns', $context)) {
                 // if current user can't view hidden role assignment in this context and 
                 // user has a hidden role assigned at this context or any parent contexts,
                 // ignore this user
-                
-                $SQL = "SELECT id,id FROM {$CFG->prefix}role_assignments
-                        WHERE userid = $puser->id
-                        AND contextid $pcontext
-                        AND hidden = 1";
-                
-                if (!has_capability('moodle/role:viewhiddenassigns', $context) && record_exists_sql($SQL)) {
-                    // can't see this user as the current user has no capability
-                    // and this user has a hidden assignment at this context or higher
-                    continue;  
+                $userids = array_keys($pusers);
+                $userids = implode(',', $userids);
+                $sql = "SELECT userid
+                          FROM {$CFG->prefix}role_assignments
+                         WHERE userid IN ($userids) AND contextid $pcontext AND hidden = 1
+                      GROUP BY userid";
+                $hidden = get_records_sql($sql);
+            }
+
+            foreach ($pusers as $puser) {
+                if ($hidden and isset($hidden[$puser->id])) {
+                    continue;
                 }
-              
+
                 $puser->fullname = fullname($puser);
                 $users[$puser->id] = $puser;  
             }
@@ -116,7 +121,7 @@ class block_online_users extends block_base {
             $this->content->text .= "<ul class='list'>\n";
             foreach ($users as $user) {
                 $this->content->text .= '<li class="listentry">';
-                $timeago = format_time(time() - max($user->timeaccess, $user->lastaccess)); //bruno to calculate correctly on frontpage 
+                $timeago = format_time(time() - $user->lastaccess); //bruno to calculate correctly on frontpage 
                 if ($user->username == 'guest') {
                     $this->content->text .= '<div class="user">'.print_user_picture($user->id, $COURSE->id, $user->picture, 16, true, false, '', false);
                     $this->content->text .= get_string('guestuser').'</div>';

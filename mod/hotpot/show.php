@@ -1,4 +1,4 @@
-<?php // $Id: show.php,v 1.14 2007/01/03 14:44:48 moodler Exp $
+<?php // $Id: show.php,v 1.15.2.1 2008/05/02 04:07:32 dongsheng Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -13,7 +13,7 @@
     if (!has_capability('mod/hotpot:viewreport',get_context_instance(CONTEXT_COURSE, $params->course))) {
         error("You are not allowed to view this page!");
     }
-    if (has_capability('mod/hotpot:viewreport', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+    if (has_capability('mod/hotpot:viewreport', get_context_instance(CONTEXT_SYSTEM))) {
         $params->location = optional_param('location', HOTPOT_LOCATION_COURSEFILES, PARAM_INT);
     } else {
         $params->location = HOTPOT_LOCATION_COURSEFILES;
@@ -50,9 +50,9 @@
                 print htmlspecialchars($hp->source);
                 break;
             case 'showxmltree':
-				if (isset($hp->xml)) {
-					print_r($hp->xml);
-				}
+                if (isset($hp->xml)) {
+                    print_r($hp->xml);
+                }
                 break;
             case 'showhtmlsource':
                 print htmlspecialchars($hp->html);

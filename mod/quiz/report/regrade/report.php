@@ -1,4 +1,4 @@
-<?php  // $Id: report.php,v 1.17 2007/01/09 09:08:18 vyshane Exp $
+<?php  // $Id: report.php,v 1.19.2.1 2007/11/02 16:20:37 tjhunt Exp $
 
 // This script regrades all attempts at this quiz
 require_once($CFG->libdir.'/tablelib.php');
@@ -6,10 +6,17 @@ require_once($CFG->libdir.'/tablelib.php');
 class quiz_report extends quiz_default_report {
 
     function display($quiz, $cm, $course) {
-        global $CFG, $SESSION, $db, $QTYPES;
+        global $CFG;
 
         // Print header
         $this->print_header_and_tabs($cm, $course, $quiz, $reportmode="regrade");
+
+        // Check permissions
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        if (!has_capability('mod/quiz:grade', $context)) {
+            notify(get_string('regradenotallowed', 'quiz'));
+            return true;
+        }
 
         // Fetch all attempts
         if (!$attempts = get_records_select('quiz_attempts', "quiz = '$quiz->id' AND preview = 0")) {

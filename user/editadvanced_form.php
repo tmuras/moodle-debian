@@ -1,4 +1,4 @@
-<?php //$Id: editadvanced_form.php,v 1.6.2.2 2007/04/16 18:29:10 skodak Exp $
+<?php //$Id: editadvanced_form.php,v 1.14.2.5 2008/10/10 21:27:42 stronk7 Exp $
 
 require_once($CFG->dirroot.'/lib/formslib.php');
 
@@ -10,6 +10,8 @@ class user_editadvanced_form extends moodleform {
 
         $mform =& $this->_form;
         $this->set_upload_manager(new upload_manager('imagefile', false, false, null, false, 0, true, true, false));
+        //Accessibility: "Required" is bad legend text.
+        $strgeneral  = get_string('general');
         $strrequired = get_string('required');
 
         /// Add some extra hidden fields
@@ -17,7 +19,7 @@ class user_editadvanced_form extends moodleform {
         $mform->addElement('hidden', 'course', $COURSE->id);
 
         /// Print the required moodle fields first
-        $mform->addElement('header', 'moodle', $strrequired);
+        $mform->addElement('header', 'moodle', $strgeneral);
 
         $mform->addElement('text', 'username', get_string('username'), 'size="20"');
         $mform->addRule('username', $strrequired, 'required', null, 'client');
@@ -32,13 +34,12 @@ class user_editadvanced_form extends moodleform {
         $mform->setHelpButton('auth', array('authchange', get_string('chooseauthmethod','auth')));
         $mform->setAdvanced('auth');
 
-        $mform->addElement('text', 'newpassword', get_string('newpassword'), 'size="20"');
+        $mform->addElement('passwordunmask', 'newpassword', get_string('newpassword'), 'size="20"');
+        $mform->setHelpButton('newpassword',array('newpassword', get_string('leavetokeep')));
         $mform->setType('newpassword', PARAM_RAW);
-        //TODO: add missing help - empty means no change
 
-        $mform->addElement('checkbox', 'preference_auth_forcepasswordchange', get_string('forcepasswordchange'));
-        //TODO: add missing help - user will be forced to change password
-
+        $mform->addElement('advcheckbox', 'preference_auth_forcepasswordchange', get_string('forcepasswordchange'));
+        $mform->setHelpButton('preference_auth_forcepasswordchange',array('forcepasswordchange', get_string('forcepasswordchange')));
         /// shared fields
         useredit_shared_definition($mform);
 
@@ -52,13 +53,23 @@ class user_editadvanced_form extends moodleform {
         global $USER, $CFG;
 
         $mform =& $this->_form;
-        $userid = $mform->getElementValue('id');
-        $user = get_record('user', 'id', $userid);
+        if ($userid = $mform->getElementValue('id')) {
+            $user = get_record('user', 'id', $userid);
+        } else {
+            $user = false;
+        }
 
         // if language does not exist, use site default lang
         if ($langsel = $mform->getElementValue('lang')) {
             $lang = reset($langsel);
-            if (!file_exists($CFG->dataroot.'/lang/'.$lang) and 
+            // missing _utf8 in language, add it before further processing. MDL-11829 MDL-16845
+            if (strpos($lang, '_utf8') === false) {
+                $lang = $lang . '_utf8';
+                $lang_el =& $mform->getElement('lang');
+                $lang_el->setValue($lang);
+            }
+            // check lang exists
+            if (!file_exists($CFG->dataroot.'/lang/'.$lang) and
               !file_exists($CFG->dirroot .'/lang/'.$lang)) {
                 $lang_el =& $mform->getElement('lang');
                 $lang_el->setValue($CFG->lang);
@@ -90,7 +101,7 @@ class user_editadvanced_form extends moodleform {
         if (!empty($CFG->gdversion)) {
             $image_el =& $mform->getElement('currentpicture');
             if ($user and $user->picture) {
-                $image_el->setValue(print_user_picture($user->id, SITEID, $user->picture, 64, true, false, '', true));
+                $image_el->setValue(print_user_picture($user, SITEID, $user->picture, 64, true, false, '', true));
             } else {
                 $image_el->setValue(get_string('none'));
             }
@@ -100,7 +111,7 @@ class user_editadvanced_form extends moodleform {
         profile_definition_after_data($mform);
     }
 
-    function validation($usernew) {
+    function validation($usernew, $files) {
         global $CFG;
 
         $usernew = (object)$usernew;
@@ -108,6 +119,13 @@ class user_editadvanced_form extends moodleform {
 
         $user = get_record('user', 'id', $usernew->id);
         $err = array();
+
+        if (!empty($usernew->newpassword)) {
+            $errmsg = '';//prevent eclipse warning
+            if (!check_password_policy($usernew->newpassword, $errmsg)) {
+                $err['newpassword'] = $errmsg;
+            }
+        }
 
         if (empty($usernew->username)) {
             //might be only whitespace
@@ -139,7 +157,7 @@ class user_editadvanced_form extends moodleform {
         }
 
         /// Next the customisable profile fields
-        $err += profile_validation($usernew);
+        $err += profile_validation($usernew, $files);
 
         if (count($err) == 0){
             return true;

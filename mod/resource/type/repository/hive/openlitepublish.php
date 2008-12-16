@@ -1,4 +1,4 @@
-<?php // $Id: openlitepublish.php,v 1.2 2006/09/22 13:27:56 moodler Exp $
+<?php // $Id: openlitepublish.php,v 1.3 2007/10/09 21:43:30 iarenaza Exp $
 
     require_once("../../../../../config.php");
 
@@ -43,4 +43,3 @@ $query .= '&mklmsstyle='.$stylesheets;
 
 redirect($CFG->hiveprotocol .'://'. $CFG->hivehost .':'. $CFG->hiveport .''. $CFG->hivepath .'?'.$query);
 ?>
-

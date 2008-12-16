@@ -1,12 +1,11 @@
-<?PHP  // $Id: enr_hosts.php,v 1.4.2.1 2007/04/13 06:33:00 nicolasconnault Exp $
+<?PHP  // $Id: enr_hosts.php,v 1.6.4.1 2007/12/19 17:38:39 skodak Exp $
        // enrol_config.php - allows admin to edit all enrollment variables
        //                    Yes, enrol is correct English spelling.
 
     require_once(dirname(__FILE__) . "/../../config.php");
     require_once($CFG->libdir.'/adminlib.php');
 
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('mnetenrol', $adminroot);
+    admin_externalpage_setup('mnetenrol');
     $CFG->pagepath = 'admin/mnet';
 
 
@@ -18,7 +17,7 @@
 
     /// get language strings
 
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
 
     print_box(get_string("remoteenrolhosts_desc", "mnet"));
 
@@ -38,7 +37,7 @@
            . '</tr>';
     $hosts = $enrolment->list_remote_servers();
     foreach ($hosts as $host) {
-        $coursesurl = "{$CFG->wwwroot}/admin/mnet/enr_courses.php?host={$host->id}&amp;sesskey={$USER->sesskey}";
+        $coursesurl = "$CFG->wwwroot/$CFG->admin/mnet/enr_courses.php?host={$host->id}&amp;sesskey={$USER->sesskey}";
         $coursecount = get_field_sql("SELECT count(id) FROM {$CFG->prefix}mnet_enrol_course WHERE hostid={$host->id}");
         if (empty($coursecount)) {
             $coursecount = '?';
@@ -50,13 +49,13 @@
                . "<td align=\"center\" >$enrolcount</td>"
                . "<td align=\"center\" >$coursecount - <a href=\"{$coursesurl}\">".get_string('editenrolments', 'mnet')."</a></td>"
                // TODO: teach report/log/index.php to show per-host-logs
-               // . '<td align="center" ><a href="{$CFG->wwwroot}/admin/report/log/index.php?course_host={$host->id}">'
+               // . '<td align="center" ><a href="$CFG->wwwroot/$CFG->admin/report/log/index.php?course_host={$host->id}">'
                // . get_string('logs', 'mnet').'</a> </td>'
                . '</tr>';
     }
     echo '</table>'
        . '</div>';
 
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 
 ?>

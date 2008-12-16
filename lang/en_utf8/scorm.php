@@ -1,4 +1,4 @@
-<?PHP // $Id: scorm.php,v 1.11.2.6 2007/07/03 12:09:39 bobopinna Exp $ 
+<?PHP // $Id: scorm.php,v 1.18.4.9 2008/09/24 07:02:46 danmarsden Exp $ 
       // scorm.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -88,10 +88,10 @@ $string['no_children'] = 'Tag $a->tag must have children';
 $string['noactivity'] = 'Nothing to report';
 $string['nolimit'] = 'Unlimited attempts';
 $string['nomanifest'] = 'Manifest not found';
-$string['noprerequisites'] = 'Sorry but you don\'t reach enough prerequisites to access this learning object';
+$string['noprerequisites'] = 'Sorry but you haven\'t reached enough prerequisites to access this learning object';
 $string['noreports'] = 'No report to display';
 $string['normal'] = 'Normal';
-$string['noscriptnoscorm'] = 'Your browser does not support javascript or it has javascript support disabled. No tracks will recorded.';
+$string['noscriptnoscorm'] = 'Your browser does not support javascript or it has javascript support disabled. This SCORM package may not play or save data correctly.';
 $string['not_corr_type'] = 'Type mismatch for tag $a->tag';
 $string['notattempted'] = 'Not attempted';
 $string['objectives'] = 'Objectives';
@@ -110,6 +110,7 @@ $string['position_error'] = 'The $a->tag tag can\'t be child of $a->parent tag';
 $string['prev'] = 'Previous';
 $string['raw'] = 'Raw score';
 $string['regular'] = 'Regular Manifest';
+$string['deleteallattempts'] = 'Delete all SCORM attempts';
 $string['report'] = 'Report';
 $string['resizable'] = 'Allow the window to be resized';
 $string['result'] = 'Result';
@@ -125,6 +126,7 @@ $string['scormcourse'] = 'Learning Course';
 $string['scrollbars'] = 'Allow the window to be scrolled';
 $string['sided'] = 'On the left side';
 $string['skipview'] = 'Student skip content structure page';
+$string['slashargs'] = 'WARNING: slash arguments is disabled on this site and objects may not function as expected!';
 $string['stagesize'] = 'Stage size';
 $string['started'] = 'Started on';
 $string['status'] = 'Status';
@@ -147,6 +149,7 @@ $string['validationtype'] = 'This preference set the DOMXML library used for val
 $string['value'] = 'Value';
 $string['versionwarning'] = 'The manifest version is older than 1.3, warning at $a->tag tag';
 $string['viewallreports'] = 'View reports for $a attempts';
+$string['viewalluserreports'] = 'View reports for $a users';
 $string['whatgrade'] = 'Attempts grading';
 $string['width'] = 'Width';
 $string['window'] = 'Window';
@@ -154,5 +157,8 @@ $string['unziperror'] = 'An error occurs during package unzip';
 $string['othersettings'] = 'Additional settings';
 $string['updatefreq'] = 'Auto-update frequency';
 $string['options'] = 'Options';
-
+$string['activityloading'] = "You will be automatically redirected to the activity in";  // used in conjunction with numseconds
+$string['activitypleasewait'] = "Activity loading, please wait ....";
+$string['scormloggingon'] = "API Logging is On";
+$string['scormloggingoff'] = "API Logging is Off";
 ?>

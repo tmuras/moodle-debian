@@ -1,4 +1,4 @@
-<?php // $Id: defaults.php,v 1.14 2006/08/11 14:59:21 tjhunt Exp $
+<?php // $Id: defaults.php,v 1.14.12.1 2007/11/02 16:19:58 tjhunt Exp $
 
 // This file is generally only included from upgrade_activity_modules()
 // It defines default values for any important configuration variables

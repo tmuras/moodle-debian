@@ -1,4 +1,4 @@
-<?php // $Id: field.class.php,v 1.5 2006/12/13 20:26:13 skodak Exp $
+<?php // $Id: field.class.php,v 1.6.2.3 2008/04/21 18:09:15 stronk7 Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -21,6 +21,10 @@
 //          http://www.gnu.org/copyleft/gpl.html                         //
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
+
+//2/19/07:  Advanced search of the date field is currently disabled because it does not track
+// pre 1970 dates and does not handle blank entrys.  Advanced search functionality for this field
+// type can be enabled once these issues are addressed in the core API.
 
 class data_field_date extends data_field_base {
 
@@ -48,6 +52,32 @@ class data_field_date extends data_field_base {
         $str .= '</div>';
 
         return $str;
+    }
+    
+    //Enable the following three functions once core API issues have been addressed.
+    function display_search_field($value=0) {
+        return false;
+        //return print_date_selector('f_'.$this->field->id.'_d', 'f_'.$this->field->id.'_m', 'f_'.$this->field->id.'_y', $value, true);
+    }
+    
+    function generate_sql($tablealias, $value) {
+        return ' 1=1 ';
+        //return " ({$tablealias}.fieldid = {$this->field->id} AND {$tablealias}.content = '$value') "; 
+    }
+    
+    function parse_search_field() {
+        return '';
+       /* 
+        $day   = optional_param('f_'.$this->field->id.'_d', 0, PARAM_INT);
+        $month = optional_param('f_'.$this->field->id.'_m', 0, PARAM_INT);
+        $year  = optional_param('f_'.$this->field->id.'_y', 0, PARAM_INT);
+        if (!empty($day) && !empty($month) && !empty($year)) {
+            return make_timestamp($year, $month, $day, 12, 0, 0, 0, false);
+        }
+        else {
+            return 0;
+        }
+        */
     }
 
     function update_content($recordid, $value, $name='') {
@@ -83,7 +113,8 @@ class data_field_date extends data_field_base {
     }
 
     function get_sort_sql($fieldname) {
-        return 'CAST('.$fieldname.' AS unsigned)';
+
+         return sql_cast_char2int($fieldname, true);
     }
 
 

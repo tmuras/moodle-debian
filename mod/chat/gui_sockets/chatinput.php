@@ -1,4 +1,4 @@
-<?php  // $Id: chatinput.php,v 1.11 2007/01/28 21:18:17 skodak Exp $
+<?php  // $Id: chatinput.php,v 1.11.4.3 2008/10/08 06:41:55 dongsheng Exp $
 
     $nomoodlecookie = true;     // Session not needed!
 
@@ -20,8 +20,6 @@
     ob_start();
     ?>
 <script type="text/javascript">
-<!--
-
 scroll_active = true;
 function empty_field_and_submit() {
     var cf   = document.getElementById('sendform');
@@ -33,35 +31,21 @@ function empty_field_and_submit() {
     inpf.chat_message.focus();
     return false;
 }
-function prepareusers() {
-    var frm = window.parent.frames;
-    for(i = 0; i < frm.length; ++i) {
-        if(frm[i].name == "users") {
-            window.userFrame = frm[i];
-            window.userHREF  = frm[i].location.href;
-            window.setTimeout("reloadusers();", <?php echo $CFG->chat_refresh_userlist; ?> * 1000);
-        }
-    }
+function setfocus() {
+    document.getElementsByName("chat_message")[0].focus(); 
 }
-function reloadusers() {
-    if(window.userFrame) {
-        window.userFrame.location.href = window.userFrame.location.href;
-        window.setTimeout("reloadusers();", <?php echo $CFG->chat_refresh_userlist; ?> * 1000);
-    }
-}
-// -->
 </script>
     <?php
 
     $meta = ob_get_clean();
     // TODO: there will be two onload in body tag, does it matter?
-    print_header('', '', '', 'inputform.chat_message', $meta, false, '&nbsp;', '', false, 'onload="setfocus(); prepareusers();"');
+    print_header('', '', '', 'inputform.chat_message', $meta, false, '&nbsp;', '', false, 'onload="setfocus();"');
 
 ?>
 
     <form action="../empty.php" method="get" target="empty" id="inputform"
           onsubmit="return empty_field_and_submit();">
-        &gt;&gt;<input type="text" name="chat_message" size="60" value="" />
+        <input type="text" name="chat_message" size="60" value="" />
         <?php helpbutton("chatting", get_string("helpchatting", "chat"), "chat", true, false); ?>
     </form>
     
@@ -71,6 +55,6 @@ function reloadusers() {
         <input type="hidden" name="chat_msgidnr" value="0" />
         <input type="hidden" name="chat_sid" value="<?php echo $chat_sid ?>" />
     </form>
-</body>
-
-</html>
+<?php
+    print_footer('empty');
+?>

@@ -1,4 +1,4 @@
-<?PHP  //$Id: postgres7.php,v 1.232.2.2 2007/03/22 12:40:26 skodak Exp $
+<?PHP  //$Id: postgres7.php,v 1.237.2.2 2008/05/01 06:03:32 dongsheng Exp $
 // THIS FILE IS DEPRECATED!  PLEASE DO NOT MAKE CHANGES TO IT!
 //
 // IT IS USED ONLY FOR UPGRADES FROM BEFORE MOODLE 1.7, ALL 
@@ -456,8 +456,8 @@ function main_upgrade($oldversion=0) {
     }
 
     if ($oldversion < 2004042600) {     /// Rebuild course caches for resource icons
-        include_once("$CFG->dirroot/course/lib.php");
-        rebuild_course_cache();
+        //include_once("$CFG->dirroot/course/lib.php");
+        //rebuild_course_cache();
     }
 
     if ($oldversion < 2004042700) {     /// Increase size of lang fields
@@ -1500,7 +1500,7 @@ function main_upgrade($oldversion=0) {
         modify_database('', 'CREATE INDEX prefix_log_display_moduleaction ON prefix_log_display (module,action)');
         
         // Insert the records back in, sans duplicates.
-        if ($rs && $rs->RecordCount() > 0) {
+        if ($rs) {
             while (!$rs->EOF) {
                 $sql = "INSERT INTO {$CFG->prefix}log_display ".
                             "VALUES('', '".$rs->fields['module']."', ".
@@ -1511,6 +1511,7 @@ function main_upgrade($oldversion=0) {
                 execute_sql($sql, false);
                 $rs->MoveNext();
             }
+            rs_close($rs);
         }
     }
     
@@ -1683,6 +1684,8 @@ function main_upgrade($oldversion=0) {
         modify_database('',"CREATE INDEX prefix_role_capabilities_roleid_idx ON prefix_role_capabilities (roleid);");
         modify_database('',"CREATE INDEX prefix_role_capabilities_contextid_idx ON prefix_role_capabilities (contextid);");
         modify_database('',"CREATE INDEX prefix_role_capabilities_modifierid_idx ON prefix_role_capabilities (modifierid);");
+        // MDL-10640  adding missing index from upgrade
+        modify_database('',"CREATE INDEX prefix_role_capabilities_capability_idx ON prefix_role_capabilities (capability);");
         modify_database('',"CREATE UNIQUE INDEX prefix_role_capabilities_roleidcontextidcapability_idx ON prefix_role_capabilities (roleid, contextid, capability);"); 
         modify_database('',"CREATE INDEX prefix_role_deny_grant_roleid_idx ON prefix_role_deny_grant (roleid);");
         modify_database('',"CREATE INDEX prefix_role_deny_grant_unviewableroleid_idx ON prefix_role_deny_grant (unviewableroleid);");
@@ -1792,10 +1795,10 @@ function main_upgrade($oldversion=0) {
     
     }
 
-    if ($oldversion < 2006091212) {   // Reload the guest roles completely with new defaults
+    if (!empty($CFG->rolesactive) and $oldversion < 2006091212) {   // Reload the guest roles completely with new defaults
         if ($guestroles = get_roles_with_capability('moodle/legacy:guest', CAP_ALLOW)) {
             delete_records('capabilities');
-            $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+            $sitecontext = get_context_instance(CONTEXT_SYSTEM);
             foreach ($guestroles as $guestrole) {
                 delete_records('role_capabilities', 'roleid', $guestrole->id);
                 assign_capability('moodle/legacy:guest', CAP_ALLOW, $guestrole->id, $sitecontext->id);
@@ -1815,7 +1818,7 @@ function main_upgrade($oldversion=0) {
         delete_records('config', 'name', 'requestedstudentsname');
     }
 
-    if ($oldversion < 2006091901) {
+    if (!empty($CFG->rolesactive) and $oldversion < 2006091901) {
         if ($roles = get_records('role')) {
             $first = array_shift($roles);
             if (!empty($first->shortname)) {

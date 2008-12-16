@@ -1,10 +1,14 @@
-<?php  // $Id: questiontype.php,v 1.11.2.2 2007/06/19 16:35:58 tjhunt Exp $
+<?php  // $Id: questiontype.php,v 1.17.2.4 2008/06/12 04:48:20 nicolasconnault Exp $
 
 /////////////////
 /// TRUEFALSE ///
 /////////////////
 
 /// QUESTION TYPE CLASS //////////////////
+/**
+ * @package questionbank
+ * @subpackage questiontypes
+ */
 class question_truefalse_qtype extends default_questiontype {
 
     function name() {
@@ -13,7 +17,7 @@ class question_truefalse_qtype extends default_questiontype {
 
     function save_question_options($question) {
         $result = new stdClass;
-        
+
         // fetch old answer ids so that we can reuse them
         if (!$oldanswers = get_records("question_answers", "question", $question->id, "id ASC")) {
             $oldanswers = array();
@@ -103,7 +107,7 @@ class question_truefalse_qtype extends default_questiontype {
         }
         // Load the answers
         if (!$question->options->answers = get_records('question_answers', 'question', $question->id, 'id ASC')) {
-           notify('Error: Missing question answers!');
+           notify('Error: Missing question answers for truefalse question ' . $question->id . '!');
            return false;
         }
 
@@ -139,7 +143,7 @@ class question_truefalse_qtype extends default_questiontype {
         global $CFG;
 
         $readonly = $options->readonly ? ' disabled="disabled"' : '';
-        
+
         $formatoptions = new stdClass;
         $formatoptions->noclean = true;
         $formatoptions->para = false;
@@ -148,7 +152,7 @@ class question_truefalse_qtype extends default_questiontype {
         $questiontext = format_text($question->questiontext,
                          $question->questiontextformat,
                          $formatoptions, $cmoptions->course);
-        $image = get_question_image($question, $cmoptions->course);
+        $image = get_question_image($question);
 
         $answers = &$question->options->answers;
         $trueanswer = &$answers[$question->options->trueanswer];
@@ -202,7 +206,7 @@ class question_truefalse_qtype extends default_questiontype {
             $chosenanswer = $answers[$response];
             $feedback = format_text($chosenanswer->feedback, true, $formatoptions, $cmoptions->course);
         }
-        
+
         include("$CFG->dirroot/question/type/truefalse/display.html");
     }
 
@@ -238,7 +242,7 @@ class question_truefalse_qtype extends default_questiontype {
         }
         return $responses;
     }
-    
+
 /// BACKUP FUNCTIONS ////////////////////////////
 
     /*
@@ -279,7 +283,11 @@ class question_truefalse_qtype extends default_questiontype {
         $status = true;
 
         //Get the truefalse array
-        $truefalses = $info['#']['TRUEFALSE'];
+        if (array_key_exists('TRUEFALSE', $info['#'])) {
+            $truefalses = $info['#']['TRUEFALSE'];
+        } else {
+            $truefalses = array();
+        }
 
         //Iterate over truefalse
         for($i = 0; $i < sizeof($truefalses); $i++) {
@@ -326,15 +334,38 @@ class question_truefalse_qtype extends default_questiontype {
     }
 
     function restore_recode_answer($state, $restore) {
-        $answer = backup_getid($restore->backup_unique_code,"question_answers",$state->answer);
-        if ($answer) {
-            return $answer->new_id;
-        } else {
-            echo 'Could not recode truefalse answer id '.$state->answer.' for state '.$state->oldid.'<br />';
+        //answer may be empty
+        if ($state->answer) {
+            $answer = backup_getid($restore->backup_unique_code,"question_answers",$state->answer);
+            if ($answer) {
+                return $answer->new_id;
+            } else {
+                echo 'Could not recode truefalse answer id '.$state->answer.' for state '.$state->oldid.'<br />';
+            }
         }
-        return '';
     }
 
+    /**
+     * Runs all the code required to set up and save an essay question for testing purposes.
+     * Alternate DB table prefix may be used to facilitate data deletion.
+     */
+    function generate_test($name, $courseid = null) {
+        list($form, $question) = parent::generate_test($name, $courseid);
+        $question->category = $form->category;
+
+        $form->questiontext = "This question is really stupid";
+        $form->penalty = 1;
+        $form->defaultgrade = 1;
+        $form->correctanswer = 0;
+        $form->feedbacktrue = array('Can you justify such a hasty judgment?');
+        $form->feedbackfalse = array('Wisdom has spoken!');
+
+        if ($courseid) {
+            $course = get_record('course', 'id', $courseid);
+        }
+
+        return $this->save_question($question, $form, $course);
+    }
 }
 //// END OF CLASS ////
 

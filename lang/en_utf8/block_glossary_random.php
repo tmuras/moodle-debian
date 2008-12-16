@@ -1,4 +1,4 @@
-<?PHP // $Id: block_glossary_random.php,v 1.2 2006/11/01 09:44:02 moodler Exp $ 
+<?PHP // $Id: block_glossary_random.php,v 1.2.8.1 2008/06/25 03:01:50 jerome Exp $ 
       // block_glossary_random.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -20,7 +20,6 @@ $string['select_glossary'] = 'Take entries from this glossary';
 $string['showconcept'] = 'Show concept (heading) for each entry';
 $string['title'] = 'Title';
 $string['type'] = 'How a new entry is chosen';
-$string['typehelp'] = '<b>Last modified entry</b> will always display the entry that was last modified, and <b>Random entry</b> will choose a new one at random every time.  The option <b>Next entry</b> will cycle through the entries in order.  This last option is especially useful when a number of days is also chosen, allowing you to make a <i>Quote of the week</i> or a <i>Tip of the day</i> that everyone sees.';
 $string['viewglossary'] = 'More quotes...';
 $string['whichfooter'] = 'You can display links to actions of the glossary this block is associated with. The block will only display links to actions which are enabled for that glossary.';
 

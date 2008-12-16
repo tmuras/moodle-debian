@@ -160,6 +160,11 @@
   -moz-border-radius-bottomleft:20px;
 }
 
+#calendar td.sidecalendar .sideblock {
+  -moz-border-radius-bottomright:20px;
+  -moz-border-radius-bottomleft:20px;
+}
+
 #calendar .maincalendar .filters table,
 #calendar .sidecalendar .filters table,
 .sideblock.block_calendar_month .filters table
@@ -172,6 +177,17 @@ table.minicalendar {
 }
 
 table.minicalendar td {
+  -moz-border-radius:4px;
+}
+
+#calendar .maincalendar li.event_course,
+#calendar .maincalendar li.event_global,
+#calendar .maincalendar li.event_user,
+#calendar .maincalendar li.event_group,
+#calendar .filters td.event_course,
+#calendar .filters td.event_global,
+#calendar .filters td.event_user,
+#calendar .filters td.event_group {
   -moz-border-radius:4px;
 }
 

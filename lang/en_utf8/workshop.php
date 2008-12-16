@@ -1,4 +1,4 @@
-<?PHP // $Id: workshop.php,v 1.3 2006/11/01 09:44:08 moodler Exp $ 
+<?PHP // $Id: workshop.php,v 1.3.8.1 2008/10/02 14:39:13 poltawski Exp $ 
       // workshop.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -173,7 +173,7 @@ $string['notitle'] = 'No Title';
 $string['notitlegiven'] = 'No Title Given';
 $string['notsubmittedyet'] = 'No submission has been made yet';
 $string['nowork'] = 'The submission period has now ended.<br />You have submitted no work.';
-$string['numberofassessmentelements'] = 'Number of Comments, Assessment Elements, Grade Bands, Criterion Statments or Categories in a Rubric';
+$string['numberofassessmentelements'] = 'Number of Comments, Assessment Elements, Grade Bands, Criterion Statements or Categories in a Rubric';
 $string['numberofassessments'] = 'Number of Assessments';
 $string['numberofassessmentschanged'] = 'Number of Assessments Changed: $a';
 $string['numberofassessmentsdropped'] = 'Number of Assessments dropped: $a';

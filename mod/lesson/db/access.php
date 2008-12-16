@@ -1,4 +1,4 @@
-<?php // $Id: access.php,v 1.6.4.1 2007/02/16 08:43:20 vyshane Exp $
+<?php // $Id: access.php,v 1.7 2007/02/16 08:46:59 vyshane Exp $
 /**
  * Capability definitions for the lesson module.
  *

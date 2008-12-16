@@ -1,4 +1,4 @@
-<?php // $Id: attempt.php,v 1.16 2007/01/04 23:38:26 skodak Exp $
+<?php // $Id: attempt.php,v 1.18.2.3 2008/04/02 06:10:03 dongsheng Exp $
     require_once("../../config.php");
     require_once("lib.php");
 
@@ -22,10 +22,15 @@
     }
 
     // make sure this user is enrolled in this course
-    require_login($course->id);
+    require_login($course);
 
     $next_url = "$CFG->wwwroot/course/view.php?id=$course->id";
     $time = time();
+
+    // check user can access this hotpot activity
+    if (!hotpot_is_visible($cm)) {
+        print_error("activityiscurrentlyhidden", 'hotpot', $next_url);
+    }
 
     // update attempt record fields using incoming data
     $attempt->score = optional_param('mark', NULL, PARAM_INT);
@@ -115,6 +120,9 @@
         error("Could not update attempt record: ".$db->ErrorMsg(), $next_url);
     }
 
+    // update grades for this user
+    hotpot_update_grades($hotpot, $attempt->userid);
+
     // get previous attempt details record, if any
     $details_exist = record_exists("hotpot_details", "attempt", $attempt->id);
 
@@ -157,7 +165,7 @@
             }
         }
 
-        // redirect to the next quiz or the course page 
+        // redirect to the next quiz or the course page
         redirect($next_url, get_string('resultssaved', 'hotpot'));
     }
 
@@ -212,7 +220,7 @@ function hotpot_set_attempt_details(&$attempt) {
     if (!$ok) {
         return;
         // error('Quiz type is missing or invalid');
-        // error(get_string('error_invalidquiztype', 'hotpot'));
+        // print_error('error_invalidquiztype', 'hotpot');
         //
         // script finishes here if quiztype is invalid
         //
@@ -462,7 +470,7 @@ function hotpot_set_attempt_details(&$attempt) {
         }
 
         // remove "correct" and "wrong" values from "ignored" values
-        $response->ignored = array_diff($response->ignored, 
+        $response->ignored = array_diff($response->ignored,
             $response->correct, $response->wrong, $oldresponse->correct, $oldresponse->wrong
         );
 

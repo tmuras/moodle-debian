@@ -1,4 +1,4 @@
-<?php  // $Id: report.php,v 1.30.2.5 2007/05/15 18:27:15 skodak Exp $
+<?php  // $Id: report.php,v 1.41.2.7 2008/08/05 17:45:50 tjhunt Exp $
 
     require_once($CFG->libdir.'/tablelib.php');
 
@@ -6,8 +6,7 @@
 class quiz_report extends quiz_default_report {
 
     function display($quiz, $cm, $course) {     /// This function just displays the report
-        global $CFG, $SESSION, $db, $QTYPES;
-        $strnoquiz = get_string('noquiz','quiz');
+        global $CFG, $SESSION, $QTYPES;
         $strnoattempts = get_string('noattempts','quiz');
     /// Only print headers if not asked to download data
         $download = optional_param('download', NULL);
@@ -22,30 +21,31 @@ class quiz_report extends quiz_default_report {
         }
 
     /// Check to see if groups are being used in this quiz
-        if ($groupmode = groupmode($course, $cm)) {   // Groups are being used
+        $currentgroup = groups_get_activity_group($cm, true);
+        
+        if ($groupmode = groups_get_activity_groupmode($cm)) {   // Groups are being used
             if (!$download) {
-                $currentgroup = setup_and_print_groups($course, $groupmode, "report.php?id=$cm->id&amp;mode=analysis");
-            } else {
-                $currentgroup = get_and_set_current_group($course, $groupmode);
+                groups_print_activity_menu($cm, "report.php?id=$cm->id&amp;mode=analysis");
             }
-        } else {
-            $currentgroup = get_and_set_current_group($course, $groupmode);
         }
 
         // set Table and Analysis stats options
         if(!isset($SESSION->quiz_analysis_table)) {
-            $SESSION->quiz_analysis_table = array('attemptselection' => 0, 'lowmarklimit' => 0, 'pagesize' => 10);
+            $SESSION->quiz_analysis_table = array('attemptselection' => 0, 'lowmarklimit' => 0, 'pagesize' => QUIZ_REPORT_DEFAULT_PAGE_SIZE);
         }
 
         foreach($SESSION->quiz_analysis_table as $option => $value) {
-            $urlparam = optional_param($option, NULL);
+            $urlparam = optional_param($option, NULL, PARAM_INT);
             if($urlparam === NULL) {
                 $$option = $value;
-            }
-            else {
+            } else {
                 $$option = $SESSION->quiz_analysis_table[$option] = $urlparam;
             }
         }
+        if (!isset($pagesize) || ((int)$pagesize < 1) ){
+            $pagesize = QUIZ_REPORT_DEFAULT_PAGE_SIZE;
+        }
+
 
         $scorelimit = $quiz->sumgrades * $lowmarklimit/ 100;
 
@@ -70,7 +70,10 @@ class quiz_report extends quiz_default_report {
         }
 
         if ($attemptselection != QUIZ_ALLATTEMPTS) {
-            $sql = 'SELECT qa.userid '.$limit.'FROM '.$CFG->prefix.'user u LEFT JOIN '.$CFG->prefix.'quiz_attempts qa ON u.id = qa.userid '. 'WHERE ( qa.quiz = '.$quiz->id.') '.$group;
+            $sql = 'SELECT qa.userid '.$limit.
+                    'FROM '.$CFG->prefix.'user u LEFT JOIN '.$CFG->prefix.'quiz_attempts qa ON u.id = qa.userid '.
+                    'WHERE qa.quiz = '.$quiz->id.' AND qa.preview = 0 '.
+                    $group;
             $usermax = get_records_sql_menu($sql);
         }
 
@@ -79,21 +82,21 @@ class quiz_report extends quiz_default_report {
 
         //Add this to the SQL to show only group users
         if ($currentgroup) {
-            $groupmembers = ', '.groups_members_from_sql();
-            $groupwhere = ' AND '.groups_members_where_sql($currentgroup, 'u.id');
+            $groupmembers = ", {$CFG->prefix}groups_members gm ";
+            $groupwhere = "AND gm.groupid = '$currentgroup' AND u.id = gm.userid";
         }
 
         $sql = 'SELECT  qa.* FROM '.$CFG->prefix.'quiz_attempts qa, '.$CFG->prefix.'user u '.$groupmembers.
-                 'WHERE u.id = qa.userid AND qa.quiz = '.$quiz->id.' AND ( qa.sumgrades >= '.$scorelimit.' ) '.$groupwhere;
+                 'WHERE u.id = qa.userid AND qa.quiz = '.$quiz->id.' AND qa.preview = 0 AND ( qa.sumgrades >= '.$scorelimit.' ) '.$groupwhere;
 
-        // ^^^^^^ es posible seleccionar aqu� TODOS los quizzes, como quiere Jussi,
-        // pero habr�a que llevar la cuenta ed cada quiz para restaura las preguntas (quizquestions, states)
+        // ^^^^^^ es posible seleccionar aqu TODOS los quizzes, como quiere Jussi,
+        // pero haba que llevar la cuenta ed cada quiz para restaura las preguntas (quizquestions, states)
 
         /// Fetch the attempts
         $attempts = get_records_sql($sql);
 
         if(empty($attempts)) {
-            ($strnoattempts);
+            print_heading(get_string('nothingtodisplay'));
             $this->print_options_form($quiz, $cm, $attemptselection, $lowmarklimit, $pagesize);
             return true;
         }
@@ -243,6 +246,7 @@ class quiz_report extends quiz_default_report {
         $table->define_baseurl($CFG->wwwroot.'/mod/quiz/report.php?q='.$quiz->id.'&amp;mode=analysis');
 
         $table->sortable(true);
+        $table->no_sorting('rpercent');
         $table->collapsible(true);
         $table->initialbars(false);
 
@@ -301,9 +305,6 @@ class quiz_report extends quiz_default_report {
         $format_options->newlines = false;
 
         // Now it is time to page the data, simply slice the keys in the array
-        if (!isset($pagesize) || ((int)$pagesize < 1) ){
-            $pagesize = 10;
-        }
         $table->pagesize($pagesize, count($questions));
         $start = $table->get_page_start();
         $pagequestions = array_slice(array_keys($questions), $start, $pagesize);
@@ -312,7 +313,11 @@ class quiz_report extends quiz_default_report {
             $q = $questions[$qnum];
             $qid = $q['id'];
             $question = get_record('question', 'id', $qid);
-            $qnumber = " (".link_to_popup_window('/question/question.php?id='.$qid,'editquestion', $qid, 450, 550, get_string('edit'), 'none', true ).") ";
+            if (question_has_capability_on($question, 'edit') || question_has_capability_on($question, 'view')) {
+                $qnumber = " (".link_to_popup_window('/question/question.php?id='.$qid.'&amp;cmid='.$cm->id, 'editquestion', $qid, 450, 550, get_string('edit'), 'none', true ).") ";
+            } else {
+                $qnumber = $qid;
+            }
             $qname = '<div class="qname">'.format_text($question->name." :  ", $question->questiontextformat, $format_options, $quiz->course).'</div>';
             $qicon = print_question_icon($question, true);
             $qreview = quiz_question_preview_button($quiz, $question);
@@ -330,14 +335,14 @@ class quiz_report extends quiz_default_report {
                     $qclass = 'partialcorrect';
                 }
                 $response->credit = '<span class="'.$qclass.'">('.format_float($q['credits'][$aid],2).') </span>';
-                $response->text = '<span class="'.$qclass.'">'.format_text("$resp", FORMAT_MOODLE, $format_options, $quiz->course).' </span>';
+                $response->text = '<span class="'.$qclass.'">'.format_text($resp, FORMAT_MOODLE, $format_options, $quiz->course).' </span>';
                 $count = $q['rcounts'][$aid].'/'.$q['count'];
                 $response->rcount = $count;
                 $response->rpercent =  '('.format_float($q['rcounts'][$aid]/$q['count']*100,0).'%)';
                 $responses[] = $response;
             }
 
-            $facility = format_float($q['facility']*100,0)." %";
+            $facility = format_float($q['facility']*100,0)."%";
             $qsd = format_float($q['qsd'],3);
             $di = format_float($q['disc_index'],2);
             $dc = format_float($q['disc_coeff'],2);
@@ -360,7 +365,7 @@ class quiz_report extends quiz_default_report {
     }
 
 
-    function print_options_form($quiz, $cm, $attempts, $lowlimit=0, $pagesize=10) {
+    function print_options_form($quiz, $cm, $attempts, $lowlimit=0, $pagesize=QUIZ_REPORT_DEFAULT_PAGE_SIZE) {
         global $CFG, $USER;
         echo '<div class="controls">';
         echo '<form id="options" action="report.php" method="post">';
@@ -369,26 +374,20 @@ class quiz_report extends quiz_default_report {
         echo '<input type="hidden" name="id" value="'.$cm->id.'" />';
         echo '<input type="hidden" name="q" value="'.$quiz->id.'" />';
         echo '<input type="hidden" name="mode" value="analysis" />';
-        echo '<table id="analysis-options" class="boxaligncenter">';
-        echo '<tr align="left"><td><label for="menuattemptselection">'.get_string('attemptselection', 'quiz_analysis').'</label></td><td>';
+        echo '<p><label for="menuattemptselection">'.get_string('attemptselection', 'quiz_analysis').'</label> ';
         $options = array ( QUIZ_ALLATTEMPTS     => get_string("attemptsall", 'quiz_analysis'),
                            QUIZ_HIGHESTATTEMPT => get_string("attemptshighest", 'quiz_analysis'),
                            QUIZ_FIRSTATTEMPT => get_string("attemptsfirst", 'quiz_analysis'),
                            QUIZ_LASTATTEMPT  => get_string("attemptslast", 'quiz_analysis'));
         choose_from_menu($options, "attemptselection", "$attempts", "");
-        echo '</td></tr>';
-        echo '<tr align="left">';
-        echo '<td><label for="lowmarklimit">'.get_string('lowmarkslimit', 'quiz_analysis').'</label></td>';
-        echo '<td><input type="text" id="lowmarklimit" name="lowmarklimit" size="1" value="'.$lowlimit.'" /> % </td>';
-        echo '</tr>';
-        echo '<tr align="left">';
-        echo '<td><label for="pagesize">'.get_string('pagesize', 'quiz_analysis').'</label></td>';
-        echo '<td><input type="text" id="pagesize" name="pagesize" size="1" value="'.$pagesize.'" /></td>';
-        echo '</tr>';
-        echo '<tr><td colspan="2" align="center">';
-        echo '<input type="submit" value="'.get_string('go').'" />';
+        echo '</p>';
+        echo '<p><label for="lowmarklimit">'.get_string('lowmarkslimit', 'quiz_analysis').'</label> ';
+        echo '<input type="text" id="lowmarklimit" name="lowmarklimit" size="1" value="'.$lowlimit.'" /> % </p>';
+        echo '<p><label for="pagesize">'.get_string('pagesize', 'quiz_analysis').'</label> ';
+        echo '<input type="text" id="pagesize" name="pagesize" size="1" value="'.$pagesize.'" /></p>';
+        echo '<p><input type="submit" value="'.get_string('go').'" />';
         helpbutton("analysisoptions", get_string("analysisoptions",'quiz_analysis'), 'quiz');
-        echo '</td></tr></table>';
+        echo '</p>';
         echo '</fieldset>';
         echo '</form>';
         echo '</div>';

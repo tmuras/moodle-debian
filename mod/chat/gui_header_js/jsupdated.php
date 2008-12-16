@@ -1,4 +1,4 @@
-<?php  // $Id: jsupdated.php,v 1.7 2007/01/28 21:43:40 skodak Exp $
+<?php  // $Id: jsupdated.php,v 1.8.2.2 2008/10/14 08:38:26 dongsheng Exp $
 
 /** jsupdated.php - notes by Martin Langhoff <martin@catalyst.net.nz>
  ** 
@@ -42,7 +42,7 @@
 
     //Get the user theme and enough info to be used in chat_format_message() which passes it along to
     // chat_format_message_manually() -- and only id and timezone are used.
-    if (!$USER = get_record('user','id',$chatuser->userid,'','','','','id, lang, theme, username, timezone')) {
+    if (!$USER = get_record('user','id',$chatuser->userid)) { // no optimisation here, it would break again in future!
         error('User does not exist!');
     }
     $USER->description = '';
@@ -78,6 +78,14 @@
         <meta http-equiv="content-type" content="text/html; charset=utf-8" />
         <script type="text/javascript">
         //<![CDATA[
+        function safari_refresh() {
+            self.location.href= '<?php echo $refreshurl;?>';
+        }
+        var issafari = false;
+        if(window.devicePixelRatio){
+            issafari = true;
+            setTimeout('safari_refresh()', <?php echo $CFG->chat_refresh_room*1000;?>);
+        }
         if (parent.msg.document.getElementById("msgStarted") == null) {
             parent.msg.document.close();
             parent.msg.document.open("text/html","replace");
@@ -193,7 +201,14 @@
             }
         }
 
-        print 'parent.msg.scroll(1,5000000);' . "\n\n";
+        print <<<EOD
+        if(parent.input){
+            var autoscroll = parent.input.document.getElementById('auto');
+            if(parent.msg && autoscroll && autoscroll.checked){
+                parent.msg.scroll(1,5000000);
+            }
+        }
+EOD;
         print "//]]>\n";
         print '</script>' . "\n\n";
         if ($beep) {

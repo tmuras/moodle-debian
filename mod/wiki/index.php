@@ -1,4 +1,4 @@
-<?PHP // $Id: index.php,v 1.9 2007/01/04 23:59:55 skodak Exp $
+<?PHP // $Id: index.php,v 1.13.2.5 2008/02/05 21:39:53 skodak Exp $
 
 /// This page lists all the instances of wiki in a particular course
 /// Replace wiki with the name of your module
@@ -24,13 +24,16 @@
 
 
 /// Print the header
+    $navlinks = array();
+    $navlinks[] = array('name' => $strwikis, 'link' => "index.php?id=$course->id", 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
 
-    print_header_simple("$strwikis", "", "$strwikis", "", "", true, "", navmenu($course));
+    print_header_simple("$strwikis", "", $navigation, "", "", true, "", navmenu($course));
 
 /// Get all the appropriate data
 
     if (! $wikis = get_all_instances_in_course("wiki", $course)) {
-        notice("There are no wikis", "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strwikis), "../../course/view.php?id=$course->id");
         die;
     }
 

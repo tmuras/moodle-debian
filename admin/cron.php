@@ -1,4 +1,4 @@
-<?PHP // $Id: cron.php,v 1.98.2.6 2007/04/24 16:08:09 skodak Exp $
+<?php // $Id: cron.php,v 1.126.2.14 2008/10/13 21:45:24 stronk7 Exp $
 
 /// This script looks through all the module directories for cron.php files
 /// and runs them.  These files can contain cleanup functions, email functions
@@ -10,7 +10,7 @@
 ///
 /// eg   wget -q -O /dev/null 'http://moodle.somewhere.edu/admin/cron.php'
 /// or   php /web/moodle/admin/cron.php 
-
+    set_time_limit(0);
     $starttime = microtime();
 
 /// The following is a hack necessary to allow this script to work well 
@@ -32,6 +32,16 @@
 
     require_once(dirname(__FILE__) . '/../config.php');
     require_once($CFG->libdir.'/adminlib.php');
+    require_once($CFG->libdir.'/gradelib.php');
+
+/// Extra debugging (set in config.php)
+    if (!empty($CFG->showcronsql)) {
+        $db->debug = true;
+    }
+    if (!empty($CFG->showcrondebugging)) {
+        $CFG->debug = DEBUG_DEVELOPER;
+        $CFG->displaydebug = true;
+    }
 
 /// extra safety
     @session_write_close();
@@ -90,7 +100,8 @@
 /// Run all cron jobs for each module
 
     mtrace("Starting activity modules");
-    if ($mods = get_records_select("modules", "cron > 0 AND (($timenow - lastcron) > cron)")) {
+    get_mailer('buffer');
+    if ($mods = get_records_select("modules", "cron > 0 AND (($timenow - lastcron) > cron) AND visible = 1 ")) {
         foreach ($mods as $mod) {
             $libfile = "$CFG->dirroot/mod/$mod->name/lib.php";
             if (file_exists($libfile)) {
@@ -98,20 +109,32 @@
                 $cron_function = $mod->name."_cron";
                 if (function_exists($cron_function)) {
                     mtrace("Processing module function $cron_function ...", '');
+                    $pre_dbqueries = null;
+                    if (!empty($PERF->dbqueries)) {
+                        $pre_dbqueries = $PERF->dbqueries;
+                        $pre_time      = microtime(1);
+                    }
                     if ($cron_function()) {
                         if (! set_field("modules", "lastcron", $timenow, "id", $mod->id)) {
                             mtrace("Error: could not update timestamp for $mod->fullname");
                         }
                     }
+                    if (isset($pre_dbqueries)) {
+                        mtrace("... used " . ($PERF->dbqueries - $pre_dbqueries) . " dbqueries");
+                        mtrace("... used " . (microtime(1) - $pre_time) . " seconds");
+                    }
+                /// Reset possible changes by modules to time_limit. MDL-11597
+                    @set_time_limit(0);
                     mtrace("done.");
                 }
             }
         }
     }
+    get_mailer('close');
     mtrace("Finished activity modules");
 
     mtrace("Starting blocks");
-    if ($blocks = get_records_select("block", "cron > 0 AND (($timenow - lastcron) > cron)")) {
+    if ($blocks = get_records_select("block", "cron > 0 AND (($timenow - lastcron) > cron) AND visible = 1")) {
         // we will need the base class.
         require_once($CFG->dirroot.'/blocks/moodleblock.class.php');
         foreach ($blocks as $block) {
@@ -127,6 +150,8 @@
                             mtrace('Error: could not update timestamp for '.$block->name);
                         }
                     }
+                /// Reset possible changes by blocks to time_limit. MDL-11597
+                    @set_time_limit(0);
                     mtrace('done.');
                 }
             }
@@ -135,6 +160,33 @@
     }
     mtrace('Finished blocks');
 
+    mtrace('Starting admin reports');
+    // Admin reports do not have a database table that lists them. Instead a
+    // report includes cron.php with function report_reportname_cron() if it wishes
+    // to be cronned. It is up to cron.php to handle e.g. if it only needs to
+    // actually do anything occasionally.
+    $reports = get_list_of_plugins($CFG->admin.'/report');
+    foreach($reports as $report) {
+        $cronfile = $CFG->dirroot.'/'.$CFG->admin.'/report/'.$report.'/cron.php';
+        if (file_exists($cronfile)) {
+            require_once($cronfile);
+            $cronfunction = 'report_'.$report.'_cron';
+            mtrace('Processing cron function for '.$report.'...', '');
+            $pre_dbqueries = null;
+            if (!empty($PERF->dbqueries)) {
+                $pre_dbqueries = $PERF->dbqueries;
+                $pre_time      = microtime(true);
+            }
+            $cronfunction();
+            if (isset($pre_dbqueries)) {
+                mtrace("... used " . ($PERF->dbqueries - $pre_dbqueries) . " dbqueries");
+                mtrace("... used " . round(microtime(true) - $pre_time, 2) . " seconds");
+            }
+            mtrace('done.');
+        }
+    }
+    mtrace('Finished admin reports');
+
     if (!empty($CFG->langcache)) {
         mtrace('Updating languages cache');
         get_list_of_languages(true);
@@ -142,17 +194,34 @@
 
     mtrace('Removing expired enrolments ...', '');     // See MDL-8785
     $timenow = time();
-    if ($oldenrolments = get_records_select('role_assignments', "timeend > 0 AND timeend < '$timenow'")) {
-        mtrace(count($oldenrolments).' to delete');
-        foreach ($oldenrolments as $oldenrolment) {
-            if (role_unassign($oldenrolment->roleid, $oldenrolment->userid, 0, $oldenrolment->contextid)) {
-                mtrace("Deleted expired role assignment $oldenrolment->roleid for user $oldenrolment->userid from context $oldenrolment->contextid");
-            }
-        }
+    $somefound = false;
+    // The preferred way saves memory, dmllib.php
+    // find courses where limited enrolment is enabled
+    global $CFG;
+    $rs_enrol = get_recordset_sql("SELECT ra.roleid, ra.userid, ra.contextid
+        FROM {$CFG->prefix}course c
+        INNER JOIN {$CFG->prefix}context cx ON cx.instanceid = c.id
+        INNER JOIN {$CFG->prefix}role_assignments ra ON ra.contextid = cx.id
+        WHERE cx.contextlevel = '".CONTEXT_COURSE."'
+        AND ra.timeend > 0
+        AND ra.timeend < '$timenow'
+        AND c.enrolperiod > 0
+        ");
+    while ($oldenrolment = rs_fetch_next_record($rs_enrol)) {
+        role_unassign($oldenrolment->roleid, $oldenrolment->userid, 0, $oldenrolment->contextid);
+        $somefound = true;
+    }
+    rs_close($rs_enrol);
+    if($somefound) {
         mtrace('Done');
     } else {
         mtrace('none found');
     }
+
+
+    mtrace('Starting main gradebook job ...');
+    grade_cron();
+    mtrace('done.');
 
 
 /// Run all core cron jobs, but not every time since they aren't too important.
@@ -168,73 +237,107 @@
         /// Unenrol users who haven't logged in for $CFG->longtimenosee
 
         if ($CFG->longtimenosee) { // value in days
-            $longtime = $timenow - ($CFG->longtimenosee * 3600 * 24);
-            if ($assigns = get_users_longtimenosee($longtime)) {
-                foreach ($assigns as $assign) {
-                    if ($context = get_context_instance(CONTEXT_COURSE, $assign->courseid)) {
-                        if (role_unassign(0, $assign->id, 0, $context->id)) {
-                            mtrace("Deleted assignment for user $assign->id from course $assign->courseid");
-                        }
+            $cuttime = $timenow - ($CFG->longtimenosee * 3600 * 24);
+            $rs = get_recordset_sql ("SELECT id, userid, courseid
+                                        FROM {$CFG->prefix}user_lastaccess
+                                       WHERE courseid != ".SITEID."
+                                         AND timeaccess < $cuttime ");
+            while ($assign = rs_fetch_next_record($rs)) {
+                if ($context = get_context_instance(CONTEXT_COURSE, $assign->courseid)) {
+                    if (role_unassign(0, $assign->userid, 0, $context->id)) {
+                        mtrace("Deleted assignment for user $assign->userid from course $assign->courseid");
                     }
                 }
             }
-        }
-    
-    
-        /// Delete users who haven't confirmed within required period
-
-        if (!empty($CFG->deleteunconfirmed)) {
-            $oneweek = $timenow - ($CFG->deleteunconfirmed * 3600);
-            if ($users = get_users_unconfirmed($oneweek)) {
-                foreach ($users as $user) {
-                    if (delete_records('user', 'id', $user->id)) {
-                        mtrace("Deleted unconfirmed user for ".fullname($user, true)." ($user->id)");
+            rs_close($rs);
+        /// Execute the same query again, looking for remaining records and deleting them
+        /// if the user hasn't moodle/course:view in the CONTEXT_COURSE context (orphan records)
+            $rs = get_recordset_sql ("SELECT id, userid, courseid
+                                        FROM {$CFG->prefix}user_lastaccess
+                                       WHERE courseid != ".SITEID."
+                                         AND timeaccess < $cuttime ");
+            while ($assign = rs_fetch_next_record($rs)) {
+                if ($context = get_context_instance(CONTEXT_COURSE, $assign->courseid)) {
+                    if (!has_capability('moodle/course:view', $context, $assign->userid)) {
+                        delete_records('user_lastaccess', 'userid', $assign->userid, 'courseid', $assign->courseid);
+                        mtrace("Deleted orphan user_lastaccess for user $assign->userid from course $assign->courseid");
                     }
                 }
             }
+            rs_close($rs);
         }
         flush();
 
+
+        /// Delete users who haven't confirmed within required period
+
+        if (!empty($CFG->deleteunconfirmed)) {
+            $cuttime = $timenow - ($CFG->deleteunconfirmed * 3600);
+            $rs = get_recordset_sql ("SELECT id, firstname, lastname
+                                        FROM {$CFG->prefix}user
+                                       WHERE confirmed = 0
+                                         AND firstaccess > 0
+                                         AND firstaccess < $cuttime");
+            while ($user = rs_fetch_next_record($rs)) {
+                if (delete_records('user', 'id', $user->id)) {
+                    mtrace("Deleted unconfirmed user for ".fullname($user, true)." ($user->id)");
+                }
+            }
+            rs_close($rs);
+        }
+        flush();
 
 
         /// Delete users who haven't completed profile within required period
 
-        if (!empty($CFG->deleteunconfirmed)) {
-            $oneweek = $timenow - ($CFG->deleteunconfirmed * 3600);
-            if ($users = get_users_not_fully_set_up($oneweek)) {
-                foreach ($users as $user) {
-                    if (delete_records('user', 'id', $user->id)) {
-                        mtrace("Deleted not fully setup user $user->username ($user->id)");
-                    }
+        if (!empty($CFG->deleteincompleteusers)) {
+            $cuttime = $timenow - ($CFG->deleteincompleteusers * 3600);
+            $rs = get_recordset_sql ("SELECT id, username
+                                        FROM {$CFG->prefix}user
+                                       WHERE confirmed = 1
+                                         AND lastaccess > 0
+                                         AND lastaccess < $cuttime
+                                         AND deleted = 0
+                                         AND (lastname = '' OR firstname = '' OR email = '')");
+            while ($user = rs_fetch_next_record($rs)) {
+                if (delete_user($user)) {
+                    mtrace("Deleted not fully setup user $user->username ($user->id)");
                 }
+            }
+            rs_close($rs);
+        }
+        flush();
+
+
+        /// Delete old logs to save space (this might need a timer to slow it down...)
+
+        if (!empty($CFG->loglifetime)) {  // value in days
+            $loglifetime = $timenow - ($CFG->loglifetime * 3600 * 24);
+            if (delete_records_select("log", "time < '$loglifetime'")) {
+                mtrace("Deleted old log records");
             }
         }
         flush();
 
-
-    
-        /// Delete old logs to save space (this might need a timer to slow it down...)
-    
-        if (!empty($CFG->loglifetime)) {  // value in days
-            $loglifetime = $timenow - ($CFG->loglifetime * 3600 * 24);
-            delete_records_select("log", "time < '$loglifetime'");
-        }
-        flush();
 
         /// Delete old cached texts
 
         if (!empty($CFG->cachetext)) {   // Defined in config.php
             $cachelifetime = time() - $CFG->cachetext - 60;  // Add an extra minute to allow for really heavy sites
-            delete_records_select('cache_text', "timemodified < '$cachelifetime'");
+            if (delete_records_select('cache_text', "timemodified < '$cachelifetime'")) {
+                mtrace("Deleted old cache_text records");
+            }
         }
         flush();
 
         if (!empty($CFG->notifyloginfailures)) {
             notify_login_failures();
+            mtrace('Notified login failured');
         }
         flush();
 
         sync_metacourses();
+        mtrace('Synchronised metacourses');
 
         //
         // generate new password emails for users 
@@ -260,6 +363,24 @@
                 }
             }
         }
+        
+        if (!empty($CFG->usetags)) {
+            require_once($CFG->dirroot.'/tag/lib.php');
+            tag_cron();
+            mtrace ('Executed tag cron');
+        }
+        
+        // Accesslib stuff
+        cleanup_contexts();
+        mtrace ('Cleaned up contexts');
+        gc_cache_flags();
+        mtrace ('Cleaned cache flags');
+        // If you suspect that the context paths are somehow corrupt
+        // replace the line below with: build_context_path(true); 
+        build_context_path();
+        mtrace ('Built context paths');
+
+        mtrace("Finished clean-up tasks...");
 
     } // End of occasional clean-up tasks
 
@@ -337,49 +458,74 @@
     }
 
     if (!empty($CFG->enablestats) and empty($CFG->disablestatsprocessing)) {
-
+        require_once($CFG->dirroot.'/lib/statslib.php');
         // check we're not before our runtime
-        $timetocheck = strtotime("$CFG->statsruntimestarthour:$CFG->statsruntimestartminute today");
+        $timetocheck = stats_get_base_daily() + $CFG->statsruntimestarthour*60*60 + $CFG->statsruntimestartminute*60;
 
         if (time() > $timetocheck) {
-            $time = 60*60*20; // set it to 20 here for first run... (overridden by $CFG)
-            $clobber = true;
-            if (!empty($CFG->statsmaxruntime)) {
-                $time = $CFG->statsmaxruntime+(60*30); // add on half an hour just to make sure (it could take that long to break out of the loop)
-            }
-            if (!get_field_sql('SELECT id FROM '.$CFG->prefix.'stats_daily')) {
-                // first run, set another lock. we'll check for this in subsequent runs to set the timeout to later for the normal lock.
-                set_cron_lock('statsfirstrunlock',true,$time,true);
-                $firsttime = true;
-            }
-            $time = 60*60*2; // this time set to 2.. (overridden by $CFG)
-            if (!empty($CFG->statsmaxruntime)) {
-                $time = $CFG->statsmaxruntime+(60*30); // add on half an hour to make sure (it could take that long to break out of the loop)
-            }
-            if ($config = get_record('config','name','statsfirstrunlock')) {
-                if (!empty($config->value)) {
-                    $clobber = false; // if we're on the first run, just don't clobber it.
+            // process configured number of days as max (defaulting to 31)
+            $maxdays = empty($CFG->statsruntimedays) ? 31 : abs($CFG->statsruntimedays);
+            if (stats_cron_daily($maxdays)) {
+                if (stats_cron_weekly()) {
+                    if (stats_cron_monthly()) {
+                        stats_clean_old();
+                    }
                 }
             }
-            if (set_cron_lock('statsrunning',true,$time, $clobber)) {
-                require_once($CFG->dirroot.'/lib/statslib.php');
-                $return = stats_cron_daily();
-                if (stats_check_runtime() && $return == STATS_RUN_COMPLETE) {
-                    stats_cron_weekly();
+            @set_time_limit(0);
+        } else {
+            mtrace('Next stats run after:'. userdate($timetocheck));
+        }
+    }
+
+    // run gradebook import/export/report cron
+    if ($gradeimports = get_list_of_plugins('grade/import')) {
+        foreach ($gradeimports as $gradeimport) {           
+            if (file_exists($CFG->dirroot.'/grade/import/'.$gradeimport.'/lib.php')) {
+                require_once($CFG->dirroot.'/grade/import/'.$gradeimport.'/lib.php');
+                $cron_function = 'grade_import_'.$gradeimport.'_cron';                                    
+                if (function_exists($cron_function)) {
+                    mtrace("Processing gradebook import function $cron_function ...", '');
+                    $cron_function;  
                 }
-                if (stats_check_runtime() && $return == STATS_RUN_COMPLETE) {
-                    $return = $return && stats_cron_monthly();
-                }
-                if (stats_check_runtime() && $return == STATS_RUN_COMPLETE) {
-                    stats_clean_old();
-                }
-                set_cron_lock('statsrunning',false);
-                if (!empty($firsttime)) {
-                    set_cron_lock('statsfirstrunlock',false);
+            }
+        }      
+    }
+
+    if ($gradeexports = get_list_of_plugins('grade/export')) {
+        foreach ($gradeexports as $gradeexport) {           
+            if (file_exists($CFG->dirroot.'/grade/export/'.$gradeexport.'/lib.php')) {
+                require_once($CFG->dirroot.'/grade/export/'.$gradeexport.'/lib.php');
+                $cron_function = 'grade_export_'.$gradeexport.'_cron';                                    
+                if (function_exists($cron_function)) {
+                    mtrace("Processing gradebook export function $cron_function ...", '');
+                    $cron_function;  
                 }
             }
         }
     }
+
+    if ($gradereports = get_list_of_plugins('grade/report')) {
+        foreach ($gradereports as $gradereport) {           
+            if (file_exists($CFG->dirroot.'/grade/report/'.$gradereport.'/lib.php')) {
+                require_once($CFG->dirroot.'/grade/report/'.$gradereport.'/lib.php');
+                $cron_function = 'grade_report_'.$gradereport.'_cron';                                    
+                if (function_exists($cron_function)) {
+                    mtrace("Processing gradebook report function $cron_function ...", '');
+                    $cron_function;  
+                }
+            }
+        }
+    }
+    
+    // run any customized cronjobs, if any
+    // looking for functions in lib/local/cron.php
+    if (file_exists($CFG->dirroot.'/local/cron.php')) {
+        mtrace('Processing customized cron script ...', '');
+        include_once($CFG->dirroot.'/local/cron.php');
+        mtrace('done.');
+    }
+
 
     //Unset session variables and destroy it
     @session_unset();
@@ -390,7 +536,7 @@
     $difftime = microtime_diff($starttime, microtime());
     mtrace("Execution took ".$difftime." seconds"); 
 
-/// finishe the IE hack
+/// finish the IE hack
     if (check_browser_version('MSIE')) {
         echo "</xmp>";
     }

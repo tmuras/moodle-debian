@@ -1,11 +1,11 @@
-<?php // $Id: block_loancalc.php,v 1.9 2007/01/10 06:44:15 vyshane Exp $
+<?php // $Id: block_loancalc.php,v 1.9.4.3 2008/04/04 06:23:21 dongsheng Exp $
 
 class block_loancalc extends block_base {
 
     function init() {
         $this->title = get_string('loancalc','block_loancalc');
         $this->content_type = BLOCK_TYPE_TEXT;
-        $this->version = 2005022100;
+        $this->version = 2007101509;
     }
 
     function get_content() {
@@ -15,7 +15,7 @@ class block_loancalc extends block_base {
         
         $this->content->text = '
         <script type="text/javascript">
-        <![CDATA[
+       // <![CDATA[
     function Next()
     {
         submitScreen("Next");
@@ -148,10 +148,8 @@ function comp(v) { // general entry point for all cases
 
     }
 } // function comp
-]]>
+//]]>
 </script>
-
-<h1></h1>
 <form method="post" id="vbankform" action="">
             <table>
                 <tr>

@@ -1,4 +1,4 @@
-<?php //$Id: change_password_form.php,v 1.6.2.3 2007/04/02 18:02:20 skodak Exp $
+<?php //$Id: change_password_form.php,v 1.11.2.1 2007/11/23 22:12:35 skodak Exp $
 
 require_once $CFG->libdir.'/formslib.php';
 
@@ -40,9 +40,9 @@ class login_change_password_form extends moodleform {
     }
 
 /// perform extra password change validation
-    function validation($data){
+    function validation($data, $files) {
         global $USER;
-        $errors = array();
+        $errors = parent::validation($data, $files);
 
         update_login_count();
 
@@ -66,7 +66,14 @@ class login_change_password_form extends moodleform {
             return $errors;
         }
 
-        return true;
+        $errmsg = '';//prevents eclipse warnings
+        if (!check_password_policy($data['newpassword1'], $errmsg)) {
+            $errors['newpassword1'] = $errmsg;
+            $errors['newpassword2'] = $errmsg;
+            return $errors;
+        }
+
+        return $errors;
     }
 }
 ?>

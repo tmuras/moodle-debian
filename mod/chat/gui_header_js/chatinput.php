@@ -1,4 +1,4 @@
-<?php  // $Id: chatinput.php,v 1.19 2007/01/28 21:18:17 skodak Exp $
+<?php  // $Id: chatinput.php,v 1.19.4.4 2008/10/08 06:41:55 dongsheng Exp $
 
     $nomoodlecookie = true;     // Session not needed!
 
@@ -50,16 +50,16 @@
 
 ?>
     <form action="../empty.php" method="post" target="empty" id="inputForm"
-          onsubmit="return empty_field_and_submit()">
-        &gt;&gt;<input type="text" id="input_chat_message" name="chat_message" size="60" value="" />
-        <?php helpbutton('chatting', get_string('helpchatting', 'chat'), 'chat', true, false); ?>
+          onsubmit="return empty_field_and_submit()" style="margin:0">
+        <input type="text" id="input_chat_message" name="chat_message" size="50" value="" />
+        <?php helpbutton('chatting', get_string('helpchatting', 'chat'), 'chat', true, false); ?><br />
+        <input type="checkbox" id="auto" size="50" value="" checked='true' /><label for="auto"><?php echo get_string('autoscroll', 'chat');?></label>
     </form>
 
     <form action="insert.php" method="post" target="empty" id="sendForm">
         <input type="hidden" name="chat_sid" value="<?php echo $chat_sid ?>" />
         <input type="hidden" name="chat_message" />
     </form>
-</div>
-</div>
-</body>
-</html>
+<?php
+    print_footer('empty');
+?>

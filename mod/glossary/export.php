@@ -1,4 +1,4 @@
-<?php   // $Id: export.php,v 1.23.2.4 2007/03/30 07:02:57 toyomoyo Exp $
+<?php   // $Id: export.php,v 1.32.2.1 2007/10/12 16:09:44 tjhunt Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -21,7 +21,7 @@
         error("Course module is incorrect");
     }
 
-    require_login($course->id, false);  
+    require_login($course->id, false, $cm);  
     
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_capability('mod/glossary:export', $context);
@@ -37,10 +37,8 @@
     $strexportfile = get_string("exportfile", "glossary");
     $strexportentries = get_string('exportentries', 'glossary');
 
-    print_header_simple(format_string($glossary->name), "",
-        "<a href=\"index.php?id=$course->id\">$strglossaries</a> -> " .
-        "<a href=\"view.php?id=$id\">" .format_string($glossary->name) . "</a> -> " .
-        $strexportentries,
+    $navigation = build_navigation('', $cm);
+    print_header_simple(format_string($glossary->name), "",$navigation,
         "", "", true, update_module_button($cm->id, $course->id, $strglossary),
         navmenu($course, $cm));
 

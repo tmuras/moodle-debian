@@ -1,9 +1,9 @@
-<?PHP //$Id: block_recent_activity.php,v 1.9 2006/05/29 08:17:57 moodler Exp $
+<?PHP //$Id: block_recent_activity.php,v 1.10.2.1 2008/03/03 11:41:04 moodler Exp $
 
 class block_recent_activity extends block_base {
     function init() {
         $this->title = get_string('recentactivity');
-        $this->version = 2004042900;
+        $this->version = 2007101509;
     }
 
     function get_content() {
@@ -32,7 +32,7 @@ class block_recent_activity extends block_base {
     }
 
     function applicable_formats() {
-        return array('all' => true, 'my' => false);
+        return array('all' => true, 'my' => false, 'tag' => false);
     }
 }
 ?>

@@ -1,4 +1,4 @@
-<?php // $Id: mysql.class.php,v 1.30.2.4 2007/04/09 00:09:50 stronk7 Exp $
+<?php // $Id: mysql.class.php,v 1.38 2007/10/10 05:25:24 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -247,15 +247,51 @@ class XMLDBmysql extends XMLDBGenerator {
     }
 
     /**
-     * Given one XMLDBTable returns one array with all the check constrainsts 
+     * Given one XMLDBTable returns one array with all the check constrainsts
      * in the table (fetched from DB)
+     * Optionally the function allows one xmldb_field to be specified in
+     * order to return only the check constraints belonging to one field.
      * Each element contains the name of the constraint and its description
      * If no check constraints are found, returns an empty array
-     * MySQL doesn't have check constraints in this implementation
+     * MySQL doesn't have check constraints in this implementation, but
+     * we return them based on the enum fields in the table
      */
-    function getCheckConstraintsFromDB($xmldb_table) {
+    function getCheckConstraintsFromDB($xmldb_table, $xmldb_field = null) {
 
-        return array();
+        global $db;
+
+        $results = array();
+
+        $tablename = $this->getTableName($xmldb_table);
+
+    /// Fetch all the columns in the table
+        if ($columns = $db->MetaColumns($tablename)) {
+        /// Normalize array keys
+            $columns = array_change_key_case($columns, CASE_LOWER);
+        /// Iterate over columns searching for enums
+            foreach ($columns as $key => $column) {
+            /// Enum found, let's add it to the constraints list
+                if (!empty($column->enums)) {
+                    $result = new object;
+                    $result->name = $key;
+                    $result->description = implode(', ', $column->enums);
+                    $results[$key] = $result;
+                }
+            }
+        }
+
+    /// Filter by the required field if specified
+        if ($xmldb_field) {
+            $filter = $xmldb_field->getName();
+        /// Check if some of the checks belong to the field (easy under MySQL)
+            if (array_key_exists($filter, $results)) {
+                $results = array($filter => $results[$filter]);
+            } else {
+                $results = array();
+            }
+        }
+
+        return $results;
     }
 
     /**

@@ -1,4 +1,4 @@
-<?php  //$Id: definelib.php,v 1.3.2.1 2007/02/28 05:36:17 nicolasconnault Exp $
+<?php  //$Id: definelib.php,v 1.7.2.4 2008/03/20 09:14:47 ikawhero Exp $
 
 class profile_define_base {
 
@@ -38,6 +38,10 @@ class profile_define_base {
 
         $form->addElement('selectyesno', 'locked', get_string('profilelocked', 'admin'));
 
+        $form->addElement('selectyesno', 'forceunique', get_string('profileforceunique', 'admin'));
+        
+        $form->addElement('selectyesno', 'signup', get_string('profilesignup', 'admin'));
+
         $choices = array();
         $choices[PROFILE_VISIBLE_NONE]    = get_string('profilevisiblenone', 'admin');
         $choices[PROFILE_VISIBLE_PRIVATE] = get_string('profilevisibleprivate', 'admin');
@@ -66,19 +70,15 @@ class profile_define_base {
      * @param   object   data from the add/edit profile field form
      * @return  array    associative array of error messages
      */
-    function define_validate($data) {
+    function define_validate($data, $files) {
 
         $data = (object)$data;
         $err = array();
 
-        $err += $this->define_validate_common($data);
-        $err += $this->define_validate_specific($data);
+        $err += $this->define_validate_common($data, $files);
+        $err += $this->define_validate_specific($data, $files);
 
-        if (count($err) == 0){
-            return true;
-        } else {
-            return $err;
-        }
+        return $err;
     }
 
     /**
@@ -88,20 +88,30 @@ class profile_define_base {
      * @param   object   data from the add/edit profile field form
      * @return  array    associative array of error messages
      */
-    function define_validate_common($data) {
+    function define_validate_common($data, $files) {
+
+        global $USER;
+
         $err = array();
 
         /// Check the shortname was not truncated by cleaning
         if (empty($data->shortname)) {
             $err['shortname'] = get_string('required');
 
+        } else {
+        /// Fetch field-record from DB
+            $field = get_record('user_info_field', 'shortname', $data->shortname);
         /// Check the shortname is unique
-        } else if (($field = get_record('user_info_field', 'shortname', $data->shortname)) and ($field->id <> $data->id)) {
-            $err['shortname'] = get_string('profileshortnamenotunique', 'admin');
+            if ($field and $field->id <> $data->id) {
+                $err['shortname'] = get_string('profileshortnamenotunique', 'admin');
+
+        /// Shortname must also be unique compared to the standard user fields
+            } else if (!$field and isset($USER->{$data->shortname})) {
+                $err['shortname'] = get_string('profileshortnamenotunique', 'admin');
+            }
         }
 
         /// No further checks necessary as the form class will take care of it
-
         return $err;
     }
 
@@ -111,7 +121,7 @@ class profile_define_base {
      * @param   object   data from the add/edit profile field form
      * @return  array    associative array of error messages
      */
-    function define_validate_specific($data) {
+    function define_validate_specific($data, $files) {
         /// do nothing - overwrite if necessary
         return array();
     }
@@ -175,12 +185,12 @@ class profile_define_base {
  */
 function profile_reorder_fields() {
     if ($categories = get_records_select('user_info_category')) {
-        $i = 1;
         foreach ($categories as $category) {
+            $i = 1;
             if ($fields = get_records_select('user_info_field', 'categoryid='.$category->id, 'sortorder ASC')) {
                 foreach ($fields as $field) {
                     $f = new object();
-                    $f->if = $field->id;
+                    $f->id = $field->id;
                     $f->sortorder = $i++;
                     update_record('user_info_field', $f);
                 }
@@ -362,9 +372,14 @@ function profile_list_datatypes() {
 
     if ($dirlist = get_directory_list($CFG->dirroot.'/user/profile/field', '', false, true, false)) {
         foreach ($dirlist as $type) {
-            $datatypes[$type] = get_string('profilefieldtype'.$type, 'admin');
+            $datatypes[$type] = get_string('profilefieldtype'.$type, 'profilefield_'.$type);
+            if (strpos($datatypes[$type], '[[') !== false) {
+                $datatypes[$type] = get_string('profilefieldtype'.$type, 'admin');
+            }
         }
     }
+    asort($datatypes);
+
     return $datatypes;
 }
 
@@ -381,7 +396,7 @@ function profile_list_categories() {
 
 
 /// Are we adding or editing a cateogory?
-function profile_edit_category($id, $redirect, $adminroot) {
+function profile_edit_category($id, $redirect) {
     global $CFG;
 
     require_once('index_category_form.php');
@@ -418,16 +433,16 @@ function profile_edit_category($id, $redirect, $adminroot) {
         }
 
         /// Print the page
-        admin_externalpage_print_header($adminroot);
+        admin_externalpage_print_header();
         print_heading($strheading);
         $categoryform->display();
-        admin_externalpage_print_footer($adminroot);
+        admin_externalpage_print_footer();
         die;
     }
 
 }
 
-function profile_edit_field($id, $datatype, $redirect, $adminroot) {
+function profile_edit_field($id, $datatype, $redirect) {
     global $CFG;
 
     if (!$field = get_record('user_info_field', 'id', $id)) {
@@ -462,10 +477,10 @@ function profile_edit_field($id, $datatype, $redirect, $adminroot) {
         }
 
         /// Print the page
-        admin_externalpage_print_header($adminroot);
+        admin_externalpage_print_header();
         print_heading($strheading);
         $fieldform->display();
-        admin_externalpage_print_footer($adminroot);
+        admin_externalpage_print_footer();
         die;
     }
 }

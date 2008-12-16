@@ -1,5 +1,10 @@
-<?php //$Id: backuplib.php,v 1.8.2.1 2007/03/09 02:58:20 toyomoyo Exp $
-    //This php script contains all the stuff to backup questions
+<?php // $Id: backuplib.php,v 1.13.2.6 2008/06/18 14:29:40 tjhunt Exp $
+/**
+ * Question bank backup code.
+ *
+ * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
+ * @package questionbank
+ *//** */
 
 //This is the "graphical" structure of the question database:
     //To see, put your terminal to 160cc
@@ -25,12 +30,12 @@
     //        (CL,pk->id,fk->category,files)                   |
     //                  |                             question_dataset_items
     //                  |                          (CL,pk->id,fk->definition)
-    //                  |                                                                                                           question_rqp_type
-    //                  |                                                                                                            (SL,pk->id)
-    //                  |                                                                                                                  |
-    //             --------------------------------------------------------------------------------------------------------------          |
-    //             |             |              |              |                       |                  |                     |        question_rqp
-    //             |             |              |              |                       |                  |                     |--(CL,pk->id,fk->question)
+    //                  |
+    //                  |
+    //                  |
+    //             --------------------------------------------------------------------------------------------------------------
+    //             |             |              |              |                       |                  |                     |
+    //             |             |              |              |                       |                  |                     |
     //             |             |              |              |             question_calculated          |                     |
     //      question_truefalse   |     question_multichoice    |          (CL,pl->id,fk->question)        |                     |
     // (CL,pk->id,fk->question)  |   (CL,pk->id,fk->question)  |                       .                  |                     |  question_randomsamatch
@@ -59,9 +64,6 @@
     //                    .
     //             question_states
     //       (UL,pk->id,fk->attempt,question)
-    //                |
-    //           question_rqp_states
-    //        (UL,pk->id,fk->stateid)                       
     //
     // Meaning: pk->primary key field of the table
     //          fk->foreign key to link with parent
@@ -75,6 +77,42 @@
 
     require_once("$CFG->libdir/questionlib.php");
 
+    function backup_question_category_context($bf, $contextid, $course) {
+        $status = true;
+        $context = get_context_instance_by_id($contextid);
+        $status = $status && fwrite($bf,start_tag("CONTEXT",4,true));
+        switch ($context->contextlevel){
+            case CONTEXT_MODULE:
+                $status = $status && fwrite($bf,full_tag("LEVEL",5,false, 'module'));
+                $status = $status && fwrite($bf,full_tag("INSTANCE",5,false, $context->instanceid));
+                break;
+            case CONTEXT_COURSE:
+                $status = $status && fwrite($bf,full_tag("LEVEL",5,false, 'course'));
+                break;
+            case CONTEXT_COURSECAT:
+                $thiscourse = get_record('course', 'id', $course);
+                $cat = $thiscourse->category;
+                $catno = 1;
+                while($context->instanceid != $cat){
+                    $catno ++;
+                    if ($cat ==0) {
+                        return false;
+                    }
+                    $cat = get_field('course_categories', 'parent', 'id', $cat);
+                }
+                $status = $status && fwrite($bf,full_tag("LEVEL",5,false, 'coursecategory'));
+                $status = $status && fwrite($bf,full_tag("COURSECATEGORYLEVEL",5,false, $catno));
+               break;
+            case CONTEXT_SYSTEM:
+                $status = $status && fwrite($bf,full_tag("LEVEL",5,false, 'system'));
+                break;
+            default :
+                return false;
+        }
+        $status = $status && fwrite($bf,end_tag("CONTEXT",4,true));
+        return $status;
+    }
+
     function backup_question_categories($bf,$preferences) {
 
         global $CFG;
@@ -87,28 +125,28 @@
         //If we've categories
         if ($categories) {
              //Write start tag
-             $status = fwrite($bf,start_tag("QUESTION_CATEGORIES",2,true));
+             $status = $status && fwrite($bf,start_tag("QUESTION_CATEGORIES",2,true));
              //Iterate over each category
             foreach ($categories as $cat) {
                 //Start category
-                $status = fwrite ($bf,start_tag("QUESTION_CATEGORY",3,true));
+                $status = $status && fwrite ($bf,start_tag("QUESTION_CATEGORY",3,true));
                 //Get category data from question_categories
                 $category = get_record ("question_categories","id",$cat->old_id);
                 //Print category contents
-                fwrite($bf,full_tag("ID",4,false,$category->id));
-                fwrite($bf,full_tag("NAME",4,false,$category->name));
-                fwrite($bf,full_tag("INFO",4,false,$category->info));
-                fwrite($bf,full_tag("PUBLISH",4,false,$category->publish));
-                fwrite($bf,full_tag("STAMP",4,false,$category->stamp));
-                fwrite($bf,full_tag("PARENT",4,false,$category->parent));
-                fwrite($bf,full_tag("SORTORDER",4,false,$category->sortorder));
+                $status = $status && fwrite($bf,full_tag("ID",4,false,$category->id));
+                $status = $status && fwrite($bf,full_tag("NAME",4,false,$category->name));
+                $status = $status && fwrite($bf,full_tag("INFO",4,false,$category->info));
+                $status = $status && backup_question_category_context($bf, $category->contextid, $preferences->backup_course);
+                $status = $status && fwrite($bf,full_tag("STAMP",4,false,$category->stamp));
+                $status = $status && fwrite($bf,full_tag("PARENT",4,false,$category->parent));
+                $status = $status && fwrite($bf,full_tag("SORTORDER",4,false,$category->sortorder));
                 //Now, backup their questions
-                $status = backup_question($bf,$preferences,$category->id);
+                $status = $status && backup_question($bf,$preferences,$category->id);
                 //End category
-                $status = fwrite ($bf,end_tag("QUESTION_CATEGORY",3,true));
+                $status = $status && fwrite ($bf,end_tag("QUESTION_CATEGORY",3,true));
             }
             //Write end tag
-            $status = fwrite ($bf,end_tag("QUESTION_CATEGORIES",2,true));
+            $status = $status && fwrite ($bf,end_tag("QUESTION_CATEGORIES",2,true));
         }
 
         return $status;
@@ -125,16 +163,27 @@
         // We'll fetch the questions sorted by parent so that questions with no parents
         // (these are the ones which could be parents themselves) are backed up first. This
         // is important for the recoding of the parent field during the restore process
-        $questions = get_records("question","category",$category,"parent ASC, id");
+        // Only select questions with ids in backup_ids table
+        $questions = get_records_sql("SELECT q.* FROM {$CFG->prefix}backup_ids bk, {$CFG->prefix}question q ".
+                                    "WHERE q.category= $category AND ".
+                                    "bk.old_id=q.id AND ".
+                                    "bk.backup_code = {$preferences->backup_unique_code} ".
+                                    "ORDER BY parent ASC, id");
         //If there are questions
         if ($questions) {
             //Write start tag
-            $status = fwrite ($bf,start_tag("QUESTIONS",$level,true));
+            $status = $status && fwrite ($bf,start_tag("QUESTIONS",$level,true));
             $counter = 0;
             //Iterate over each question
             foreach ($questions as $question) {
+                // Deal with missing question types - they need to be included becuase
+                // user data or quizzes may refer to them.
+                if (!array_key_exists($question->qtype, $QTYPES)) {
+                    $question->qtype = 'missingtype';
+                    $question->questiontext = '<p>' . get_string('warningmissingtype', 'quiz') . '</p>' . $question->questiontext;
+                }
                 //Start question
-                $status = fwrite ($bf,start_tag("QUESTION",$level + 1,true));
+                $status = $status && fwrite ($bf,start_tag("QUESTION",$level + 1,true));
                 //Print question contents
                 fwrite ($bf,full_tag("ID",$level + 2,false,$question->id));
                 fwrite ($bf,full_tag("PARENT",$level + 2,false,$question->parent));
@@ -150,10 +199,14 @@
                 fwrite ($bf,full_tag("STAMP",$level + 2,false,$question->stamp));
                 fwrite ($bf,full_tag("VERSION",$level + 2,false,$question->version));
                 fwrite ($bf,full_tag("HIDDEN",$level + 2,false,$question->hidden));
+                fwrite ($bf,full_tag("TIMECREATED",$level + 2,false,$question->timecreated));
+                fwrite ($bf,full_tag("TIMEMODIFIED",$level + 2,false,$question->timemodified));
+                fwrite ($bf,full_tag("CREATEDBY",$level + 2,false,$question->createdby));
+                fwrite ($bf,full_tag("MODIFIEDBY",$level + 2,false,$question->modifiedby));
                 // Backup question type specific data
-                $status = $QTYPES[$question->qtype]->backup($bf,$preferences,$question->id, $level + 2);
+                $status = $status && $QTYPES[$question->qtype]->backup($bf,$preferences,$question->id, $level + 2);
                 //End question
-                $status = fwrite ($bf,end_tag("QUESTION",$level + 1,true));
+                $status = $status && fwrite ($bf,end_tag("QUESTION",$level + 1,true));
                 //Do some output
                 $counter++;
                 if ($counter % 10 == 0) {
@@ -165,7 +218,7 @@
                 }
             }
             //Write end tag
-            $status = fwrite ($bf,end_tag("QUESTIONS",$level,true));
+            $status = $status && fwrite ($bf,end_tag("QUESTIONS",$level,true));
         }
         return $status;
     }
@@ -181,18 +234,18 @@
         $answers = get_records("question_answers","question",$question,"id");
         //If there are answers
         if ($answers) {
-            $status = fwrite ($bf,start_tag("ANSWERS",$level,true));
+            $status = $status && fwrite ($bf,start_tag("ANSWERS",$level,true));
             //Iterate over each answer
             foreach ($answers as $answer) {
-                $status = fwrite ($bf,start_tag("ANSWER",$level + 1,true));
+                $status = $status && fwrite ($bf,start_tag("ANSWER",$level + 1,true));
                 //Print answer contents
                 fwrite ($bf,full_tag("ID",$level + 2,false,$answer->id));
                 fwrite ($bf,full_tag("ANSWER_TEXT",$level + 2,false,$answer->answer));
                 fwrite ($bf,full_tag("FRACTION",$level + 2,false,$answer->fraction));
                 fwrite ($bf,full_tag("FEEDBACK",$level + 2,false,$answer->feedback));
-                $status = fwrite ($bf,end_tag("ANSWER",$level + 1,true));
+                $status = $status && fwrite ($bf,end_tag("ANSWER",$level + 1,true));
             }
-            $status = fwrite ($bf,end_tag("ANSWERS",$level,true));
+            $status = $status && fwrite ($bf,end_tag("ANSWERS",$level,true));
         }
         return $status;
     }
@@ -207,17 +260,17 @@
         $numerical_units = get_records("question_numerical_units","question",$question,"id");
         //If there are numericals_units
         if ($numerical_units) {
-            $status = fwrite ($bf,start_tag("NUMERICAL_UNITS",$level,true));
+            $status = $status && fwrite ($bf,start_tag("NUMERICAL_UNITS",$level,true));
             //Iterate over each numerical_unit
             foreach ($numerical_units as $numerical_unit) {
-                $status = fwrite ($bf,start_tag("NUMERICAL_UNIT",$level+1,true));
+                $status = $status && fwrite ($bf,start_tag("NUMERICAL_UNIT",$level+1,true));
                 //Print numerical_unit contents
                 fwrite ($bf,full_tag("MULTIPLIER",$level+2,false,$numerical_unit->multiplier));
                 fwrite ($bf,full_tag("UNIT",$level+2,false,$numerical_unit->unit));
                 //Now backup numerical_units
-                $status = fwrite ($bf,end_tag("NUMERICAL_UNIT",$level+1,true));
+                $status = $status && fwrite ($bf,end_tag("NUMERICAL_UNIT",$level+1,true));
             }
-            $status = fwrite ($bf,end_tag("NUMERICAL_UNITS",$level,true));
+            $status = $status && fwrite ($bf,end_tag("NUMERICAL_UNITS",$level,true));
         }
 
         return $status;
@@ -249,7 +302,7 @@
                     fwrite ($bf,full_tag("OPTIONS",$level+2,false,$def->options));
                     fwrite ($bf,full_tag("ITEMCOUNT",$level+2,false,$def->itemcount));
                     //Now backup dataset_entries
-                    $status = question_backup_dataset_items($bf,$preferences,$def->id,$level+2);
+                    $status = $status && question_backup_dataset_items($bf,$preferences,$def->id,$level+2);
                     //End dataset definition
                     $status = $status &&fwrite ($bf,end_tag("DATASET_DEFINITION",$level+1,true));
                 }
@@ -301,11 +354,11 @@
         //If there are states
         if ($question_states) {
             //Write start tag
-            $status = fwrite ($bf,start_tag("STATES",$level,true));
+            $status = $status && fwrite ($bf,start_tag("STATES",$level,true));
             //Iterate over each state
             foreach ($question_states as $state) {
                 //Start state
-                $status = fwrite ($bf,start_tag("STATE",$level + 1,true));
+                $status = $status && fwrite ($bf,start_tag("STATE",$level + 1,true));
                 //Print state contents
                 fwrite ($bf,full_tag("ID",$level + 2,false,$state->id));
                 fwrite ($bf,full_tag("QUESTION",$level + 2,false,$state->question));
@@ -317,13 +370,11 @@
                 fwrite ($bf,full_tag("GRADE",$level + 2,false,$state->grade));
                 fwrite ($bf,full_tag("RAW_GRADE",$level + 2,false,$state->raw_grade));
                 fwrite ($bf,full_tag("PENALTY",$level + 2,false,$state->penalty));
-                // now back up question type specific state information
-                $status = backup_question_rqp_state ($bf,$preferences,$state->id, $level + 2);
                 //End state
-                $status = fwrite ($bf,end_tag("STATE",$level + 1,true));
+                $status = $status && fwrite ($bf,end_tag("STATE",$level + 1,true));
             }
             //Write end tag
-            $status = fwrite ($bf,end_tag("STATES",$level,true));
+            $status = $status && fwrite ($bf,end_tag("STATES",$level,true));
         }
     }
 
@@ -337,45 +388,23 @@
         //If there are sessions
         if ($question_sessions) {
             //Write start tag (the funny name 'newest states' has historical reasons)
-            $status = fwrite ($bf,start_tag("NEWEST_STATES",$level,true));
+            $status = $status && fwrite ($bf,start_tag("NEWEST_STATES",$level,true));
             //Iterate over each newest_state
             foreach ($question_sessions as $newest_state) {
                 //Start newest_state
-                $status = fwrite ($bf,start_tag("NEWEST_STATE",$level + 1,true));
+                $status = $status && fwrite ($bf,start_tag("NEWEST_STATE",$level + 1,true));
                 //Print newest_state contents
                 fwrite ($bf,full_tag("ID",$level + 2,false,$newest_state->id));
                 fwrite ($bf,full_tag("QUESTIONID",$level + 2,false,$newest_state->questionid));
                 fwrite ($bf,full_tag("NEWEST",$level + 2,false,$newest_state->newest));
                 fwrite ($bf,full_tag("NEWGRADED",$level + 2,false,$newest_state->newgraded));
                 fwrite ($bf,full_tag("SUMPENALTY",$level + 2,false,$newest_state->sumpenalty));
-                fwrite ($bf,full_tag("MANUALCOMMENT",$level + 2,false,$newest_state->manualcomment));                
+                fwrite ($bf,full_tag("MANUALCOMMENT",$level + 2,false,$newest_state->manualcomment));
                 //End newest_state
-                $status = fwrite ($bf,end_tag("NEWEST_STATE",$level + 1,true));
+                $status = $status && fwrite ($bf,end_tag("NEWEST_STATE",$level + 1,true));
             }
             //Write end tag
-            $status = fwrite ($bf,end_tag("NEWEST_STATES",$level,true));
-        }
-        return $status;
-    }
-
-    //Backup question_rqp_state contents (executed from backup_question_states)
-    function backup_question_rqp_state ($bf,$preferences,$state, $level = 8) {
-
-        global $CFG;
-
-        $status = true;
-
-        $rqp_state = get_record("question_rqp_states","stateid",$state);
-        //If there is a state
-        if ($rqp_state) {
-            //Write start tag
-            $status = fwrite ($bf,start_tag("RQP_STATE",$level,true));
-            //Print state contents
-            fwrite ($bf,full_tag("RESPONSES",$level + 1,false,$rqp_state->responses));
-            fwrite ($bf,full_tag("PERSISTENT_DATA",$level + 1,false,$rqp_state->persistent_data));
-            fwrite ($bf,full_tag("TEMPLATE_VARS",$level + 1,false,$rqp_state->template_vars));
-            //Write end tag
-            $status = fwrite ($bf,end_tag("RQP_STATE",$level,true));
+            $status = $status && fwrite ($bf,end_tag("NEWEST_STATES",$level,true));
         }
         return $status;
     }
@@ -395,21 +424,95 @@
 
         global $CFG;
 
-        return get_records_sql ("SELECT q.id, q.category
-                                 FROM {$CFG->prefix}backup_ids a,
-                                      {$CFG->prefix}question q
-                                 WHERE a.backup_code = '$backup_unique_code' AND
-                                       q.category = a.old_id AND
-                                       a.table_name = 'question_categories'");
+        return get_records_sql ("SELECT old_id, backup_code
+                                 FROM {$CFG->prefix}backup_ids
+                                 WHERE backup_code = '$backup_unique_code' AND
+                                       table_name = 'question'");
     }
+    
+    //Function for inserting question and category ids into db that are all called from
+    // quiz_check_backup_mods during execution of backup_check.html 
 
-    //Delete category ids from backup_ids table
-    function delete_category_ids ($backup_unique_code) {
+
+    function question_insert_c_and_q_ids_for_course($coursecontext, $backup_unique_code){
+        global $CFG;
+            // First, all categories from this course's context.
+        $status = execute_sql("INSERT INTO {$CFG->prefix}backup_ids
+                                   (backup_code, table_name, old_id, info)
+                               SELECT '$backup_unique_code', 'question_categories', qc.id, 'course'
+                               FROM {$CFG->prefix}question_categories qc
+                               WHERE qc.contextid = {$coursecontext->id}", false);
+        $status = $status && question_insert_q_ids($backup_unique_code, 'course');
+        return $status;
+    }
+    /*
+     * Insert all question ids for categories whose ids have already been inserted in the backup_ids table
+     * Insert code to identify categories to later insert all question ids later eg. course, quiz or other module name.
+     */
+    function question_insert_q_ids($backup_unique_code, $info){
+        global $CFG;
+            //put the ids of the questions from all these categories into the db.
+        $status = execute_sql("INSERT INTO {$CFG->prefix}backup_ids
+                                       (backup_code, table_name, old_id, info)
+                                       SELECT '$backup_unique_code', 'question', q.id, ''
+                                       FROM {$CFG->prefix}question q, {$CFG->prefix}backup_ids bk
+                                       WHERE q.category = bk.old_id AND bk.table_name = 'question_categories' 
+                                       AND bk.info = '$info'
+                                       AND bk.backup_code = '$backup_unique_code'", false);
+        return $status;
+    }
+    
+    function question_insert_c_and_q_ids_for_module($backup_unique_code, $course, $modulename, $instances){
         global $CFG;
         $status = true;
-        $status = execute_sql("DELETE FROM {$CFG->prefix}backup_ids
-                               WHERE backup_code = '$backup_unique_code'",false);
+        // using 'dummykeyname' in sql because otherwise get_records_sql_menu returns an error
+        // if two key names are the same.
+        $cmcontexts = array();
+        if(!empty($instances)) {
+            $cmcontexts = get_records_sql_menu("SELECT c.id, c.id AS dummykeyname FROM {$CFG->prefix}modules m,
+                                                        {$CFG->prefix}course_modules cm,
+                                                        {$CFG->prefix}context c
+                               WHERE m.name = '$modulename' AND m.id = cm.module AND cm.id = c.instanceid
+                                    AND c.contextlevel = ".CONTEXT_MODULE." AND cm.course = $course
+                                    AND cm.instance IN (".implode(',',array_keys($instances)).")");
+        }
+                                    
+        if ($cmcontexts){
+            $status = $status && execute_sql("INSERT INTO {$CFG->prefix}backup_ids
+                                       (backup_code, table_name, old_id, info)
+                                   SELECT '$backup_unique_code', 'question_categories', qc.id, '$modulename'
+                                   FROM {$CFG->prefix}question_categories qc
+                                   WHERE qc.contextid IN (".join(array_keys($cmcontexts), ', ').")", false);
+        }
+        $status = $status && question_insert_q_ids($backup_unique_code, $modulename);
         return $status;
     }
 
+    function question_insert_site_file_names($course, $backup_unique_code){
+        global $QTYPES, $CFG;
+        $status = true;
+        $questionids = question_ids_by_backup ($backup_unique_code);
+        $urls = array();
+        if ($questionids){
+            foreach ($questionids as $question_bk){
+                $question = get_record('question', 'id', $question_bk->old_id);
+                $QTYPES[$question->qtype]->get_question_options($question);
+                $urls = array_merge_recursive($urls, $QTYPES[$question->qtype]->find_file_links($question, SITEID));
+            }
+        }
+        ksort($urls);
+        foreach (array_keys($urls) as $url){
+            if (file_exists($CFG->dataroot.'/'.SITEID.'/'.$url)){
+                $inserturl = new object();
+                $inserturl->backup_code = $backup_unique_code;
+                $inserturl->file_type = 'site';
+                $url = clean_param($url, PARAM_PATH);
+                $inserturl->path = addslashes($url);
+                $status = $status && insert_record('backup_files', $inserturl);
+            } else {
+                notify(get_string('linkedfiledoesntexist', 'question', $url));
+            }
+        }
+        return $status;
+    }
 ?>

@@ -1,73 +1,62 @@
-<?php // $Id: edit.php,v 1.10.2.1 2007/03/22 11:46:03 tjhunt Exp $
+<?php // $Id: edit.php,v 1.21.2.1 2007/11/02 16:20:22 tjhunt Exp $
 /**
 * Page to edit the question bank
 *
 * TODO: add logging
 *
-* @version $Id: edit.php,v 1.10.2.1 2007/03/22 11:46:03 tjhunt Exp $
 * @author Martin Dougiamas and many others. This has recently been extensively
 *         rewritten by Gustav Delius and other members of the Serving Mathematics project
 *         {@link http://maths.york.ac.uk/serving_maths}
 * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
-* @package question
+* @package questionbank
 */
+
     require_once("../config.php");
     require_once("editlib.php");
 
-    require_login();
+    list($thispageurl, $contexts, $cmid, $cm, $module, $pagevars) = question_edit_setup('questions');
 
-    $courseid  = required_param('courseid', PARAM_INT);
+    question_showbank_actions($thispageurl, $cm);
 
-    // The optional parameter 'clean' allows us to clear module information,
-    // guaranteeing a module-independent  question bank editing interface
-    if (optional_param('clean', false, PARAM_BOOL)) {
-        unset($SESSION->modform);
-    }
-
-    if (! $course = get_record("course", "id", $courseid)) {
-        error("This course doesn't exist");
-    }
-    $context = get_context_instance(CONTEXT_COURSE, $courseid);
-    require_login($course->id, false);
-  
-    $SESSION->returnurl = $FULLME;
-
-    // Print basic page layout.
+    $context = $contexts->lowest();
     $streditingquestions = get_string('editquestions', "quiz");
-
-    // TODO: generalise this to any activity
-    $strquizzes = get_string('modulenameplural', 'quiz');
-    $streditingquestions = get_string('editquestions', "quiz");
-    if (isset($SESSION->modform->instance) and $quiz = get_record('quiz', 'id', $SESSION->modform->instance)) {
-        $strupdatemodule = has_capability('moodle/course:manageactivities', get_context_instance(CONTEXT_COURSE, $course->id))
-            ? update_module_button($SESSION->modform->cmid, $course->id, get_string('modulename', 'quiz'))
+    if ($cm!==null) {
+        $strupdatemodule = has_capability('moodle/course:manageactivities', $contexts->lowest())
+            ? update_module_button($cm->id, $COURSE->id, get_string('modulename', $cm->modname))
             : "";
-        print_header_simple($streditingquestions, '',
-                 "<a href=\"$CFG->wwwroot/mod/quiz/index.php?id=$course->id\">$strquizzes</a>".
-                 " -> <a href=\"$CFG->wwwroot/mod/quiz/view.php?q={$SESSION->modform->instance}\">".format_string($SESSION->modform->name).'</a>'.
-                 " -> $streditingquestions",
-                 "", "", true, $strupdatemodule);
+        $navlinks = array();
+        $navlinks[] = array('name' => get_string('modulenameplural', $cm->modname), 'link' => "$CFG->wwwroot/mod/{$cm->modname}/index.php?id=$COURSE->id", 'type' => 'activity');
+        $navlinks[] = array('name' => format_string($module->name), 'link' => "$CFG->wwwroot/mod/{$cm->modname}/view.php?id={$cm->id}", 'type' => 'title');
+        $navlinks[] = array('name' => $streditingquestions, 'link' => '', 'type' => 'title');
+        $navigation = build_navigation($navlinks);
+        print_header_simple($streditingquestions, '', $navigation, "", "", true, $strupdatemodule);
 
         $currenttab = 'edit';
         $mode = 'questions';
-        $quiz = &$SESSION->modform;
-        include($CFG->dirroot.'/mod/quiz/tabs.php');
+        ${$cm->modname} = $module;
+        include($CFG->dirroot."/mod/$cm->modname/tabs.php");
     } else {
-        print_header_simple($streditingquestions, '',
-                 "$streditingquestions");
-    
+        // Print basic page layout.
+        $navlinks = array();
+        $navlinks[] = array('name' => $streditingquestions, 'link' => '', 'type' => 'title');
+        $navigation = build_navigation($navlinks);
+
+        print_header_simple($streditingquestions, '', $navigation);
+
         // print tabs
         $currenttab = 'questions';
         include('tabs.php');
     }
 
+
     echo '<table class="boxaligncenter" border="0" cellpadding="2" cellspacing="0">';
     echo '<tr><td valign="top">';
 
-    include($CFG->dirroot.'/question/showbank.php');
+    question_showbank('questions', $contexts, $thispageurl, $cm, $pagevars['qpage'], $pagevars['qperpage'], $pagevars['qsortorder'], $pagevars['qsortorderdecoded'],
+                    $pagevars['cat'], $pagevars['recurse'], $pagevars['showhidden'], $pagevars['showquestiontext']);
 
     echo '</td></tr>';
     echo '</table>';
 
-    print_footer($course);
+    print_footer($COURSE);
 ?>

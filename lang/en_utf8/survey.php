@@ -1,4 +1,4 @@
-<?PHP // $Id: survey.php,v 1.4.4.1 2007/03/27 21:58:19 skodak Exp $ 
+<?PHP // $Id: survey.php,v 1.5.4.2 2007/11/29 14:40:44 skodak Exp $ 
       // survey.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -192,7 +192,10 @@ $string['preferredstudent'] = '$a preferred';
 $string['question'] = 'Question';
 $string['questions'] = 'Questions';
 $string['questionsnotanswered'] = 'Some of the multiple choice questions have not been answered.';
+$string['deleteallanswers'] = 'Delete all survey responses';
+$string['deleteanalysis'] = 'Delete response analysis';
 $string['report'] = 'Survey report';
+$string['responses'] = 'Responses';
 $string['savednotes'] = 'Your notes were saved';
 $string['scaleagree5'] = 'Strongly disagree,Somewhat disagree,Neither agree nor disagree,Somewhat agree,Strongly agree';
 $string['scales'] = 'Scales';

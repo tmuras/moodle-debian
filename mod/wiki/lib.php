@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.48.2.1 2007/02/22 17:46:13 sam_marshall Exp $
+<?php  // $Id: lib.php,v 1.53.2.5 2008/09/26 09:33:03 stronk7 Exp $
 
 /// Library of functions and constants for module wiki
 /// (replace wiki with the name of your module and delete this line)
@@ -177,39 +177,46 @@ function wiki_print_recent_activity($course, $isteacher, $timestart) {
 /// Return true if there was output, or false is there was none.
 
     global $CFG;
-    if (!$logs = get_records_select('log', 'time > \''.$timestart.'\' AND '.
-                                           'course = \''.$course->id.'\' AND '.
-                                           'module = \'wiki\' AND '.
-                                           'action LIKE \'edit%\' ', 'time ASC')){
+    
+    $sql = "SELECT l.*, cm.instance FROM {$CFG->prefix}log l 
+                INNER JOIN {$CFG->prefix}course_modules cm ON l.cmid = cm.id 
+            WHERE l.time > '$timestart' AND l.course = {$course->id} 
+                AND l.module = 'wiki' AND action LIKE 'edit%'
+            ORDER BY l.time ASC";
+            
+    if (!$logs = get_records_sql($sql)){
         return false;
     }
 
+    $modinfo = get_fast_modinfo($course);
+    $wikis = array();
+
     foreach ($logs as $log) {
-        //Create a temp valid module structure (course,id)
-        $tempmod = new Object();
-        $tempmod->course = $log->course;
-        $tempmod->id = $log->cmid;
-        //Obtain the visible property from the instance
-        $modvisible = instance_is_visible($log->module,$tempmod);
-
-        //Only if the mod is visible
-        if ($modvisible) {
-            $wikis[$log->info] = wiki_log_info($log);
-            $wikis[$log->info]->pagename = $log->info;
-            $wikis[$log->info]->time = $log->time;
-            $wikis[$log->info]->url  = str_replace('&', '&amp;', $log->url);
+        $cm = $modinfo->instances['wiki'][$log->instance];
+        if (!$cm->uservisible) {
+            continue;
         }
+
+    /// Process log->url and rebuild it here to properly clean the pagename - MDL-15896
+        $extractedpage = preg_replace('/^.*&page=/', '', $log->url);
+        $log->url = preg_replace('/page=.*$/', 'page='.urlencode($extractedpage), $log->url);
+
+        $wikis[$log->info] = wiki_log_info($log);
+        $wikis[$log->info]->pagename = $log->info;
+        $wikis[$log->info]->time = $log->time;
+        $wikis[$log->info]->url  = str_replace('&', '&amp;', $log->url);
     }
 
-    if ($wikis) {
-        $content = true;
-        print_headline(get_string('updatedwikipages', 'wiki').':', 3);
-        foreach ($wikis as $wiki) {
-            print_recent_activity_note($wiki->time, $wiki, $wiki->pagename,
-                                       $CFG->wwwroot.'/mod/wiki/'.$wiki->url);
-        }
+    if (!$wikis) {
+        return false;
     }
-    return true;  //  True if anything was printed, otherwise false
+    print_headline(get_string('updatedwikipages', 'wiki').':', 3);
+    foreach ($wikis as $wiki) {
+        print_recent_activity_note($wiki->time, $wiki, $wiki->pagename,
+                                   $CFG->wwwroot.'/mod/wiki/'.$wiki->url);
+    }
+
+    return false;
 }
 
 function wiki_log_info($log) {
@@ -374,7 +381,8 @@ function wiki_get_entries(&$wiki, $byindex=NULL) {
 /// Returns an array with all wiki entries indexed by entry id; false if there are none.
 /// If the optional $byindex is specified, returns the entries indexed by that field.
 /// Valid values for $byindex are 'student', 'group'.
-
+    global $CFG;
+    
     if ($byindex == 'student') {
         return get_records('wiki_entries', 'wikiid', $wiki->id, '',
                            'userid,id,wikiid,course,groupid,pagename,timemodified');
@@ -395,7 +403,7 @@ function wiki_get_default_entry(&$wiki, &$course, $userid=0, $groupid=0) {
 /// Creates one if it needs to and it can.
     global $USER;
     /// If there is a groupmode, get the user's group id.
-    $groupmode = groupmode($course, $wiki);
+    $groupmode = groups_get_activity_groupmode($wiki);
     // if groups mode is in use and no group supplied, use the first one found
     if ($groupmode && !$groupid) {
         if(($mygroupids=mygroupid($course->id)) && count($mygroupids)>0) {
@@ -403,7 +411,7 @@ function wiki_get_default_entry(&$wiki, &$course, $userid=0, $groupid=0) {
             $groupid=$mygroupids[0];
         } else {
             // Whatever groups are in the course, pick one
-            $coursegroups = get_groups($course->id);
+            $coursegroups = groups_get_all_groups($course->id);
             if(!$coursegroups || count($coursegroups)==0) {
                 error("Can't access wiki in group mode when no groups are configured for the course");
             }
@@ -451,7 +459,7 @@ function wiki_get_entry(&$wiki, &$course, $userid=0, $groupid=0) {
 
     case 'group':
         /// If there is a groupmode, get the user's group id.
-        $groupmode = groupmode($course, $wiki);
+        $groupmode = groups_get_activity_groupmode($wiki);
         if($groupmode) {
             if(!$groupid) {
                 if(($mygroupids=mygroupid($course->id)) && count($mygroupids)>0) {
@@ -459,7 +467,7 @@ function wiki_get_entry(&$wiki, &$course, $userid=0, $groupid=0) {
                     $groupid=$mygroupids[0];
                 } else {
                     // Whatever groups are in the course, pick one
-                    $coursegroups = get_groups($course->id);
+                    $coursegroups = groups_get_all_groups($course->id);
                     if(!$coursegroups || count($coursegroups)==0) {
                         error("Can't access wiki in group mode when no groups are configured for the course");
                     }
@@ -526,16 +534,36 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
 
     $wikis = false;
 
-    $groupmode = groupmode($course, $wiki);
+    $groupmode = groups_get_activity_groupmode($wiki);
     $mygroupid = mygroupid($course->id);
     $isteacher = wiki_is_teacher($wiki, $user->id);
     $isteacheredit = wiki_is_teacheredit($wiki, $user->id);
 
+    $groupingid = null;
+    $cm = new stdClass;
+    $cm->id = $wiki->cmid;
+    $cm->groupmode = $wiki->groupmode;
+    $cm->groupingid = $wiki->groupingid;
+    $cm->groupmembersonly = $wiki->groupmembersonly;
+    if (!empty($CFG->enablegroupings) && !empty($cm->groupingid)) {
+        $groupingid = $wiki->groupingid;
+    }
+    
+    
     switch ($wiki->wtype) {
 
     case 'student':
         /// Get all the existing entries for this wiki.
         $wiki_entries = wiki_get_entries($wiki, 'student');
+        
+        if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid)) {
+            $sql = "SELECT gm.userid FROM {$CFG->prefix}groups_members gm " .
+                    "INNER JOIN {$CFG->prefix}groupings_groups gg ON gm.groupid = gg.groupid " .
+                    "WHERE gg.groupingid = $wiki->groupingid ";
+    
+            $groupingmembers = get_records_sql($sql);
+        }
+        
         if ($isteacher and (SITEID != $course->id)) {
 
             /// If the user is an editing teacher, or a non-editing teacher not assigned to a group, show all student
@@ -547,7 +575,9 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
                     $defpagename = empty($wiki->pagename) ? get_string('wikidefaultpagename', 'wiki') : $wiki->pagename;
 
                     foreach ($students as $student) {
-
+                        if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid) && empty($groupingmembers[$student->id])) {
+                            continue;
+                        }
                         /// If this student already has an entry, use its pagename.
                         if ($wiki_entries[$student->id]) {
                             $pagename = $wiki_entries[$student->id]->pagename;
@@ -566,7 +596,9 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
                 if ($students = wiki_get_students($wiki, $mygroupid)) {
                     $defpagename = empty($wiki->pagename) ? get_string('wikidefaultpagename', 'wiki') : $wiki->pagename;
                     foreach ($students as $student) {
-
+                        if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid) && empty($groupingmembers[$student->id])) {
+                            continue;
+                        }
                         /// If this student already has an entry, use its pagename.
                         if ($wiki_entries[$student->id]) {
                             $pagename = $wiki_entries[$student->id]->pagename;
@@ -585,6 +617,9 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
                 if ($students = wiki_get_students($wiki, $mygroupid)) {
                     $defpagename = empty($wiki->pagename) ? get_string('wikidefaultpagename', 'wiki') : $wiki->pagename;
                     foreach ($students as $student) {
+                        if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid) && empty($groupingmembers[$student->id])) {
+                            continue;
+                        }
                         /// If this student already has an entry, use its pagename.
                         if ($wiki_entries[$student->id]) {
                             $pagename = $wiki_entries[$student->id]->pagename;
@@ -597,10 +632,20 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
                     }
                 }
                 /// Get all student wikis created, regardless of group.
-                $sql = 'SELECT w.id, w.userid, w.pagename, u.firstname, u.lastname '
-                      .'    FROM '.$CFG->prefix.'wiki_entries w, '.$CFG->prefix.'user u '
-                      .'    WHERE w.wikiid = '.$wiki->id.' AND u.id = w.userid '
-                      .'    ORDER BY w.id';
+                if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid)) {
+                    $sql = 'SELECT w.id, w.userid, w.pagename, u.firstname, u.lastname '
+                          .'    FROM '.$CFG->prefix.'wiki_entries w '
+                          .'    INNER JOIN '.$CFG->prefix.'user u ON w.userid = u.id '
+                          .'    INNER JOIN '.$CFG->prefix.'groups_members gm ON gm.userid = u.id '
+                          .'    INNER JOIN '.$CFG->prefix.'groupings_groups gg ON gm.groupid = gg.groupid '
+                          .'    WHERE w.wikiid = '.$wiki->id.' AND gg.groupingid =  '.$wiki->groupingid
+                          .'    ORDER BY w.id';
+                } else {
+                    $sql = 'SELECT w.id, w.userid, w.pagename, u.firstname, u.lastname '
+                          .'    FROM '.$CFG->prefix.'wiki_entries w, '.$CFG->prefix.'user u '
+                          .'    WHERE w.wikiid = '.$wiki->id.' AND u.id = w.userid '
+                          .'    ORDER BY w.id';
+                }
                 $wiki_entries = get_records_sql($sql);
                 $wiki_entries=is_array($wiki_entries)?$wiki_entries:array();
                 foreach ($wiki_entries as $wiki_entry) {
@@ -627,15 +672,28 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
             }
 
             if ($viewall !== false) {
-
-                $sql = 'SELECT w.id, w.userid, w.pagename, u.firstname, u.lastname '
-                      .'    FROM '.$CFG->prefix.'wiki_entries w, '.$CFG->prefix.'user u '
-                      .'    WHERE w.wikiid = '.$wiki->id.' AND u.id = w.userid '
-                      .'    ORDER BY w.id';
+                if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid)) {
+                    $sql = 'SELECT w.id, w.userid, w.pagename, u.firstname, u.lastname '
+                          .'    FROM '.$CFG->prefix.'wiki_entries w '
+                          .'    INNER JOIN '.$CFG->prefix.'user u ON w.userid = u.id '
+                          .'    INNER JOIN '.$CFG->prefix.'groups_members gm ON gm.userid = u.id '
+                          .'    INNER JOIN '.$CFG->prefix.'groupings_groups gg ON gm.groupid = gg.groupid '
+                          .'    WHERE w.wikiid = '.$wiki->id.' AND gg.groupingid =  '.$wiki->groupingid
+                          .'    ORDER BY w.id';
+                } else {
+                    $sql = 'SELECT w.id, w.userid, w.pagename, u.firstname, u.lastname '
+                          .'    FROM '.$CFG->prefix.'wiki_entries w, '.$CFG->prefix.'user u '
+                          .'    WHERE w.wikiid = '.$wiki->id.' AND u.id = w.userid '
+                          .'    ORDER BY w.id';
+                }
                 $wiki_entries = get_records_sql($sql);
                 $wiki_entries=is_array($wiki_entries)?$wiki_entries:array();
                 foreach ($wiki_entries as $wiki_entry) {
-                    if (($viewall === true) or ismember($viewall, $wiki_entry->userid)) {
+                    if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid) && empty($groupingmembers[$wiki_entry->userid])) {
+                        continue;
+                    }
+                
+                    if (($viewall === true) or groups_is_member($viewall, $wiki_entry->userid)) {
                         $key = 'view.php?id='.$id.'&userid='.$wiki_entry->userid.'&page='.$wiki_entry->pagename;
                         $wikis[$key] = fullname($wiki_entry).':'.$wiki_entry->pagename;
                         if ($currentid == $wiki_entry->id) {
@@ -655,9 +713,9 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
 
         /// Get all the existing entries for this wiki.
         $wiki_entries = wiki_get_entries($wiki, 'group');
-
+        
         if ($groupmode and ($isteacheredit or ($isteacher and !$mygroupid))) {
-            if ($groups = get_groups($course->id)) {
+            if ($groups = groups_get_all_groups($course->id, null, $groupingid)) {
                 $defpagename = empty($wiki->pagename) ? get_string('wikidefaultpagename', 'wiki') : $wiki->pagename;
                 foreach ($groups as $group) {
 
@@ -676,7 +734,7 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
         }
         //if a studnet with multiple groups in SPG
         else if ($groupmode == SEPARATEGROUPS){
-            if ($groups = get_groups($course->id, $user->id)){
+            if ($groups = groups_get_all_groups($course->id, $user->id, $groupingid)){
 
                 $defpagename = empty($wiki->pagename) ? get_string('wikidefaultpagename', 'wiki') : $wiki->pagename;
                 foreach ($groups as $group) {
@@ -696,10 +754,19 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
         }
         /// A user can see other group wikis if there are visible groups.
         else if ($groupmode == VISIBLEGROUPS) {
-            $sql = 'SELECT w.id, w.groupid, w.pagename, g.name as gname '
-                  .'    FROM '.$CFG->prefix.'wiki_entries w, '.$CFG->prefix.'groups g '
-                  .'    WHERE w.wikiid = '.$wiki->id.' AND g.id = w.groupid '
-                  .'    ORDER BY w.groupid';
+            if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid)) {
+                $sql = 'SELECT w.id, w.groupid, w.pagename, g.name as gname '
+                      .'    FROM '.$CFG->prefix.'wiki_entries w '
+                      .'    INNER JOIN '.$CFG->prefix.'groups g ON g.id = w.groupid '
+                      .'    INNER JOIN '.$CFG->prefix.'groupings_groups gg ON g.id = gg.groupid '
+                      .'    WHERE w.wikiid = '.$wiki->id.' AND gg.groupingid =  '.$wiki->groupingid
+                      .'    ORDER BY w.groupid';
+            } else {
+                $sql = 'SELECT w.id, w.groupid, w.pagename, g.name as gname '
+                      .'    FROM '.$CFG->prefix.'wiki_entries w, '.$CFG->prefix.'groups g '
+                      .'    WHERE w.wikiid = '.$wiki->id.' AND g.id = w.groupid '
+                      .'    ORDER BY w.groupid';
+            }
             $wiki_entries = get_records_sql($sql);
             $wiki_entries=is_array($wiki_entries)?$wiki_entries:array();
             foreach ($wiki_entries as $wiki_entry) {
@@ -717,9 +784,8 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
             /// If the user is an editing teacher, or a non-editing teacher not assigned to a group, show all
             /// teacher wikis, regardless of creation.
             if ($groupmode and ($isteacheredit or ($isteacher and !$mygroupid))) {
-                if ($groups = get_groups($course->id)) {
+                if ($groups = groups_get_all_groups($course->id, null, $groupingid)) {
                     $defpagename = empty($wiki->pagename) ? get_string('wikidefaultpagename', 'wiki') : $wiki->pagename;
-
                     foreach ($groups as $group) {
                         /// If this group already has an entry, use its pagename.
                         if ($wiki_entries[$group->id]) {
@@ -736,10 +802,19 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
             }
             /// A teacher can see all other group teacher wikis.
             else if ($groupmode) {
+            if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid)) {
+                $sql = 'SELECT w.id, w.groupid, w.pagename, g.name as gname '
+                      .'    FROM '.$CFG->prefix.'wiki_entries w '
+                      .'    INNER JOIN '.$CFG->prefix.'groups g ON g.id = w.groupid '
+                      .'    INNER JOIN '.$CFG->prefix.'groupings_groups gg ON g.id = gg.groupid '
+                      .'    WHERE w.wikiid = '.$wiki->id.' AND gg.groupingid =  '.$wiki->groupingid
+                      .'    ORDER BY w.groupid';
+            } else {
                 $sql = 'SELECT w.id, w.groupid, w.pagename, g.name as gname '
                       .'    FROM '.$CFG->prefix.'wiki_entries w, '.$CFG->prefix.'groups g '
                       .'    WHERE w.wikiid = '.$wiki->id.' AND g.id = w.groupid '
                       .'    ORDER BY w.groupid';
+            }
                 $wiki_entries = get_records_sql($sql);
                 $wiki_entries=is_array($wiki_entries)?$wiki_entries:array();
                 foreach ($wiki_entries as $wiki_entry) {
@@ -764,10 +839,19 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
                 $viewall = false;
             }
             if ($viewall !== false) {
-                $sql = 'SELECT w.id, w.groupid, w.pagename, g.name as gname '
-                      .'    FROM '.$CFG->prefix.'wiki_entries w, '.$CFG->prefix.'groups g '
-                      .'    WHERE w.wikiid = '.$wiki->id.' AND g.id = w.groupid '
-                      .'    ORDER BY w.groupid';
+                if (!empty($CFG->enablegroupings) && !empty($wiki->groupingid)) {
+                    $sql = 'SELECT w.id, w.groupid, w.pagename, g.name as gname '
+                          .'    FROM '.$CFG->prefix.'wiki_entries w '
+                          .'    INNER JOIN '.$CFG->prefix.'groups g ON g.id = w.groupid '
+                          .'    INNER JOIN '.$CFG->prefix.'groupings_groups gg ON g.id = gg.groupid '
+                          .'    WHERE w.wikiid = '.$wiki->id.' AND gg.groupingid =  '.$wiki->groupingid
+                          .'    ORDER BY w.groupid';
+                } else {
+                    $sql = 'SELECT w.id, w.groupid, w.pagename, g.name as gname '
+                          .'    FROM '.$CFG->prefix.'wiki_entries w, '.$CFG->prefix.'groups g '
+                          .'    WHERE w.wikiid = '.$wiki->id.' AND g.id = w.groupid '
+                          .'    ORDER BY w.groupid';
+                }
                 $wiki_entries = get_records_sql($sql);
                 $wiki_entries=is_array($wiki_entries)?$wiki_entries:array();
 
@@ -785,7 +869,7 @@ function wiki_get_other_wikis(&$wiki, &$user, &$course, $currentid=0) {
         }
         break;
     }
-
+    
     return $wikis;
 }
 
@@ -814,7 +898,7 @@ function wiki_add_entry(&$wiki, &$course, $userid=0, $groupid=0) {
 
     case 'group':
         /// Get the groupmode. It's been added to the wiki object.
-        $groupmode = groupmode($course, $wiki);
+        $groupmode = groups_get_activity_groupmode($wiki);
 
         ///give the first groupid by default and try
         $mygroups = mygroupid($course->id);
@@ -836,7 +920,7 @@ function wiki_add_entry(&$wiki, &$course, $userid=0, $groupid=0) {
 
     case 'teacher':
         /// Get the groupmode. It's been added to the wiki object.
-        $groupmode = groupmode($course, $wiki);
+        $groupmode = groups_get_activity_groupmode($wiki);
 
         /// If there is a groupmode, get the user's group id.
         if ($groupmode and $groupid == 0) {
@@ -860,7 +944,7 @@ function wiki_can_add_entry(&$wiki, &$user, &$course, $userid=0, $groupid=0) {
 /// Returns true or false if the user can add a wiki entry for this wiki.
 
     /// Get the groupmode. It's been added to the wiki object.
-    $groupmode = groupmode($course, $wiki);
+    $groupmode = groups_get_activity_groupmode($wiki);
     $mygroupid = mygroupid($course->id);
 
     switch ($wiki->wtype) {
@@ -876,7 +960,7 @@ function wiki_can_add_entry(&$wiki, &$user, &$course, $userid=0, $groupid=0) {
 ///     create any student wiki in their group.
         else {
             return ((($userid == $user->id) and wiki_is_student($wiki, $user->id)) or wiki_is_teacheredit($wiki) or
-                    (wiki_is_teacher($wiki) and (!$groupmode or $mygroupid == 0 or (ismember($mygroupid, $userid)))));
+                    (wiki_is_teacher($wiki) and (!$groupmode or $mygroupid == 0 or (groups_is_member($mygroupid, $userid)))));
         }
         break;
 
@@ -928,7 +1012,7 @@ function wiki_can_edit_entry(&$wiki_entry, &$wiki, &$user, &$course) {
 /// Returns true or false if the user can edit this wiki entry.
 
     $can_edit = false;
-    $groupmode = groupmode($course, $wiki);
+    $groupmode = groups_get_activity_groupmode($wiki);
     $mygroupid = mygroupid($course->id);
 
     /// Editing teacher's and admins can edit all wikis, non-editing teachers can edit wikis in their groups,
@@ -944,14 +1028,14 @@ function wiki_can_edit_entry(&$wiki_entry, &$wiki, &$user, &$course) {
         case 'student':
             $can_edit = (($user->id == $wiki_entry->userid) or
                          ($groupmode and wiki_is_teacher($wiki, $user->id) and
-                          ismember($mygroupid, $wiki_entry->userid)));
+                          groups_is_member($mygroupid, $wiki_entry->userid)));
             break;
 
         case 'group':
             /// If there is a groupmode, determine the user's group status.
             if ($groupmode) {
                 /// If the user is a member of the wiki group, they can edit the wiki.
-                $can_edit = ismember($wiki_entry->groupid, $user->id);
+                $can_edit = groups_is_member($wiki_entry->groupid, $user->id);
             }
             /// If mode is 'nogroups', then all participants can edit the wiki.
             else {
@@ -963,7 +1047,7 @@ function wiki_can_edit_entry(&$wiki_entry, &$wiki, &$user, &$course) {
             /// If there is a groupmode, determine the user's group status.
             if ($groupmode) {
                 /// If the user is a member of the wiki group, they can edit the wiki.
-                $can_edit = (wiki_is_teacher($wiki, $user->id) and ismember($wiki_entry->groupid, $user->id));
+                $can_edit = (wiki_is_teacher($wiki, $user->id) and groups_is_member($wiki_entry->groupid, $user->id));
             }
             else {
                 $can_edit = wiki_is_teacher($wiki, $user->id);
@@ -978,7 +1062,7 @@ function wiki_user_can_access_student_wiki(&$wiki, $userid, &$course) {
     global $USER;
 
     /// Get the groupmode. It's been added to the wiki object.
-    $groupmode = groupmode($course, $wiki);
+    $groupmode = groups_get_activity_groupmode($wiki);
     $usersgroup = mygroupid($course->id);
     $isteacher = wiki_is_teacher($wiki, $USER->id);
 
@@ -993,7 +1077,7 @@ function wiki_user_can_access_student_wiki(&$wiki, $userid, &$course) {
     ///     - they are a non-editing teacher and group mode is NOGROUPS.
     ///     - they are an administrator (mostly for site-level wikis).
     if (($userid and ($USER->id == $userid)) or ($groupmode == VISIBLEGROUPS) or
-        (($groupmode == SEPARATEGROUPS) and ismember($usersgroup, $userid)) or
+        (($groupmode == SEPARATEGROUPS) and groups_is_member($usersgroup, $userid)) or
         (wiki_is_teacheredit($wiki, $USER->id)) or
         (wiki_is_teacher($wiki, $USER->id) and (!$usersgroup or $groupmode == NOGROUPS))) {
         $can_access = true;
@@ -1008,7 +1092,7 @@ function wiki_user_can_access_group_wiki(&$wiki, $groupid, &$course) {
     global $USER;
 
     /// Get the groupmode. It's been added to the wiki object.
-    $groupmode = groupmode($course, $wiki);
+    $groupmode = groups_get_activity_groupmode($wiki);
     $usersgroup = mygroupid($course->id);
     $isteacher = wiki_is_teacher($wiki, $USER->id);
 
@@ -1034,7 +1118,7 @@ function wiki_user_can_access_teacher_wiki(&$wiki, $groupid, &$course) {
     global $USER;
 
     /// Get the groupmode. It's been added to the wiki object.
-    $groupmode = groupmode($course, $wiki);
+    $groupmode = groups_get_activity_groupmode($wiki);
 
     /// A user can access a teacher wiki, if:
     ///     - group mode is NOGROUPS,
@@ -1589,9 +1673,9 @@ function wiki_get_post_actions() {
  *   held by current user then the the second element has a member ->id only.
  */
 function wiki_obtain_lock($wikiid,$pagename) {
-	global $USER;
+    global $USER;
 
-	// Check for lock
+    // Check for lock
     $alreadyownlock=false;
     if($lock=get_record('wiki_locks','pagename',$pagename,'wikiid', $wikiid)) {
         // Consider the page locked if the lock has been confirmed within WIKI_LOCK_PERSISTENCE seconds
@@ -1600,7 +1684,7 @@ function wiki_obtain_lock($wikiid,$pagename) {
             $lockid=$lock->id;
             $alreadyownlock=true;
         } else if(time()-$lock->lockedseen < WIKI_LOCK_PERSISTENCE) {
-        	    return array(false,$lock);
+            return array(false,$lock);
         } else {
             // Not locked any more. Get rid of the old lock record.
             if(!delete_records('wiki_locks','pagename',$pagename,'wikiid', $wikiid)) {
@@ -1611,23 +1695,23 @@ function wiki_obtain_lock($wikiid,$pagename) {
 
     // Add lock
     if(!$alreadyownlock) {
-		// Lock page
-		$newlock=new stdClass;
-		$newlock->lockedby=$USER->id;
-		$newlock->lockedsince=time();
-		$newlock->lockedseen=$newlock->lockedsince;
-		$newlock->wikiid=$wikiid;
-		$newlock->pagename=$pagename;
-		if(!$lockid=insert_record('wiki_locks',$newlock)) {
-		    error('Unable to insert lock record');
-		}
+        // Lock page
+        $newlock=new stdClass;
+        $newlock->lockedby=$USER->id;
+        $newlock->lockedsince=time();
+        $newlock->lockedseen=$newlock->lockedsince;
+        $newlock->wikiid=$wikiid;
+        $newlock->pagename=$pagename;
+        if(!$lockid=insert_record('wiki_locks',$newlock)) {
+            error('Unable to insert lock record');
+        }
     }
 
     // Store lock information in session so we can clear it later
     if(!array_key_exists(SESSION_WIKI_LOCKS,$_SESSION)) {
-    		$_SESSION[SESSION_WIKI_LOCKS]=array();
+        $_SESSION[SESSION_WIKI_LOCKS]=array();
     }
-	$_SESSION[SESSION_WIKI_LOCKS][$wikiid.'_'.$pagename]=$lockid;
+    $_SESSION[SESSION_WIKI_LOCKS][$wikiid.'_'.$pagename]=$lockid;
     $lockdata=new StdClass;
     $lockdata->id=$lockid;
     return array(true,$lockdata);
@@ -1644,20 +1728,26 @@ function wiki_obtain_lock($wikiid,$pagename) {
  */
 function wiki_release_lock($wikiid,$pagename) {
     if(!array_key_exists(SESSION_WIKI_LOCKS,$_SESSION)) {
-    		// No locks at all in session
-    		return;
+        // No locks at all in session
+        return;
     }
 
     $key=$wikiid.'_'.$pagename;
 
     if(array_key_exists($key,$_SESSION[SESSION_WIKI_LOCKS])) {
-    		$lockid=$_SESSION[SESSION_WIKI_LOCKS][$key];
-	    unset($_SESSION[SESSION_WIKI_LOCKS][$key]);
+        $lockid=$_SESSION[SESSION_WIKI_LOCKS][$key];
+        unset($_SESSION[SESSION_WIKI_LOCKS][$key]);
         if(!delete_records('wiki_locks','id',$lockid)) {
             error("Unable to delete lock record.");
         }
     }
 }
 
+/**
+ * Returns all other caps used in module
+ */
+function wiki_get_extra_capabilities() {
+    return array('moodle/site:accessallgroups', 'moodle/site:viewfullnames');
+}
 
 ?>

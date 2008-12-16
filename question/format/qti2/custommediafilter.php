@@ -1,9 +1,12 @@
-<?php // $id$
+<?php // $Id: custommediafilter.php,v 1.2.4.1 2007/11/02 16:20:34 tjhunt Exp $
 
 // note: modified from the original filter/mediaplugin/filter.php
 
 // given a href for a movie or sound file, it returns an appropriate tag
-
+/**
+ * @package questionbank
+ * @subpackage importexport
+ */
 function custom_mediaplugin_filter($text, $width = null, $height = null) {
     global $CFG;
     if (is_null($width) || $width == 0) {

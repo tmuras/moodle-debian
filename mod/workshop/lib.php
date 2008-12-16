@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.95.2.1 2007/03/07 07:49:03 moodler Exp $
+<?php  // $Id: lib.php,v 1.98.2.3 2008/07/24 21:58:09 skodak Exp $
 
 // workshop constants and standard Moodle functions plus the workshop functions 
 // called by the standard functions
@@ -171,8 +171,6 @@ function workshop_cron () {
         }
     }
     $timenow = time();
-
-    $CFG->enablerecordcache = true;      // We want all the caching we can get
     
     // Find all workshop notifications that have yet to be mailed out, and mails them
     $cutofftime = $timenow - $CFG->maxeditingtime;
@@ -644,41 +642,26 @@ function workshop_is_recent_activity($course, $isteacher, $timestart) {//jlw1 ad
 // NOTE: $isteacher usage should be converted to use roles.
 // TODO: Fix this function.
 //
-function workshop_print_recent_activity($course, $isteacher, $timestart) {
+function workshop_print_recent_activity($course, $viewfullanmes, $timestart) {
     global $CFG;
+
+    $isteacher = has_capability('mod/workshop:manage', get_context_instance(CONTEXT_COURSE, $course->id));
+
+    $modinfo = get_fast_modinfo($course);
 
     // have a look for agreed assessments for this user (agree) 
     $agreecontent = false;
     if (!$isteacher) { // teachers only need to see submissions
         if ($logs = workshop_get_agree_logs($course, $timestart)) {
-            // got some, see if any belong to a visible module
+            $agreecontent = true;
+            print_headline(get_string("workshopagreedassessments", "workshop").":");
             foreach ($logs as $log) {
-                // Create a temp valid module structure (only need courseid, moduleid)
-                $tempmod->course = $course->id;
-                $tempmod->id = $log->workshopid;
-                //Obtain the visible property from the instance
-                if (instance_is_visible("workshop",$tempmod)) {
-                    $agreecontent = true;
-                    break;
-                    }
+                if (!workshop_is_teacher($workshop, $log->userid)) {  // don't break anonymous rule
+                    $log->firstname = $course->student;
+                    $log->lastname = '';
                 }
-            // if we got some "live" ones then output them
-            if ($agreecontent) {
-                print_headline(get_string("workshopagreedassessments", "workshop").":");
-                foreach ($logs as $log) {
-                    //Create a temp valid module structure (only need courseid, moduleid)
-                    $tempmod->course = $course->id;
-                    $tempmod->id = $log->workshopid;
-                    //Obtain the visible property from the instance
-                    if (instance_is_visible("workshop",$tempmod)) {
-                        if (!workshop_is_teacher($workshop, $log->userid)) {  // don't break anonymous rule
-                            $log->firstname = $course->student;
-                            $log->lastname = '';
-                        }
-                        print_recent_activity_note($log->time, $log, $log->name,
-                                                   $CFG->wwwroot.'/mod/workshop/'.$log->url);
-                    }
-                }
+                print_recent_activity_note($log->time, $log, $log->name,
+                                           $CFG->wwwroot.'/mod/workshop/'.$log->url);
             }
         }
     }
@@ -688,32 +671,24 @@ function workshop_print_recent_activity($course, $isteacher, $timestart) {
     if (!$isteacher) { // teachers only need to see submissions
         if ($logs = workshop_get_assess_logs($course, $timestart)) {
             // got some, see if any belong to a visible module
-            foreach ($logs as $log) {
-                // Create a temp valid module structure (only need courseid, moduleid)
-                $tempmod->course = $course->id;
-                $tempmod->id = $log->workshopid;
-                //Obtain the visible property from the instance
-                if (instance_is_visible("workshop",$tempmod)) {
-                    $assesscontent = true;
-                    break;
-                    }
+            foreach ($logs as $id=>$log) {
+                $cm = $modinfo->instances['workshop'][$log->workshopid];
+                if (!$cm->uservisible) {
+                    unset($logs[$id]);
+                    continue;
                 }
+            }
             // if we got some "live" ones then output them
-            if ($assesscontent) {
+            if ($logs) {
+                $assesscontent = true;
                 print_headline(get_string("workshopassessments", "workshop").":");
                 foreach ($logs as $log) {
-                    //Create a temp valid module structure (only need courseid, moduleid)
-                    $tempmod->course = $course->id;
-                    $tempmod->id = $log->workshopid;
-                    //Obtain the visible property from the instance
-                    if (instance_is_visible("workshop",$tempmod)) {
-                        if (!workshop_is_teacher($tempmod->id, $log->userid)) {  // don't break anonymous rule
-                            $log->firstname = $course->student;
-                            $log->lastname = '';
-                        }
-                        print_recent_activity_note($log->time, $log, $log->name,
-                                                   $CFG->wwwroot.'/mod/workshop/'.$log->url);
+                    if (!workshop_is_teacher($tempmod->id, $log->userid)) {  // don't break anonymous rule
+                        $log->firstname = $course->student;    // Keep anonymous
+                        $log->lastname = '';
                     }
+                    print_recent_activity_note($log->time, $log, $log->name,
+                                               $CFG->wwwroot.'/mod/workshop/'.$log->url);
                 }
             }
         }
@@ -723,30 +698,22 @@ function workshop_print_recent_activity($course, $isteacher, $timestart) {
     if (!$isteacher) { // teachers only need to see submissions
         if ($logs = workshop_get_comment_logs($course, $timestart)) {
             // got some, see if any belong to a visible module
-            foreach ($logs as $log) {
-                // Create a temp valid module structure (only need courseid, moduleid)
-                $tempmod->course = $course->id;
-                $tempmod->id = $log->workshopid;
-                //Obtain the visible property from the instance
-                if (instance_is_visible("workshop",$tempmod)) {
-                    $commentcontent = true;
-                    break;
-                    }
+            foreach ($logs as $id=>$log) {
+                $cm = $modinfo->instances['workshop'][$log->workshopid];
+                if (!$cm->uservisible) {
+                    unset($logs[$id]);
+                    continue;
                 }
+            }
             // if we got some "live" ones then output them
-            if ($commentcontent) {
+            if ($logs) {
+                $commentcontent = true;
                 print_headline(get_string("workshopcomments", "workshop").":");
                 foreach ($logs as $log) {
-                    //Create a temp valid module structure (only need courseid, moduleid)
-                    $tempmod->course = $course->id;
-                    $tempmod->id = $log->workshopid;
-                    //Obtain the visible property from the instance
-                    if (instance_is_visible("workshop",$tempmod)) {
-                        $log->firstname = $course->student;    // Keep anonymous
-                        $log->lastname = '';
-                        print_recent_activity_note($log->time, $log, $log->name,
-                                                   $CFG->wwwroot.'/mod/workshop/'.$log->url);
-                    }
+                    $log->firstname = $course->student;    // Keep anonymous
+                    $log->lastname = '';
+                    print_recent_activity_note($log->time, $log, $log->name,
+                                               $CFG->wwwroot.'/mod/workshop/'.$log->url);
                 }
             }
         }
@@ -756,30 +723,22 @@ function workshop_print_recent_activity($course, $isteacher, $timestart) {
     $gradecontent = false;
     if ($logs = workshop_get_grade_logs($course, $timestart)) {
         // got some, see if any belong to a visible module
-        foreach ($logs as $log) {
-            // Create a temp valid module structure (only need courseid, moduleid)
-            $tempmod->course = $course->id;
-            $tempmod->id = $log->workshopid;
-            //Obtain the visible property from the instance
-            if (instance_is_visible("workshop",$tempmod)) {
-                $gradecontent = true;
-                break;
-                }
+        foreach ($logs as $id=>$log) {
+            $cm = $modinfo->instances['workshop'][$log->workshopid];
+            if (!$cm->uservisible) {
+                unset($logs[$id]);
+                continue;
             }
+        }
         // if we got some "live" ones then output them
-        if ($gradecontent) {
+        if ($logs) {
+            $gradecontent = true;
             print_headline(get_string("workshopfeedback", "workshop").":");
             foreach ($logs as $log) {
-                //Create a temp valid module structure (only need courseid, moduleid)
-                $tempmod->course = $course->id;
-                $tempmod->id = $log->workshopid;
-                //Obtain the visible property from the instance
-                if (instance_is_visible("workshop",$tempmod)) {
-                    $log->firstname = $course->teacher;    // Keep anonymous
-                    $log->lastname = '';
-                    print_recent_activity_note($log->time, $log, $log->name,
-                                               $CFG->wwwroot.'/mod/workshop/'.$log->url);
-                }
+                $log->firstname = $course->teacher;    // Keep anonymous
+                $log->lastname = '';
+                print_recent_activity_note($log->time, $log, $log->name,
+                                           $CFG->wwwroot.'/mod/workshop/'.$log->url);
             }
         }
     }
@@ -789,28 +748,20 @@ function workshop_print_recent_activity($course, $isteacher, $timestart) {
     if ($isteacher) {
         if ($logs = workshop_get_submit_logs($course, $timestart)) {
             // got some, see if any belong to a visible module
-            foreach ($logs as $log) {
-                // Create a temp valid module structure (only need courseid, moduleid)
-                $tempmod->course = $course->id;
-                $tempmod->id = $log->workshopid;
-                //Obtain the visible property from the instance
-                if (instance_is_visible("workshop",$tempmod)) {
-                    $submitcontent = true;
-                    break;
-                    }
+            foreach ($logs as $id=>$log) {
+                $cm = $modinfo->instances['workshop'][$log->workshopid];
+                if (!$cm->uservisible) {
+                    unset($logs[$id]);
+                    continue;
                 }
+            }
             // if we got some "live" ones then output them
-            if ($submitcontent) {
+            if ($logs) {
+                $submitcontent = true;
                 print_headline(get_string("workshopsubmissions", "workshop").":");
                 foreach ($logs as $log) {
-                    //Create a temp valid module structure (only need courseid, moduleid)
-                    $tempmod->course = $course->id;
-                    $tempmod->id = $log->workshopid;
-                    //Obtain the visible property from the instance
-                    if (instance_is_visible("workshop",$tempmod)) {
-                        print_recent_activity_note($log->time, $log, $log->name,
-                                                   $CFG->wwwroot.'/mod/workshop/'.$log->url);
-                    }
+                    print_recent_activity_note($log->time, $log, $log->name,
+                                               $CFG->wwwroot.'/mod/workshop/'.$log->url);
                 }
             }
         }
@@ -1121,7 +1072,8 @@ function workshop_get_recent_mod_activity(&$activities, &$index, $sincetime, $co
     }
 
     $posts = get_records_sql("SELECT s.*, u.firstname, u.lastname,
-            u.picture, cm.instance, w.name, cm.section
+            u.picture, cm.instance, w.name, cm.section, cm.groupmode,
+            cm.course, cm.groupingid, cm.groupmembersonly
             FROM {$CFG->prefix}workshop_submissions s,
             {$CFG->prefix}user u,
             {$CFG->prefix}course_modules cm,
@@ -1140,8 +1092,7 @@ function workshop_get_recent_mod_activity(&$activities, &$index, $sincetime, $co
     }
 
     foreach ($posts as $post) {
-
-        if (empty($groupid) || ismember($groupid, $post->userid)) {
+        if ((empty($groupid) || groups_is_member($groupid, $post->userid)) && groups_course_module_visible($post)) {
 
             $tmpactivity = new Object;
 
@@ -1901,6 +1852,13 @@ function workshop_get_view_actions() {
 
 function workshop_get_post_actions() {
     return array('agree','assess','comment','grade','newattachment','removeattachments','resubmit','submit');
+}
+
+/**
+ * Returns all other caps used in module
+ */
+function workshop_get_extra_capabilities() {
+    return array('moodle/site:accessallgroups', 'moodle/site:viewfullnames');
 }
 
 ?>

@@ -1,4 +1,4 @@
-<?PHP // $Id: config-dist.php,v 1.98 2006/11/11 17:23:33 skodak Exp $
+<?PHP // $Id: config-dist.php,v 1.103.2.4 2008/06/30 15:00:25 thepurpleblob Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // Moodle configuration file                                             //
@@ -12,7 +12,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.org                                            //
 //                                                                       //
-// Copyright (C) 1999-2004  Martin Dougiamas  http://dougiamas.com       //
+// Copyright (C) 1999 onwards  Martin Dougiamas  http://moodle.com       //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
 // it under the terms of the GNU General Public License as published by  //
@@ -132,8 +132,12 @@ $CFG->admin = 'admin';
 // These are additional tweaks for which no GUI exists in Moodle yet.
 //
 //
-// Prevent users from updating their profile images
-//      $CFG->disableuserimages = true;
+// Change the key pair lifetime for Moodle Networking
+// The default is 28 days. You would only want to change this if the key
+// was not getting regenerated for any reason. You would probably want
+// make it much longer. Note that you'll need to delete and manually update
+// any existing key.
+//      $CFG->mnetkeylifetime = 28;
 //
 // Prevent scheduled backups from operating (and hide the GUI for them)
 // Useful for webhost operators who have alternate methods of backups
@@ -141,10 +145,6 @@ $CFG->admin = 'admin';
 //
 // Prevent stats processing and hide the GUI
 //      $CFG->disablestatsprocessing = true;
-//
-// Set global password for "Login as", teacher is prompted only once in each session.
-// Set your own password and tell it only to teachers that should have access to this feature.
-//      $CFG->loginaspassword = 'yoursharedpassword';
 //
 // Setting this to true will enable admins to edit any post at any time
 //      $CFG->admineditalways = true;
@@ -256,6 +256,10 @@ $CFG->admin = 'admin';
 // called. This option will action disregarding error_reporting setting.
 //     $CFG->dblogerror = true;
 //
+// The following setting will log every database query to a table called adodb_logsql.
+// Use this setting on a development server only, the table grows quickly!
+//     $CFG->logsql = true;
+//
 // The following setting will turn on username logging into Apache log. For full details regarding setting
 // up of this function please refer to the install section of the document.
 //     $CFG->apacheloguser = 0; // Turn this feature off. Default value.
@@ -276,12 +280,32 @@ $CFG->admin = 'admin';
 //
 //     $CFG->emailconnectionerrorsto = 'your@emailaddress.com';
 // 
-// Restore pre-1.6 behaviour where courses could still be available
-// even if the category they were in was hidden
-//     $CFG->allowvisiblecoursesinhiddencategories = true;
-// 
 // NOTE: if you are using custompix in your theme, see /fixpix.php.
-
+// 
+// special magic evil developer only wanting to edit the xmldb files manually
+// AND don't use the XMLDBEditor nor the prev/next stuff at all (Mahara and others)
+// Uncomment these if you're lazy like Penny
+// $CFG->xmldbdisablecommentchecking = true;
+// $CFG->xmldbdisablenextprevchecking = true;
+//
+// special magig evil developer only wanting to edit xmldb files manually
+// AND allowing the XMLDBEditor to recostruct the prev/next elements every
+// time one file is loaded and saved (Moodle).
+// Uncomment this if you're lazy like Petr
+// $CFG->xmldbreconstructprevnext = true;
+//
+// Set the priority of themes from highest to lowest. This is useful (for
+// example) in sites where the user theme should override all other theme
+// settings for accessibility reasons. You can also disable types of themes
+// by removing them from the array. The default setting is:
+//      $CFG->themeorder = array('page', 'course', 'category', 'session', 'user', 'site');
+// NOTE: course, category, session, user themes still require the
+// respective settings to be enabled
+//
+// When working with production data on test servers, no emails should ever be send to real users
+// $CFG->noemailever = true;
+//
+//
 //=========================================================================
 // ALL DONE!  To continue installation, visit your main page with a browser
 //=========================================================================

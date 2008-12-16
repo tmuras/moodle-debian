@@ -1,4 +1,4 @@
-<?php // $Id: moodle_wikidump.php,v 1.12 2007/01/10 03:07:24 toyomoyo Exp $
+<?php // $Id: moodle_wikidump.php,v 1.12.4.2 2008/02/19 11:04:48 skodak Exp $
 # ToDo: Binary Content
 #       Binary Linking
 /*
@@ -58,7 +58,9 @@ function moodle_ewiki_page_wiki_dump($id=0, $data=0, $action=0) {
                                 $_REQUEST["withvirtualpages"], 
                                 $_REQUEST["exportdestinations"]);
   }  
-  if($cont===false) return;
+  if($cont===false) {
+     die;
+  }
     
   $url = ewiki_script("", "WikiExport");
   $ret  = ewiki_make_title($id, $id, 2);
@@ -67,8 +69,9 @@ function moodle_ewiki_page_wiki_dump($id=0, $data=0, $action=0) {
   // removing name="form" from the following form as it does not validate
   // and is not referenced. MDL-7861
   $ret .= "<br /><br />\n".
-    '<FORM method="post" action="'.$url.'">'."\n".
+    '<FORM method="post" action="view.php">'."\n".
     "<div class=\"wikiexportbox\">\n".
+    '<INPUT type="hidden" name="page" value="WikiExport" />'."\n".
     '<INPUT type="hidden" name="userid" value="'.$userid.'" />'."\n".
     '<INPUT type="hidden" name="groupid" value="'.$groupid.'" />'."\n".
     '<INPUT type="hidden" name="id" value="'.$cm->id.'" />'."\n".

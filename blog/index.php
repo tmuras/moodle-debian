@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.30.2.2 2007/04/10 04:21:48 toyomoyo Exp $
+<?php // $Id: index.php,v 1.35.2.6 2008/07/05 14:53:31 skodak Exp $
 
 /**
  * file index.php
@@ -12,10 +12,10 @@ require_once($CFG->libdir .'/blocklib.php');
 
 $id           = optional_param('id', 0, PARAM_INT);
 $start        = optional_param('formstart', 0, PARAM_INT);
-$userid       = optional_param('userid',0,PARAM_INT);
+$userid       = optional_param('userid', 0, PARAM_INT);
 $tag          = optional_param('tag', '', PARAM_NOTAGS);
 $tagid        = optional_param('tagid', 0, PARAM_INT);
-$postid       = optional_param('postid',0,PARAM_INT);
+$postid       = optional_param('postid', 0, PARAM_INT);
 $filtertype   = optional_param('filtertype', '', PARAM_ALPHA);
 $filterselect = optional_param('filterselect', 0, PARAM_INT);
 
@@ -27,7 +27,7 @@ if (empty($CFG->bloglevel)) {
     error('Blogging is disabled!');
 }
 
-$sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+$sitecontext = get_context_instance(CONTEXT_SYSTEM);
 
 
 // change block edit staus if not guest and logged in
@@ -40,8 +40,16 @@ if (empty($filtertype)) {
         $filtertype = 'user';
         $filterselect = $userid;
     } else if (has_capability('moodle/blog:view', $sitecontext) and $CFG->bloglevel > BLOG_USER_LEVEL) {
-        $filtertype = 'site';
-        $filterselect = '';
+        if ($postid) {
+            $filtertype = 'user';
+            if (!$postobject = get_record('post', 'module', 'blog', 'id', $postid)) {
+                error('No such blog entry');
+            }
+            $filterselect = $postobject->userid;
+        } else {
+            $filtertype = 'site';
+            $filterselect = '';
+        }
     } else {
         // user might have capability to write blogs, but not read blogs at site level
         // users might enter this url manually without parameters
@@ -74,7 +82,7 @@ switch ($filtertype) {
         }
         $courseid = $course->id;
         $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
-        require_login($course->id);
+        require_login($course);
         if (!has_capability('moodle/blog:view', $coursecontext)) {
             error('You do not have the required permissions to view blogs in this course');
         }
@@ -94,13 +102,13 @@ switch ($filtertype) {
         }
         $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
         $courseid = $course->id;
-        require_login($course->id);
+        require_login($course);
         if (!has_capability('moodle/blog:view', $coursecontext)) {
             error('You do not have the required permissions to view blogs in this course/group');
         }
-        if (groupmode($course) == SEPARATEGROUPS
+        if (groups_get_course_groupmode($course) == SEPARATEGROUPS
           and !has_capability('moodle/site:accessallgroups', $coursecontext)) {
-            if (!ismember($filterselect)) {
+            if (!groups_is_member($filterselect)) {
                 error ('You are not a member of this course group');
             }
         }
@@ -114,6 +122,13 @@ switch ($filtertype) {
         if (!$user = get_record('user', 'id', $filterselect)) {
             error('Incorrect user id');
         }
+        if ($user->deleted) {
+            print_header();
+            print_heading(get_string('userdeleted'));
+            print_footer();
+            die;
+        }
+        
         if ($USER->id == $filterselect) {
             if (!has_capability('moodle/blog:create', $sitecontext)
               and !has_capability('moodle/blog:view', $sitecontext)) {
@@ -130,6 +145,10 @@ switch ($filtertype) {
             }
         }
         $userid = $filterselect;
+
+        if (!empty($courseid)) {
+            require_login($courseid);
+        }
 
     break;
 

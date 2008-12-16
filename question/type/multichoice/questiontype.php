@@ -1,16 +1,13 @@
-<?php  // $Id: questiontype.php,v 1.16.2.4 2007/04/19 17:37:25 tjhunt Exp $
-
-///////////////////
-/// MULTICHOICE ///
-///////////////////
-
-/// QUESTION TYPE CLASS //////////////////
-
-///
-/// This class contains some special features in order to make the
-/// question type embeddable within a multianswer (cloze) question
-///
-
+<?php  // $Id: questiontype.php,v 1.29.2.6 2008/09/03 15:22:46 pichetp Exp $
+/**
+ * The questiontype class for the multiple choice question type.
+ *
+ * Note, This class contains some special features in order to make the
+ * question type embeddable within a multianswer (cloze) question
+ *
+ * @package questionbank
+ * @subpackage questiontypes
+ */
 class question_multichoice_qtype extends default_questiontype {
 
     function name() {
@@ -107,6 +104,10 @@ class question_multichoice_qtype extends default_questiontype {
         }
         $options->answers = implode(",",$answers);
         $options->single = $question->single;
+        if(isset($question->layout)){
+             $options->layout = $question->layout;
+        }
+        $options->answernumbering = $question->answernumbering;
         $options->shuffleanswers = $question->shuffleanswers;
         $options->correctfeedback = trim($question->correctfeedback);
         $options->partiallycorrectfeedback = trim($question->partiallycorrectfeedback);
@@ -191,8 +192,7 @@ class question_multichoice_qtype extends default_questiontype {
         if (false === $pos) { // No order of answers is given, so use the default
             $state->options->order = array_keys($question->options->answers);
         } else { // Restore the order of the answers
-            $state->options->order = explode(',', substr($state->responses[''], 0,
-             $pos));
+            $state->options->order = explode(',', substr($state->responses[''], 0, $pos));
             $state->responses[''] = substr($state->responses[''], $pos + 1);
         }
         // Restore the responses
@@ -202,11 +202,7 @@ class question_multichoice_qtype extends default_questiontype {
         // the $state->responses array is indexed by the answer ids and the
         // values are also the answer ids (i.e. key = value).
         if (empty($state->responses[''])) { // No previous responses
-            if ($question->options->single) {
-                $state->responses = array('' => '');
-            } else {
-                $state->responses = array();
-            }
+            $state->responses = array('' => '');
         } else {
             if ($question->options->single) {
                 $state->responses = array('' => $state->responses['']);
@@ -278,14 +274,13 @@ class question_multichoice_qtype extends default_questiontype {
         $questiontext = format_text($question->questiontext,
                          $question->questiontextformat,
                          $formatoptions, $cmoptions->course);
-        $image = get_question_image($question, $cmoptions->course);
+        $image = get_question_image($question);
         $answerprompt = ($question->options->single) ? get_string('singleanswer', 'quiz') :
             get_string('multipleanswers', 'quiz');
 
         // Print each answer in a separate row
         foreach ($state->options->order as $key => $aid) {
             $answer = &$answers[$aid];
-            $qnumchar = chr(ord('a') + $key);
             $checked = '';
             $chosen = false;
 
@@ -311,18 +306,22 @@ class question_multichoice_qtype extends default_questiontype {
             $a->feedbackimg = '';
 
             // Print the control
-            $a->control = "<input $readonly id=\"$a->id\" $name $checked $type value=\"$aid\"" .
-                 " alt=\"" . s($answer->answer) . '" />';
+            $a->control = "<input $readonly id=\"$a->id\" $name $checked $type value=\"$aid\" />";
 
             if ($options->correct_responses && $answer->fraction > 0) {
                 $a->class = question_get_feedback_class(1);
             }
             if (($options->feedback && $chosen) || $options->correct_responses) {
-                $a->feedbackimg = question_get_feedback_image($answer->fraction > 0 ? 1 : 0, $chosen && $options->feedback);
+                if ($type == ' type="checkbox" ') {
+                    $a->feedbackimg = question_get_feedback_image($answer->fraction > 0 ? 1 : 0, $chosen && $options->feedback);
+                } else {
+                    $a->feedbackimg = question_get_feedback_image($answer->fraction, $chosen && $options->feedback);
+                }
             }
 
             // Print the answer text
-            $a->text = format_text("$qnumchar. $answer->answer", FORMAT_MOODLE, $formatoptions, $cmoptions->course);
+            $a->text = $this->number_in_style($key, $question->options->answernumbering) .
+                    format_text($answer->answer, FORMAT_MOODLE, $formatoptions, $cmoptions->course);
 
             // Print feedback if feedback is on
             if (($options->feedback || $options->correct_responses) && $checked) {
@@ -398,7 +397,7 @@ class question_multichoice_qtype extends default_questiontype {
     function response_summary($question, $state, $length = 80) {
         return implode(',', $this->get_actual_response($question, $state));
     }
-    
+
 /// BACKUP FUNCTIONS ////////////////////////////
 
     /*
@@ -558,7 +557,7 @@ class question_multichoice_qtype extends default_questiontype {
     /**
      * Decode links in question type specific tables.
      * @return bool success or failure.
-     */ 
+     */
     function decode_content_links_caller($questionids, $restore, &$i) {
         $status = true;
 
@@ -594,11 +593,115 @@ class question_multichoice_qtype extends default_questiontype {
 
         return $status;
     }
-}
-//// END OF CLASS ////
 
-//////////////////////////////////////////////////////////////////////////
-//// INITIATION - Without this line the question type is not in use... ///
-//////////////////////////////////////////////////////////////////////////
+    /**
+     * @return array of the numbering styles supported. For each one, there
+     *      should be a lang string answernumberingxxx in teh qtype_multichoice
+     *      language file, and a case in the switch statement in number_in_style,
+     *      and it should be listed in the definition of this column in install.xml.
+     */
+    function get_numbering_styles() {
+        return array('abc', 'ABCD', '123', 'none');
+    }
+
+    function number_html($qnum) {
+        return '<span class="anun">' . $qnum . '<span class="anumsep">.</span></span> ';
+    }
+
+    /**
+     * @param int $num The number, starting at 0.
+     * @param string $style The style to render the number in. One of the ones returned by $numberingoptions.
+     * @return string the number $num in the requested style.
+     */
+    function number_in_style($num, $style) {
+        switch($style) {
+            case 'abc':
+                return $this->number_html(chr(ord('a') + $num));
+            case 'ABCD':
+                return $this->number_html(chr(ord('A') + $num));
+            case '123':
+                return $this->number_html(($num + 1));
+            case 'none':
+                return '';
+            default:
+                return 'ERR';
+        }
+    }
+
+    function find_file_links($question, $courseid){
+        $urls = array();
+        // find links in the answers table.
+        $urls +=  question_find_file_links_from_html($question->options->correctfeedback, $courseid);
+        $urls +=  question_find_file_links_from_html($question->options->partiallycorrectfeedback, $courseid);
+        $urls +=  question_find_file_links_from_html($question->options->incorrectfeedback, $courseid);
+        foreach ($question->options->answers as $answer) {
+            $urls += question_find_file_links_from_html($answer->answer, $courseid);
+        }
+        //set all the values of the array to the question id
+        if ($urls){
+            $urls = array_combine(array_keys($urls), array_fill(0, count($urls), array($question->id)));
+        }
+        $urls = array_merge_recursive($urls, parent::find_file_links($question, $courseid));
+        return $urls;
+    }
+
+    function replace_file_links($question, $fromcourseid, $tocourseid, $url, $destination){
+        parent::replace_file_links($question, $fromcourseid, $tocourseid, $url, $destination);
+        // replace links in the question_match_sub table.
+        // We need to use a separate object, because in load_question_options, $question->options->answers
+        // is changed from a comma-separated list of ids to an array, so calling update_record on
+        // $question->options stores 'Array' in that column, breaking the question.
+        $optionschanged = false;
+        $newoptions = new stdClass;
+        $newoptions->id = $question->options->id;
+        $newoptions->correctfeedback = question_replace_file_links_in_html($question->options->correctfeedback, $fromcourseid, $tocourseid, $url, $destination, $optionschanged);
+        $newoptions->partiallycorrectfeedback  = question_replace_file_links_in_html($question->options->partiallycorrectfeedback, $fromcourseid, $tocourseid, $url, $destination, $optionschanged);
+        $newoptions->incorrectfeedback = question_replace_file_links_in_html($question->options->incorrectfeedback, $fromcourseid, $tocourseid, $url, $destination, $optionschanged);
+        if ($optionschanged){
+            if (!update_record('question_multichoice', addslashes_recursive($newoptions))) {
+                error('Couldn\'t update \'question_multichoice\' record '.$newoptions->id);
+            }
+        }
+        $answerchanged = false;
+        foreach ($question->options->answers as $answer) {
+            $answer->answer = question_replace_file_links_in_html($answer->answer, $fromcourseid, $tocourseid, $url, $destination, $answerchanged);
+            if ($answerchanged){
+                if (!update_record('question_answers', addslashes_recursive($answer))){
+                    error('Couldn\'t update \'question_answers\' record '.$answer->id);
+                }
+            }
+        }
+    }
+
+    /**
+     * Runs all the code required to set up and save an essay question for testing purposes.
+     * Alternate DB table prefix may be used to facilitate data deletion.
+     */
+    function generate_test($name, $courseid = null) {
+        list($form, $question) = parent::generate_test($name, $courseid);
+        $question->category = $form->category;
+        $form->questiontext = "How old is the sun?";
+        $form->generalfeedback = "General feedback";
+        $form->penalty = 0.1;
+        $form->single = 1;
+        $form->shuffleanswers = 1;
+        $form->answernumbering = 'abc';
+        $form->noanswers = 3;
+        $form->answer = array('Ancient', '5 billion years old', '4.5 billion years old');
+        $form->fraction = array(0.3, 0.9, 1);
+        $form->feedback = array('True, but lacking in accuracy', 'Close, but no cigar!', 'Yep, that is it!');
+        $form->correctfeedback = 'Excellent!';
+        $form->incorrectfeedback = 'Nope!';
+        $form->partiallycorrectfeedback = 'Not bad';
+
+        if ($courseid) {
+            $course = get_record('course', 'id', $courseid);
+        }
+
+        return $this->save_question($question, $form, $course);
+    }
+}
+
+// Register this question type with the question bank.
 question_register_questiontype(new question_multichoice_qtype());
 ?>

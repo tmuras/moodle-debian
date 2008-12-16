@@ -1,14 +1,14 @@
-<?php  // $Id: pending.php,v 1.9.2.1 2007/02/28 05:36:14 nicolasconnault Exp $
+<?php  // $Id: pending.php,v 1.11.2.4 2008/05/01 22:15:44 skodak Exp $
        // allow the administrators to look through a list of course requests and either approve them or reject them.
 
     require_once('../config.php');
     require_once($CFG->libdir.'/pagelib.php');
-    require_once($CFG->libdir.'/blocklib.php'); 
+    require_once($CFG->libdir.'/blocklib.php');
     require_once('lib.php');
 
     require_login();
 
-    require_capability('moodle/site:approvecourse', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    require_capability('moodle/site:approvecourse', get_context_instance(CONTEXT_SYSTEM));
 
     $approve      = optional_param('approve', 0, PARAM_INT);
     $reject       = optional_param('reject', 0, PARAM_INT);
@@ -22,10 +22,13 @@
 
             // place at beginning of category
             fix_course_sortorder();
-            if (empty($CFG->defaultrequestedcategory)) {
-                $CFG->defaultrequestedcategory = 1; //yuk, but default to miscellaneous.
+
+            if (empty($CFG->defaultrequestcategory) or !record_exists('course_categories', 'id', $CFG->defaultrequestcategory)) {
+                // default to first top level directory, hacky but means things don't break
+                $CFG->defaultrequestcategory = get_field('course_categories', 'id', 'parent', '0');
             }
-            $course->category = $CFG->defaultrequestedcategory;
+
+            $course->category = $CFG->defaultrequestcategory;
             $course->sortorder = get_field_sql("SELECT min(sortorder)-1 FROM {$CFG->prefix}course WHERE category=$course->category");
             if (empty($course->sortorder)) {
                 $course->sortorder = 1000;
@@ -45,7 +48,8 @@
             if ($courseid = insert_record("course",$course)) {
                 $page = page_create_object(PAGE_COURSE_VIEW, $courseid);
                 blocks_repopulate_page($page); // Return value not checked because you can always edit later
-                add_teacher($teacherid,$courseid);
+                $context = get_context_instance(CONTEXT_COURSE, $courseid);
+                role_assign($CFG->creatornewroleid, $teacherid, 0, $context->id); // assing teacher role
                 $course->id = $courseid;
                 if (!empty($CFG->restrictmodulesfor) && $CFG->restrictmodulesfor != 'none' && !empty($CFG->restrictbydefault)) { // if we're all or requested we're ok.
                     $allowedmods = explode(',',$CFG->defaultallowedmodules);
@@ -64,17 +68,17 @@
                 exit;
             }
             else {
-                error(get_string('courseapprovedfailed'));
+                print_error('courseapprovedfailed');
                 exit;
             }
         }
     }
- 
+
     $strtitle = get_string('coursespending');
     $strheading = get_string(((!empty($reject)) ? 'coursereject' : 'coursespending'));
 
-    print_header($strtitle,$strheading,$strheading);
- 
+    print_header($strtitle,$strheading,build_navigation(array(array('name'=>$strheading,'link'=>'','type'=>'misc'))));
+
     if (!empty($reject) and confirm_sesskey()) {
         if ($reject = get_record("course_request","id",$reject)) {
             if (empty($rejectnotice)) {
@@ -107,7 +111,7 @@
                 $collision = 1;
             }
             //do not output raw html from request, quote html entities using s()!!
-            $table->data[] = array(((!empty($course->password)) ? 
+            $table->data[] = array(((!empty($course->password)) ?
                                     '<img hspace="1" alt="'.$strrequireskey.'" class="icon" src="'.$CFG->pixpath.'/i/key.gif" />' : ''),
                                    format_string($course->shortname),format_string($course->fullname),fullname($requester),
                                    format_string($course->summary),format_string($course->reason),

@@ -1,4 +1,4 @@
-<?php // $Id: export_execute.php,v 1.2.4.1 2007/06/19 17:53:14 stronk7 Exp $
+<?php // $Id: export_execute.php,v 1.5.2.5 2008/10/08 19:09:43 skodak Exp $
 
 require_once('../config.php');
 //require_once($CFG->dirroot.'/course/lib.php');
@@ -29,13 +29,25 @@ $allowed_time = array('weeknow', 'weeknext', 'monthnow', 'monthnext', 'recentupc
 
 if(!empty($what) && !empty($time)) {
     if(in_array($what, $allowed_what) && in_array($time, $allowed_time)) {
-        $courses = get_my_courses($user->id);
-        
-        $include_user = ($what == 'all');
-        if ($include_user) {
-            //Also include site (global) events
+        $courses = get_my_courses($user->id, NULL, 'id, visible, shortname');
+
+        if ($what == 'all') {
+            $users = $user->id;
+            $groups = array();
+            foreach ($courses as $course) {
+                $course_groups = groups_get_all_groups($course->id, $user->id);
+                if ($course_groups) {
+                    $groups = array_merge($groups, array_keys($course_groups));
+                }
+            }
+            if (empty($groups)) {
+                $groups = false;
+            }
             $courses[SITEID] = new stdClass;
             $courses[SITEID]->shortname = get_string('globalevents', 'calendar');
+        } else {
+            $users = false;
+            $groups = false;
         }
 
         switch($time) {
@@ -99,22 +111,17 @@ if(!empty($what) && !empty($time)) {
         die();
     }
 }
-
-$whereclause = calendar_sql_where($timestart, $timeend, $include_user ? array($user->id) : false, false, array_keys($courses), false);
-if($whereclause === false) {
-    $events = array();
-}
-else {
-    $events = get_records_select('event', $whereclause, 'timestart');
-}
-
-if ($events === false) {
-    $events = array();
-}
+$events = calendar_get_events($timestart, $timeend, $users, $groups, array_keys($courses), false);
 
 $ical = new iCalendar;
 $ical->add_property('method', 'PUBLISH');
 foreach($events as $event) {
+   if (!empty($event->modulename)) {
+        $cm = get_coursemodule_from_instance($event->modulename, $event->instance);
+        if (!groups_course_module_visible($cm)) {
+            continue;
+        }
+    }
     $ev = new iCalendar_event;
     $ev->add_property('summary', $event->name);
     $ev->add_property('description', $event->description);

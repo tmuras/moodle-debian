@@ -1,4 +1,4 @@
-<?php // $Id: policy.php,v 1.7.6.5 2007/05/16 18:14:45 skodak Exp $
+<?php // $Id: policy.php,v 1.13 2007/08/17 19:09:27 nicolasconnault Exp $
 
     require_once('../config.php');
     require_once($CFG->libdir.'/filelib.php');
@@ -33,7 +33,7 @@
     $strpolicyagreement = get_string('policyagreement');
     $strpolicyagreementclick = get_string('policyagreementclick');
 
-    print_header($strpolicyagreement, $SITE->fullname, $strpolicyagreement);
+    print_header($strpolicyagreement, $SITE->fullname, build_navigation(array(array('name'=>$strpolicyagreement, 'link'=>null, 'type'=>'misc'))));
 
     print_heading($strpolicyagreement);
 

@@ -1,4 +1,4 @@
-<?PHP // $Id: pix.php,v 1.16 2007/01/26 20:15:54 skodak Exp $
+<?PHP // $Id: pix.php,v 1.16.4.1 2007/10/11 11:12:52 nicolasconnault Exp $
       // This function fetches user pictures from the data directory
       // Syntax:   pix.php/userid/f1.jpg or pix.php/userid/f2.jpg
       //     OR:   ?file=userid/f1.jpg or ?file=userid/f2.jpg
@@ -18,7 +18,7 @@
     if (count($args) == 2) {
         $userid   = (integer)$args[0];
         $image    = $args[1];
-        $pathname = $CFG->dataroot.'/users/'.$userid.'/'.$image;
+        $pathname = make_user_directory($userid, true) . "/$image";
         if (file_exists($pathname) and !is_dir($pathname)) {
             send_file($pathname, $image);
         }

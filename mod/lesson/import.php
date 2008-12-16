@@ -1,8 +1,8 @@
-<?php // $Id: import.php,v 1.23 2006/12/20 01:49:58 toyomoyo Exp $
+<?php // $Id: import.php,v 1.28.2.1 2007/10/12 16:09:42 tjhunt Exp $
 /**
  * Imports lesson pages
  *
- * @version $Id: import.php,v 1.23 2006/12/20 01:49:58 toyomoyo Exp $
+ * @version $Id: import.php,v 1.28.2.1 2007/10/12 16:09:42 tjhunt Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -28,15 +28,15 @@
     }
 
 
-    require_login($course->id, false);
+    require_login($course->id, false, $cm);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_capability('mod/lesson:edit', $context);
 
     $strimportquestions = get_string("importquestions", "lesson");
     $strlessons = get_string("modulenameplural", "lesson");
 
-    print_header_simple("$strimportquestions", " $strimportquestions",
-                 "<a href=\"index.php?id=$course->id\">$strlessons</a> -> <a href=\"view.php?id=$cm->id\">".format_string($lesson->name,true)."</a>-> $strimportquestions");
+    $navigation = build_navigation($strimportquestions, $cm);
+    print_header_simple("$strimportquestions", " $strimportquestions", $navigation);
 
     if ($form = data_submitted()) {   /// Filename
 

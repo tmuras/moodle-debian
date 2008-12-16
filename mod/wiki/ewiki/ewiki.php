@@ -1,14 +1,15 @@
-<script language="PHP"> @define("EWIKI_VERSION", "R1.01d");
+<?php
+@define("EWIKI_VERSION", "R1.01d");
 
 /*
 
   ErfurtWiki - an embedable, fast and user-friendly wiki engine
-  ����������
+  ---------
   This is Public Domain (no license, no warranty); but feel free
   to redistribute it under GPL or anything else you like.
 
   http://erfurtwiki.sourceforge.net/
-  Mario Salzer <mario*erphesfurt�de> and many others(tm)
+  Mario Salzer <mario*erphesfurt·de> and many others(tm)
 
 
   Use it from inside yoursite.php like that:
@@ -93,7 +94,7 @@
     else {
 #### END MOODLE CHANGES
 
-    define("EWIKI_CHARS_L", "a-z_��$\337-\377");
+    define("EWIKI_CHARS_L", "a-z_µ¤$\337-\377");
     define("EWIKI_CHARS_U", "A-Z0-9\300-\336");
 
 #### BEGIN MOODLE CHANGES   
@@ -226,7 +227,7 @@
         \w[-_.+\w]+@(\w[-_\w]+[.])+\w{2,}   ) \007x",
 
     #-- rendering ruleset
-           "wm_indent" => '<div style="margin-left:15px;" class="indent">',
+           "wm_indent" => '',
            "wm_table_defaults" => 'cellpadding="2" border="1" cellspacing="0"',
            "wm_whole_line" => array(),
            "htmlentities" => array(
@@ -258,7 +259,7 @@
     #<off># "###" => array("<big><b>", "</b></big>"),
         "**" => array("<b>", "</b>"),
         "##" => array("<big>", "</big>"),
-        "��" => array("<small>", "</small>"),
+        "µµ" => array("<small>", "</small>"),
            ),
            "wm_start_end" => array(
            ),
@@ -352,79 +353,79 @@
     ));
         #
         $ewiki_t["es"] = @array_merge(@$ewiki_t["es"], array(
-           "EDITTHISPAGE" => "EditarEstaP�gina",
+           "EDITTHISPAGE" => "EditarEstaPágina",
            "BACKLINKS" => "EnlacesInversos",
-           "PAGESLINKINGTO" => "P�ginas enlazando \$title",
-           "PAGEHISTORY" => "InfoP�gina",
-           "INFOABOUTPAGE" => "Informaci�n sobre la p�gina",
-           "LIKEPAGES" => "P�ginas como esta",
-           "NEWESTPAGES" => "P�ginas m�s nuevas",
-           "LASTCHANGED" => "�ltima modificaci�n %d/%m/%Y a las %H:%M",
-           "DOESNOTEXIST" => "Esta p�gina a�n no existe, por favor eliga EditarEstaP�gina si desea crearla.",
-           "DISABLEDPAGE" => "Esta p�gina no est� disponible en este momento.",
-           "ERRVERSIONSAVE" => "Disculpe, mientras editaba esta p�gina algui�n m�s
-        salv� una versi�n modificada. Por favor regrese a
+           "PAGESLINKINGTO" => "Páginas enlazando \$title",
+           "PAGEHISTORY" => "InfoPágina",
+           "INFOABOUTPAGE" => "Información sobre la página",
+           "LIKEPAGES" => "Páginas como esta",
+           "NEWESTPAGES" => "Páginas más nuevas",
+           "LASTCHANGED" => "última modificación %d/%m/%Y a las %H:%M",
+           "DOESNOTEXIST" => "Esta página aún no existe, por favor eliga EditarEstaPágina si desea crearla.",
+           "DISABLEDPAGE" => "Esta página no está disponible en este momento.",
+           "ERRVERSIONSAVE" => "Disculpe, mientras editaba esta página alguién más
+        salvó una versión modificada. Por favor regrese a
         a la pantalla anterior y copie sus cambios a su computador
-        para insertalos nuevamente despu�s de que cargue
-        la pantalla de edici�n.",
-           "ERRORSAVING" => "Ocurri� un error mientras se salvavan sus cambios. Por favor intente de nuevo.",
-           "THANKSFORCONTRIBUTION" => "Gracias por su contribuci�n!",
-           "CANNOTCHANGEPAGE" => "Esta p�gina no puede ser modificada.",
-           "OLDVERCOMEBACK" => "Hacer que esta versi�n antigua regrese a remplazar la actual",
+        para insertalos nuevamente después de que cargue
+        la pantalla de edición.",
+           "ERRORSAVING" => "Ocurrió un error mientras se salvavan sus cambios. Por favor intente de nuevo.",
+           "THANKSFORCONTRIBUTION" => "Gracias por su contribución!",
+           "CANNOTCHANGEPAGE" => "Esta página no puede ser modificada.",
+           "OLDVERCOMEBACK" => "Hacer que esta versión antigua regrese a remplazar la actual",
            "PREVIEW" => "Previsualizar",
            "SAVE" => "Salvar",
-           "CANCEL_EDIT" => "CancelarEdici�n",
-           "UPLOAD_PICTURE_BUTTON" => "subir gr�fica &gt;&gt;&gt;",
+           "CANCEL_EDIT" => "CancelarEdición",
+           "UPLOAD_PICTURE_BUTTON" => "subir gráfica &gt;&gt;&gt;",
            "EDIT_FORM_1" => "<a href=\"".EWIKI_SCRIPT."BuenEstilo\">BuenEstilo</a> es
         escribir lo que viene a su mente. No se preocupe mucho
-        por la apariencia. Tambi�n puede agregar <a href=\"".EWIKI_SCRIPT."ReglasDeMarcadoWiki\">ReglasDeMarcadoWiki</a>
-        m�s adelante si piensa que es necesario.<br />",
+        por la apariencia. También puede agregar <a href=\"".EWIKI_SCRIPT."ReglasDeMarcadoWiki\">ReglasDeMarcadoWiki</a>
+        más adelante si piensa que es necesario.<br />",
            "EDIT_FORM_2" => "<br />Por favor no escriba cosas, que puedan
         enfadar a otras personas. Y por favor tenga en mente que
-        usted no es del todo an�nimo en Internet 
-        (encuentre m�s sobre 
+        usted no es del todo anónimo en Internet 
+        (encuentre más sobre 
         '<a href=\"http://google.com/search?q=my+computers+IP+address\">IP address</a>' de su computador con Google).",
-           "BIN_IMGTOOLARGE" => "�La gr�fica es demasiado grande!",
-           "BIN_NOIMG" => "�No es un archivo con una gr�fica (formato de archivo inaceptable)!",
-           "FORBIDDEN" => "No est� autorizado para acceder a esta p�gina.",
+           "BIN_IMGTOOLARGE" => "¡La gráfica es demasiado grande!",
+           "BIN_NOIMG" => "¡No es un archivo con una gráfica (formato de archivo inaceptable)!",
+           "FORBIDDEN" => "No está autorizado para acceder a esta página.",
         ));
         #
     $ewiki_t["de"] = @array_merge(@$ewiki_t["de"], array(
-       "EDITTHISPAGE" => "DieseSeite�ndern",
-           "APPENDTOPAGE" => "Erg�nze",
-       "BACKLINKS" => "Zur�ckLinks",
+       "EDITTHISPAGE" => "DieseSeiteÄndern",
+           "APPENDTOPAGE" => "Ergänze",
+       "BACKLINKS" => "ZurückLinks",
        "PAGESLINKINGTO" => "Verweise zur Seite \$title",
        "PAGEHISTORY" => "SeitenInfo",
-       "INFOABOUTPAGE" => "Informationen �ber Seite",
-       "LIKEPAGES" => "�hnliche Seiten",
+       "INFOABOUTPAGE" => "Informationen über Seite",
+       "LIKEPAGES" => "Ähnliche Seiten",
        "NEWESTPAGES" => "Neueste Seiten",
-       "LASTCHANGED" => "zuletzt ge�ndert am %d.%m.%Y um %H:%M",
+       "LASTCHANGED" => "zuletzt geändert am %d.%m.%Y um %H:%M",
        "DISABLEDPAGE" => "Diese Seite kann momentan nicht angezeigt werden.",
-       "ERRVERSIONSAVE" => "Entschuldige, aber w�hrend Du an der Seite
-        gearbeitet hast, hat bereits jemand anders eine ge�nderte
+       "ERRVERSIONSAVE" => "Entschuldige, aber während Du an der Seite
+        gearbeitet hast, hat bereits jemand anders eine geänderte
         Fassung gespeichert. Damit nichts verloren geht, browse bitte
-        zur�ck und speichere Deine �nderungen in der Zwischenablage
+        zurück und speichere Deine Änderungen in der Zwischenablage
         (Bearbeiten->Kopieren) um sie dann wieder an der richtigen
-        Stelle einzuf�gen, nachdem du die EditBoxSeite nocheinmal
+        Stelle einzufügen, nachdem du die EditBoxSeite nocheinmal
         geladen hast.<br />
-        Vielen Dank f�r Deine M�he.",
+        Vielen Dank für Deine Mühe.",
        "ERRORSAVING" => "Beim Abspeichern ist ein Fehler aufgetreten. Bitte versuche es erneut.",
-       "THANKSFORCONTRIBUTION" => "Vielen Dank f�r Deinen Beitrag!",
-       "CANNOTCHANGEPAGE" => "Diese Seite kann nicht ge�ndert werden.",
+       "THANKSFORCONTRIBUTION" => "Vielen Dank für Deinen Beitrag!",
+       "CANNOTCHANGEPAGE" => "Diese Seite kann nicht geändert werden.",
        "OLDVERCOMEBACK" => "Diese alte Version der Seite wieder zur Aktuellen machen",
        "PREVIEW" => "Vorschau",
        "SAVE" => "Speichern",
-       "CANCEL_EDIT" => "�nderungenVerwerfen",
+       "CANCEL_EDIT" => "ÄnderungenVerwerfen",
        "UPLOAD_PICTURE_BUTTON" => "Bild hochladen &gt;&gt;&gt;",
        "EDIT_FORM_1" => "<a href=\"".EWIKI_SCRIPT."GuterStil\">GuterStil</a> ist es,
         ganz einfach das zu schreiben, was einem gerade in den
         Sinn kommt. Du solltest dich jetzt noch nicht so sehr
-        darum k�mmern, wie die Seite aussieht. Du kannst sp�ter
-        immernoch zur�ckkommen und den Text mit <a href=\"".EWIKI_SCRIPT."FormatierungsRegeln\">WikiTextFormatierungsRegeln</a>
+        darum kümmern, wie die Seite aussieht. Du kannst später
+        immernoch zurückkommen und den Text mit <a href=\"".EWIKI_SCRIPT."FormatierungsRegeln\">WikiTextFormatierungsRegeln</a>
         aufputschen.<br />",
        "EDIT_FORM_2" => "<br />Bitte schreib keine Dinge, die andere Leute
-        ver�rgern k�nnten. Und bedenke auch, da� es schnell auf
-        dich zur�ckfallen kann wenn du verschiedene andere Dinge sagst (mehr Informationen zur
+        verärgern könnten. Und bedenke auch, daß es schnell auf
+        dich zurückfallen kann wenn du verschiedene andere Dinge sagst (mehr Informationen zur
         '<a href=\"http://google.de/search?q=computer+IP+adresse\">IP Adresse</a>'
         deines Computers findest du bei Google).",
     ));
@@ -591,6 +592,9 @@ function ewiki_page($id=false) {
    if ($pf_a = $ewiki_plugins["page_final"]) {
       ksort($pf_a);
       foreach ($pf_a as $pf) {
+         if ($action == 'edit' and $pf == 'ewiki_html_tag_balancer') {
+            continue; // balancer breaks htmlarea buttons
+         }
          $pf($o, $id, $data, $action);
       }
    }
@@ -635,7 +639,7 @@ function ewiki_etag(&$data) {
 #-- encloses whole page output with a descriptive <div>
 function ewiki_page_css_container(&$o, &$id, &$data, &$action) {
    $o = "<div class=\"wiki $action "
-      . strtr($id, ' ./ --_!"�$%&()=?��{[]}`+#*;:,<>| @�������ߤ^���\'\\',
+      . strtr($id, ' ./ --_!"§$%&()=?²³{[]}`+#*;:,<>| @µöäüÖÄÜß¤^°«»\'\\',
                    '-  -----------------------------------------------')
       . "\">\n"
       . $o . "\n</div>\n";
@@ -858,8 +862,7 @@ function ewiki_script($asid="", $id=false, $params="", $bin=0, $html=1, $script=
    if (strlen($params)) {
       $url .= (strpos($url,"?")!==false ? "&":"?") . $params;
    }
-
-   #-- fin
+   #-- fin
    if ($html) {
       //Don't replace & if it's part of encoded character (bug 2209)
       $url = preg_replace("/&(?![A-Za-z]{0,4}\w{2,3};|#[0-9]{2,5};)/","&amp;", $url);
@@ -1779,7 +1782,7 @@ function ewiki_format (
 
    #-- pre-processing plugins (working on wiki source)
    if ($pf_source = $ewiki_plugins["format_source"]) {
-      foreach ($pf_source as $pf) $pf(&$iii[0][0]);
+      foreach ($pf_source as $pf) $pf($iii[0][0]);
    }
 
    #-- simple markup
@@ -1938,7 +1941,7 @@ function ewiki_format (
                }
             }
             while ($n_indent < $s["indent"]) { 
-               $out .= "</div>\n";
+               $out .= "";
                $s["indent"]--;
             }
 
@@ -2149,7 +2152,7 @@ function ewiki_format_close_para(&$ooo, &$s) {
    }
    #-- indentation
    while ($s["indent"]) {
-      $out .= "</div>";
+      $out .= "";
       $s["indent"]--;
    }
 }
@@ -2179,7 +2182,7 @@ function ewiki_format_html(&$str, &$in, &$iii, &$s) {
 
 
 function ewiki_format_comment(&$str, &$in, &$iii, &$s, $btype) {
-   $str = "<!-- "  . str_replace("--", "��", $str) . " -->";
+   $str = "<!-- "  . str_replace("--", "¯¯", $str) . " -->";
 }
 
 
@@ -2564,7 +2567,6 @@ function ewiki_binary($break=0) {
          $do = "nop";
       }
    }
-
    
    #-- auth only happens when enforced with _PROTECTED_MODE_XXL setting
    #   (authentication for inline images in violation of the WWW spirit)
@@ -2574,7 +2576,6 @@ function ewiki_binary($break=0) {
 
    #-- upload an image
    if ($do == "upload"){
-
       $id = ewiki_binary_save_image($upload_file["tmp_name"], "", $return=0, $add_meta);
       @unlink($upload_file["tmp_name"]);
       ($title = trim($orig_name, "/")) && ($title = preg_replace("/[^-._\w\d]+/", "_", substr(substr($orig_name, strrpos($title, "/")), 0, 20)))
@@ -3189,7 +3190,7 @@ function ewiki_eventually_initialize(&$id, &$data, &$action) {
       $path=EWIKI_INIT_PAGES;
       if (!empty($path)) {
         if ($dh = @opendir($path=EWIKI_INIT_PAGES)) {
-         while ($filename = readdir($dh)) {
+         while (false !== ($filename = readdir($dh))) {
 #### MOODLE CHANGE TO SOLVE BUG #3830. Original doesn't support dots in names.
     //Orig->if (preg_match('/^(['.EWIKI_CHARS_U.']+['.EWIKI_CHARS_L.']+\w*)+/', $filename)) {
             if ($filename == clean_filename($filename) && !is_dir($path.'/'.$filename)) {
@@ -3586,6 +3587,4 @@ function ewiki_database_mysql($action, &$args, $sw1, $sw2) {
    return($r);
 }
 
-
-
-</script>
+?>

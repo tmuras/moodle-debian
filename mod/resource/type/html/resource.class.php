@@ -1,4 +1,4 @@
-<?php // $Id: resource.class.php,v 1.34.2.3 2007/07/06 08:38:42 urs_hunkler Exp $
+<?php // $Id: resource.class.php,v 1.40.2.3 2008/07/01 22:25:26 skodak Exp $
 
 class resource_html extends resource_base {
 
@@ -50,6 +50,15 @@ function display() {
     $formatoptions = new object();
     $formatoptions->noclean = true;
 
+    /// Set up some shorthand variables
+    $cm = $this->cm;
+    $course = $this->course;
+    $resource = $this->resource;
+
+    // fix for MDL-9021, thanks Etienne Roz
+    // fix for MDL-15387, thanks to John Beedell
+    add_to_log($course->id, "resource", "view", "view.php?id={$cm->id}", $resource->id, $cm->id);
+
     /// Are we displaying the course blocks?
     if ($this->resource->options == 'showblocks') {
 
@@ -64,17 +73,9 @@ function display() {
         /// Set up generic stuff first, including checking for access
         parent::display();
 
-        /// Set up some shorthand variables
-        $cm = $this->cm;
-        $course = $this->course;
-        $resource = $this->resource;
-
         $pagetitle = strip_tags($course->shortname.': '.format_string($resource->name));
         $inpopup = optional_param('inpopup', '', PARAM_BOOL);
         
-        // fix for MDL-9021, thanks Etienne Roz�
-        add_to_log($course->id, "resource", "view", "view.php?id={$cm->id}", $resource->id, $cm->id);
-
         if ($resource->popup) {
             if ($inpopup) {                    /// Popup only
                 
@@ -83,8 +84,9 @@ function display() {
                         "center clearfix", "", "", "20");
                 print_footer($course);
             } else {                           /// Make a page and a pop-up window
-
-                print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name),
+                $navigation = build_navigation($this->navlinks, $cm);
+                
+                print_header($pagetitle, $course->fullname, $navigation,
                         "", "", true, update_module_button($cm->id, $course->id, $this->strresource),
                         navmenu($course, $cm));
 
@@ -109,8 +111,9 @@ function display() {
                 print_footer($course);
             }
         } else {    /// not a popup at all
-
-            print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name),
+            $navigation = build_navigation($this->navlinks, $cm);
+            
+            print_header($pagetitle, $course->fullname, $navigation,
                     "", "", true, update_module_button($cm->id, $course->id, $this->strresource),
                     navmenu($course, $cm));
 
@@ -160,7 +163,7 @@ function setup_elements(&$mform) {
 
     $woptions = array(0 => get_string('pagewindow', 'resource'), 1 => get_string('newwindow', 'resource'));
     $mform->addElement('select', 'windowpopup', get_string('display', 'resource'), $woptions);
-    $mform->setDefault('windowpopup', (int)!empty($CFG->resource_popup));
+    $mform->setDefault('windowpopup', !empty($CFG->resource_popup));
 
     $mform->addElement('checkbox', 'blockdisplay', get_string('showcourseblocks', 'resource'));
     $mform->setDefault('blockdisplay', 0);

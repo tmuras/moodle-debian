@@ -11,13 +11,21 @@
 #grade-index table .generalboxcontent,
 #grade-exceptions table .generaltableheader,
 #grade-exceptions table .generalboxcontent,
-#mod-forum-view table.forumheaderlist td,
+#mod-glossary-report .generalbox .teacher,
 #mod-assignment-submissions table.submissions th,
 #mod-assignment-submissions table.submissions td,
+#mod-assignment-submissions .feedback .content,
+#mod-assignment-submissions .feedback .topic,
+#mod-assignment-submissions .feedback .picture,
 form.mform fieldset.hidden,
 form.mform fieldset.hidden fieldset.fgroup,
 ul.tabrow1 li a:link,
-ul.tabrow1 li a:visited {
+ul.tabrow1 li a:visited,
+.sideblock .r0,
+.sideblock .r1,
+.generaltable .cell,
+div.sideblock table.minicalendar,
+.sideblock .hide-show-image {
     border:none;
     background:none;
 }
@@ -37,6 +45,7 @@ div {
     color:#330000;
 }
 
+.tabledivider,
 hr {
     border-top:solid 1px #FFCC99;
     border-left:solid 1px #FFCC99;
@@ -173,27 +182,21 @@ ul.tabrow1 li.here a:visited {
   border-bottom-color:#330000;
 }
 
-.sideblock .header .hide-show img.hide-show-image {
-  background: url('pix/t/switch_minus.gif') no-repeat bottom;
-}
-
-.sideblock.hidden .header .hide-show img.hide-show-image {
-  background: url('pix/t/switch_plus.gif') no-repeat bottom;
-}
-
 /** Places using the horizontal medium wood texture with borders **/
 
 th.header,
 td.header,
 div.header,
 h2.header,
+h2.main,
 .sideblock .header,
-.forumpost,
 .navbar,
 table.files th,
-#admin-index table.environmenttable th.header,
 .tabrow0 ul,
 legend,
+#mod-assignment-submissions table.submissions th,
+#mod-assignment-submissions .feedback tr,
+.que .feedback,
 #footer-bar {
     border-top:1px solid #FFCC99;
     border-left:1px solid #FFCC99;
@@ -208,7 +211,7 @@ legend,
 
 #mod-chat-gui_header_js-chatinput,
 .forumpost .header,
-#mod-forum-view table.forumheaderlist th,
+.forumpost .header .starter,
 .glossarypost .entryheader,
 .glossarycomment .entryheader,
 .glossarypost .entryattachment,
@@ -221,10 +224,9 @@ legend,
     border:none;
 }
 
-/** Places using the vertical white wood texture with borders **/
+/** Places using the vertical ultra-white wood texture with borders **/
 
 .results,
-.sideblock .content,
 .loginbox,
 .generalboxcontent,
 .informationboxcontent,
@@ -233,7 +235,12 @@ legend,
 .entrybox,
 .userinfobox,
 .generaltable,
-#course-user .section, 
+.groupinfobox,
+.forumheaderlist,
+.forumpost,
+.que,
+.que .answer,
+#course-user .section,
 #site-index .sitetopic .sitetopiccontent,
 #calendar .maincalendar .filters table,
 #calendar .sidecalendar,
@@ -241,6 +248,7 @@ legend,
 .block_calendar_month .filters table,
 #calendar .maincalendar .minicalendar,
 #calendar .sidecalendar .minicalendar,
+.message-discussion-noframes #messages,
 .block_calendar_month .minicalendar,
 #calendar .maincalendar .eventlist .event,
 #calendar .maincalendar,
@@ -273,21 +281,40 @@ form.mform fieldset,
       border-top:1px solid #FFCC99;
 }
 
-/** Places using the vertical white wood texture without borders **/
+/** Places using the vertical ultra-white wood texture without borders **/
 
 #mod-chat-gui_header_js-users,
-#admin-index .c1,
-#admin-config .c1,
 #grade-index .generaltableheader,
 #grade-index .generalboxcontent,
 #grade-exceptions .generaltableheader,
 #grade-exceptions .generalboxcontent,
-#admin-index table.environmenttable td,
+.generaltable td,
 .generaltable .cell,
+.forumheaderlist td,
 .forumpost .left,
-.sideblock .r1,
 .r0 {
     background-image:url(gradient2.jpg);
+    background-position:bottom;
+    background-repeat:repeat;
+    border:none;
+}
+
+/** Places using the white wood texture with borders **/
+
+.sideblock .content {
+    border-top:1px solid #FFCC99;
+    border-left:1px solid #FFCC99;
+    border-bottom:1px solid #330000;
+    border-right:1px solid #330000;
+    background-image:url(gradient4.jpg);     
+    background-position:bottom;
+    background-repeat:repeat;
+}
+
+/** Places using the white wood texture without borders **/
+
+.nonefornow {
+    background-image:url(gradient4.jpg);
     background-position:bottom;
     background-repeat:repeat;
     border:none;
@@ -332,8 +359,6 @@ form.mform fieldset,
 
 /** Places using the horizontal dark wood texture without borders **/
 
-#admin-index .c0,
-#admin-config .c0,
 .glossarycategoryheader {
     background-image:url(background.jpg);
     background-position:bottom;
@@ -343,13 +368,15 @@ form.mform fieldset,
 
 /** Places using a white background **/
 
+table .flexible .r1,
 #mod-survey-view table tr.r1,
-.r1,
 #calendar .maincalendar .eventlist .event .description,
+#message-messages,
 .glossarypost .entry,
 .glossarycomment .entry,
 .glossarypost .entrylowersection {
-    background-color:white;
+    background: none;
+    background-color: white;
     border:none;
 }
 
@@ -366,11 +393,9 @@ form.mform fieldset,
 /** Places using just standard borders **/
 
 .read,
-.forumheaderlist,
 .glossarypost,
 .glossarycomment,
-#mod-assignment-submissions .submissions,
-#mod-forum-view .forumheaderlist {
+#mod-assignment-submissions .submissions {
     border-top:1px solid #FFCC99;
     border-left:1px solid #FFCC99;
     border-bottom:1px solid #330000;
@@ -378,3 +403,9 @@ form.mform fieldset,
     border-collapse: separate;
 }
 
+/** Changing some standard colors **/
+
+.grade-report-grader #user-grades tr.groupavg td.cell,
+.grade-report-grader #user-grades tr.avg td.cell {
+    color: #330000;
+}

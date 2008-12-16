@@ -1,4 +1,4 @@
-<?php  // $Id: report.php,v 1.6 2006/08/30 08:43:19 toyomoyo Exp $
+<?php  // $Id: report.php,v 1.6.8.2 2008/03/06 07:34:05 gbateson Exp $
 /// Overview report: displays a big table of all the attempts
 class hotpot_report extends hotpot_default_report {
 	function display(&$hotpot, &$cm, &$course, &$users, &$attempts, &$questions, &$options) {
@@ -29,9 +29,9 @@ class hotpot_report extends hotpot_default_report {
 			$table->size[] = 10;
 		}
 		// name, grade and attempt number
-		array_push($table->head, 
+		array_push($table->head,
 			get_string("name"),
-			hotpot_grade_heading($hotpot, $options), 
+			hotpot_grade_heading($hotpot, $options),
 			get_string("attempt", "quiz")
 		);
 		array_push($table->align, "left", "center", "center");
@@ -39,8 +39,8 @@ class hotpot_report extends hotpot_default_report {
 		// question headings
 		$this->add_question_headings($questions, $table);
 		// penalties and raw score
-		array_push($table->head, 
-			get_string('penalties', 'hotpot'), 
+		array_push($table->head,
+			get_string('penalties', 'hotpot'),
 			get_string('score', 'quiz')
 		);
 		array_push($table->align, "center", "center");
@@ -58,7 +58,7 @@ class hotpot_report extends hotpot_default_report {
 			$name = fullname($u);
 			if ($is_html) {
 				$picture = print_user_picture($u->userid, $course->id, $u->picture, false, true);
-				$name = '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$u->userid.'&course='.$course->id.'">'.$name.'</a>';
+				$name = '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$u->userid.'&amp;course='.$course->id.'">'.$name.'</a>';
 			}
 			if (isset($user->grade)) {
 				$grade = $user->grade;
@@ -97,7 +97,7 @@ class hotpot_report extends hotpot_default_report {
 				// get attempt number
 				$attemptnumber= $attempt->attempt;
 				if ($is_html && $allow_review) {
-					$attemptnumber = '<a href="review.php?hp='.$hotpot->id.'&attempt='.$attempt->id.'">'.$attemptnumber.'</a>';
+					$attemptnumber = '<a href="review.php?hp='.$hotpot->id.'&amp;attempt='.$attempt->id.'">'.$attemptnumber.'</a>';
 				}
 				if ($is_best_grade) {
 					$score = '<span class="highlight">'.$attemptnumber.'</span>';

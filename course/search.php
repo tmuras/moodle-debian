@@ -1,4 +1,4 @@
-<?php // $Id: search.php,v 1.35.2.9 2007/03/02 01:24:47 nicolasconnault Exp $
+<?php // $Id: search.php,v 1.49.2.2 2008/04/24 08:35:47 dongsheng Exp $
 
 /// Displays external information about a course
 
@@ -33,7 +33,7 @@
         require_login();
     }
 
-    if (has_capability('moodle/course:create', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+    if (has_capability('moodle/course:create', get_context_instance(CONTEXT_SYSTEM))) {
         if ($edit !== -1) {
             $USER->categoryediting = $edit;
             // If the edit mode we are leaving has higher per page than the one we are entering,
@@ -41,11 +41,11 @@
             // modes, set page to 0.
             $page = 0;
         }
-    } 
+    }
 
 /// Editing functions
 
-    if (has_capability('moodle/course:visibility', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+    if (has_capability('moodle/course:visibility', get_context_instance(CONTEXT_SYSTEM))) {
 
     /// Hide or show a course
 
@@ -66,7 +66,7 @@
 
     }
 
-    if (has_capability('moodle/course:create', get_context_instance(CONTEXT_SYSTEM, SITEID)) && $perpage != 99999) {
+    if (has_capability('moodle/course:create', get_context_instance(CONTEXT_SYSTEM)) && $perpage != 99999) {
         $perpage = 30;
     }
 
@@ -86,8 +86,12 @@
     $strnovalidcourses = get_string('novalidcourses');
 
     if (empty($search) and empty($blocklist) and empty($modulelist)) {
-        print_header("$site->fullname : $strsearch", $site->fullname, 
-                     "<a href=\"index.php\">$strcourses</a> -> $strsearch", "", "");
+        $navlinks = array();
+        $navlinks[] = array('name' => $strcourses, 'link' => "index.php", 'type' => 'misc');
+        $navlinks[] = array('name' => $strsearch, 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
+
+        print_header("$site->fullname : $strsearch", $site->fullname, $navigation, "", "");
         print_simple_box_start("center");
         echo "<center>";
         echo "<br />";
@@ -102,12 +106,12 @@
     }
 
     if (!empty($moveto) and $data = data_submitted() and confirm_sesskey()) {   // Some courses are being moved
-    
+
         if (! $destcategory = get_record("course_categories", "id", $data->moveto)) {
             error("Error finding the category");
         }
-        
-        $courses = array();        
+
+        $courses = array();
         foreach ( $data as $key => $value ) {
             if (preg_match('/^c\d+$/', $key)) {
                 array_push($courses, substr($key, 1));
@@ -127,7 +131,9 @@
         $courses = array();
         foreach ($blocks as $block) {
             $courseid = $block->pageid;
-            if ($courseid==0) {
+            // MDL-11167, blocks can be placed on mymoodle, or the blogs page
+            // and it should not show up on course search page
+            if ($courseid==0 || $block->pagetype != 'course-view') {
                 continue;
             }
             if (!$course = get_record('course', 'id', $courseid)) {
@@ -160,18 +166,22 @@
     }
     else {
         $courses = get_courses_search($searchterms, "fullname ASC", 
-            $page*$perpage, $perpage, $totalcount);
+            $page, $perpage, $totalcount);
     }
 
     $searchform = print_course_search($search, true, "navbar");
 
-    if (!empty($courses) && has_capability('moodle/course:create', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+    if (!empty($courses) && has_capability('moodle/course:create', get_context_instance(CONTEXT_SYSTEM))) {
         $searchform .= update_categories_search_button($search,$page,$perpage);
     }
- 
 
-    print_header("$site->fullname : $strsearchresults", $site->fullname, 
-                 "<a href=\"index.php\">$strcourses</a> -> <a href=\"search.php\">$strsearch</a> -> '".s($search, true)."'", "", "", "", $searchform);
+    $navlinks = array();
+    $navlinks[] = array('name' => $strcourses, 'link' => 'index.php', 'type' => 'misc');
+    $navlinks[] = array('name' => $strsearch, 'link' => 'search.php', 'type' => 'misc');
+    $navlinks[] = array('name' => "'".s($search, true)."'", 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+
+    print_header("$site->fullname : $strsearchresults", $site->fullname, $navigation, "", "", "", $searchform);
 
 
     $lastcategory = -1;
@@ -187,7 +197,7 @@
             echo "<a href=\"search.php?search=$encodedsearch&perpage=99999\">".get_string("showall", "", $totalcount)."</a>";
             echo "</p></center>";
         }
-        
+
         if (!has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))) {
             foreach ($courses as $course) {
                 $course->fullname = highlight("$search", $course->fullname);
@@ -211,9 +221,14 @@
             echo "<th scope=\"col\">$strcategory</th>\n";
             echo "<th scope=\"col\">$strselect</th>\n";
             echo "<th scope=\"col\">$stredit</th></tr>\n";
+
             foreach ($courses as $course) {    		    
                 
-                $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                if (isset($course->context)) {
+                    $coursecontext = $course->context;
+                } else {
+                    $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                }
 
                 $course->fullname = highlight("$search", $course->fullname);
                 $linkcss = $course->visible ? "" : " class=\"dimmed\" ";
@@ -232,11 +247,11 @@
                 }
 
                 echo "<tr>\n";
-                echo "<td><a $linkcss href=\"view.php?id=$course->id\">" 
+                echo "<td><a $linkcss href=\"view.php?id=$course->id\">"
                     . format_string($course->fullname) . "</a></td>\n";
                 echo "<td>".$displaylist[$course->category]."</td>\n";
                 echo "<td>\n";
-                
+
                 // this is ok since this will get inherited from course category context
                 // if it is set
                 if (has_capability('moodle/category:update', $coursecontext)) {
@@ -244,11 +259,11 @@
                 } else {
                     echo "<input type=\"checkbox\" name=\"c$course->id\" disabled=\"disabled\" />\n";
                 }
-                
+
                 echo "</td>\n";
                 echo "<td>\n";
                 $pixpath = $CFG->pixpath;
-                
+
                 // checks whether user can update course settings
                 if (has_capability('moodle/course:update', $coursecontext)) {
                     echo "<a title=\"".get_string("settings")."\" href=\"$CFG->wwwroot/course/edit.php?id=$course->id\">\n<img".
@@ -256,16 +271,16 @@
                 }
 
                 // checks whether user can do role assignment
-    		    if (has_capability('moodle/role:assign', $coursecontext)) {
+                if (has_capability('moodle/role:assign', $coursecontext)) {
                     echo'<a title="'.get_string('assignroles', 'role').'" href="'.$CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?contextid='.$coursecontext->id.'">';
-    		        echo '<img src="'.$CFG->pixpath.'/i/roles.gif" class="iconsmall" alt="'.get_string('assignroles', 'role').'" /></a> ' . "\n";
-    		    }                
+                    echo '<img src="'.$CFG->pixpath.'/i/roles.gif" class="iconsmall" alt="'.get_string('assignroles', 'role').'" /></a> ' . "\n";
+                }
 
                 // checks whether user can delete course
-                if (has_capability('moodle/course:delete', $coursecontext)) {  
+                if (has_capability('moodle/course:delete', $coursecontext)) {
                     echo "<a title=\"".get_string("delete")."\" href=\"delete.php?id=$course->id\">\n<img".
                         " src=\"$pixpath/t/delete.gif\" class=\"iconsmall\" alt=\"".get_string("delete")."\" /></a>\n ";
-                }  
+                }
 
                 // checks whether user can change visibility
                 if (has_capability('moodle/course:visibility', $coursecontext)) {
@@ -276,14 +291,14 @@
                         echo "<a title=\"".get_string("show")."\" href=\"search.php?search=$encodedsearch&amp;perpage=$perpage&amp;page=$page&amp;show=$course->id&amp;sesskey=$USER->sesskey\">\n<img".
                             " src=\"$pixpath/t/show.gif\" class=\"iconsmall\" alt=\"".get_string("show")."\" /></a>\n ";
                     }
-                }              
+                }
 
                 // checks whether user can do site backup
                 if (has_capability('moodle/site:backup', $coursecontext)) {
                     echo "<a title=\"".get_string("backup")."\" href=\"../backup/backup.php?id=$course->id\">\n<img".
                         " src=\"$pixpath/t/backup.gif\" class=\"iconsmall\" alt=\"".get_string("backup")."\" /></a>\n ";
                 }
-                
+
                 // checks whether user can do restore
                 if (has_capability('moodle/site:restore', $coursecontext)) {
                     echo "<a title=\"".get_string("restore")."\" href=\"../files/index.php?id=$course->id&amp;wdir=/backupdata\">\n<img".
@@ -327,4 +342,3 @@
 
 
 ?>
-

@@ -1,4 +1,4 @@
-<?php  // $Id: request.php,v 1.12.2.1 2007/03/19 03:00:54 moodler Exp $
+<?php  // $Id: request.php,v 1.14 2007/08/17 19:09:13 nicolasconnault Exp $
 
     /// this allows a student to request a course be created for them.
 
@@ -18,7 +18,11 @@
     $requestform = new course_request_form();
 
     $strtitle = get_string('courserequest');
-    print_header($strtitle, $strtitle, $strtitle, $requestform->focus());
+    $navlinks = array();
+    $navlinks[] = array('name' => $strtitle, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+
+    print_header($strtitle, $strtitle, $navigation, $requestform->focus());
 
     print_simple_box_start('center');
     print_string('courserequestintro');

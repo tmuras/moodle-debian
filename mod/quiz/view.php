@@ -1,11 +1,12 @@
-<?php  // $Id: view.php,v 1.109.2.3 2007/03/16 20:19:39 pichetp Exp $
+<?php  // $Id: view.php,v 1.124.2.13 2008/08/26 02:32:23 tjhunt Exp $
 
 // This page prints a particular instance of quiz
 
     require_once("../../config.php");
-    require_once("locallib.php");
     require_once($CFG->libdir.'/blocklib.php');
-    require_once('pagelib.php');
+    require_once($CFG->libdir.'/gradelib.php');
+    require_once($CFG->dirroot.'/mod/quiz/locallib.php');
+    require_once($CFG->dirroot.'/mod/quiz/pagelib.php');
 
     $id   = optional_param('id', 0, PARAM_INT); // Course Module ID, or
     $q    = optional_param('q',  0, PARAM_INT);  // quiz ID
@@ -15,15 +16,12 @@
         if (! $cm = get_coursemodule_from_id('quiz', $id)) {
             error("There is no coursemodule with id $id");
         }
-
         if (! $course = get_record("course", "id", $cm->course)) {
             error("Course is misconfigured");
         }
-
         if (! $quiz = get_record("quiz", "id", $cm->instance)) {
             error("The quiz with id $cm->instance corresponding to this coursemodule $id is missing");
         }
-
     } else {
         if (! $quiz = get_record("quiz", "id", $q)) {
             error("There is no quiz with id $q");
@@ -42,7 +40,7 @@
 
     // if no questions have been set up yet redirect to edit.php
     if (!$quiz->questions and has_capability('mod/quiz:manage', $context)) {
-        redirect('edit.php?quizid='.$quiz->id);
+        redirect($CFG->wwwroot . '/mod/quiz/edit.php?cmid=' . $cm->id);
     }
 
     add_to_log($course->id, "quiz", "view", "view.php?id=$cm->id", $quiz->id, $cm->id);
@@ -66,11 +64,14 @@
 
     if(!empty($CFG->showblocksonmodpages) && (blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $PAGE->user_is_editing())) {
         echo '<td style="width: '.$blocks_preferred_width.'px;" id="left-column">';
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
+        print_container_end();
         echo '</td>';
     }
 
     echo '<td id="middle-column">';
+    print_container_start();
 
     // Print the main part of the page
 
@@ -97,7 +98,7 @@
             echo "<p>".get_string("attemptsallowed", "quiz").": $quiz->attempts</p>";
         }
         if ($quiz->attempts != 1) {
-            echo "<p>".get_string("grademethod", "quiz").": ".$QUIZ_GRADE_METHOD[$quiz->grademethod]."</p>";
+            echo "<p>".get_string("grademethod", "quiz").": ".quiz_get_grading_option_name($quiz->grademethod)."</p>";
         }
 
         // Print information about timings.
@@ -107,7 +108,12 @@
             if ($quiz->timelimit) {
                 echo "<p>".get_string("quiztimelimit","quiz", format_time($quiz->timelimit * 60))."</p>";
             }
-            quiz_view_dates($quiz);
+            if ($quiz->timeopen) {
+                echo '<p>', get_string('quizopens', 'quiz'), ': ', userdate($quiz->timeopen), '</p>';
+            }
+            if ($quiz->timeclose) {
+                echo '<p>', get_string('quizcloses', 'quiz'), ': ', userdate($quiz->timeclose), '</p>';
+            }
         } else if ($timenow < $quiz->timeopen) {
             echo "<p>".get_string("quiznotavailable", "quiz", userdate($quiz->timeopen))."</p>";
         } else {
@@ -120,23 +126,13 @@
 
     // Show number of attempts summary to those who can view reports.
     if (has_capability('mod/quiz:viewreports', $context)) {
-        if ($a->attemptnum = count_records('quiz_attempts', 'quiz', $quiz->id, 'preview', 0)) {
-            $a->studentnum = count_records_select('quiz_attempts', "quiz = '$quiz->id' AND preview = '0'", 'COUNT(DISTINCT userid)');
-            $a->studentstring  = $course->students;
-
-            notify("<a href=\"report.php?mode=overview&amp;id=$cm->id\">".get_string('numattempts', 'quiz', $a).'</a>');
+        if ($strattemptnum = quiz_num_attempt_summary($quiz, $cm)) {
+            echo '<div class="quizattemptcounts"><a href="report.php?mode=overview&amp;id=' .
+                    $cm->id . '">' . $strattemptnum . '</a></div>';
         }
     }
 
     // Guests can't do a quiz, so offer them a choice of logging in or going back.
-
-    // TODO, work out what to do about this under roles and permissions.
-    // You have to be logged in to do a quiz, because attempts are tied to
-    // userid, and so if guests were allowed to attempt quizzes, all guests
-    // would see all attempts, and it would be confusing.
-    //
-    // So for courses that allow guest access, it is good to offer people an easy
-    // way to log in at this point if they have got this far before logging in.
     if (isguestuser()) {
         $loginurl = $CFG->wwwroot.'/login/index.php';
         if (!empty($CFG->loginhttps)) {
@@ -145,276 +141,315 @@
 
         notice_yesno('<p>' . get_string('guestsno', 'quiz') . "</p>\n\n</p>" .
                 get_string('liketologin') . '</p>', $loginurl, get_referer(false));
+        finish_page($course);
     }
 
-    if (has_capability('mod/quiz:attempt', $context)) {
+    if (!(has_capability('mod/quiz:attempt', $context) || has_capability('mod/quiz:preview', $context))) {
+        print_box('<p>' . get_string('youneedtoenrol', 'quiz') . '</p><p>' .
+                print_continue($CFG->wwwroot . '/course/view.php?id=' . $course->id, true) .
+                '</p>', 'generalbox', 'notice');
+        finish_page($course);
+    }
 
-        // Get this user's attempts.
-        $attempts = quiz_get_user_attempts($quiz->id, $USER->id);
-        $unfinished = false;
-        if ($unfinishedattempt = quiz_get_user_attempt_unfinished($quiz->id, $USER->id)) {
-            $attempts[] = $unfinishedattempt;
-            $unfinished = true;
+    // Get this user's attempts.
+    $attempts = quiz_get_user_attempts($quiz->id, $USER->id);
+    $unfinished = false;
+    if ($unfinishedattempt = quiz_get_user_attempt_unfinished($quiz->id, $USER->id)) {
+        $attempts[] = $unfinishedattempt;
+        $unfinished = true;
+    }
+    $numattempts = count($attempts);
+
+    // Work out the final grade, checking whether it was overridden in the gradebook.
+    $mygrade = quiz_get_best_grade($quiz, $USER->id);
+    $mygradeoverridden = false;
+    $gradebookfeedback = '';
+
+    $grading_info = grade_get_grades($course->id, 'mod', 'quiz', $quiz->id, $USER->id);
+    if (!empty($grading_info->items)) {
+        $item = $grading_info->items[0];
+        if (isset($item->grades[$USER->id])) {
+            $grade = $item->grades[$USER->id];
+
+            if ($grade->overridden) {
+                $mygrade = $grade->grade + 0; // Convert to number.
+                $mygradeoverridden = true;
+            }
+            if (!empty($grade->str_feedback)) {
+                $gradebookfeedback = $grade->str_feedback;
+            }
         }
-        $numattempts = count($attempts);
+    }
 
-        $mygrade = quiz_get_best_grade($quiz, $USER->id);
+    // Print table with existing attempts
+    if ($attempts) {
 
-        // Get some strings.
-        $strattempt       = get_string("attempt", "quiz");
-        $strtimetaken     = get_string("timetaken", "quiz");
-        $strtimecompleted = get_string("timecompleted", "quiz");
-        $strgrade         = get_string("grade");
-        $strmarks         = get_string('marks', 'quiz');
-        $strfeedback      = get_string('feedback', 'quiz');
+        print_heading(get_string('summaryofattempts', 'quiz'));
 
-        // Print table with existing attempts
-        if ($attempts) {
+        // Work out which columns we need, taking account what data is available in each attempt.
+        list($someoptions, $alloptions) = quiz_get_combined_reviewoptions($quiz, $attempts, $context);
 
-            // Work out which columns we need, taking account what data is available in each attempt.
-            list($someoptions, $alloptions) = quiz_get_combined_reviewoptions($quiz, $attempts, $context);
+        $gradecolumn = $someoptions->scores && $quiz->grade && $quiz->sumgrades;
+        $markcolumn = $gradecolumn && ($quiz->grade != $quiz->sumgrades);
+        $overallstats = $alloptions->scores;
 
-            $gradecolumn = $someoptions->scores && $quiz->grade && $quiz->sumgrades;
-            $markcolumn = $gradecolumn && ($quiz->grade != $quiz->sumgrades);
-            $overallstats = $alloptions->scores;
+        $feedbackcolumn = quiz_has_feedback($quiz->id);
+        $overallfeedback = $feedbackcolumn && $alloptions->overallfeedback;
 
-            $feedbackcolumn = quiz_has_feedback($quiz->id);
-            $overallfeedback = $feedbackcolumn && $alloptions->overallfeedback;
+        // Prepare table header
+        $table->class = 'generaltable quizattemptsummary';
+        $table->head = array(get_string('attempt', 'quiz'), get_string('timecompleted', 'quiz'));
+        $table->align = array('center', 'left');
+        $table->size = array('', '');
+        if ($markcolumn) {
+            $table->head[] = get_string('marks', 'quiz') . " / $quiz->sumgrades";
+            $table->align[] = 'center';
+            $table->size[] = '';
+        }
+        if ($gradecolumn) {
+            $table->head[] = get_string('grade') . " / $quiz->grade";
+            $table->align[] = 'center';
+            $table->size[] = '';
+        }
+        if ($feedbackcolumn) {
+            $table->head[] = get_string('feedback', 'quiz');
+            $table->align[] = 'left';
+            $table->size[] = '';
+        }
+        if (isset($quiz->showtimetaken)) {
+            $table->head[] = get_string('timetaken', 'quiz');
+            $table->align[] = 'left';
+            $table->size[] = '';
+        }
 
-            // prepare table header
-            $table->head = array($strattempt, $strtimecompleted);
-            $table->align = array("center", "left");
-            $table->size = array("", "");
-            if ($markcolumn) {
-                $table->head[] = "$strmarks / $quiz->sumgrades";
-                $table->align[] = 'right';
-                $table->size[] = '';
+        // One row for each attempt
+        foreach ($attempts as $attempt) {
+            $attemptoptions = quiz_get_reviewoptions($quiz, $attempt, $context);
+            $row = array();
+
+            // Add the attempt number, making it a link, if appropriate.
+            if ($attempt->preview) {
+                $row[] = make_review_link(get_string('preview', 'quiz'), $quiz, $attempt);
+            } else {
+                $row[] = make_review_link($attempt->attempt, $quiz, $attempt);
             }
-            if ($gradecolumn) {
-                $table->head[] = "$strgrade / $quiz->grade";
-                $table->align[] = 'right';
-                $table->size[] = '';
-            }
-            if ($feedbackcolumn) {
-                $table->head[] = $strfeedback;
-                $table->align[] = 'left';
-                $table->size[] = '';
-            }
-            if (isset($quiz->showtimetaken)) {
-                $table->head[] = $strtimetaken;
-                $table->align[] = 'left';
-                $table->size[] = '';
-            }
 
-            // One row for each attempt
-            foreach ($attempts as $attempt) {
-                $attemptoptions = quiz_get_reviewoptions($quiz, $attempt, $context);
-                $row = array();
-
-                // Add the attempt number, making it a link, if appropriate.
-                $row[] = make_review_link('#' . $attempt->attempt, $quiz, $attempt);
-
-                // prepare strings for time taken and date completed
+            // prepare strings for time taken and date completed
+            $timetaken = '';
+            $datecompleted = '';
+            if ($attempt->timefinish > 0) {
+                // attempt has finished
+                $timetaken = format_time($attempt->timefinish - $attempt->timestart);
+                $datecompleted = userdate($attempt->timefinish);
+            } else if ($available) {
+                // The attempt is still in progress.
+                $timetaken = format_time(time() - $attempt->timestart);
+                $datecompleted = '';
+            } else if ($quiz->timeclose) {
+                // The attempt was not completed but is also not available any more becuase the quiz is closed.
+                $timetaken = format_time($quiz->timeclose - $attempt->timestart);
+                $datecompleted = userdate($quiz->timeclose);
+            } else {
+                // Something weird happened.
                 $timetaken = '';
                 $datecompleted = '';
-                if ($attempt->timefinish > 0) {
-                    // attempt has finished
-                    $timetaken = format_time($attempt->timefinish - $attempt->timestart);
-                    $datecompleted = userdate($attempt->timefinish);
-                } else if ($available) {
-                    // The attempt is still in progress.
-                    $timetaken = format_time(time() - $attempt->timestart);
-                    $datecompleted = '';
-                } else if ($quiz->timeclose) {
-                    // The attempt was not completed but is also not available any more becuase the quiz is closed.
-                    $timetaken = format_time($quiz->timeclose - $attempt->timestart);
-                    $datecompleted = userdate($quiz->timeclose);
+            }
+            $row[] = $datecompleted;
+
+            if ($markcolumn && $attempt->timefinish > 0) {
+                if ($attemptoptions->scores) {
+                    $row[] = make_review_link(round($attempt->sumgrades, $quiz->decimalpoints), $quiz, $attempt);
                 } else {
-                    // Something wheird happened.
-                    $timetaken = '';
-                    $datecompleted = '';
-                }
-                $row[] = $datecompleted;
-
-                if ($markcolumn) {
-                    if ($attemptoptions->scores) {
-                        $row[] = make_review_link(round($attempt->sumgrades, $quiz->decimalpoints), $quiz, $attempt);
-                    } else {
-                        $row[] = '';
-                    }
-                }
-
-                // Ouside the if because we may be showing feedback but not grades.
-                $attemptgrade = quiz_rescale_grade($attempt->sumgrades, $quiz);
-
-                if ($gradecolumn) {
-                    if ($attemptoptions->scores) {
-                        // highlight the highest grade if appropriate
-                        if ($overallstats && !is_null($mygrade) && $attemptgrade == $mygrade && $quiz->grademethod == QUIZ_GRADEHIGHEST) {
-                            $formattedgrade = "<span class='highlight'>$attemptgrade</span>";
-                        } else {
-                            $formattedgrade = $attemptgrade;
-                        }
-
-                        $row[] = make_review_link($formattedgrade, $quiz, $attempt);
-                    } else {
-                        $row[] = '';
-                    }
-                }
-
-                if ($feedbackcolumn) {
-                    if ($attemptoptions->overallfeedback) {
-                        $row[] = quiz_feedback_for_grade($attemptgrade, $quiz->id);
-                    } else {
-                        $row[] = '';
-                    }
-                }
-
-                if (isset($quiz->showtimetaken)) {
-                    $row[] = $timetaken;
-                }
-
-                $table->data[] = $row;
-            } // End of loop over attempts.
-            print_table($table);
-        }
-
-        // Print information about the student's best score for this quiz if possible.
-        $moreattempts = $unfinished || $numattempts < $quiz->attempts || $quiz->attempts == 0;
-        if (!$moreattempts) {
-            print_heading(get_string("nomoreattempts", "quiz"));
-        }
-
-        if ($numattempts && $quiz->sumgrades && !is_null($mygrade)) {
-            if ($overallstats) {
-                if ($available && $moreattempts) {
-                    $a = new stdClass;
-                    $a->method = $QUIZ_GRADE_METHOD[$quiz->grademethod];
-                    $a->mygrade = $mygrade;
-                    $a->quizgrade = $quiz->grade;
-                    print_heading(get_string('gradesofar', 'quiz', $a));
-                } else {
-                    print_heading(get_string('yourfinalgradeis', 'quiz', "$mygrade / $quiz->grade"));
+                    $row[] = '';
                 }
             }
 
-            if ($overallfeedback) {
-                echo '<p class="quizgradefeedback">'.quiz_feedback_for_grade($mygrade, $quiz->id).'</p>';
+            // Ouside the if because we may be showing feedback but not grades.
+            $attemptgrade = quiz_rescale_grade($attempt->sumgrades, $quiz);
+
+            if ($gradecolumn) {
+                if ($attemptoptions->scores && $attempt->timefinish > 0) {
+                    $formattedgrade = $attemptgrade;
+                    // highlight the highest grade if appropriate
+                    if ($overallstats && $numattempts > 1 && !is_null($mygrade) && $attemptgrade == $mygrade && $quiz->grademethod == QUIZ_GRADEHIGHEST) {
+                        $table->rowclass[$attempt->attempt] = 'bestrow';
+                    }
+
+                    $row[] = make_review_link($formattedgrade, $quiz, $attempt);
+                } else {
+                    $row[] = '';
+                }
             }
-        }
 
-        // Print a button to start/continue an attempt, if appropriate.
+            if ($feedbackcolumn && $attempt->timefinish > 0) {
+                if ($attemptoptions->overallfeedback) {
+                    $row[] = quiz_feedback_for_grade($attemptgrade, $quiz->id);
+                } else {
+                    $row[] = '';
+                }
+            }
 
-        if (!$quiz->questions) {
-            print_heading(get_string("noquestions", "quiz"));
+            if (isset($quiz->showtimetaken)) {
+                $row[] = $timetaken;
+            }
 
-        } else if ($available && $moreattempts) {
-            echo "<br />";
-            echo "<div class=\"quizattempt\">";
+            $table->data[$attempt->attempt] = $row;
+        } // End of loop over attempts.
+        print_table($table);
+    }
 
-            if ($unfinished) {
-                $buttontext = get_string('continueattemptquiz', 'quiz');
+    // Print information about the student's best score for this quiz if possible.
+    $moreattempts = $unfinished || $numattempts < $quiz->attempts || $quiz->attempts == 0;
+    if (!$moreattempts) {
+        print_heading(get_string("nomoreattempts", "quiz"));
+    }
+
+    if ($numattempts && $quiz->sumgrades && !is_null($mygrade)) {
+        $resultinfo = '';
+
+        if ($overallstats) {
+            if ($available && $moreattempts) {
+                $a = new stdClass;
+                $a->method = quiz_get_grading_option_name($quiz->grademethod);
+                $a->mygrade = $mygrade;
+                $a->quizgrade = $quiz->grade;
+                $resultinfo .= print_heading(get_string('gradesofar', 'quiz', $a), '', 2, 'main', true);
             } else {
-
-                // Work out the appropriate button caption.
-                if ($numattempts == 0) {
-                    $buttontext = get_string('attemptquiznow', 'quiz');
-                } else {
-                    $buttontext = get_string('reattemptquiz', 'quiz');
-                }
-
-                // Work out if the quiz is temporarily unavailable because of the delay option.
-                if (!empty($attempts)) {
-                    $tempunavailable = '';
-                    $lastattempt = end($attempts);
-                    $lastattempttime = $lastattempt->timefinish;
-                    if ($numattempts == 1 && $quiz->delay1 && $timenow <= $lastattempttime + $quiz->delay1) {
-                        $tempunavailable = get_string('temporaryblocked', 'quiz') .
-                                ' <strong>'. userdate($lastattempttime + $quiz->delay1). '</strong>';
-                    } else if ($numattempts > 1 && $quiz->delay2 && $timenow <= $lastattempttime +  $quiz->delay2) {
-                        $tempunavailable = get_string('temporaryblocked', 'quiz') .
-                                ' <strong>'. userdate($lastattempttime + $quiz->delay2). '</strong>';
-                    }
-
-                    // If so, display a message and prevent the start button from appearing.
-                    if ($tempunavailable) {
-                        print_simple_box($tempunavailable, "center");
-                        print_continue($CFG->wwwroot . '/course/view.php?id=' . $course->id);
-                        $buttontext = '';
-                    }
+                $resultinfo .= print_heading(get_string('yourfinalgradeis', 'quiz', "$mygrade / $quiz->grade"), '', 2, 'main', true);
+                if ($mygradeoverridden) {
+                    $resultinfo .= '<p class="overriddennotice">'.get_string('overriddennotice', 'grades').'</p>';
                 }
             }
+        }
 
-            // Actually print the start button.
-            if ($buttontext) {
-                $buttontext = htmlspecialchars($buttontext, ENT_QUOTES);
+        if ($gradebookfeedback) {
+            $resultinfo .= print_heading(get_string('comment', 'quiz'), '', 3, 'main', true);
+            $resultinfo .= '<p class="quizteacherfeedback">'.$gradebookfeedback.'</p>';
+        }
+        if ($overallfeedback) {
+            $resultinfo .= print_heading(get_string('overallfeedback', 'quiz'), '', 3, 'main', true);
+            $resultinfo .= '<p class="quizgradefeedback">'.quiz_feedback_for_grade($mygrade, $quiz->id).'</p>';
+        }
 
-                // Do we need a confirm javascript alert?
-                if ($unfinished) {
-                    $strconfirmstartattempt =  '';
-                } else if ($quiz->timelimit && $quiz->attempts) {
-                    $strconfirmstartattempt = addslashes(get_string('confirmstartattempttimelimit','quiz', $quiz->attempts));
-                } else if ($quiz->timelimit) {
-                    $strconfirmstartattempt = addslashes(get_string('confirmstarttimelimit','quiz'));
-                } else if ($quiz->attempts) {
-                    $strconfirmstartattempt = addslashes(get_string('confirmstartattemptlimit','quiz', $quiz->attempts));
-                } else {
-                    $strconfirmstartattempt =  '';
+        if ($resultinfo) {
+            print_box($resultinfo, 'generalbox', 'feedback');
+        }
+    }
+
+    // Print a button to start/continue an attempt, if appropriate.
+    if (!$quiz->questions) {
+        print_heading(get_string("noquestions", "quiz"));
+
+    } else if ($available && $moreattempts) {
+        echo "<br />";
+        echo "<div class=\"quizattempt\">";
+
+        if ($unfinished) {
+            if (has_capability('mod/quiz:preview', $context)) {
+                $buttontext = get_string('continuepreview', 'quiz');
+            } else {
+                $buttontext = get_string('continueattemptquiz', 'quiz');
+            }
+        } else {
+
+            // Work out the appropriate button caption.
+            if (has_capability('mod/quiz:preview', $context)) {
+                $buttontext = get_string('previewquiznow', 'quiz');
+            } else if ($numattempts == 0) {
+                $buttontext = get_string('attemptquiznow', 'quiz');
+            } else {
+                $buttontext = get_string('reattemptquiz', 'quiz');
+            }
+
+            // Work out if the quiz is temporarily unavailable because of the delay option.
+            if (!empty($attempts)) {
+                $tempunavailable = '';
+                $lastattempt = end($attempts);
+                $lastattempttime = $lastattempt->timefinish;
+                if ($numattempts == 1 && $quiz->delay1 && $timenow <= $lastattempttime + $quiz->delay1) {
+                    $tempunavailable = get_string('temporaryblocked', 'quiz') .
+                            ' <strong>'. userdate($lastattempttime + $quiz->delay1). '</strong>';
+                } else if ($numattempts > 1 && $quiz->delay2 && $timenow <= $lastattempttime +  $quiz->delay2) {
+                    $tempunavailable = get_string('temporaryblocked', 'quiz') .
+                            ' <strong>'. userdate($lastattempttime + $quiz->delay2). '</strong>';
                 }
 
-                // Prepare options depending on whether the quiz should be a popup.
-                if (!empty($quiz->popup)) {
-                    $window = 'quizpopup';
-                    $windowoptions = "left=0, top=0, height='+window.screen.height+', " .
-                            "width='+window.screen.width+', channelmode=yes, fullscreen=yes, " .
-                            "scrollbars=yes, resizeable=no, directories=no, toolbar=no, " .
-                            "titlebar=no, location=no, status=no, menubar=no";
-                } else {
-                    $window = '_self';
-                    $windowoptions = '';
+                // If so, display a message and prevent the start button from appearing.
+                if ($tempunavailable) {
+                    print_simple_box($tempunavailable, "center");
+                    print_continue($CFG->wwwroot . '/course/view.php?id=' . $course->id);
+                    $buttontext = '';
                 }
+            }
+        }
 
-                // Determine the URL to use.
-                $attempturl = "attempt.php?id=$cm->id";
+        // Actually print the start button.
+        if ($buttontext) {
+            $buttontext = htmlspecialchars($buttontext, ENT_QUOTES);
+
+            // Do we need a confirm javascript alert?
+            if ($unfinished) {
+                $strconfirmstartattempt = '';
+            } else if ($quiz->timelimit && $quiz->attempts) {
+                $strconfirmstartattempt = get_string('confirmstartattempttimelimit','quiz', $quiz->attempts);
+            } else if ($quiz->timelimit) {
+                $strconfirmstartattempt = get_string('confirmstarttimelimit','quiz');
+            } else if ($quiz->attempts) {
+                $strconfirmstartattempt = get_string('confirmstartattemptlimit','quiz', $quiz->attempts);
+            } else {
+                $strconfirmstartattempt =  '';
+            }
+            // Determine the URL to use.
+            $attempturl = "attempt.php?id=$cm->id";
+
+            // Prepare options depending on whether the quiz should be a popup.
+            if (!empty($quiz->popup)) {
+                $window = 'quizpopup';
+                $windowoptions = "left=0, top=0, height='+window.screen.height+', " .
+                        "width='+window.screen.width+', channelmode=yes, fullscreen=yes, " .
+                        "scrollbars=yes, resizeable=no, directories=no, toolbar=no, " .
+                        "titlebar=no, location=no, status=no, menubar=no";
                 if (!empty($CFG->usesid) && !isset($_COOKIE[session_name()])) {
                     $attempturl = sid_process_url($attempturl);
                 }
 
-                // TODO eliminate this nasty JavaScript that prints the button.
-?>
-<script type="text/javascript">
-//<![CDATA[
-document.write('<input type="button" value="<?php echo $buttontext ?>" onclick="javascript: <?php
+                echo '<input type="button" value="'.$buttontext.'" onclick="javascript:';
                 if ($strconfirmstartattempt) {
-                    echo "if (confirm(\\'".addslashes_js($strconfirmstartattempt)."\\'))";
+                    $strconfirmstartattempt = addslashes($strconfirmstartattempt);
+                    echo "if (confirm('".addslashes_js($strconfirmstartattempt)."')) ";
                 }
-?> window.open(\'<?php echo $attempturl ?>\', \'<?php echo $window ?>\', \'<?php echo $windowoptions ?>\'); " />');
-//]]>
-</script>
+                echo "window.open('$attempturl','$window','$windowoptions');", '" />';
+            } else {
+                print_single_button("attempt.php", array('id'=>$cm->id), $buttontext, 'get', '', false, '', false, $strconfirmstartattempt);
+            }
+
+
+?>
 <noscript>
 <div>
     <?php print_heading(get_string('noscript', 'quiz')); ?>
 </div>
 </noscript>
 <?php
-            }
-
-            echo "</div>\n";
-        } else {
-            print_continue($CFG->wwwroot . '/course/view.php?id=' . $course->id);
         }
+
+        echo "</div>\n";
+    } else {
+        print_continue($CFG->wwwroot . '/course/view.php?id=' . $course->id);
     }
 
     // Should we not be seeing if we need to print right-hand-side blocks?
 
-    // Finish the page.
-    echo '</td></tr></table>';
-    print_footer($course);
+    finish_page($course);
 
 // Utility functions =================================================================
 
-function quiz_review_allowed($quiz) {
-    return true;
+function finish_page($course) {
+    global $THEME;
+    print_container_end();
+    echo '</td></tr></table>';
+    print_footer($course);
+    exit;
 }
 
 /** Make some text into a link to review the quiz, if that is appropriate. */
@@ -425,13 +460,13 @@ function make_review_link($linktext, $quiz, $attempt) {
     }
 
     // If the quiz is still open, are reviews allowed?
-    if ((!$quiz->timeclose or time() < $quiz->timeclose) and !($quiz->review & QUIZ_REVIEW_OPEN)) {
+    if ((!$quiz->timeclose or time() < $quiz->timeclose) and !($quiz->review & QUIZ_REVIEW_OPEN & QUIZ_REVIEW_RESPONSES)) {
         // If not, don't link.
         return $linktext;
     }
 
     // If the quiz is closed, are reviews allowed?
-    if (($quiz->timeclose and time() > $quiz->timeclose) and !($quiz->review & QUIZ_REVIEW_CLOSED)) {
+    if (($quiz->timeclose and time() > $quiz->timeclose) and !($quiz->review & QUIZ_REVIEW_CLOSED & QUIZ_REVIEW_RESPONSES)) {
         // If not, don't link.
         return $linktext;
     }

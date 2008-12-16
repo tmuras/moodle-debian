@@ -1,4 +1,4 @@
-<?php // $Id: postgres7.class.php,v 1.28.2.3 2007/05/24 15:18:26 sam_marshall Exp $
+<?php // $Id: postgres7.class.php,v 1.36 2007/10/10 05:25:28 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -305,6 +305,15 @@ class XMLDBpostgres7 extends XMLDBgenerator {
             $notnullchanged = false;
         }
 
+    /// TODO: Some combinations like
+    /// TODO: integer->integer
+    /// TODO: integer->text
+    /// TODO: number->text
+    /// TODO: text->text
+    /// TODO: do not require the use of temp columns, because PG 8.0 supports them automatically
+    /// TODO: with a simple "alter table zzz alter column yyy type new specs"
+    /// TODO: Must be implemented that way. Eloy 09/2007
+
     /// If the type or the precision or the decimals have changed, then we need to:
     ///     - create one temp column with the new specs
     ///     - fill the new column with the values from the old one (casting if needed)
@@ -391,14 +400,21 @@ class XMLDBpostgres7 extends XMLDBgenerator {
                      ' ADD ' . $this->getEnumExtraSQL($xmldb_table, $xmldb_field));
     }
 
-    /**     
+    /**
      * Given one XMLDBTable and one XMLDBField, return the SQL statements needded to drop its enum 
      * (usually invoked from getModifyEnumSQL()
      */
     function getDropEnumSQL($xmldb_table, $xmldb_field) {
-    /// All we have to do is to drop the check constraint
-        return array('ALTER TABLE ' . $this->getTableName($xmldb_table) .
-                     ' DROP CONSTRAINT ' . $this->getNameForObject($xmldb_table->getName(), $xmldb_field->getName(), 'ck'));
+    /// Let's introspect to know the real name of the check constraint
+        if ($check_constraints = $this->getCheckConstraintsFromDB($xmldb_table, $xmldb_field)) {
+            $check_constraint = array_shift($check_constraints); /// Get the 1st (should be only one)
+            $constraint_name = strtolower($check_constraint->name); /// Extract the REAL name
+        /// All we have to do is to drop the check constraint
+            return array('ALTER TABLE ' . $this->getTableName($xmldb_table) .
+                     ' DROP CONSTRAINT ' . $constraint_name);
+        } else { /// Constraint not found. Nothing to do
+            return array();
+        }
     }
 
     /**
@@ -422,12 +438,14 @@ class XMLDBpostgres7 extends XMLDBgenerator {
     }
 
     /**
-     * Given one XMLDBTable returns one array with all the check constrainsts 
+     * Given one XMLDBTable returns one array with all the check constrainsts
      * in the table (fetched from DB)
+     * Optionally the function allows one xmldb_field to be specified in
+     * order to return only the check constraints belonging to one field.
      * Each element contains the name of the constraint and its description
      * If no check constraints are found, returns an empty array
      */
-    function getCheckConstraintsFromDB($xmldb_table) {
+    function getCheckConstraintsFromDB($xmldb_table, $xmldb_field = null) {
 
         $results = array();
 
@@ -442,6 +460,26 @@ class XMLDBpostgres7 extends XMLDBgenerator {
             foreach ($constraints as $constraint) {
                 $results[$constraint->name] = $constraint;
             }
+        }
+
+    /// Filter by the required field if specified
+        if ($xmldb_field) {
+            $filtered_results = array();
+            $filter = $xmldb_field->getName();
+        /// Lets clean a bit each constraint description, looking for the filtered field
+            foreach ($results as $key => $result) {
+                $description = preg_replace('/\("(.*?)"\)/', '($1)', $result->description);// Double quotes out
+                $description = preg_replace('/[\(\)]/', '', $description);                 // Parenthesis out
+                $description = preg_replace('/::[a-z]+/i', '', $description);              // Casts out
+                $description = preg_replace("/({$filter})/i", '@$1@', $description);
+                $description = trim(preg_replace('/ or /i', ' OR ', $description));        // Uppercase or & trim
+            /// description starts by @$filter@ assume it's a constraint beloging to the field
+                if (preg_match("/^@{$filter}@/i", $description)) {
+                    $filtered_results[$key] = $result;
+                }
+            }
+        /// Assign filtered results to the final results array
+            $results =  $filtered_results;
         }
 
         return $results;

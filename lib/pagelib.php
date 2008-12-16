@@ -1,4 +1,4 @@
-<?php //$Id: pagelib.php,v 1.52.2.1 2007/02/24 23:31:22 defacer Exp $
+<?php //$Id: pagelib.php,v 1.62.2.8 2008/01/25 08:34:37 scyrma Exp $
 
 /**
  * This file contains the parent class for moodle pages, page_base, 
@@ -7,7 +7,7 @@
  * (courseid, blogid, activity id, etc).
  *
  * @author Jon Papaioannou
- * @version  $Id: pagelib.php,v 1.52.2.1 2007/02/24 23:31:22 defacer Exp $
+ * @version  $Id: pagelib.php,v 1.62.2.8 2008/01/25 08:34:37 scyrma Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package pages
  */
@@ -64,7 +64,7 @@ function page_create_object($type, $id = NULL) {
 
     $classname = page_map_class($type);
 
-    $object = &new $classname;
+    $object = new $classname;
     // TODO: subclassing check here
 
     if ($object->get_type() !== $type) {
@@ -156,10 +156,6 @@ class page_base {
         $this->construct();
     }
 
-    function __construct() {
-        $this->construct();
-    }
-
     function construct() {
         page_id_and_class($this->body_id, $this->body_class);
     }
@@ -181,7 +177,7 @@ class page_base {
     // HTML OUTPUT SECTION
 
     // We have absolutely no idea what derived pages are all about
-    function print_header($title, $morebreadcrumbs) {
+    function print_header($title, $morenavlinks=NULL) {
         trigger_error('Page class does not implement method <strong>print_header()</strong>', E_USER_WARNING);
         return;
     }
@@ -328,16 +324,30 @@ class page_course extends page_base {
     // in init_quick() and instead deferred here. Of course this function had better recognize
     // $this->full_init_done to prevent wasteful multiple-time data retrieval.
     function init_full() {
+        global $COURSE;
         if($this->full_init_done) {
             return;
         }
         if (empty($this->id)) {
             $this->id = 0; // avoid db errors
         }
-        $this->courserecord = get_record('course', 'id', $this->id);
+        if ($this->id == $COURSE->id) {
+            $this->courserecord = $COURSE;
+        } else {
+            $this->courserecord = get_record('course', 'id', $this->id);
+        }
+
         if(empty($this->courserecord) && !defined('ADMIN_STICKYBLOCKS')) {
             error('Cannot fully initialize page: invalid course id '. $this->id);
         }
+
+        $this->context = get_context_instance(CONTEXT_COURSE, $this->id);
+
+        // Preload - ensures that the context cache is populated
+        // in one DB query...
+        $this->childcontexts = get_child_contexts($this->context);
+
+        // Mark we're done
         $this->full_init_done = true;
     }
 
@@ -345,12 +355,41 @@ class page_course extends page_base {
 
     // Can user edit the course page or "sticky page"?
     // This is also about editting of blocks BUT mainly activities in course page layout, see
-    // update_course_icon() - it must use the same capability
+    // update_course_icon() has very similar checks - it must use the same capabilities
+    //
+    // this is a _very_ expensive check - so cache it during execution
+    //
     function user_allowed_editing() {
-        if (has_capability('moodle/site:manageblocks', get_context_instance(CONTEXT_SYSTEM)) && defined('ADMIN_STICKYBLOCKS')) {
+
+        $this->init_full();
+
+        if (isset($this->_user_allowed_editing)) {
+            return $this->_user_allowed_editing;
+        }
+
+        if (has_capability('moodle/site:manageblocks', get_context_instance(CONTEXT_SYSTEM))
+            && defined('ADMIN_STICKYBLOCKS')) {
+            $this->_user_allowed_editing = true;
             return true;
         }
-        return has_capability('moodle/course:manageactivities', get_context_instance(CONTEXT_COURSE, $this->id));
+        if (has_capability('moodle/course:manageactivities', $this->context)) {
+            $this->_user_allowed_editing = true;
+            return true;
+        }
+
+        // Exhaustive (and expensive!) checks to see if the user
+        // has editing abilities to a specific module/block/group...
+        // This code would benefit from the ability to check specifically
+        // for overrides.
+        foreach ($this->childcontexts as $cc) {
+            if (($cc->contextlevel == CONTEXT_MODULE &&
+                 has_capability('moodle/course:manageactivities', $cc)) ||
+                ($cc->contextlevel == CONTEXT_BLOCK &&
+                 has_capability('moodle/site:manageblocks', $cc))) {
+                $this->_user_allowed_editing = true;
+                return true;
+            }
+        }
     }
 
     // Is the user actually editing this course page or "sticky page" right now?
@@ -366,7 +405,7 @@ class page_course extends page_base {
 
     // This function prints out the common part of the page's header.
     // You should NEVER print the header "by hand" in other code.
-    function print_header($title, $morebreadcrumbs=NULL, $meta='', $bodytags='') {
+    function print_header($title, $morenavlinks=NULL, $meta='', $bodytags='', $extrabuttons='') {
         global $USER, $CFG;
 
         $this->init_full();
@@ -376,39 +415,30 @@ class page_course extends page_base {
         foreach($replacements as $search => $replace) {
             $title = str_replace($search, $replace, $title);
         }
-
-        if($this->courserecord->id == SITEID) {
-            $breadcrumbs = array();
-        }
-        else {
-            $breadcrumbs = array($this->courserecord->shortname => $CFG->wwwroot.'/course/view.php?id='.$this->courserecord->id);
-        }
-
-        if(!empty($morebreadcrumbs)) {
-            $breadcrumbs = array_merge($breadcrumbs, $morebreadcrumbs);
+    
+        $navlinks = array();
+        
+        if(!empty($morenavlinks)) {
+            $navlinks = array_merge($navlinks, $morenavlinks);
         }
 
-        $total     = count($breadcrumbs);
-        $current   = 1;
-        $crumbtext = '';
-        foreach($breadcrumbs as $text => $href) {
-            if($current++ == $total) {
-                $crumbtext .= ' '.$text;
-            }
-            else {
-                $crumbtext .= ' <a href="'.$href.'">'.$text.'</a> ->';
-            }
-        }
+        $navigation = build_navigation($navlinks);
 
         // The "Editing On" button will be appearing only in the "main" course screen
         // (i.e., no breadcrumbs other than the default one added inside this function)
-        $buttons = switchroles_form($this->courserecord->id) . update_course_icon($this->courserecord->id );
-        $buttons = empty($morebreadcrumbs) ? $buttons : '&nbsp;';
+        $buttons = switchroles_form($this->courserecord->id);
+        if ($this->user_allowed_editing()) {
+            $buttons .= update_course_icon($this->courserecord->id );
+        }
+        $buttons = empty($morenavlinks) ? $buttons : '&nbsp;';
 
-        print_header($title, $this->courserecord->fullname, $crumbtext,
+        // Add any extra buttons requested (by the resource module, for example)
+        if ($extrabuttons != '') {
+            $buttons = ($buttons == '&nbsp;') ? $extrabuttons : $buttons.$extrabuttons;
+        }
+
+        print_header($title, $this->courserecord->fullname, $navigation,
                      '', $meta, true, $buttons, user_login_string($this->courserecord, $USER), false, $bodytags);
-
-        echo '<div class="accesshide"><a href="#startofcontent">'.get_string('skiptomaincontent').'</a></div>';
     }
 
     // SELF-REPORTING SECTION
@@ -560,9 +590,7 @@ class page_generic_activity extends page_base {
         if(empty($this->activityname)) {
             error('Page object derived from page_generic_activity but did not define $this->activityname');
         }
-        $module = get_record('modules', 'name', $this->activityname);
-        $this->modulerecord = get_record('course_modules', 'module', $module->id, 'instance', $this->id);
-        if(empty($this->modulerecord)) {
+        if (!$this->modulerecord = get_coursemodule_from_instance($this->activityname, $this->id)) {
             error('Cannot fully initialize page: invalid '.$this->activityname.' instance id '. $this->id);
         }
         $this->courserecord = get_record('course', 'id', $this->modulerecord->course);
@@ -570,7 +598,7 @@ class page_generic_activity extends page_base {
             error('Cannot fully initialize page: invalid course id '. $this->modulerecord->course);
         }
         $this->activityrecord = get_record($this->activityname, 'id', $this->id);
-        if(empty($this->courserecord)) {
+        if(empty($this->activityrecord)) {
             error('Cannot fully initialize page: invalid '.$this->activityname.' id '. $this->id);
         }
         $this->full_init_done = true;
@@ -578,7 +606,9 @@ class page_generic_activity extends page_base {
 
     function user_allowed_editing() {
         $this->init_full();
-        return has_capability('moodle/site:manageblocks', get_context_instance(CONTEXT_COURSE, $this->modulerecord->course));
+        // Yu: I think this is wrong, should be checking manageactivities instead
+        //return has_capability('moodle/site:manageblocks', get_context_instance(CONTEXT_COURSE, $this->modulerecord->course));
+        return has_capability('moodle/course:manageactivities', get_context_instance(CONTEXT_MODULE, $this->modulerecord->id));         
     }
 
     function user_is_editing() {
@@ -603,6 +633,38 @@ class page_generic_activity extends page_base {
     function blocks_default_position() {
         return BLOCK_POS_LEFT;
     }
+    
+    function print_header($title, $morenavlinks = NULL, $bodytags = '', $meta = '') {
+        global $USER, $CFG;
+    
+        $this->init_full();
+        $replacements = array(
+            '%fullname%' => format_string($this->activityrecord->name)
+        );
+        foreach ($replacements as $search => $replace) {
+            $title = str_replace($search, $replace, $title);
+        }
+    
+        if (empty($morenavlinks) && $this->user_allowed_editing()) {
+            $buttons = '<table><tr><td>'.update_module_button($this->modulerecord->id, $this->courserecord->id, get_string('modulename', $this->activityname)).'</td>';
+            if (!empty($CFG->showblocksonmodpages)) {
+                $buttons .= '<td><form '.$CFG->frametarget.' method="get" action="view.php"><div>'.
+                    '<input type="hidden" name="id" value="'.$this->modulerecord->id.'" />'.
+                    '<input type="hidden" name="edit" value="'.($this->user_is_editing()?'off':'on').'" />'.
+                    '<input type="submit" value="'.get_string($this->user_is_editing()?'blockseditoff':'blocksediton').'" /></div></form></td>';
+            }
+            $buttons .= '</tr></table>';
+        } else {
+            $buttons = '&nbsp;';
+        }
+        
+        if (empty($morenavlinks)) {
+            $morenavlinks = array();
+        }
+        $navigation = build_navigation($morenavlinks, $this->modulerecord);
+        print_header($title, $this->courserecord->fullname, $navigation, '', $meta, true, $buttons, navmenu($this->courserecord, $this->modulerecord), false, $bodytags);
+    }
+    
 }
 
 ?>

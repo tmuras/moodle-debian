@@ -1,4 +1,4 @@
-<?php // $Id: editsection.php,v 1.24 2006/10/17 12:41:55 thepurpleblob Exp $
+<?php // $Id: editsection.php,v 1.25 2007/08/17 19:09:11 nicolasconnault Exp $
       // Edit the introduction of a section
 
     require_once("../config.php");
@@ -29,7 +29,7 @@
         }
 
         add_to_log($course->id, "course", "editsection", "editsection.php?id=$section->id", "$section->section");
-        
+
         redirect("view.php?id=$course->id");
         exit;
     }
@@ -57,14 +57,14 @@
         $strsummaryof = get_string('summaryof', '', " $sectionname $form->section");
     }
 
-    print_header_simple($stredit, '', $stredit, 'theform.summary' );
+    print_header_simple($stredit, '', build_navigation(array(array('name' => $stredit, 'link' => null, 'type' => 'misc'))), 'theform.summary' );
 
     print_heading($strsummaryof);
     print_simple_box_start('center');
     include('editsection.html');
     print_simple_box_end();
 
-    if ($usehtmleditor) { 
+    if ($usehtmleditor) {
         use_html_editor("summary");
     }
     print_footer($course);

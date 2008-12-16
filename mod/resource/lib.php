@@ -1,69 +1,13 @@
-<?php  // $Id: lib.php,v 1.63.2.2 2007/06/04 22:23:01 poltawski Exp $
-
-if (!isset($CFG->resource_framesize)) {
-    set_config("resource_framesize", 130);
-}
-
-if (!isset($CFG->resource_websearch)) {
-    set_config("resource_websearch", "http://google.com/");
-}
-
-if (!isset($CFG->resource_defaulturl)) {
-    set_config("resource_defaulturl", "http://");
-}
-
-if (!isset($CFG->resource_filterexternalpages)) {
-    set_config("resource_filterexternalpages", false);
-}
-
-if (!isset($CFG->resource_secretphrase)) {
-    set_config("resource_secretphrase", random_string(20));
-}
-
-if (!isset($CFG->resource_popup)) {
-    set_config("resource_popup", "");
-}
-
-if (!isset($CFG->resource_windowsettings)) {
-    set_config("resource_windowsettings", "0");
-}
-
-if (!isset($CFG->resource_parametersettings)) {
-    set_config("resource_parametersettings", "0");
-}
-
-if (!isset($CFG->resource_allowlocalfiles)) {
-    set_config("resource_allowlocalfiles", "0");
-}
-
-if (!isset($CFG->resource_hide_repository)) {
-    set_config("resource_hide_repository", "1");
-}
-
-if (!isset($CFG->resource_autofilerename)) {
-    set_config("resource_autofilerename", "1");
-}
-
-if (!isset($CFG->resource_blockdeletingfile)) {
-    set_config("resource_blockdeletingfile", "1");
-}
+<?php  // $Id: lib.php,v 1.70.2.12 2008/07/24 21:58:06 skodak Exp $
 
 define('RESOURCE_LOCALPATH', 'LOCALPATH');
 
+global $RESOURCE_WINDOW_OPTIONS; // must be global because it might be included from a function!
 $RESOURCE_WINDOW_OPTIONS = array('resizable', 'scrollbars', 'directories', 'location',
                                  'menubar', 'toolbar', 'status', 'width', 'height');
 
-foreach ($RESOURCE_WINDOW_OPTIONS as $popupoption) {
-    $popupoption = "resource_popup$popupoption";
-    if (!isset($CFG->$popupoption)) {
-        if ($popupoption == 'resource_popupheight') {
-            set_config($popupoption, 450);
-        } else if ($popupoption == 'resource_popupwidth') {
-            set_config($popupoption, 620);
-        } else {
-            set_config($popupoption, 'checked');
-        }
-    }
+if (!isset($CFG->resource_hide_repository)) {
+    set_config("resource_hide_repository", "1");
 }
 
 /**
@@ -74,183 +18,237 @@ foreach ($RESOURCE_WINDOW_OPTIONS as $popupoption) {
 
 class resource_base {
 
-var $cm;
-var $course;
-var $resource;
+    var $cm;
+    var $course;
+    var $resource;
+    var $navlinks;
 
+    /**
+    * Constructor for the base resource class
+    *
+    * Constructor for the base resource class.
+    * If cmid is set create the cm, course, resource objects.
+    * and do some checks to make sure people can be here, and so on.
+    *
+    * @param cmid   integer, the current course module id - not set for new resources
+    */
+    function resource_base($cmid=0) {
 
-/**
-* Constructor for the base resource class
-*
-* Constructor for the base resource class.
-* If cmid is set create the cm, course, resource objects.
-* and do some checks to make sure people can be here, and so on.
-*
-* @param cmid   integer, the current course module id - not set for new resources
-*/
-function resource_base($cmid=0) {
+        global $CFG, $COURSE;
+        $this->navlinks = array();
 
-    global $CFG, $COURSE;
+        if ($cmid) {
+            if (! $this->cm = get_coursemodule_from_id('resource', $cmid)) {
+                error("Course Module ID was incorrect");
+            }
 
-    if ($cmid) {
-        if (! $this->cm = get_coursemodule_from_id('resource', $cmid)) {
-            error("Course Module ID was incorrect");
-        }
+            if (! $this->course = get_record("course", "id", $this->cm->course)) {
+                error("Course is misconfigured");
+            }
 
-        if (! $this->course = get_record("course", "id", $this->cm->course)) {
-            error("Course is misconfigured");
-        }
+            if (! $this->resource = get_record("resource", "id", $this->cm->instance)) {
+                error("Resource ID was incorrect");
+            }
 
-        if (! $this->resource = get_record("resource", "id", $this->cm->instance)) {
-            error("Resource ID was incorrect");
-        }
+            $this->strresource  = get_string("modulename", "resource");
+            $this->strresources = get_string("modulenameplural", "resource");
 
-        $this->strresource  = get_string("modulename", "resource");
-        $this->strresources = get_string("modulenameplural", "resource");
+            if (!$this->cm->visible and !has_capability('moodle/course:viewhiddenactivities', get_context_instance(CONTEXT_MODULE, $this->cm->id))) {
+                $pagetitle = strip_tags($this->course->shortname.': '.$this->strresource);
+                $navigation = build_navigation($this->navlinks, $this->cm);
 
-        if ($this->course->id != SITEID) {
-            $this->navigation = "<a $CFG->frametarget onclick=\"this.target='$CFG->framename'\" href=\"$CFG->wwwroot/course/view.php?id={$this->course->id}\">{$this->course->shortname}</a> -> ".
-                                "<a $CFG->frametarget onclick=\"this.target='$CFG->framename'\" href=\"index.php?id={$this->course->id}\">$this->strresources</a> ->";
+                print_header($pagetitle, $this->course->fullname, $navigation, "", "", true, '', navmenu($this->course, $this->cm));
+                notice(get_string("activityiscurrentlyhidden"), "$CFG->wwwroot/course/view.php?id={$this->course->id}");
+            }
+
         } else {
-            $this->navigation = "<a $CFG->frametarget onclick=\"this.target='$CFG->framename'\" href=\"index.php?id={$this->course->id}\">$this->strresources</a> ->";
+            $this->course = $COURSE;
+        }
+    }
+
+
+    /**
+    * Display function does nothing in the base class
+    */
+    function display() {
+
+    }
+
+
+    /**
+    * Display the resource with the course blocks.
+    */
+    function display_course_blocks_start() {
+
+        global $CFG;
+        global $USER;
+        global $THEME;
+
+        require_once($CFG->libdir.'/blocklib.php');
+        require_once($CFG->libdir.'/pagelib.php');
+        require_once($CFG->dirroot.'/course/lib.php'); //required by some blocks
+
+        $PAGE = page_create_object(PAGE_COURSE_VIEW, $this->course->id);
+        $this->PAGE = $PAGE;
+        $pageblocks = blocks_setup($PAGE);
+
+        $blocks_preferred_width = bounded_number(180, blocks_preferred_width($pageblocks[BLOCK_POS_LEFT]), 210);
+
+    /// Print the page header
+
+        $edit = optional_param('edit', -1, PARAM_BOOL);
+
+        if (($edit != -1) and $PAGE->user_allowed_editing()) {
+            $USER->editing = $edit;
         }
 
-        if (!$this->cm->visible and !has_capability('moodle/course:viewhiddenactivities', get_context_instance(CONTEXT_MODULE, $this->cm->id))) {
-            $pagetitle = strip_tags($this->course->shortname.': '.$this->strresource);
-            print_header($pagetitle, $this->course->fullname, "$this->navigation $this->strresource", "", "", true, '', navmenu($this->course, $this->cm));
-            notice(get_string("activityiscurrentlyhidden"), "$CFG->wwwroot/course/view.php?id={$this->course->id}");
+        $morenavlinks = array($this->strresources   => 'index.php?id='.$this->course->id,
+                                 $this->resource->name => '');
+
+        $PAGE->print_header($this->course->shortname.': %fullname%', $morenavlinks, "", "", 
+                            update_module_button($this->cm->id, $this->course->id, $this->strresource));
+
+        echo '<table id="layout-table"><tr>';
+    
+        $lt = (empty($THEME->layouttable)) ? array('left', 'middle', 'right') : $THEME->layouttable;
+        foreach ($lt as $column) {
+            $lt1[] = $column;
+            if ($column == 'middle') break;
         }
-    } else {
-        $this->course = $COURSE;
-    }
-}
+        foreach ($lt1 as $column) {
+            switch ($column) {
+                case 'left':
+                    if((blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $PAGE->user_is_editing())) {
+                        echo '<td style="width: '.$blocks_preferred_width.'px;" id="left-column">';
+                        print_container_start();
+                        blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
+                        print_container_end();
+                        echo '</td>';
+                    }
+                break;
 
+                case 'middle':
+                    echo '<td id="middle-column">';
+                    print_container_start(false, 'middle-column-wrap');
+                    echo '<div id="resource">';
+                break;
 
-/**
-* Display function does nothing in the base class
-*/
-function display() {
-
-}
-
-
-/**
-* Display the resource with the course blocks.
-*/
-function display_course_blocks_start() {
-
-    global $CFG;
-    global $USER;
-
-    require_once($CFG->libdir.'/blocklib.php');
-    require_once($CFG->libdir.'/pagelib.php');
-    require_once($CFG->dirroot.'/course/lib.php'); //required by some blocks
-
-    $PAGE = page_create_object(PAGE_COURSE_VIEW, $this->course->id);
-    $this->PAGE = $PAGE;
-    $pageblocks = blocks_setup($PAGE);
-
-    $blocks_preferred_width = bounded_number(180, blocks_preferred_width($pageblocks[BLOCK_POS_LEFT]), 210);
-
-/// Print the page header
-
-    $edit = optional_param('edit', -1, PARAM_BOOL);
-
-    if (($edit != -1) and $PAGE->user_allowed_editing()) {
-        $USER->editing = $edit;
+                case 'right':
+                    if((blocks_have_content($pageblocks, BLOCK_POS_RIGHT) || $PAGE->user_is_editing())) {
+                        echo '<td style="width: '.$blocks_preferred_width.'px;" id="right-column">';
+                        print_container_start();
+                        blocks_print_group($PAGE, $pageblocks, BLOCK_POS_RIGHT);
+                        print_container_end();
+                        echo '</td>';
+                    }
+                break;
+            }
+        }
     }
 
-    $morebreadcrumbs = array($this->strresources   => 'index.php?id='.$this->course->id,
-                             $this->resource->name => '');
 
-    $PAGE->print_header($this->course->shortname.': %fullname%', $morebreadcrumbs);
+    /**
+     * Finish displaying the resource with the course blocks
+     */
+    function display_course_blocks_end() {
 
-    echo '<table id="layout-table"><tr>';
+        global $CFG;
+        global $THEME;
 
-    if((blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $PAGE->user_is_editing())) {
-        echo '<td style="width: '.$blocks_preferred_width.'px;" id="left-column">';
-        blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
-        echo '</td>';
+        $PAGE = $this->PAGE;
+        $pageblocks = blocks_setup($PAGE);
+        $blocks_preferred_width = bounded_number(180, blocks_preferred_width($pageblocks[BLOCK_POS_RIGHT]), 210);
+    
+        $lt = (empty($THEME->layouttable)) ? array('left', 'middle', 'right') : $THEME->layouttable;
+        foreach ($lt as $column) {
+            if ($column != 'middle') {
+                array_shift($lt);
+            } else if ($column == 'middle') {
+                break;
+            }
+        }
+        foreach ($lt as $column) {
+            switch ($column) {
+                case 'left':
+                    if((blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $PAGE->user_is_editing())) {
+                        echo '<td style="width: '.$blocks_preferred_width.'px;" id="left-column">';
+                        print_container_start();
+                        blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
+                        print_container_end();
+                        echo '</td>';
+                    }
+                break;
+
+                case 'middle':
+                    echo '</div>';
+                    print_container_end();
+                    echo '</td>';
+                break;
+
+                case 'right':
+                    if((blocks_have_content($pageblocks, BLOCK_POS_RIGHT) || $PAGE->user_is_editing())) {
+                        echo '<td style="width: '.$blocks_preferred_width.'px;" id="right-column">';
+                        print_container_start();
+                        blocks_print_group($PAGE, $pageblocks, BLOCK_POS_RIGHT);
+                        print_container_end();
+                        echo '</td>';
+                    }
+                break;
+            }
+        }
+
+        echo '</tr></table>';
+
+        print_footer($this->course);
+
     }
 
-    echo '<td id="middle-column">';
-    echo '<div id="resource">';
 
-}
+    function add_instance($resource) {
+    // Given an object containing all the necessary data,
+    // (defined by the form in mod.html) this function
+    // will create a new instance and return the id number
+    // of the new instance.
 
+        $resource->timemodified = time();
 
-/**
- * Finish displaying the resource with the course blocks
- */
-function display_course_blocks_end() {
-
-    global $CFG;
-
-    $PAGE = $this->PAGE;
-    $pageblocks = blocks_setup($PAGE);
-    $blocks_preferred_width = bounded_number(180, blocks_preferred_width($pageblocks[BLOCK_POS_RIGHT]), 210);
-
-    echo '</div>';
-    echo '</td>';
-
-    if((blocks_have_content($pageblocks, BLOCK_POS_RIGHT) || $PAGE->user_is_editing())) {
-        echo '<td style="width: '.$blocks_preferred_width.'px;" id="right-column">';
-        blocks_print_group($PAGE, $pageblocks, BLOCK_POS_RIGHT);
-        echo '</td>';
+        return insert_record("resource", $resource);
     }
 
-    echo '</tr></table>';
 
-    print_footer($this->course);
+    function update_instance($resource) {
+    // Given an object containing all the necessary data,
+    // (defined by the form in mod.html) this function
+    // will update an existing instance with new data.
 
-}
+        $resource->id = $resource->instance;
+        $resource->timemodified = time();
 
-
-function add_instance($resource) {
-// Given an object containing all the necessary data,
-// (defined by the form in mod.html) this function
-// will create a new instance and return the id number
-// of the new instance.
-
-    $resource->timemodified = time();
-
-    return insert_record("resource", $resource);
-}
-
-
-function update_instance($resource) {
-// Given an object containing all the necessary data,
-// (defined by the form in mod.html) this function
-// will update an existing instance with new data.
-
-    $resource->id = $resource->instance;
-    $resource->timemodified = time();
-
-    return update_record("resource", $resource);
-}
-
-
-function delete_instance($resource) {
-// Given an object containing the resource data
-// this function will permanently delete the instance
-// and any data that depends on it.
-
-    $result = true;
-
-    if (! delete_records("resource", "id", "$resource->id")) {
-        $result = false;
+        return update_record("resource", $resource);
     }
 
-    return $result;
-}
 
-function setup_elements(&$mform) {
-    //override to add your own options
-}
+    function delete_instance($resource) {
+    // Given an object containing the resource data
+    // this function will permanently delete the instance
+    // and any data that depends on it.
 
-function setup_preprocessing(&$default_values){
-    //override to add your own options
-}
+        $result = true;
+
+        if (! delete_records("resource", "id", "$resource->id")) {
+            $result = false;
+        }
+
+        return $result;
+    }
+
+    function setup_elements(&$mform) {
+        //override to add your own options
+    }
+
+    function setup_preprocessing(&$default_values){
+        //override to add your own options
+    }
 
 } /// end of class definition
 
@@ -351,7 +349,9 @@ function resource_get_coursemodule_info($coursemodule) {
 
    $info = NULL;
 
-   if ($resource = get_record("resource", "id", $coursemodule->instance)) {
+   if ($resource = get_record("resource", "id", $coursemodule->instance, '', '', '', '', 'id, popup, reference, type, name')) {
+       $info = new object();
+       $info->name = $resource->name;
        if (!empty($resource->popup)) {
            $info->extra =  urlencode("onclick=\"this.target='resource$resource->id'; return ".
                             "openpopup('/mod/resource/view.php?inpopup=true&amp;id=".
@@ -533,6 +533,7 @@ function resource_get_types() {
     foreach ($standardresources as $resourcetype) {
         $type = new object();
         $type->modclass = MOD_CLASS_RESOURCE;
+        $type->name = $resourcetype;
         $type->type = "resource&amp;type=$resourcetype";
         $type->typestr = get_string("resourcetype$resourcetype", 'resource');
         $types[] = $type;
@@ -547,6 +548,7 @@ function resource_get_types() {
         if (!in_array($resourcetype, $standardresources)) {
             $type = new object();
             $type->modclass = MOD_CLASS_RESOURCE;
+            $type->name = $resourcetype;
             $type->type = "resource&amp;type=$resourcetype";
             $type->typestr = get_string("resourcetype$resourcetype", 'resource');
             $types[] = $type;
@@ -662,6 +664,22 @@ function resource_delete_warning($course, $files) {
     } else {
         return false;
     }
+}
+
+/**
+ * This function is used by the reset_course_userdata function in moodlelib.
+ * @param $data the data submitted from the reset course.
+ * @return array status array
+ */
+function resource_reset_userdata($data) {
+    return array();
+}
+
+/**
+ * Returns all other caps used in module
+ */
+function resource_get_extra_capabilities() {
+    return array('moodle/site:accessallgroups');
 }
 
 ?>

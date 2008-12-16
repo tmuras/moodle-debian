@@ -8,13 +8,19 @@ class mod_scorm_mod_form extends moodleform_mod {
 
         global $CFG, $COURSE, $SCORM_GRADE_METHOD, $SCORM_WHAT_GRADE;
         $mform    =& $this->_form;
-
+        if (isset($CFG->slasharguments) && !$CFG->slasharguments) {
+            $mform->addElement('static', '', '',notify(get_string('slashargs', 'scorm'), 'notifyproblem', 'center', true));
+        }
 //-------------------------------------------------------------------------------
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
 // Name
         $mform->addElement('text', 'name', get_string('name'));
-        $mform->setType('name', PARAM_TEXT);
+        if (!empty($CFG->formatstringstriptags)) {
+            $mform->setType('name', PARAM_TEXT);
+        } else {
+            $mform->setType('name', PARAM_CLEAN);
+        }
         $mform->addRule('name', null, 'required', null, 'client');
 
 // Summary
@@ -24,9 +30,9 @@ class mod_scorm_mod_form extends moodleform_mod {
         $mform->setHelpButton('summary', array('writing', 'questions', 'richtext'), false, 'editorhelpbutton');
 
 // Reference
-        $mform->addElement('choosecoursefile', 'reference', get_string('package','scorm'));
+        $mform->addElement('choosecoursefileorimsrepo', 'reference', get_string('package','scorm'));
         $mform->setType('reference', PARAM_RAW);  // We need to find a better PARAM
-        $mform->addRule('reference', get_string('required'), 'required', null, 'client');
+        $mform->addRule('reference', get_string('required'), 'required');
         $mform->setHelpButton('reference',array('package', get_string('package', 'scorm'), 'scorm'));
 
 //-------------------------------------------------------------------------------
@@ -169,7 +175,7 @@ class mod_scorm_mod_form extends moodleform_mod {
 // Update packages timing
         $options = array();
         $options[0]=get_string('never');
-        $options[1]=get_string('onchanges','scorm');
+        // $options[1]=get_string('onchanges','scorm'); - nolonger required, but dont change the sequence
         $options[2]=get_string('everyday','scorm');
         $options[3]=get_string('everytime','scorm');
         $mform->addElement('select', 'updatefreq', get_string('updatefreq', 'scorm'), $options);
@@ -186,14 +192,18 @@ class mod_scorm_mod_form extends moodleform_mod {
 
 
 //-------------------------------------------------------------------------------
-        $this->standard_coursemodule_elements();
+        $features = new stdClass;
+        $features->groups = false;
+        $features->groupings = true;
+        $features->groupmembersonly = true;
+        $this->standard_coursemodule_elements($features);
 //-------------------------------------------------------------------------------
         // buttons
         $this->add_action_buttons();
 
     }
 
-    function defaults_preprocessing(&$default_values) {
+    function data_preprocessing(&$default_values) {
         global $COURSE;
 
         if (isset($default_values['popup']) && ($default_values['popup'] == 1) && isset($default_values['options'])) {
@@ -231,15 +241,33 @@ class mod_scorm_mod_form extends moodleform_mod {
         }
     }
 
-    function validation($data) {
+    function validation($data, $files) {
+        $errors = parent::validation($data, $files);
+
         $validate = scorm_validate($data);
 
-        if ($validate->result) {
-            return true;
-        } else {
-            return $validate->errors;
+        if (!$validate->result) {
+            $errors = $errors + $validate->errors;
         }
-    }
 
+        return $errors;
+    }
+    //need to translate the "options" field.
+    function set_data($default_values) {
+        if (is_object($default_values)) {
+            if (!empty($default_values->options)) {
+                $options = explode(',', $default_values->options);
+                foreach ($options as $option) {
+                    $opt = explode('=', $option);
+                    if (isset($opt[1])) {
+                        $default_values->$opt[0] = $opt[1];
+                    }
+                }
+            }
+            $default_values = (array)$default_values;
+        }
+        $this->data_preprocessing($default_values);
+        parent::set_data($default_values); //never slashed for moodleform_mod
+    }
 }
 ?>

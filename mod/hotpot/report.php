@@ -1,4 +1,4 @@
-<?PHP  // $Id: report.php,v 1.26.2.3 2007/05/15 18:27:11 skodak Exp $
+<?PHP  // $Id: report.php,v 1.38.2.11 2008/07/01 10:36:53 gbateson Exp $
 
 // This script uses installed report plugins to print quiz reports
 
@@ -14,7 +14,7 @@
         }
         if (! $course = get_record("course", "id", $cm->course)) {
             error("Course is misconfigured");
-        }    
+        }
         if (! $hotpot = get_record("hotpot", "id", $cm->instance)) {
             error("Course module is incorrect");
         }
@@ -32,13 +32,18 @@
     }
 
     // get the roles context for this course
-    $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+    $sitecontext = get_context_instance(CONTEXT_SYSTEM);
     $modulecontext = get_context_instance(CONTEXT_MODULE, $cm->id);
 
     // set homeurl of couse (for error messages)
     $course_homeurl = "$CFG->wwwroot/course/view.php?id=$course->id";
 
-    require_login($course->id);
+    require_login($course);
+
+    // check user can access this hotpot activity
+    if (!hotpot_is_visible($cm)) {
+        print_error("activityiscurrentlyhidden");
+    }
 
     // get report mode
     if (has_capability('mod/hotpot:viewreport',$modulecontext)) {
@@ -86,7 +91,7 @@
         $formdata['reportusers'] = 'group';
         $formdata['reportgroupid'] = 0;
         // validate groupid
-        if ($groups = groups_get_groups_names($course->id)) {
+        if ($groups = groups_get_all_groups($course->id)) {
             if (isset($groups[$matches[1]])) {
                 $formdata['reportgroupid'] = $matches[1];
             }
@@ -110,8 +115,8 @@
 
         case 'group':
             // group members
-            if ($memberids = groups_get_members($formdata['reportgroupid'])) { //TODO:check.
-                foreach ($memberids as $memberid) {
+            if ($members = groups_get_members($formdata['reportgroupid'])) {
+                foreach ($members as $memberid=>$unused) {
                     $users[$memberid] = 1; // "1" signifies currently recognized participant
                 }
             }
@@ -193,21 +198,30 @@
         $groupby = 'userid';
         $records = hotpot_get_records_groupby($function, $fieldnames, $table, $select, $groupby);
 
-        $ids = array();
-        foreach ($records as $record) {
-            $ids[] = $record->clickreportid;
+        $select = '';
+        if ($records) {
+            $ids = array();
+            foreach ($records as $record) {
+                $ids[] = $record->clickreportid;
+            }
+            if (count($ids)) {
+                $select = "a.clickreportid IN (".join(',', $ids).")";
+            }
         }
-        $select = "a.clickreportid IN (".join(',', $ids).")";
     }
 
     // pick out last attempt in each clickreport series
-    $cr_attempts = hotpot_get_records_groupby('MAX', array('timefinish', 'id'), $table, $select, 'clickreportid');
+    if ($select) {
+        $cr_attempts = hotpot_get_records_groupby('MAX', array('timefinish', 'id'), $table, $select, 'clickreportid');
+    } else {
+        $cr_attempts = array();
+    }
 
     $fields = 'a.*, u.firstname, u.lastname, u.picture';
     if ($mode=='click') {
         $fields .= ', u.idnumber';
-    } else { 
-        // overview, simple and detailed reports 
+    } else {
+        // overview, simple and detailed reports
         // get last attempt record in clickreport series
         $ids = array();
         foreach ($cr_attempts as $cr_attempt) {
@@ -366,10 +380,14 @@ function hotpot_delete_selected_attempts(&$hotpot, $del) {
             $select = "hotpot='$hotpot->id' AND status=".HOTPOT_STATUS_ABANDONED;
             break;
         case 'selection':
-            $ids = (array)data_submitted();
-            unset($ids['del']);
-            unset($ids['id']);
-            if (!empty($ids)) {
+            $ids = array();
+            $data = (array)data_submitted();
+            foreach ($data as $name => $value) {
+                if (preg_match('/^box\d+$/', $name)) {
+                    $ids[] = intval($value);
+                }
+            }
+            if (count($ids)) {
                 $select = "hotpot='$hotpot->id' AND clickreportid IN (".implode(',', $ids).")";
             }
             break;
@@ -377,7 +395,7 @@ function hotpot_delete_selected_attempts(&$hotpot, $del) {
 
     // delete attempts using $select, if it is set
     if ($select) {
-
+ 
         $table = 'hotpot_attempts';
         if ($attempts = get_records_select($table, $select)) {
 
@@ -386,24 +404,25 @@ function hotpot_delete_selected_attempts(&$hotpot, $del) {
             $select = 'attempt IN ('.implode(',', array_keys($attempts)).')';
             hotpot_delete_and_notify('hotpot_details', $select, get_string('rawdetails', 'hotpot'));
             hotpot_delete_and_notify('hotpot_responses', $select, get_string('answer', 'quiz'));
+
+            // update grades for all users for this hotpot
+            hotpot_update_grades($hotpot);
         }
     }
 
 }
 
 //////////////////////////////////////////////
-/// functions to print the report headings and 
+/// functions to print the report headings and
 /// report selector menus
 
 function hotpot_print_report_heading(&$course, &$cm, &$hotpot, &$mode) {
+    global $CFG;
     $strmodulenameplural = get_string("modulenameplural", "hotpot");
     $strmodulename  = get_string("modulename", "hotpot");
 
     $title = format_string($course->shortname) . ": $hotpot->name";
     $heading = $course->fullname;
-
-    $navigation = "<a href=index.php?id=$course->id>$strmodulenameplural</a> -> ";
-    $navigation .= "<a href=\"view.php?id=$cm->id\">$hotpot->name</a> -> ";
 
     $modulecontext = get_context_instance(CONTEXT_MODULE, $cm->id);
     if (has_capability('mod/hotpot:viewreport',$modulecontext)) {
@@ -412,18 +431,19 @@ function hotpot_print_report_heading(&$course, &$cm, &$hotpot, &$mode) {
         } else {
             $module = "hotpot";
         }
-        $navigation .= get_string("report$mode", $module);
 
+        $navigation = build_navigation(get_string("report$mode", $module), $cm);
     } else {
-        $navigation .= get_string("report", "quiz");
+        $navigation = build_navigation(get_string("report", "quiz"), $cm);
     }
-    if ($course->id != SITEID) {
-        $navigation = "<a href=\"../../course/view.php?id=$course->id\">$course->shortname</a> -> $navigation";
-    }
+
     $button = update_module_button($cm->id, $course->id, $strmodulename);
-
     print_header($title, $heading, $navigation, "", "", true, $button, navmenu($course, $cm));
-
+    $course_context = get_context_instance(CONTEXT_COURSE, $course->id);
+    if (has_capability('gradereport/grader:view', $course_context) && has_capability('moodle/grade:viewall', $course_context)) {
+        echo '<div class="allcoursegrades"><a href="' . $CFG->wwwroot . '/grade/report/grader/index.php?id=' . $course->id . '">'
+            . get_string('seeallcoursegrades', 'grades') . '</a></div>';
+    }
     print_heading($hotpot->name);
 }
 function hotpot_print_report_selector(&$course, &$hotpot, &$formdata) {
@@ -457,17 +477,17 @@ function hotpot_print_report_selector(&$course, &$hotpot, &$formdata) {
     );
 
     // groups
-    if ($groups = groups_get_groups_names($course->id)) { //TODO:check.
-        foreach ($groups as $gid => $gname) {
-            $menus['reportusers']["group$gid"] = get_string('group').': '.$gname;
+    if ($groups = groups_get_all_groups($course->id)) {
+        foreach ($groups as $gid => $group) {
+            $menus['reportusers']["group$gid"] = get_string('group').': '.format_string($group->name);
         }
     }
 
     // get users who have ever atetmpted this HotPot
     $users = get_records_sql("
-        SELECT 
+        SELECT
             u.id, u.firstname, u.lastname
-        FROM 
+        FROM
             {$CFG->prefix}user u,
             {$CFG->prefix}hotpot_attempts ha
         WHERE

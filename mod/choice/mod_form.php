@@ -4,7 +4,7 @@ require_once ($CFG->dirroot.'/course/moodleform_mod.php');
 class mod_choice_mod_form extends moodleform_mod {
 
     function definition() {
-        global $CHOICE_SHOWRESULTS, $CHOICE_PUBLISH, $CHOICE_DISPLAY;
+        global $CFG, $CHOICE_SHOWRESULTS, $CHOICE_PUBLISH, $CHOICE_DISPLAY;
 
         $mform    =& $this->_form;
 
@@ -12,7 +12,11 @@ class mod_choice_mod_form extends moodleform_mod {
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
         $mform->addElement('text', 'name', get_string('choicename', 'choice'), array('size'=>'64'));
-        $mform->setType('name', PARAM_TEXT);
+        if (!empty($CFG->formatstringstriptags)) {
+            $mform->setType('name', PARAM_TEXT);
+        } else {
+            $mform->setType('name', PARAM_CLEAN);
+        }
         $mform->addRule('name', null, 'required', null, 'client');
 
         $mform->addElement('htmleditor', 'text', get_string('choicetext', 'choice'));
@@ -49,7 +53,7 @@ class mod_choice_mod_form extends moodleform_mod {
         $mform->setType('limit', PARAM_INT);
 
         $repeateloptions['option']['helpbutton'] = array('options', get_string('modulenameplural', 'choice'), 'choice');
-        $mform->setType('option', PARAM_TEXT);
+        $mform->setType('option', PARAM_CLEAN);
 
         $mform->setType('optionid', PARAM_INT);
 
@@ -87,7 +91,12 @@ class mod_choice_mod_form extends moodleform_mod {
 
 
 //-------------------------------------------------------------------------------
-        $this->standard_coursemodule_elements();
+        $features = new stdClass;
+        $features->groups = true;
+        $features->groupings = true;
+        $features->groupmembersonly = true;
+        $features->gradecat = false;
+        $this->standard_coursemodule_elements($features);
 //-------------------------------------------------------------------------------
         $this->add_action_buttons();
     }
@@ -114,22 +123,25 @@ class mod_choice_mod_form extends moodleform_mod {
 
     }
 
-    function validation($data){
-        $choices=0;
+    function validation($data, $files) {
+        $errors = parent::validation($data, $files);
+
+        $choices = 0;
         foreach ($data['option'] as $option){
-            if (trim($option)!=''){
+            if (trim($option) != ''){
                 $choices++;
             }
         }
-        if ($choices>1){
-           return true;
-        } elseif ($choices==0) {
-           return array('option[0]'=>get_string('fillinatleastoneoption', 'choice'));
-        } else  {
-           return array('option[1]'=>get_string('fillinatleastoneoption', 'choice'));
+
+        if ($choices < 1) {
+           $errors['option[0]'] = get_string('fillinatleastoneoption', 'choice');
         }
 
+        if ($choices < 2) {
+           $errors['option[1]'] = get_string('fillinatleastoneoption', 'choice');
+        }
 
+        return $errors;
     }
 
 }

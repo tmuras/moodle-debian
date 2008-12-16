@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.4 2006/08/08 22:10:00 skodak Exp $
+<?php  // $Id: view.php,v 1.5 2007/10/09 21:43:29 iarenaza Exp $
 
     require_once("../../config.php");
 
@@ -35,4 +35,3 @@
     redirect("$CFG->wwwroot/course/view.php?id=$course->id");
 
 ?>
-

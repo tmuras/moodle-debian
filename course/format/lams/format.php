@@ -1,4 +1,4 @@
-<?php // $Id: format.php,v 1.22.2.1 2007/04/17 09:25:51 moodler Exp $
+<?php // $Id: format.php,v 1.25.2.1 2007/10/22 06:54:40 nfreear Exp $
 // In fact, this is very similar to the "topics" format. 
 // The main difference is that news forum is replaced by LAMS learner
 // interface.
@@ -75,7 +75,7 @@ if (blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $editing) {
 }
 
 /// Start main column
-echo '<td id="middle-column"><a name="startofcontent"></a>';
+echo '<td id="middle-column">'. skip_main_destination();
 
 print_heading_block(get_string('lamsoutline','lams'), 'outline');
 
@@ -107,7 +107,7 @@ if ($thissection->summary or $thissection->sequence or isediting($course->id)) {
     $summaryformatoptions->noclean = true;
     echo format_text($thissection->summary, FORMAT_HTML, $summaryformatoptions);
 
-    if (isediting($course->id)) {
+    if (isediting($course->id) && has_capability('moodle/course:update', $course->id)) {
         echo '<a title="'.$streditsummary.'" '.
             ' href="editsection.php?id='.$thissection->id.'"><img src="'.$CFG->pixpath.'/t/edit.gif" '.
             ' class="iconsmall" alt="'.$streditsummary.'" /></a><br /><br />';
@@ -242,17 +242,19 @@ while ($section <= $course->numsections) {
 
         $currenttopic = ($course->marker == $section);
 
+        $currenttext = '';
         if (!$thissection->visible) {
             $sectionstyle = ' hidden';
         } else if ($currenttopic) {
             $sectionstyle = ' current';
+            $currenttext = get_accesshide(get_string('currenttopic','access'));
         } else {
             $sectionstyle = '';
         }
 
         echo '<tr id="section-'.$section.'" class="section main'.$sectionstyle.'">';
 
-        echo '<td class="left side">&nbsp;</td>';
+        echo '<td class="left side">&nbsp;'.$currenttext.'</td>';
 
         echo '<td class="content">';
         if (!has_capability('moodle/course:viewhiddensections', $context) and !$thissection->visible) {   // Hidden for students
@@ -262,7 +264,7 @@ while ($section <= $course->numsections) {
             $summaryformatoptions->noclean = true;
             echo format_text($thissection->summary, FORMAT_HTML, $summaryformatoptions);
 
-            if (isediting($course->id)) {
+            if (isediting($course->id) && has_capability('moodle/course:update', $course->id)) {
                 echo ' <a title="'.$streditsummary.'" href="editsection.php?id='.$thissection->id.'">'.
                     '<img src="'.$CFG->pixpath.'/t/edit.gif" class="iconsmall" alt="'.$streditsummary.'" /></a><br /><br />';
             }
@@ -286,7 +288,7 @@ while ($section <= $course->numsections) {
                 '<img src="'.$CFG->pixpath.'/i/one.gif" height="16" width="16" border="0" alt="'.$strshowonlytopic.'" /></a><br />';
         }
 
-        if (isediting($course->id)) {
+            if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
             if ($course->marker == $section) {  // Show the "light globe" on/off
                 echo '<a href="view.php?id='.$course->id.'&amp;marker=0&amp;sesskey='.$USER->sesskey.'#section-'.$section.'" title="'.$strmarkedthistopic.'">'.
                     '<img src="'.$CFG->pixpath.'/i/marked.gif" height="16" width="16" border="0" alt="'.$strmarkedthistopic.'" /></a><br />';

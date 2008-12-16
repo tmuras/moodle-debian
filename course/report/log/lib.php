@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.18.2.2 2007/03/15 16:02:32 poltawski Exp $
+<?php  // $Id: lib.php,v 1.22.2.1 2008/04/23 08:11:31 dongsheng Exp $
 
 function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $selecteddate='today',
                                  $modname="", $modid=0, $modaction='', $selectedgroup=-1, $showcourses=0, $showusers=0, $logformat='showashtml') {
@@ -19,7 +19,7 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
         $showcourses = 1;
     }
     
-    $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+    $sitecontext = get_context_instance(CONTEXT_SYSTEM);
     
     // Context for remote data is always SITE
     // Groups for remote data are always OFF
@@ -111,7 +111,7 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
             }
         } else {
             if (has_capability('moodle/site:viewreports', $sitecontext) && $showcourses) {
-                $sql = "select distinct course, coursename from mdl_mnet_log where hostid = '$hostid'";
+                $sql = "select distinct course, coursename from {$CFG->prefix}mnet_log where hostid = '$hostid'";
                 if ($ccc = get_records_sql($sql)) {
                     foreach ($ccc as $cc) {
                         if (1 == $cc->course) { // TODO: this might be wrong - site course may have another id
@@ -233,7 +233,7 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
     }
 
     if ($showgroups) {
-        if ($cgroups = get_groups($course->id)) {
+        if ($cgroups = groups_get_all_groups($course->id)) {
             foreach ($cgroups as $cgroup) {
                 $groups[$cgroup->id] = $cgroup->name;
             }
@@ -286,7 +286,7 @@ function print_log_selector_form($course, $selecteduser=0, $selecteddate='today'
         $showcourses = 1;
     }
     
-    $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+    $sitecontext = get_context_instance(CONTEXT_SYSTEM);
     $context = get_context_instance(CONTEXT_COURSE, $course->id);
    
     /// Setup for group handling.
@@ -448,7 +448,7 @@ function print_log_selector_form($course, $selecteduser=0, $selecteddate='today'
     }
 
     if ($showgroups) {
-        if ($cgroups = get_groups($course->id)) {
+        if ($cgroups = groups_get_all_groups($course->id)) {
             foreach ($cgroups as $cgroup) {
                 $groups[$cgroup->id] = $cgroup->name;
             }

@@ -1,4 +1,4 @@
-<?php   // $Id: report.php,v 1.15.2.2 2007/06/03 16:18:54 skodak Exp $
+<?php   // $Id: report.php,v 1.17 2007/06/03 16:17:40 skodak Exp $
 
 //  For a given entry, shows a report of all the ratings it has
 

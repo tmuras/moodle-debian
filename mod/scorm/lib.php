@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.83.2.2 2007/04/10 14:21:29 csantossaenz Exp $
+<?php  // $Id: lib.php,v 1.87.2.12 2008/08/27 22:39:50 danmarsden Exp $
 
 /**
 * Given an object containing all the necessary data,
@@ -9,7 +9,7 @@
 * @param mixed $scorm Form data
 * @return int
 */
-require_once('locallib.php');
+//require_once('locallib.php');
 function scorm_add_instance($scorm) {
     global $CFG;
 
@@ -47,6 +47,10 @@ function scorm_add_instance($scorm) {
         if (scorm_external_link($scorm->reference) || ((basename($scorm->reference) != 'imsmanifest.xml') && ($scorm->reference[0] != '#'))) {
             // Rename temp scorm dir to scorm id
             $scorm->dir = $CFG->dataroot.'/'.$scorm->course.'/moddata/scorm';
+            if (file_exists($scorm->dir.'/'.$id)) {
+                //delete directory as it shouldn't exist! - most likely there from an old moodle install with old files in dataroot
+                scorm_delete_files($scorm->dir.'/'.$id);
+            }
             rename($scorm->dir.$scorm->datadir,$scorm->dir.'/'.$id);
         }
 
@@ -57,9 +61,11 @@ function scorm_add_instance($scorm) {
             set_field('scorm','launch',$scorm->launch,'id',$scorm->id);
         }
 
+        scorm_grade_item_update(stripslashes_recursive($scorm));
+
         return $id;
     } else {
-        error(get_string('badpackage','scorm'));
+        print_error('badpackage','scorm');
     }
 }
 
@@ -76,20 +82,19 @@ function scorm_update_instance($scorm) {
 
     require_once('locallib.php');
 
+    $scorm->parse = 0;
     if (($packagedata = scorm_check_package($scorm)) != null) {
         $scorm->pkgtype = $packagedata->pkgtype;
         if ($packagedata->launch == 0) {
             $scorm->launch = $packagedata->launch;
             $scorm->datadir = $packagedata->datadir;
             $scorm->parse = 1;
-            if (!scorm_external_link($scorm->reference)) {
+            if (!scorm_external_link($scorm->reference) && $scorm->reference[0] != '#') { //dont set md5hash if this is from a repo.
                 $scorm->md5hash = md5_file($CFG->dataroot.'/'.$scorm->course.'/'.$scorm->reference);
-            } else {
+            } elseif($scorm->reference[0] != '#') { //dont set md5hash if this is from a repo.
                 $scorm->dir = $CFG->dataroot.'/'.$scorm->course.'/moddata/scorm';
                 $scorm->md5hash = md5_file($scorm->dir.$scorm->datadir.'/'.basename($scorm->reference));
             }
-        } else {
-            $scorm->parse = 0;
         }
     }
 
@@ -122,7 +127,12 @@ function scorm_update_instance($scorm) {
         $scorm->reference = $oldscorm->reference; // This fix a problem with Firefox when the teacher choose Cancel on overwrite question
     }
     
-    return update_record('scorm', $scorm);
+    if ($result = update_record('scorm', $scorm)) {
+        scorm_grade_item_update(stripslashes_recursive($scorm));
+        //scorm_grade_item_update($scorm);  // John Macklins fix - dont think this is needed
+    }
+
+    return $result;
 }
 
 /**
@@ -188,7 +198,10 @@ function scorm_delete_instance($id) {
     }
     if (! delete_records('scorm_sequencing_ruleconditions', 'scormid', $scorm->id)) {
         $result = false;
-    }*/       
+    }*/     
+
+    scorm_grade_item_delete(stripslashes_recursive($scorm));
+  
     return $result;
 }
 
@@ -204,9 +217,7 @@ function scorm_delete_instance($id) {
 * @return mixed
 */
 function scorm_user_outline($course, $user, $mod, $scorm) { 
-
-    $return = NULL;
-
+    global $CFG;
     require_once('locallib.php');
 
     $return = scorm_grade_user($scorm, $user->id, true);
@@ -251,10 +262,12 @@ function scorm_user_complete($course, $user, $mod, $scorm) {
             }
             $report .= "<ul id='0' class='$liststyle'>";
             if ($scoes = get_records_select('scorm_scoes',"scorm='$scorm->id' $organizationsql order by id ASC")){
+                // drop keys so that we can access array sequentially
+                $scoes = array_values($scoes); 
                 $level=0;
                 $sublist=1;
                 $parents[$level]='/';
-                foreach ($scoes as $sco) {
+                foreach ($scoes as $pos=>$sco) {
                     if ($parents[$level]!=$sco->parent) {
                         if ($level>0 && $parents[$level-1]==$sco->parent) {
                             $report .= "\t\t</ul></li>\n";
@@ -277,7 +290,11 @@ function scorm_user_complete($course, $user, $mod, $scorm) {
                         }
                     }
                     $report .= "\t\t<li>";
-                    $nextsco = next($scoes);
+                    if (isset($scoes[$pos+1])) {
+                        $nextsco = $scoes[$pos+1];
+                    } else {
+                        $nextsco = false;
+                    }
                     if (($nextsco !== false) && ($sco->parent != $nextsco->parent) && (($level==0) || (($level>0) && ($nextsco->parent == $sco->identifier)))) {
                         $sublist++;
                     } else {
@@ -351,20 +368,6 @@ function scorm_user_complete($course, $user, $mod, $scorm) {
 }
 
 /**
-* Given a list of logs, assumed to be those since the last login
-* this function prints a short list of changes related to this module
-* If isteacher is true then perhaps additional information is printed.
-* This function is called from course/lib.php: print_recent_activity()
-*
-* @param reference $logs Logs reference
-* @param boolean $isteacher
-* @return boolean
-*/
-function scorm_print_recent_activity(&$logs, $isteacher=false) {
-    return false;  // True if anything was printed, otherwise false
-}
-
-/**
 * Function to be run periodically according to the moodle cron
 * This function searches for things that need to be done, such
 * as sending out mail, toggling flags etc ...
@@ -405,35 +408,132 @@ function scorm_cron () {
 }
 
 /**
-* Given a scorm id return all the grades of that activity
-*
-* @param int $scormid Scorm instance id
-* @return mixed
-*/
-function scorm_grades($scormid) {
-
+ * Return grade for given user or all users.
+ *
+ * @param int $scormid id of scorm
+ * @param int $userid optional user id, 0 means all users
+ * @return array array of grades, false if none
+ */
+function scorm_get_user_grades($scorm, $userid=0) {
     global $CFG;
+    require_once('locallib.php');
 
-    if (!$scorm = get_record('scorm', 'id', $scormid)) {
-        return NULL;
+    $grades = array();
+    if (empty($userid)) {
+        if ($scousers = get_records_select('scorm_scoes_track', "scormid='$scorm->id' GROUP BY userid", "", "userid,null")) {
+            foreach ($scousers as $scouser) {
+                $grades[$scouser->userid] = new object();
+                $grades[$scouser->userid]->id         = $scouser->userid;
+                $grades[$scouser->userid]->userid     = $scouser->userid;
+                $grades[$scouser->userid]->rawgrade = scorm_grade_user($scorm, $scouser->userid);
+            }
+        } else {
+            return false;
+        }
+
+    } else {
+        if (!get_records_select('scorm_scoes_track', "scormid='$scorm->id' AND userid='$userid' GROUP BY userid", "", "userid,null")) {
+            return false; //no attempt yet
+        }
+        $grades[$userid] = new object();
+        $grades[$userid]->id         = $userid;
+        $grades[$userid]->userid     = $userid;
+        $grades[$userid]->rawgrade = scorm_grade_user($scorm, $userid);
+    }
+
+    return $grades;
+}
+
+/**
+ * Update grades in central gradebook
+ *
+ * @param object $scorm null means all scormbases
+ * @param int $userid specific user only, 0 mean all
+ */
+function scorm_update_grades($scorm=null, $userid=0, $nullifnone=true) {
+    global $CFG;
+    if (!function_exists('grade_update')) { //workaround for buggy PHP versions
+        require_once($CFG->libdir.'/gradelib.php');
+    }
+
+    if ($scorm != null) {
+        if ($grades = scorm_get_user_grades($scorm, $userid)) {
+            scorm_grade_item_update($scorm, $grades);
+
+        } else if ($userid and $nullifnone) {
+            $grade = new object();
+            $grade->userid   = $userid;
+            $grade->rawgrade = NULL;
+            scorm_grade_item_update($scorm, $grade);
+
+        } else {
+            scorm_grade_item_update($scorm);
+        }
+
+    } else {
+        $sql = "SELECT s.*, cm.idnumber as cmidnumber
+                  FROM {$CFG->prefix}scorm s, {$CFG->prefix}course_modules cm, {$CFG->prefix}modules m
+                 WHERE m.name='scorm' AND m.id=cm.module AND cm.instance=s.id";
+        if ($rs = get_recordset_sql($sql)) {
+            while ($scorm = rs_fetch_next_record($rs)) {
+                scorm_update_grades($scorm, 0, false);
+            }
+            rs_close($rs);
+        }
+    }
+}
+
+/**
+ * Update/create grade item for given scorm
+ *
+ * @param object $scorm object with extra cmidnumber
+ * @param mixed optional array/object of grade(s); 'reset' means reset grades in gradebook
+ * @return object grade_item
+ */
+function scorm_grade_item_update($scorm, $grades=NULL) {
+    global $CFG;
+    if (!function_exists('grade_update')) { //workaround for buggy PHP versions
+        require_once($CFG->libdir.'/gradelib.php');
+    }
+
+    $params = array('itemname'=>$scorm->name);
+    if (isset($scorm->cmidnumber)) {
+        $params['idnumber'] = $scorm->cmidnumber;
     }
 
     if (($scorm->grademethod % 10) == 0) { // GRADESCOES
-        if (!$return->maxgrade = count_records_select('scorm_scoes',"scorm='$scormid' AND launch<>''")) {
-            return NULL;
+        if ($maxgrade = count_records_select('scorm_scoes',"scorm='$scorm->id' AND launch<>'".sql_empty()."'")) {
+            $params['gradetype'] = GRADE_TYPE_VALUE;
+            $params['grademax']  = $maxgrade;
+            $params['grademin']  = 0;
+        } else {
+            $params['gradetype'] = GRADE_TYPE_NONE;
         }
     } else {
-        $return->maxgrade = $scorm->maxgrade;
+        $params['gradetype'] = GRADE_TYPE_VALUE;
+        $params['grademax']  = $scorm->maxgrade;
+        $params['grademin']  = 0;
     }
 
-    $return->grades = NULL;
-    if ($scousers=get_records_select('scorm_scoes_track', "scormid='$scormid' GROUP BY userid", "", "userid,null")) {
-        require_once('locallib.php');
-        foreach ($scousers as $scouser) {
-            $return->grades[$scouser->userid] = scorm_grade_user($scorm, $scouser->userid);
-        }
+    if ($grades  === 'reset') {
+        $params['reset'] = true;
+        $grades = NULL;
     }
-    return $return;
+
+    return grade_update('mod/scorm', $scorm->course, 'mod', 'scorm', $scorm->id, 0, $grades, $params);
+}
+
+/**
+ * Delete grade item for given scorm
+ *
+ * @param object $scorm object
+ * @return object grade_item
+ */
+function scorm_grade_item_delete($scorm) {
+    global $CFG;
+    require_once($CFG->libdir.'/gradelib.php');
+
+    return grade_update('mod/scorm', $scorm->course, 'mod', 'scorm', $scorm->id, 0, NULL, array('deleted'=>1));
 }
 
 function scorm_get_view_actions() {
@@ -465,6 +565,81 @@ function scorm_option2text($scorm) {
         $scorm->options = '';
     }
     return $scorm;
+}
+
+/**
+ * Implementation of the function for printing the form elements that control
+ * whether the course reset functionality affects the scorm.
+ * @param $mform form passed by reference
+ */
+function scorm_reset_course_form_definition(&$mform) {
+    $mform->addElement('header', 'scormheader', get_string('modulenameplural', 'scorm'));
+    $mform->addElement('advcheckbox', 'reset_scorm', get_string('deleteallattempts','scorm'));
+}
+
+/**
+ * Course reset form defaults.
+ */
+function scorm_reset_course_form_defaults($course) {
+    return array('reset_scorm'=>1);
+}
+
+/**
+ * Removes all grades from gradebook
+ * @param int $courseid
+ * @param string optional type
+ */
+function scorm_reset_gradebook($courseid, $type='') {
+    global $CFG;
+
+    $sql = "SELECT s.*, cm.idnumber as cmidnumber, s.course as courseid
+              FROM {$CFG->prefix}scorm s, {$CFG->prefix}course_modules cm, {$CFG->prefix}modules m
+             WHERE m.name='scorm' AND m.id=cm.module AND cm.instance=s.id AND s.course=$courseid";
+
+    if ($scorms = get_records_sql($sql)) {
+        foreach ($scorms as $scorm) {
+            scorm_grade_item_update($scorm, 'reset');
+        }
+    }
+}
+
+/**
+ * Actual implementation of the rest coures functionality, delete all the
+ * scorm attempts for course $data->courseid.
+ * @param $data the data submitted from the reset course.
+ * @return array status array
+ */
+function scorm_reset_userdata($data) {
+    global $CFG;
+
+    $componentstr = get_string('modulenameplural', 'scorm');
+    $status = array();
+
+    if (!empty($data->reset_scorm)) {
+        $scormssql = "SELECT s.id
+                         FROM {$CFG->prefix}scorm s
+                        WHERE s.course={$data->courseid}";
+
+        delete_records_select('scorm_scoes_track', "scormid IN ($scormssql)");
+
+        // remove all grades from gradebook
+        if (empty($data->reset_gradebook_grades)) {
+            scorm_reset_gradebook($data->courseid);
+        }
+
+        $status[] = array('component'=>$componentstr, 'item'=>get_string('deleteallattempts', 'scorm'), 'error'=>false);
+    }
+
+    // no dates to shift here
+
+    return $status;
+}
+
+/**
+ * Returns all other caps used in module
+ */
+function scorm_get_extra_capabilities() {
+    return array('moodle/site:accessallgroups');
 }
 
 ?>

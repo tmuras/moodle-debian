@@ -1,4 +1,4 @@
-<?php
+<?php  // $Id: authlib.php,v 1.8.2.6 2008/05/28 07:39:52 dongsheng Exp $
 /**
  * @author Martin Dougiamas
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
@@ -38,7 +38,10 @@ define('AUTH_CONFIRM_OK', 1);
 define('AUTH_CONFIRM_ALREADY', 2);
 define('AUTH_CONFIRM_ERROR', 3);
 
-
+# MDL-14055
+define('AUTH_REMOVEUSER_KEEP', 0);
+define('AUTH_REMOVEUSER_SUSPEND', 1);
+define('AUTH_REMOVEUSER_FULLDELETE', 2);
 
 /**
  * Abstract authentication plugin.
@@ -54,6 +57,25 @@ class auth_plugin_base {
      * Authentication plugin type - the same as db field.
      */
     var $authtype;
+    /*
+     * The fields we can lock and update from/to external authentication backends
+     */
+    var $userfields = array(
+        'firstname',
+        'lastname',
+        'email',
+        'city',
+        'country',
+        'lang',
+        'description',
+        'url',
+        'idnumber',
+        'institution',
+        'department',
+        'phone1',
+        'phone2',
+        'address'
+    );
 
     /**
 
@@ -87,6 +109,7 @@ class auth_plugin_base {
     /**
      * Returns the URL for changing the users' passwords, or empty if the default
      * URL can be used. This method is used if can_change_password() returns true.
+     * This method is called only when user is logged in, it may use global $USER.
      *
      * @return string
      */
@@ -135,6 +158,16 @@ class auth_plugin_base {
     function user_update($olduser, $newuser) {
         //override if needed
         return true;
+    }
+
+    /**
+     * User delete requested - internal user record is mared as deleted already, username not present anymore.
+     * Do any action in external database.
+     * @param object $user       Userobject before delete    (without system magic quotes)
+     */
+    function user_delete($olduser) {
+        //override if needed
+        return;
     }
 
     /**
@@ -194,21 +227,11 @@ class auth_plugin_base {
      * Checks if user exists in external db
      *
      * @param string $username (with system magic quotes)
+     * @return bool
      */
     function user_exists() {
         //override if needed
         return false;
-    }
-
-    /**
-     * Activates (enables) user in external db so user can login using username/password from external db
-     *
-     * @param mixed $username    username (with system magic quotes)
-     * @return boolen result
-     */
-    function user_activate($username) {
-        //override if needed
-        return true;
     }
 
     /**
@@ -319,6 +342,39 @@ class auth_plugin_base {
 
         //override if needed
     }
+
+    /**
+     * Return the properly translated human-friendly title of this auth plugin
+     */
+    function get_title() {
+        $authtitle = get_string("auth_{$this->authtype}title", "auth");
+        if ($authtitle == "[[auth_{$this->authtype}title]]") {
+            $authtitle = get_string("auth_{$this->authtype}title", "auth_{$this->authtype}");
+        }
+        return $authtitle;
+    }
+
+    /**
+     *  Get the auth description (from core or own auth lang files)
+     */
+    function get_description() {
+        $authdescription = get_string("auth_{$this->authtype}description", "auth");
+        if ($authdescription == "[[auth_{$this->authtype}description]]") {
+            $authdescription = get_string("auth_{$this->authtype}description", "auth_{$this->authtype}");
+        }
+        return $authdescription;
+    }
+    
+    /**
+     * Returns whether or not the captcha element is enabled, and the admin settings fulfil its requirements.
+     * @abstract Implement in child classes
+     * @return bool
+     */
+    function is_captcha_enabled() {
+        return false;
+    }
+
+
 }
 
 ?>

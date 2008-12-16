@@ -1,7 +1,7 @@
-<?php  // $Id: mysql.php,v 1.6 2006/09/21 10:04:49 stronk7 Exp $
+<?php  // $Id: mysql.php,v 1.7 2007/08/29 14:38:35 stronk7 Exp $
 
 
-function assignment_online_upgrade($oldversion)  {
+function assignment_type_online_upgrade($oldversion)  {
     global $CFG, $db;
 
     if ($oldversion < 2005042900 and empty($CFG->noconvertjournals)) {  // Phase out Journals, convert them 

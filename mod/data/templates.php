@@ -1,4 +1,4 @@
-<?php  // $Id: templates.php,v 1.60.2.2 2007/05/15 18:27:09 skodak Exp $
+<?php  // $Id: templates.php,v 1.68.2.5 2008/04/16 12:29:21 skodak Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -25,8 +25,6 @@
     require_once('../../config.php');
     require_once('lib.php');
     require_once($CFG->libdir.'/blocklib.php');
-
-    require_login();
 
     $id    = optional_param('id', 0, PARAM_INT);  // course module id
     $d     = optional_param('d', 0, PARAM_INT);   // database id
@@ -95,8 +93,9 @@
     $meta .= '}'."\n";
     $meta .= '//]]>'."\n";
     $meta .= '</script>'."\n";
-
-    print_header_simple($data->name, '', "<a href='index.php?id=$course->id'>$strdata</a> -> $data->name",
+    
+    $navigation = build_navigation('', $cm);
+    print_header_simple($data->name, '', $navigation,
                         '', $meta, true, update_module_button($cm->id, $course->id, get_string('modulename', 'data')),
                         navmenu($course, $cm), '', $bodytag);
 
@@ -104,13 +103,12 @@
 
 
 /// Groups needed for Add entry tab
-    $groupmode = groupmode($course, $cm);
-    $currentgroup = get_and_set_current_group($course, $groupmode);
+    $currentgroup = groups_get_activity_group($cm);
+    $groupmode = groups_get_activity_groupmode($cm);
 
 /// Print the tabs.
     $currenttab = 'templates';
     include('tabs.php');
-
 
 /// Processing submitted data, i.e updating form.
     $resettemplate = false;
@@ -162,6 +160,7 @@
         data_generate_default_template($data, 'singletemplate');
         data_generate_default_template($data, 'listtemplate');
         data_generate_default_template($data, 'addtemplate');
+        data_generate_default_template($data, 'asearchtemplate');           //Template for advanced searches.
         data_generate_default_template($data, 'rsstemplate');
     }
 
@@ -197,11 +196,11 @@
     if ($mode != 'csstemplate' and $mode != 'jstemplate') {
         // Add all the available fields for this data.
         echo '<label for="availabletags">'.get_string('availabletags','data').'</label>';
-        helpbutton('tags', get_string('tags','data'), 'data');
+        helpbutton('tags', get_string('tags'), 'data');
         echo '<br />';
 
 
-        echo '<select name="fields1[]" id="availabletags" size="10" onclick="insert_field_tags(this)">';
+        echo '<select name="fields1[]" id="availabletags" size="12" onclick="insert_field_tags(this)">';
 
         $fields = get_records('data_fields', 'dataid', $data->id);
         echo '<optgroup label="'.get_string('fields', 'data').'">';
@@ -222,20 +221,35 @@
         }
 
         // Print special tags. fix for MDL-7031
-        if ($mode != 'addtemplate') {
+        if ($mode != 'addtemplate' && $mode != 'asearchtemplate') {             //Don't print special tags when viewing the advanced search template and add template.
             echo '<optgroup label="'.get_string('buttons', 'data').'">';
             echo '<option value="##edit##">' .get_string('edit', 'data'). ' - ##edit##</option>';
             echo '<option value="##delete##">' .get_string('delete', 'data'). ' - ##delete##</option>';
             echo '<option value="##approve##">' .get_string('approve', 'data'). ' - ##approve##</option>';
-            echo '<option value="##user##">' .get_string('user'). ' - ##user##</option>';
             if ($mode != 'singletemplate') {
                 // more points to single template - not useable there
                 echo '<option value="##more##">' .get_string('more', 'data'). ' - ##more##</option>';
                 echo '<option value="##moreurl##">' .get_string('moreurl', 'data'). ' - ##moreurl##</option>';
+            }
+            echo '</optgroup>';
+            echo '<optgroup label="'.get_string('other', 'data').'">';
+            echo '<option value="##timeadded##">'.get_string('timeadded', 'data'). ' - ##timeadded##</option>';
+            echo '<option value="##timemodified##">'.get_string('timemodified', 'data'). ' - ##timemodified##</option>';
+            echo '<option value="##user##">' .get_string('user'). ' - ##user##</option>';
+            if ($mode != 'singletemplate') {
+                // more points to single template - not useable there
                 echo '<option value="##comments##">' .get_string('comments', 'data'). ' - ##comments##</option>';
             }
             echo '</optgroup>';
         }
+
+        if ($mode == 'asearchtemplate') {
+            echo '<optgroup label="'.get_string('other', 'data').'">';
+            echo '<option value="##firstname##">' .get_string('authorfirstname', 'data'). ' - ##firstname##</option>';
+            echo '<option value="##lastname##">' .get_string('authorlastname', 'data'). ' - ##lastname##</option>';
+            echo '</optgroup>';
+        }
+
         echo '</select>';
         echo '<br /><br /><br /><br /><input type="submit" name="defaultform" value="'.get_string('resettemplate','data').'" />';
         if (can_use_html_editor()) {

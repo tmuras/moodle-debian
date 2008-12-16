@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.94.2.4 2007/05/15 18:27:01 skodak Exp $
+<?php  // $Id: view.php,v 1.106.2.15 2008/04/19 10:47:42 skodak Exp $
 
     require_once('../../config.php');
     require_once('lib.php');
@@ -14,9 +14,9 @@
     $search      = optional_param('search', '');             // search string
 
 
+    $buttontext = '';
 
     if ($id) {
-
         if (! $cm = get_coursemodule_from_id('forum', $id)) {
             error("Course Module ID was incorrect");
         }
@@ -42,14 +42,11 @@
         $strforums = get_string("modulenameplural", "forum");
         $strforum = get_string("modulename", "forum");
 
-        if ($cm = get_coursemodule_from_instance("forum", $forum->id, $course->id)) {
-            $buttontext = update_module_button($cm->id, $course->id, $strforum);
-        } else {
-            $cm->id = 0;
-            $cm->visible = 1;
-            $cm->course = $course->id;
-            $buttontext = "";
+        if (!$cm = get_coursemodule_from_instance("forum", $forum->id, $course->id)) {
+            error("Course Module missing");
         }
+
+        $buttontext = update_module_button($cm->id, $course->id, $strforum);
 
     } else {
         error('Must specify a course module or a forum ID');
@@ -65,23 +62,23 @@
 
 
 /// Print header.
-    $navigation = "<a href=\"index.php?id=$course->id\">$strforums</a> ->";
+    $navigation = build_navigation('', $cm);
     print_header_simple(format_string($forum->name), "",
-                 "$navigation ".format_string($forum->name), "", "", true, $buttontext, navmenu($course, $cm));
-
+                 $navigation, "", "", true, $buttontext, navmenu($course, $cm));
 
 /// Some capability checks.
     if (empty($cm->visible) and !has_capability('moodle/course:viewhiddenactivities', $context)) {
         notice(get_string("activityiscurrentlyhidden"));
     }
-    
+
     if (!has_capability('mod/forum:viewdiscussion', $context)) {
         notice(get_string('noviewdiscussionspermission', 'forum'));
     }
-    
+
 /// find out current groups mode
-    $groupmode = groupmode($course, $cm);
-    $currentgroup = setup_and_print_groups($course, $groupmode, 'view.php?id=' . $cm->id);
+    groups_print_activity_menu($cm, 'view.php?id=' . $cm->id);
+    $currentgroup = groups_get_activity_group($cm);
+    $groupmode = groups_get_activity_groupmode($cm);
 
 /// Okay, we can show the discussions. Log the forum view.
     if ($cm->id) {
@@ -112,24 +109,25 @@
     }
 
 
-    print_box_start('forumcontrol');
+//    print_box_start('forumcontrol clearfix');
 
-    print_box_start('subscription');
+//    print_box_start('subscription clearfix');
+    echo '<div class="subscription">';
 
     if (!empty($USER->id) && !has_capability('moodle/legacy:guest', $context, NULL, false)) {
         $SESSION->fromdiscussion = "$FULLME";
-        if (forum_is_forcesubscribed($forum->id)) {
+        if (forum_is_forcesubscribed($forum)) {
             $streveryoneisnowsubscribed = get_string('everyoneisnowsubscribed', 'forum');
             $strallowchoice = get_string('allowchoice', 'forum');
             echo '<span class="helplink">' . get_string("forcessubscribe", 'forum') . '</span><br />';
             helpbutton("subscription", $strallowchoice, "forum");
             echo '&nbsp;<span class="helplink">';
-            if (has_capability('moodle/course:manageactivities', $context)) {
+            if (has_capability('mod/forum:managesubscriptions', $context)) {
                 echo "<a title=\"$strallowchoice\" href=\"subscribe.php?id=$forum->id&amp;force=no\">$strallowchoice</a>";
             } else {
                 echo $streveryoneisnowsubscribed;
             }
-            echo '</span>';
+            echo '</span><br />';
 
         } else if ($forum->forcesubscribe == FORUM_DISALLOWSUBSCRIBE) {
             $strsubscriptionsoff = get_string('disallowsubscribe','forum');
@@ -142,37 +140,24 @@
             echo '<span class="helplink">' . get_string("allowsallsubscribe", 'forum') . '</span><br />';
             helpbutton("subscription", $strforcesubscribe, "forum");
             echo '&nbsp;';
-            if (has_capability('moodle/course:manageactivities', $context)) {
+
+            if (has_capability('mod/forum:managesubscriptions', $context)) {
                 echo "<span class=\"helplink\"><a title=\"$strforcesubscribe\" href=\"subscribe.php?id=$forum->id&amp;force=yes\">$strforcesubscribe</a></span>";
-                echo "<br />";
-                echo "<span class=\"helplink\"><a href=\"subscribers.php?id=$forum->id\">$strshowsubscribers</a></span>";
             } else {
                 echo '<span class="helplink">'.$streveryonecannowchoose.'</span>';
             }
 
-            if (forum_is_subscribed($USER->id, $forum->id)) {
-                $subtexttitle = get_string("subscribestop", "forum");
-                $subtext = get_string("unsubscribe", "forum");
-            } else {
-                $subtexttitle = get_string("subscribestart", "forum");
-                $subtext = get_string("subscribe", "forum");
+            if(has_capability('mod/forum:viewsubscribers', $context)){
+                echo "<br />";
+                echo "<span class=\"helplink\"><a href=\"subscribers.php?id=$forum->id\">$strshowsubscribers</a></span>";
             }
-            echo "<br />";
-            echo "<span class=\"helplink\"><a title=\"$subtexttitle\" href=\"subscribe.php?id=$forum->id\">$subtext</a></span>";
+
+            echo '<div class="helplink" id="subscriptionlink">', forum_get_subscribe_link($forum, $context,
+                    array('forcesubscribed' => '', 'cantsubscribe' => '')), '</div>';
         }
 
-        if (forum_tp_can_track_forums($forum) && ($forum->trackingtype == FORUM_TRACKING_OPTIONAL)) {
-            if (forum_tp_is_tracked($forum, $USER->id)) {
-                $trtitle = get_string('notrackforum', 'forum');
-                $trackedlink = '<a title="'.get_string('notrackforum', 'forum').'" href="settracking.php?id='.
-                               $forum->id.'&amp;returnpage=view.php">'.get_string('forumtracked', 'forum').'</a>';
-            } else {
-                $trtitle = get_string('trackforum', 'forum');
-                $trackedlink = '<a title="'.get_string('trackforum', 'forum').'" href="settracking.php?id='.
-                               $forum->id.'&amp;returnpage=view.php">'.get_string('forumtrackednot', 'forum').'</a>';
-            }
-            echo '<br />';
-            echo "<span class=\"helplink\">$trackedlink</span>";
+        if (forum_tp_can_track_forums($forum)) {
+            echo '<div class="helplink" id="trackinglink">'. forum_get_tracking_link($forum). '</div>';
         }
 
     }
@@ -191,16 +176,19 @@
         } else {
             $userid = $USER->id;
         }
-        print_box_start('rsslink');
+//        print_box_start('rsslink');
+        echo '<span class="wrap rsslink">';
         rss_print_link($course->id, $userid, "forum", $forum->id, $tooltiptext);
-        print_box_end(); // subscription
+        echo '</span>';
+//        print_box_end(); // subscription
 
     }
-    print_box_end(); // subscription
+//    print_box_end(); // subscription
+    echo '</div>';
 
-    print_box_end();  // forumcontrol
+//    print_box_end();  // forumcontrol
 
-    print_box('&nbsp;', 'clearer'); 
+//    print_box('&nbsp;', 'clearer');
 
 
     if (!empty($forum->blockafter) && !empty($forum->blockperiod)) {
@@ -231,9 +219,13 @@
             if ($mode) {
                 set_user_preference("forum_displaymode", $mode);
             }
+
+            $canreply    = forum_user_can_post($forum, $discussion, $USER, $cm, $course, $context);
+            $canrate     = has_capability('mod/forum:rate', $context);
             $displaymode = get_user_preferences("forum_displaymode", $CFG->forum_displaymode);
-            $canrate = has_capability('mod/forum:rate', $context);
-            forum_print_discussion($course, $forum, $discussion, $post, $displaymode, NULL, $canrate);
+
+            echo '&nbsp;'; // this should fix the floating in FF
+            forum_print_discussion($course, $cm, $forum, $discussion, $post, $displaymode, $canreply, $canrate);
             break;
 
         case 'eachuser':
@@ -241,24 +233,24 @@
                 print_box(format_text($forum->intro), 'generalbox', 'intro');
             }
             echo '<p align="center">';
-            if (forum_user_can_post_discussion($forum)) {
+            if (forum_user_can_post_discussion($forum, null, -1, $cm)) {
                 print_string("allowsdiscussions", "forum");
             } else {
                 echo '&nbsp;';
             }
             echo '</p>';
             if (!empty($showall)) {
-                forum_print_latest_discussions($course, $forum, 0, 'header', '', $currentgroup, $groupmode);
+                forum_print_latest_discussions($course, $forum, 0, 'header', '', -1, -1, -1, 0, $cm);
             } else {
-                forum_print_latest_discussions($course, $forum, $CFG->forum_manydiscussions, 'header', '', $currentgroup, $groupmode, $page);
+                forum_print_latest_discussions($course, $forum, -1, 'header', '', -1, -1, $page, $CFG->forum_manydiscussions, $cm);
             }
             break;
 
         case 'teacher':
             if (!empty($showall)) {
-                forum_print_latest_discussions($course, $forum, 0, 'header', '', $currentgroup, $groupmode);
+                forum_print_latest_discussions($course, $forum, 0, 'header', '', -1, -1, -1, 0, $cm);
             } else {
-                forum_print_latest_discussions($course, $forum, $CFG->forum_manydiscussions, 'header', '', $currentgroup, $groupmode, $page);
+                forum_print_latest_discussions($course, $forum, -1, 'header', '', -1, -1, $page, $CFG->forum_manydiscussions, $cm);
             }
             break;
 
@@ -268,12 +260,12 @@
             }
             echo '<br />';
             if (!empty($showall)) {
-                forum_print_latest_discussions($course, $forum, 0, 'header', '', $currentgroup, $groupmode);
+                forum_print_latest_discussions($course, $forum, 0, 'header', '', -1, -1, -1, 0, $cm);
             } else {
-                forum_print_latest_discussions($course, $forum, $CFG->forum_manydiscussions, 'header', '', $currentgroup, $groupmode, $page);
+                forum_print_latest_discussions($course, $forum, -1, 'header', '', -1, -1, $page, $CFG->forum_manydiscussions, $cm);
             }
-            
-            
+
+
             break;
     }
     print_footer($course);

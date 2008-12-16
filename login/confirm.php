@@ -1,4 +1,4 @@
-<?php // $Id: confirm.php,v 1.24.2.3 2007/03/22 12:40:23 skodak Exp $
+<?php // $Id: confirm.php,v 1.29.2.1 2008/04/02 06:10:02 dongsheng Exp $
 
     require_once("../config.php");
 
@@ -31,7 +31,7 @@
 
         if ($confirmed == AUTH_CONFIRM_ALREADY) {
             $user = get_complete_user_data('username', $username);
-            print_header(get_string("alreadyconfirmed"), get_string("alreadyconfirmed"), "", "");
+            print_header(get_string("alreadyconfirmed"), get_string("alreadyconfirmed"), array(), "");
             print_box_start('generalbox centerpara boxwidthnormal boxaligncenter');
             echo "<h3>".get_string("thanks").", ". fullname($user) . "</h3>\n";
             echo "<p>".get_string("alreadyconfirmed")."</p>\n";
@@ -41,10 +41,6 @@
             exit;
 
         } else if ($confirmed == AUTH_CONFIRM_OK) {
-            // Activate new user if necessary
-            if (!$authplugin->user_activate($username)) {
-                error('Could not activate this user!');
-            }
 
             // The user has confirmed successfully, let's log them in
 
@@ -60,7 +56,7 @@
                 redirect($goto);
             }
 
-            print_header(get_string("confirmed"), get_string("confirmed"), "", "");
+            print_header(get_string("confirmed"), get_string("confirmed"), array(), "");
             print_box_start('generalbox centerpara boxwidthnormal boxaligncenter');
             echo "<h3>".get_string("thanks").", ". fullname($USER) . "</h3>\n";
             echo "<p>".get_string("confirmed")."</p>\n";
@@ -72,7 +68,7 @@
             error("Invalid confirmation data");
         }
     } else {
-        error(get_string("errorwhenconfirming"));
+        print_error("errorwhenconfirming");
     }
 
     redirect("$CFG->wwwroot/");

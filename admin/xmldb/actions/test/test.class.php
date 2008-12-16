@@ -1,4 +1,4 @@
-<?php // $Id: test.class.php,v 1.32.2.1 2007/03/15 19:15:22 stronk7 Exp $
+<?php // $Id: test.class.php,v 1.39.2.1 2008/05/18 23:34:50 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -91,8 +91,8 @@ class test extends XMLDBAction {
         $table->addFieldInfo('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null, null, null);
         $table->addFieldInfo('course', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null, null, '0');
         $table->addFieldInfo('type', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, XMLDB_ENUM, array('single', 'news', 'general', 'social', 'eachuser', 'teacher', 'qanda'), 'general');
-        $table->addFieldInfo('name', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null, null, '');
-        $table->addFieldInfo('intro', XMLDB_TYPE_TEXT, 'small', null, XMLDB_NOTNULL, null, null, null, '');
+        $table->addFieldInfo('name', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null, null);
+        $table->addFieldInfo('intro', XMLDB_TYPE_TEXT, 'small', null, XMLDB_NOTNULL, null, null, null, null);
         $table->addFieldInfo('logo', XMLDB_TYPE_BINARY, 'big', null, XMLDB_NOTNULL, null, null, null);
         $table->addFieldInfo('assessed', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null, null, '0');
         $table->addFieldInfo('assesstimestart', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null, null, '0');
@@ -378,7 +378,22 @@ class test extends XMLDBAction {
             $tests['change field precision (number)'] = $test;
         }
 
-    /// 18th test. Change the sign of one numeric field to unsigned
+    /// 18th test. Change the precision of one integer field to a smaller one
+        if ($test->status) {
+        /// Get SQL code and execute it
+            $test = new stdClass;
+            $field = new XMLDBField('course');
+            $field->setAttributes(XMLDB_TYPE_INTEGER, '5', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null, null, '0');
+
+            $test->sql = $table->getAlterFieldSQL($CFG->dbtype, $CFG->prefix, $field, true);
+            $test->status = change_field_precision($table, $field, false, false);
+            if (!$test->status) {
+                $test->error = $db->ErrorMsg();
+            }
+            $tests['change field precision (integer) to smaller one'] = $test;
+        }
+
+    /// 19th test. Change the sign of one numeric field to unsigned
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -393,7 +408,7 @@ class test extends XMLDBAction {
             $tests['change field sign (unsigned)'] = $test;
         }
 
-    /// 19th test. Change the sign of one numeric field to signed
+    /// 20th test. Change the sign of one numeric field to signed
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -408,7 +423,7 @@ class test extends XMLDBAction {
             $tests['change field sign (signed)'] = $test;
         }
 
-    /// 20th test. Change the nullability of one char field to not null
+    /// 21th test. Change the nullability of one char field to not null
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -423,7 +438,7 @@ class test extends XMLDBAction {
             $tests['change field nullability (not null)'] = $test;
         }
 
-    /// 21th test. Change the nullability of one char field to null
+    /// 22th test. Change the nullability of one char field to null
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -438,7 +453,7 @@ class test extends XMLDBAction {
             $tests['change field nullability (null)'] = $test;
         }
 
-    /// 22th test. Dropping the default of one field
+    /// 23th test. Dropping the default of one field
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -453,7 +468,7 @@ class test extends XMLDBAction {
             $tests['drop field default of NULL field'] = $test;
         }
 
-    /// 23th test. Creating the default for one field
+    /// 24th test. Creating the default for one field
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -468,7 +483,7 @@ class test extends XMLDBAction {
             $tests['add field default of NULL field'] = $test;
         }
 
-    /// 24th test. Creating the default for one field
+    /// 25th test. Creating the default for one field
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -484,7 +499,7 @@ class test extends XMLDBAction {
         }
 
 
-    /// 25th test. Dropping the default of one NOT NULL field
+    /// 26th test. Dropping the default of one NOT NULL field
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -499,7 +514,7 @@ class test extends XMLDBAction {
             $tests['drop field default of NOT NULL field'] = $test;
         }
 
-    /// 26th test. Adding one unique index to the table
+    /// 27th test. Adding one unique index to the table
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -514,7 +529,7 @@ class test extends XMLDBAction {
             $tests['add unique index'] = $test;
         }
 
-    /// 27th test. Adding one not unique index to the table
+    /// 28th test. Adding one not unique index to the table
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -529,7 +544,7 @@ class test extends XMLDBAction {
             $tests['add not unique index'] = $test;
         }
 
-    /// 28th test. Re-add the same index than previous test. Check find_index_name() works.
+    /// 29th test. Re-add the same index than previous test. Check find_index_name() works.
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -548,7 +563,7 @@ class test extends XMLDBAction {
             $tests['check find_index_name()'] = $test;
         }
 
-    /// 29th test. Dropping one index from the table
+    /// 30th test. Dropping one index from the table
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -563,7 +578,7 @@ class test extends XMLDBAction {
             $tests['drop index'] = $test;
         }
 
-    /// 30th test. Adding one unique key to the table
+    /// 31th test. Adding one unique key to the table
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -578,7 +593,7 @@ class test extends XMLDBAction {
             $tests['add unique key'] = $test;
         }
 
-    /// 31th test. Adding one foreign+unique key to the table
+    /// 32th test. Adding one foreign+unique key to the table
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -593,7 +608,7 @@ class test extends XMLDBAction {
             $tests['add foreign+unique key'] = $test;
         }
 
-    /// 32th test. Drop one key
+    /// 33th test. Drop one key
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -608,7 +623,7 @@ class test extends XMLDBAction {
             $tests['drop foreign+unique key'] = $test;
         }
 
-    /// 33th test. Adding one foreign key to the table
+    /// 34th test. Adding one foreign key to the table
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -623,7 +638,7 @@ class test extends XMLDBAction {
             $tests['add foreign key'] = $test;
         }
 
-    /// 34th test. Drop one foreign key
+    /// 35th test. Drop one foreign key
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -638,7 +653,7 @@ class test extends XMLDBAction {
             $tests['drop foreign key'] = $test;
         }
 
-    /// 35th test. Adding one complex enum field
+    /// 36th test. Adding one complex enum field
         if ($test->status) {
         /// Create a new field with complex specs (enums are good candidates)
             $field = new XMLDBField('type');
@@ -653,7 +668,7 @@ class test extends XMLDBAction {
             $tests['add field with enum'] = $test;
         }
 
-    /// 36th test. Dropping the enum of one field
+    /// 37th test. Dropping the enum of one field
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -668,7 +683,7 @@ class test extends XMLDBAction {
             $tests['delete enumlist from one field'] = $test;
         }
 
-    /// 37th test. Creating the enum for one field
+    /// 38th test. Creating the enum for one field
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -682,7 +697,7 @@ class test extends XMLDBAction {
             $tests['add enumlist to one field'] = $test;
         }
 
-    /// 38th test. Renaming one index
+    /// 39th test. Renaming one index
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -697,7 +712,7 @@ class test extends XMLDBAction {
             $tests['rename index (experimental. DO NOT USE IT)'] = $test;
         }
 
-    /// 39th test. Renaming one key
+    /// 40th test. Renaming one key
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
@@ -712,13 +727,13 @@ class test extends XMLDBAction {
             $tests['rename key (experimental. DO NOT USE IT)'] = $test;
         }
 
-    /// 40th test. Renaming one field
+    /// 41th test. Renaming one field
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
             $field = new XMLDBField('type');
             $field->setAttributes(XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, XMLDB_ENUM, array('single', 'news', 'general', 'social', 'eachuser', 'teacher', 'qanda'), 'general', 'course');
-            
+
             $test->sql = $table->getRenameFieldSQL($CFG->dbtype, $CFG->prefix, $field, 'newnameforthefield', true);
             $test->status = rename_field($table, $field, 'newnameforthefield', false, false);
             if (!$test->status) {
@@ -727,11 +742,11 @@ class test extends XMLDBAction {
             $tests['rename field'] = $test;
         }
 
-    /// 41th test. Renaming one table
+    /// 42th test. Renaming one table
         if ($test->status) {
         /// Get SQL code and execute it
             $test = new stdClass;
-            
+
             $test->sql = $table->getRenameTableSQL($CFG->dbtype, $CFG->prefix, 'newnameforthetable', true);
             $test->status = rename_table($table, 'newnameforthetable', false, false);
             if (!$test->status) {
@@ -740,28 +755,87 @@ class test extends XMLDBAction {
             $tests['rename table'] = $test;
         }
 
-    /// 42th test. Getting the PK sequence name for one table
+    /// 43th test. Add enum to field containing enum
+        if ($test->status) {
+        /// Add enum to field containing enum
+            $table->setName('newnameforthetable');
+            $field = new XMLDBField('newnameforthefield');
+            $field->setAttributes(XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, XMLDB_ENUM, array('single', 'news', 'general', 'social', 'eachuser', 'teacher', 'qanda'), 'general', 'course');
+        /// Get SQL code and execute it
+            $test = new stdClass;
+            $test->sql = $table->getModifyEnumSQL($CFG->dbtype, $CFG->prefix, $field, true);
+            $test->status = change_field_enum($table, $field, false, false);
+        /// Let's see if the constraint exists to alter results
+            if (check_constraint_exists($table, $field)) {
+                $test->sql = array('Nothing executed. Enum already exists. Correct.');
+            } else {
+                $test->status = false;
+            }
+            if (!$test->status) {
+                $test->error = $db->ErrorMsg();
+            }
+            $tests['add enum to field containing enum'] = $test;
+        }
+
+    /// 44th test. Drop enum from field containing enum
+        if ($test->status) {
+        /// Drop enum from field containing enum
+            $table->setName('newnameforthetable');
+            $field = new XMLDBField('newnameforthefield');
+            $field->setAttributes(XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null, null, 'general', 'course');
+        /// Get SQL code and execute it
+            $test = new stdClass;
+            $test->sql = $table->getModifyEnumSQL($CFG->dbtype, $CFG->prefix, $field, true);
+            $test->status = change_field_enum($table, $field, false, false);
+            if (!$test->status) {
+                $test->error = $db->ErrorMsg();
+            }
+            $tests['drop enum from field containing enum'] = $test;
+        }
+
+    /// 45th test. Drop enum from field not containing enum
+        if ($test->status) {
+        /// Drop enum from field not containing enum
+            $table->setName('newnameforthetable');
+            $field = new XMLDBField('newnameforthefield');
+            $field->setAttributes(XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null, null, 'general', 'course');
+        /// Get SQL code and execute it
+            $test = new stdClass;
+            $test->sql = $table->getModifyEnumSQL($CFG->dbtype, $CFG->prefix, $field, true);
+            $test->status = change_field_enum($table, $field, false, false);
+        /// Let's see if the constraint exists to alter results
+            if (!check_constraint_exists($table, $field)) {
+                $test->sql = array('Nothing executed. Enum does not exists. Correct.');
+            } else {
+                $test->status = false;
+            }
+            if (!$test->status) {
+                $test->error = $db->ErrorMsg();
+            }
+            $tests['drop enum from field not containing enum'] = $test;
+        }
+
+    /// 46th test. Getting the PK sequence name for one table
         if ($test->status) {
             $test = new stdClass;
-            $table->setName('newnameforthetable');
             $test->sql =  array(find_sequence_name($table));
             $test->status = find_sequence_name($table);
             if (!$test->status) {
                 if (!$test->error = $db->ErrorMsg()) { //If no db errors, result is ok. Just the driver doesn't support this
-                    $test->sql = array('not needed for this DB');
+                    $test->sql = array('Not needed for this DB. Correct.');
                     $test->status = true;
                 }
             }
             $tests['find sequence name'] = $test;
         }
 
-    /// 43th test. Inserting TEXT contents
+    /// 47th test. Inserting TEXT contents
         $textlib = textlib_get_instance();
         if ($test->status) {
             $test = new stdClass;
             $test->status = false;
             $test->sql = array();
-            $basetext = '日本語 • Русский • Deutsch • English • Español • Français • Italiano • Nederlands • Polski • Português • Svenska • العربية • فارسی 한국어 • עברית • ไทย中文  Ελληνικά • Български • Српски • Українська • Bosanski • Català • Česky • Dansk • Eesti • Simple English • Esperanto • Euskara • Galego • Hrvatski • Ido • Bahasa Indonesia • Íslenska • Lëtzebuergesch • Lietuvių • Magyar • Bahasa Melayu اردو • ئۇيغۇرچه • हिन्दी • नेपाल भाषा मराठी • தமிழ் Հայերեն • Беларуская • Чăваш • Ирон æвзаг • Македонски • Сибирской говор • Afrikaans • Aragonés • Arpitan • Asturianu • Kreyòl Ayisyen • Azərbaycan • Bân-lâm-gú • Basa Banyumasan • Brezhoneg • Corsu • Cymraeg • Deitsch • Føroyskt • Frysk • Furlan • Gaeilge • Gàidhlig • Ilokano • Interlingua • Basa Jawa • Kapampangan • Kernewek • Kurdî  كوردی • Ladino  לאדינו • Latina • Latviešu • Limburgs • Lumbaart • Nedersaksisch • Nouormand • Occitan • O‘zbek • Piemontèis • Plattdüütsch • Ripoarisch • Sámegiella • Scots • Shqip • Sicilianu • Sinugboanon • Srpskohrvatski / Српскохрватски • Basa Sunda • Kiswahili • Tagalog • Tatarça • Walon • Winaray  Авар • Башҡорт • Кыргызча  Монгол • Қазақша • Тоҷикӣ • Удмурт • Armãneashce • Bamanankan • Eald Englisc • Gaelg • Interlingue • Kaszëbsczi • Kongo • Ligure • Lingála • lojban • Malagasy • Malti • Māori • Nāhuatl • Ekakairũ Naoero • Novial • Pangasinán • Tok Pisin • Romani / रोमानी • Rumantsch • Runa Simi • Sardu • Tetun • Türkmen / تركمن / Туркмен • Vèneto • Volapük • Võro • West-Vlaoms • Wollof • Zazaki • Žemaitėška';
+            $basetext = "\\ ''語 • Русский • Deutsch • English • Español • Français • Italiano • Nederlands • Polski • Português • Svenska • العربية • فارسی 한국어 • עברית • ไทย中文  Ελληνικά • Български • Српски • Українська • Bosanski • Català • Česky • Dansk • Eesti • Simple English • Esperanto • Euskara • Galego • Hrvatski • Ido • Bahasa Indonesia • Íslenska • Lëtzebuergesch • Lietuvių • Magyar • Bahasa Melayu اردو • ئۇيغۇرچه • हिन्दी • नेपाल भाषा मराठी • தமிழ் Հայերեն • Беларуская • Чăваш • Ирон æвзаг • Македонски • Сибирской говор • Afrikaans • Aragonés • Arpitan • Asturianu • Kreyòl Ayisyen • Azərbaycan • Bân-lâm-gú • Basa Banyumasan • Brezhoneg • Corsu • Cymraeg • Deitsch • Føroyskt • Frysk • Furlan • Gaeilge • Gàidhlig • Ilokano • Interlingua • Basa Jawa • Kapampangan • Kernewek • Kurdî  كوردی • Ladino  לאדינו • Latina • Latviešu • Limburgs • Lumbaart • Nedersaksisch • Nouormand • Occitan • O‘zbek • Piemontèis • Plattdüütsch • Ripoarisch • Sámegiella • Scots • Shqip • Sicilianu • Sinugboanon • Srpskohrvatski / Српскохрватски • Basa Sunda • Kiswahili • Tagalog • Tatarça • Walon • Winaray  Авар • Башҡорт • Кыргызча  Монгол • Қазақша • Тоҷикӣ • Удмурт • Armãneashce • Bamanankan • Eald Englisc • Gaelg • Interlingue • Kaszëbsczi • Kongo • Ligure • Lingála • lojban • Malagasy • Malti • Māori • Nāhuatl • Ekakairũ Naoero • Novial • Pangasinán • Tok Pisin • Romani / रोमानी • Rumantsch • Runa Simi • Sardu • Tetun • Türkmen / تركمن / Туркмен • Vèneto • Volapük • Võro • West-Vlaoms • Wollof • Zazaki • Žemaitėška";
         /// Create one big text (1.500.000 chars)
             $fulltext = '';
             for ($i=0; $i<1000; $i++) { //1500 * 1000 chars
@@ -794,7 +868,7 @@ class test extends XMLDBAction {
             $tests['insert record '. $textlen . ' cc. (text)'] = $test;
         }
 
-    /// 44th test. Inserting BINARY contents
+    /// 48th test. Inserting BINARY contents
         if ($test->status) {
             $test = new stdClass;
             $test->status = false;
@@ -823,7 +897,7 @@ class test extends XMLDBAction {
             $tests['insert record '. $textlen . ' bytes (binary)'] = $test;
         }
 
-    /// 45th test. update_record with TEXT and BINARY contents
+    /// 49th test. update_record with TEXT and BINARY contents
         if ($test->status) {
             $test = new stdClass;
             $test->status = false;
@@ -863,7 +937,7 @@ class test extends XMLDBAction {
             $tests['update record '. $textlen . ' cc. (text) and ' . $imglen . ' bytes (binary)'] = $test;
         }
 
-    /// 46th test. set_field with TEXT contents
+    /// 50th test. set_field with TEXT contents
         if ($test->status) {
             $test = new stdClass;
             $test->status = false;
@@ -893,7 +967,7 @@ class test extends XMLDBAction {
             $tests['set field '. $textlen . ' cc. (text)'] = $test;
         }
 
-    /// 47th test. set_field with BINARY contents
+    /// 51th test. set_field with BINARY contents
         if ($test->status) {
             $test = new stdClass;
             $test->status = false;

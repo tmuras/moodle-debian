@@ -11,6 +11,7 @@
 /// Directory to browse, inside repository. Starts on ''.    
     $directory = optional_param ('directory', '', PARAM_PATH);
     $choose  = optional_param('choose', 'id_reference_value', PARAM_FILE);
+    $name  = optional_param('name', 'id_name', PARAM_FILE);
     
 /// Get the language strings needed
     $strdeployall = get_string('deployall','resource');
@@ -29,7 +30,7 @@
     
 /// Loops though dir building a list of all relevent entries. Ignores files.
 /// Asks for deploy if admin user AND no serialized file found.
-    while (false != ($filename = readdir($repository_dir))) {
+    while (false !== ($filename = readdir($repository_dir))) {
         if ($filename != '.' && $filename != '..' && is_dir("$CFG->repository/$directory/$filename")) {
             unset($item);
             $item->type = '';
@@ -63,7 +64,7 @@
     ims_print_crumbtrail($directory, $choose);
     
 /// If admin, add extra buttons - redeploy & help.
-    if (has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+    if (has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))) {
         echo " | (<a href=\"repository_deploy.php?file=$directory&amp;all=force\">$strdeployall</a>) ";
         helpbutton("deploy", get_string("deployall", "resource"), "resource", true);
     }
@@ -74,25 +75,28 @@
     ?>
     <script type="text/javascript">
         //<![CDATA[
-        function set_value(txt) {
-            opener.document.getElementById('<?php echo $choose ?>').value = txt;
-            window.close();
+        function set_opener_value(field, txt, force) {
+            if (opener.document.getElementById(field)) {
+                if (force || !opener.document.getElementById(field).value) {
+                    opener.document.getElementById(field).value = txt;
+                }
+            }
         }
         //]]>
     </script>
     <?php
-    echo '<ul style="list-style:none;padding:10px;margin:0px;">';  
+    echo '<ul style="list-style:none;padding:10px;margin:0px;">';
     if ($items != array()) {
-        
+
         foreach ($items as $item) {
             if ($item->type == 'deployed') {
                 echo "<li><img src=\"images/ims.gif\" alt=\"IMS CP Package\" /> $item->name" .
-                     "(<a onclick=\"return set_value('#$item->path')\" href=\"#\">$strchoose</a>) " .
+                     "(<a onclick=\"set_opener_value('$choose', '#$item->path', true); set_opener_value('$name', '$item->name', false); window.close()\" href=\"#\">$strchoose</a>) " .
                      "(<a href=\"preview.php?directory=$item->path&amp;choose=$choose\">$strpreview</a>)</li>\n";
             }
             else if ($item->type == 'not deployed') {
             /// Only displays non-deployed IMS CP's if admin user.
-                if (has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+                if (has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))) {
                     echo "<li><img src=\"images/ims.gif\" alt=\"IMS CP Package\" /> <em>$item->path - $strnotdeployed</em> (<a href=\"repository_deploy.php?file=$item->path\">$strdeploy</a>)</li>\n";
                 }
             }

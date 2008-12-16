@@ -1,4 +1,4 @@
-<?PHP // $Id: filter.php,v 1.12.20.1 2007/03/19 06:32:25 martinlanghoff Exp $
+<?PHP // $Id: filter.php,v 1.13 2007/03/19 06:33:45 martinlanghoff Exp $
     //This function provides automatic linking to
     //wiki pages when its page title is found inside every Moodle text
     //It's based in the glosssary filter by Williams Castillo

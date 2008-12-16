@@ -1,4 +1,4 @@
-<?php  //$Id: pagelib.php,v 1.10.6.1 2007/05/18 12:47:20 jmg324 Exp $
+<?php  //$Id: pagelib.php,v 1.11.2.3 2008/09/15 11:29:24 mudrd8mz Exp $
 
 require_once($CFG->libdir.'/pagelib.php');
 
@@ -12,7 +12,7 @@ class page_my_moodle extends page_base {
         page_id_and_class($id,$class);
         if ($id == PAGE_MY_MOODLE) {
             return true;
-        } else if (has_capability('moodle/my:manageblocks', get_context_instance(CONTEXT_SYSTEM, SITEID)) && defined('ADMIN_STICKYBLOCKS')) {
+        } else if (has_capability('moodle/my:manageblocks', get_context_instance(CONTEXT_SYSTEM)) && defined('ADMIN_STICKYBLOCKS')) {
             return true;
         }
         return false;
@@ -20,7 +20,7 @@ class page_my_moodle extends page_base {
 
     function user_is_editing() {
         global $USER;
-        if (has_capability('moodle/my:manageblocks', get_context_instance(CONTEXT_SYSTEM, SITEID)) && defined('ADMIN_STICKYBLOCKS')) {
+        if (has_capability('moodle/my:manageblocks', get_context_instance(CONTEXT_SYSTEM)) && defined('ADMIN_STICKYBLOCKS')) {
             return true;
         }
         return (!empty($USER->editing));
@@ -28,7 +28,7 @@ class page_my_moodle extends page_base {
 
     function print_header($title) {
 
-        global $USER;
+        global $USER, $CFG;
 
         $replacements = array(
                               '%fullname%' => get_string('mymoodle','my')
@@ -42,9 +42,21 @@ class page_my_moodle extends page_base {
         $button = update_mymoodle_icon($USER->id);
         $nav = get_string('mymoodle','my');
         $header = $site->shortname.': '.$nav;
+        $navlinks = array(array('name' => $nav, 'link' => '', 'type' => 'misc'));
+        $navigation = build_navigation($navlinks);
         
         $loggedinas = user_login_string($site);
-        print_header($title, $header,$nav,'','',true, $button, $loggedinas);
+
+        if (empty($CFG->langmenu)) {
+            $langmenu = '';
+        } else {
+            $currlang = current_language();
+            $langs = get_list_of_languages();
+            $langlabel = get_accesshide(get_string('language'));
+            $langmenu = popup_form($CFG->wwwroot .'/my/index.php?lang=', $langs, 'chooselang', $currlang, '', '', '', true, 'self', $langlabel);
+        }
+
+        print_header($title, $header,$navigation,'','',true, $button, $loggedinas.$langmenu);
 
     }
     
