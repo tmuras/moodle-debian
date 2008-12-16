@@ -1,8 +1,9 @@
-moodle (1.8.2.dfsg-1) unstable; urgency=medium
+moodle (1.8.2.dfsg-1) unstable; urgency=high
 
   * Replace html2text with a GPL alternative (closes: #507947)
+  * Fix XSS in the wiki module (CVE-2008-5432, closes: #508593)
 
- -- Francois Marier <francois@debian.org>  Tue, 16 Dec 2008 19:45:24 +1300
+ -- Francois Marier <francois@debian.org>  Tue, 16 Dec 2008 20:01:49 +1300
 
 moodle (1.8.2-2) unstable; urgency=high
 

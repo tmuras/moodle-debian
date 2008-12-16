@@ -14,7 +14,7 @@
     $id           = optional_param('id', 0, PARAM_INT);                  // Course Module ID, or
     $wid          = optional_param('wid', 0, PARAM_INT);                 // Wiki ID
     $page         = optional_param('page', false);       // Wiki Page Name
-    $q            = optional_param('q',"");              // Search Context
+    $q            = optional_param('q',"", PARAM_PATH);                  // Search Context
     $userid       = optional_param('userid', 0, PARAM_INT);              // User wiki.
     $groupid      = optional_param('groupid', 0, PARAM_INT);             // Group wiki.
     $canceledit   = optional_param('canceledit','', PARAM_ALPHA);          // Editing has been cancelled
@@ -377,7 +377,7 @@
         $currenttab = '';
         foreach ($tabs as $tab) {
             $tabname = get_string("tab$tab", 'wiki');
-            $row[] = new tabobject($tabname, $ewbase.'&amp;page='.$tab.'/'.$ewiki_id, $tabname);
+            $row[] = new tabobject($tabname, $ewbase.'&amp;page='.$tab.'/'.s($ewiki_id), $tabname);
             if ($ewiki_action == "$tab" or in_array($page, $specialpages)) {
                 $currenttab = $tabname;
             }
