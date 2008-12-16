@@ -9,6 +9,7 @@ moodle (1.8.2.dfsg-2) unstable; urgency=low
   * Fix CSRF in messaging settings (MSA-08-0023)
   * Fix anonymous group creation and html injection (MDL-11759)
   * Fix SQL injection bug in mnet (MDL-9288)
+  * Fix SQL injection bug in restore (MDL-11857)
 
  -- Dan Poltawski <talktodan@gmail.com>  Tue, 16 Dec 2008 20:52:36 +0000
 
