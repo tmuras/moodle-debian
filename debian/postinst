@@ -88,10 +88,9 @@ check_pgsafe() {
     return 0
 }
 
-get_config() {
-    db_get moodle/webserver
-    webserver="$RET"
+webserver="apache2"
 
+get_config() {
     db_get moodle/db_server
     db_server="$RET"
 
@@ -130,13 +129,6 @@ get_config() {
 }
 
 handle_config() {
-	 if [ "$webserver" = "apache-ssl" ]
-	 then
-		 protocol="https"
-	 else
-	    protocol="http"
-	 fi
-
     cfile=/etc/moodle/config.php
     tempcfile=`tempfile`
     cat > $tempcfile <<EOF
@@ -155,7 +147,7 @@ handle_config() {
 
  \$CFG->dbpersist = "true";
 
- \$CFG->wwwroot = '${protocol}://localhost/moodle';
+ \$CFG->wwwroot = 'http://localhost/moodle';
  \$CFG->dirroot = '/usr/share/moodle';
  \$CFG->dataroot = '/var/lib/moodle';
  \$CFG->directorypermissions = 0750;

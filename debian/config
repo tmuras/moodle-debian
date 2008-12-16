@@ -13,15 +13,8 @@ while [ "$STATE"  != 0 -a "$STATE" -lt 15 ]
   do
   case "$STATE" in
       1)
-	  db_input critical moodle/webserver || true
-	  if db_go; then
-	      db_get moodle/webserver || true
-	      if [ ! -z "$RET" ]; then
-		  STATE=2
-	      fi
-	  else
-	      STATE=0
-	  fi
+	  # Don't ask for the webserver anymore
+	  STATE=2
 	  ;;
 
       2)
