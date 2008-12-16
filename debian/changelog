@@ -1,3 +1,9 @@
+moodle (1.8.2.dfsg-2) unstable; urgency=high
+
+  * Update html2text to prevent code execution attacks (closes: #508909)
+
+ -- Francois Marier <francois@debian.org>  Wed, 17 Dec 2008 12:10:21 +1300
+
 moodle (1.8.2.dfsg-1) unstable; urgency=high
 
   * Replace html2text with a GPL alternative (closes: #507947)
