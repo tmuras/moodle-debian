@@ -1,8 +1,25 @@
 moodle (1.8.2.dfsg-2) unstable; urgency=high
 
+  [ Dan Poltawski ]
+  * Patch SQL injection bug in hotpot module (MSA-08-0010)
+  * Fix XSS bug in logged urls (MDL-11414)
+  * Fix XSS bug in install script (MSA-08-0004)
+  * Fix insufficient access control in Login as feature (MSA-08-0003)
+  * Profiles of deleted users were accessible allowing for spam (MSA-08-0015)
+  * Deficincy in text cleaning functions allowed for XSS (MSA-08-0021)
+  * Fix CSRF in messaging settings (MSA-08-0023)
+  * Fix anonymous group creation and html injection (MDL-11759)
+  * Fix SQL injection bug in mnet (MDL-9288)
+  * Fix SQL injection bug in restore (MDL-11857)
+  * Insufficient cleaning of essay questions (MDL-12079)
+  * Fix insufficient cleaning of PARAM_HOST (MDL-12793)
+  * Fix XSS bug in logged urls (MDL-11414)
+  * Fix uncleaned params in wiki (MDL-14806)
+
+  [ Francois Marier ]
   * Update html2text to prevent code execution attacks (closes: #508909)
 
- -- Francois Marier <francois@debian.org>  Wed, 17 Dec 2008 12:10:21 +1300
+ -- Francois Marier <francois@debian.org>  Wed, 17 Dec 2008 13:37:10 +1300
 
 moodle (1.8.2.dfsg-1) unstable; urgency=high
 

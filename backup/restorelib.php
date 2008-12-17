@@ -1576,17 +1576,8 @@
                 if ($create_user) {
                     //Unset the id because it's going to be inserted with a new one
                     unset ($user->id);
-                    //We addslashes to necessary fields
-                    $user->username = addslashes($user->username);
-                    $user->firstname = addslashes($user->firstname);
-                    $user->lastname = addslashes($user->lastname);
-                    $user->email = addslashes($user->email);
-                    $user->institution = addslashes($user->institution);
-                    $user->department = addslashes($user->department);
-                    $user->address = addslashes($user->address);
-                    $user->city = addslashes($user->city);
-                    $user->url = addslashes($user->url);
-                    $user->description = restore_decode_absolute_links(addslashes($user->description));
+                    // relink the descriptions
+                    $user->description = restore_decode_absolute_links($user->description);
 
                     //We need to analyse the AUTH field to recode it:
                     //   - if the field isn't set, we are in a pre 1.4 backup and we'll 
@@ -1618,7 +1609,7 @@
 
                     //We are going to create the user
                     //The structure is exactly as we need
-                    $newid = insert_record ("user",$user);
+                    $newid = insert_record ("user", addslashes_recursive($user));
                     //Put the new id
                     $status = backup_putid($restore->backup_unique_code,"user",$userid,$newid,"new");
                 }
