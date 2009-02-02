@@ -1,0 +1,29 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## msa090001.dpatch by Francois Marier <francois@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: user: profile images of deleted users are not accessible anymore
+
+@DPATCH@
+diff --git a/user/pix.php b/user/pix.php
+index 8eb3c09..b3509ef 100644
+--- a/user/pix.php
++++ b/user/pix.php
+@@ -17,10 +17,13 @@
+ 
+     if (count($args) == 2) {
+         $userid   = (integer)$args[0];
+-        $image    = $args[1];
+-        $pathname = $CFG->dataroot.'/users/'.$userid.'/'.$image;
+-        if (file_exists($pathname) and !is_dir($pathname)) {
+-            send_file($pathname, $image);
++        // do not serve images of deleted users
++        if ($user = get_record('user', 'id', $userid, 'deleted', 0, 'picture', 1)) {
++            $image    = $args[1];
++            $pathname = $CFG->dataroot.'/users/'.$userid.'/'.$image;
++            if (file_exists($pathname) and !is_dir($pathname)) {
++                send_file($pathname, $image);
++            }
+         }
+     }
+ 

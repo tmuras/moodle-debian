@@ -1,0 +1,63 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## msa090008.dpatch by Francois Marier <francois@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: forum: add sesskey to post/discussion deletion
+
+@DPATCH@
+diff --git a/mod/forum/post.php b/mod/forum/post.php
+index 8a4760b..cf06da1 100644
+--- a/mod/forum/post.php
++++ b/mod/forum/post.php
+@@ -266,7 +266,7 @@
+ 
+         $replycount = forum_count_replies($post);
+ 
+-        if (!empty($confirm)) {    // User has confirmed the delete
++        if (!empty($confirm) && confirm_sesskey()) {    // User has confirmed the delete
+ 
+             if ($post->totalscore) {
+                 notice(get_string("couldnotdeleteratings", "forum"),
+@@ -320,7 +320,7 @@
+                 }
+                 print_header();
+                 notice_yesno(get_string("deletesureplural", "forum", $replycount+1),
+-                             "post.php?delete=$delete&amp;confirm=$delete",
++                             "post.php?delete=$delete&amp;confirm=$delete&amp;sesskey=".sesskey(),
+                              $CFG->wwwroot.'/mod/forum/discuss.php?d='.$post->discussion.'#p'.$post->id);
+ 
+                 forum_print_post($post, $course->id, $ownpost=false, $reply=false, $link=false);
+@@ -335,7 +335,7 @@
+             } else {
+                 print_header();
+                 notice_yesno(get_string("deletesure", "forum", $replycount),
+-                             "post.php?delete=$delete&amp;confirm=$delete",
++                             "post.php?delete=$delete&amp;confirm=$delete&amp;sesskey=".sesskey(),
+                              $CFG->wwwroot.'/mod/forum/discuss.php?d='.$post->discussion.'#p'.$post->id);
+                 forum_print_post($post, $forum->course, $ownpost=false, $reply=false, $link=false);
+             }
+diff --git a/mod/forum/post.php b/mod/forum/post.php
+index cf06da1..83fb15a 100644
+--- a/mod/forum/post.php
++++ b/mod/forum/post.php
+@@ -371,7 +371,7 @@
+             error("You can't split discussions!");
+         }
+ 
+-        if (!empty($name)) {    // User has confirmed the prune
++        if (!empty($name) && confirm_sesskey()) {    // User has confirmed the prune
+ 
+             $newdiscussion = new object();
+             $newdiscussion->course       = $discussion->course;
+diff --git a/mod/forum/prune.html b/mod/forum/prune.html
+index 383b3a9..1a4f4b7 100644
+--- a/mod/forum/prune.html
++++ b/mod/forum/prune.html
+@@ -11,6 +11,7 @@
+     <td align="center" colspan="2">
+     <input type="hidden" name="prune"   value="<?php p($prune) ?>" />
+     <input type="hidden" name="confirm" value="<?php p($prune) ?>" />
++    <input type="hidden" name="sesskey" value="<?php echo sesskey() ?>" />
+     <input type="submit" value="<?php print_string('prune', 'forum'); ?>" />
+     </td>
+ </tr>

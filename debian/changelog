@@ -2,8 +2,13 @@ moodle (1.8.2.dfsg-3) unstable; urgency=high
 
   * Delete unused (but vulnerable) Spellchecker plugin to htmlarea
     (MSA-09-0005, CVE-2008-5153)
+  * Hide images of deleted users (MSA-09-0001)
+  * Fix user pix disclosure (MSA-09-0002)
+  * Fix XSS vulnerabilities in HTML blocks (MSA-09-0004)
+  * Fix XSS vulnerabilities in logs (MSA-09-0007)
+  * Fix CSRF vulnerability in forum code (MSA-09-0008)
 
- -- Francois Marier <francois@debian.org>  Mon, 02 Feb 2009 19:04:22 +1300
+ -- Francois Marier <francois@debian.org>  Mon, 02 Feb 2009 19:09:10 +1300
 
 moodle (1.8.2.dfsg-2) unstable; urgency=high
 
