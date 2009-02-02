@@ -1,3 +1,10 @@
+moodle (1.8.2.dfsg-3) unstable; urgency=high
+
+  * Delete unused (but vulnerable) Spellchecker plugin to htmlarea
+    (MSA-09-0005, CVE-2008-5153)
+
+ -- Francois Marier <francois@debian.org>  Mon, 02 Feb 2009 19:04:22 +1300
+
 moodle (1.8.2.dfsg-2) unstable; urgency=high
 
   [ Dan Poltawski ]
