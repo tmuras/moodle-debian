@@ -9,7 +9,7 @@ diff --git a/course/lib.php b/course/lib.php
 index c8c36d2..031d39f 100644
 --- a/course/lib.php
 +++ b/course/lib.php
-@@ -244,21 +244,49 @@ function make_log_url($module, $url) {
+@@ -244,21 +244,50 @@ function make_log_url($module, $url) {
          case 'message':
          case 'calendar':
          case 'blog':
@@ -44,6 +44,7 @@ index c8c36d2..031d39f 100644
 +    } else {
 +        $script = clean_param($script, PARAM_PATH);
 +    }
++    $script = htmlspecialchars($script);
 +
 +    $query = '';
 +    if ($parts) {

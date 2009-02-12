@@ -1,3 +1,10 @@
+moodle (1.8.2.dfsg-4) unstable; urgency=high
+
+  * Improve the fix for MSA-09-0007 / CVE-2009-0500 as suggested
+    by Steffen Joeris
+
+ -- Francois Marier <francois@debian.org>  Thu, 12 Feb 2009 17:23:28 +1300
+
 moodle (1.8.2.dfsg-3) unstable; urgency=high
 
   * Delete unused (but vulnerable) Spellchecker plugin to htmlarea
