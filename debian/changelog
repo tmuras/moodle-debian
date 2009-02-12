@@ -1,9 +1,11 @@
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
-  * Improve the fix for MSA-09-0007 / CVE-2009-0500 as suggested
-    by Steffen Joeris
+  * Improve the fix for log URL filtering as suggested by Steffen Joeris
+    (MSA-09-0007 / CVE-2009-0500)
+  * Backport upstream fix for calendar export leakage
+    (MSA-09-0006 / CVE-2009-0501)
 
- -- Francois Marier <francois@debian.org>  Thu, 12 Feb 2009 17:23:28 +1300
+ -- Francois Marier <francois@debian.org>  Thu, 12 Feb 2009 17:27:07 +1300
 
 moodle (1.8.2.dfsg-3) unstable; urgency=high
 
