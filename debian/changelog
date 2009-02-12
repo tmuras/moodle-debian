@@ -1,3 +1,12 @@
+moodle (1.8.2.dfsg-3+lenny1) testing-security; urgency=high
+
+  * Non-maintainer upload by the security team
+  * Improve the fix for log URL filtering (MSA-09-0007 / CVE-2009-0500)
+  * Backport upstream fix for potential broute-force attacks in calendar
+    exports (MSA-09-0006 / CVE-2009-0501)
+
+ -- Steffen Joeris <white@debian.org>  Thu, 12 Feb 2009 13:10:22 +0100
+
 moodle (1.8.2.dfsg-3) unstable; urgency=high
 
   * Delete unused (but vulnerable) Spellchecker plugin to htmlarea

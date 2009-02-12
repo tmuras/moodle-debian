@@ -1,15 +1,9 @@
 #! /bin/sh /usr/share/dpatch/dpatch-run
-## msa090007.dpatch by Francois Marier <francois@debian.org>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: proper log url sanitisation
 
 @DPATCH@
-diff --git a/course/lib.php b/course/lib.php
-index c8c36d2..031d39f 100644
---- a/course/lib.php
-+++ b/course/lib.php
-@@ -244,21 +244,49 @@ function make_log_url($module, $url) {
+--- ../old/moodle-1.8.2.dfsg/course/lib.php	2009-02-12 11:10:20.000000000 +0000
++++ moodle-1.8.2.dfsg/course/lib.php	2009-02-12 11:17:00.000000000 +0000
+@@ -244,21 +244,50 @@
          case 'message':
          case 'calendar':
          case 'blog':
@@ -44,6 +38,7 @@ index c8c36d2..031d39f 100644
 +    } else {
 +        $script = clean_param($script, PARAM_PATH);
 +    }
++    $script = htmlspecialchars($script);
 +
 +    $query = '';
 +    if ($parts) {
@@ -64,7 +59,7 @@ index c8c36d2..031d39f 100644
  
  function build_mnet_logs_array($hostid, $course, $user=0, $date=0, $order="l.time ASC", $limitfrom='', $limitnum='',
                     $modname="", $modid=0, $modaction="", $groupid=0) {
-@@ -504,10 +532,6 @@ function print_log($course, $user=0, $date=0, $order="l.time ASC", $page=0, $per
+@@ -501,10 +530,6 @@
          //Filter log->info
          $log->info = format_string($log->info);
  
@@ -75,7 +70,7 @@ index c8c36d2..031d39f 100644
          echo '<tr class="r'.$row.'">';
          if ($course->id == SITEID) {
              echo "<td class=\"cell c0\">\n";
-@@ -615,10 +639,6 @@ function print_mnet_log($hostid, $course, $user=0, $date=0, $order="l.time ASC",
+@@ -608,10 +633,6 @@
          //Filter log->info 
          $log->info = format_string($log->info);
  
@@ -86,7 +81,7 @@ index c8c36d2..031d39f 100644
          echo '<tr class="r'.$row.'">';
          if ($course->id == SITEID) {
              echo "<td class=\"r$row c0\" >\n";
-@@ -710,10 +730,7 @@ function print_log_csv($course, $user, $date, $order='l.time DESC', $modname,
+@@ -703,10 +724,7 @@
  
          //Filter log->info
          $log->info = format_string($log->info);
