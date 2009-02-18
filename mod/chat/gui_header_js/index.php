@@ -1,4 +1,4 @@
-<?php  // $Id: index.php,v 1.24.2.2 2007/05/15 18:26:55 skodak Exp $
+<?php  // $Id: index.php,v 1.27.2.1 2008/12/16 04:54:27 dongsheng Exp $
 
     require_once('../../../config.php');
     require_once('../lib.php');
@@ -30,8 +30,8 @@
     }
 
 /// Check to see if groups are being used here
-     if ($groupmode = groupmode($course, $cm)) {   // Groups are being used
-        if ($groupid = get_and_set_current_group($course, $groupmode, $groupid)) {
+     if ($groupmode = groups_get_activity_groupmode($cm)) {   // Groups are being used
+        if ($groupid = groups_get_activity_group($cm)) {
             if (!$group = groups_get_group($groupid, false)) {
                 error("That group (id $groupid) doesn't exist!");
             }
@@ -50,7 +50,7 @@
         error('Could not log in to chat room!!');
     }
 
-    $params = "chat_sid=$chat_sid";
+    $params = "chat_id=$id&chat_sid={$chat_sid}";
 
     // fallback to the old jsupdate, but allow other update modes
     $updatemode = 'jsupdate';

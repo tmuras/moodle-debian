@@ -1,4 +1,4 @@
-<?php  // $Id: approve.php,v 1.16 2006/08/14 05:55:43 moodler Exp $
+<?php  // $Id: approve.php,v 1.16.10.1 2008/01/24 20:29:35 skodak Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -12,7 +12,7 @@
     if (! $cm = get_coursemodule_from_id('glossary', $id)) {
         error("Course Module ID was incorrect");
     }
-    
+
     if (! $course = get_record("course", "id", $cm->course)) {
         error("Course is misconfigured");
     }
@@ -21,13 +21,14 @@
         error("Course module is incorrect");
     }
 
-    require_login($course->id, false, $cm);    
-    
+    require_login($course->id, false, $cm);
+
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_capability('mod/glossary:approve', $context);
 
     $newentry->id = $eid;
-    $newentry->approved = 1;
+    $newentry->approved     = 1;
+    $newentry->timemodified = time(); // wee need this date here to speed up recent activity, TODO: use timestamp in approved field instead in 2.0
 
     if (! update_record("glossary_entries", $newentry)) {
         error("Could not update your glossary");

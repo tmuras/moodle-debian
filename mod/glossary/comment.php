@@ -1,4 +1,4 @@
-<?php // $Id: comment.php,v 1.37.2.1 2007/03/26 23:01:11 stronk7 Exp $
+<?php // $Id: comment.php,v 1.43.2.1 2007/10/12 16:09:44 tjhunt Exp $
 
 require_once('../../config.php');
 require_once('lib.php');
@@ -47,7 +47,8 @@ function glossary_comment_add() {
 
     require_login($course->id, false, $cm);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-    if (!$glossary->allowcomments and !has_capability('mod/glossary:comment', $context)) {
+    /// Both the configuration and capability must allow comments
+    if (!$glossary->allowcomments or !has_capability('mod/glossary:comment', $context)) {
         error('You can\'t add comments to this glossary!');
     }
 
@@ -219,12 +220,15 @@ function glossary_comment_print_header($course, $cm, $glossary, $entry, $action)
             break;
     }
 
-    $strglossaries = get_string('modulenameplural', 'glossary');
     $strglossary   = get_string('modulename', 'glossary');
     $strcomments   = get_string('comments', 'glossary');
+    
+    $navlinks = array();
+    $navlinks[] = array('name' => $strcomments, 'link' => "comments.php?id=$cm->id&amp;eid=$entry->id", 'type' => 'title');
+    $navlinks[] = array('name' => $straction, 'link' => '', 'type' => 'action');
+    $navigation = build_navigation($navlinks, $cm);
 
-    print_header_simple(format_string($glossary->name), '',
-        "<a href=\"index.php?id=$course->id\">$strglossaries</a> -> <a href=\"view.php?id=$cm->id\">".format_string($glossary->name,true)."</a> -> <a href=\"comments.php?id=$cm->id&amp;eid=$entry->id\">$strcomments</a> -> " . $straction,
+    print_header_simple(format_string($glossary->name), '', $navigation,
         '', '', true, update_module_button($cm->id, $course->id, $strglossary),
         navmenu($course, $cm));
 /// print original glossary entry for any comment action (add, update, delete)

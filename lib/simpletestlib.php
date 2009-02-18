@@ -1,4 +1,4 @@
-<?php
+<?php // $Id$
 /**
  * Utility functions to make unit testing easier.
  * 
@@ -19,6 +19,7 @@ require_once($CFG->libdir . '/simpletestlib/unit_tester.php');
 require_once($CFG->libdir . '/simpletestlib/expectation.php');
 require_once($CFG->libdir . '/simpletestlib/reporter.php');
 require_once($CFG->libdir . '/simpletestlib/web_tester.php');
+require_once($CFG->libdir . '/simpletestlib/mock_objects.php');
 
 /**
  * Recursively visit all the files in the source tree. Calls the callback
@@ -293,7 +294,7 @@ function remove_test_table($tablename, $db, $cascade = false) {
     
     if ($CFG->dbfamily == 'postgres') {
         $rs = $db->Execute("SELECT relname FROM pg_class WHERE relname = '{$tablename}_id_seq' AND relkind = 'S';");
-        if ($rs && $rs->RecordCount()) {
+        if ($rs && !rs_EOF($rs)) {
             _private_execute_sql("DROP SEQUENCE {$tablename}_id_seq;", $db);
         }
     }

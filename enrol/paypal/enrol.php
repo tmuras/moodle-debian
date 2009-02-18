@@ -1,4 +1,4 @@
-<?php  // $Id: enrol.php,v 1.26 2006/12/18 19:21:11 skodak Exp $
+<?php  // $Id: enrol.php,v 1.28.2.5 2008/12/10 06:30:25 dongsheng Exp $
        // Implements all the main code for the PayPal plugin
 
 require_once("$CFG->dirroot/enrol/enrol.class.php");
@@ -22,8 +22,6 @@ function print_entry($course) {
     } else {
         $cost = (float) $course->cost;
     }
-    $cost = format_float($cost, 2);
-
 
     if (abs($cost) < 0.01) { // no cost, default to base class entry to course
 
@@ -31,9 +29,12 @@ function print_entry($course) {
         $manual->print_entry($course);
 
     } else {
+        $navlinks = array();
+        $navlinks[] = array('name' => $strcourses, 'link' => "$CFG->wwwroot/course", 'type' => 'misc');
+        $navlinks[] = array('name' => $strloginto, 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
 
-        print_header($strloginto, $course->fullname,
-                     "<a href=\"$CFG->wwwroot/course/\">$strcourses</a> -> $strloginto");
+        print_header($strloginto, $course->fullname, $navigation);
         print_course($course, "80%");
 
         if ($course->password) {  // Presenting two options
@@ -50,7 +51,7 @@ function print_entry($course) {
                 // in unencrypted connection...
                 $wwwroot = str_replace("http://", "https://", $CFG->wwwroot);
             }
-            echo '<div align="center"><p>'.get_string('paymentrequired').'</p>';
+            echo '<div class="mdl-align"><p>'.get_string('paymentrequired').'</p>';
             echo '<p><b>'.get_string('cost').": $CFG->enrol_currency $cost".'</b></p>';
             echo '<p><a href="'.$wwwroot.'/login/">'.get_string('loginsite').'</a></p>';
             echo '</div>';
@@ -123,7 +124,6 @@ function get_access_icons($course) {
 
     return $str;
 }
-
 
 /// Override the base class config_form() function
 function config_form($frm) {
@@ -198,6 +198,17 @@ function check_entry($form, $course) {
         $this->errormsg = $manual->errormsg;
     }
 }
+
+/**
+ * Provides method to print the enrolment key form code. This method is called
+ * from /enrol/manual/enrol.html if it's included
+ * @param  object a valid course object
+ */
+function print_enrolmentkeyfrom($course) {
+    $manual = enrolment_factory::factory('manual');
+    $manual->print_enrolmentkeyfrom($course);
+}
+
 
 } // end of class definition
 

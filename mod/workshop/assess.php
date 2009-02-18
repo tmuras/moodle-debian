@@ -1,4 +1,4 @@
-<?php  // $Id: assess.php,v 1.14.2.1 2007/02/28 05:36:36 nicolasconnault Exp $
+<?php  // $Id: assess.php,v 1.21.2.1 2007/10/12 16:09:46 tjhunt Exp $
 
     require("../../config.php");
     require("lib.php");
@@ -59,11 +59,8 @@
     /// top frame with the navigation bar and the assessment form
 
     if ($frameset == "top") {
-        // removed <base target="_parent" />
-        // because it does not validate MDL-7861
-        print_header_simple(format_string($workshop->name), "",
-                     "<a href=\"index.php?id=$course->id\">$strworkshops</a> ->
-                      <a href=\"view.php?id=$cm->id\">".format_string($workshop->name,true)."</a> -> $strassess",
+        $navigation = build_navigation($strassess, $cm);
+        print_header_simple(format_string($workshop->name), "",$navigation,
                       "", '', true);
 
         // there can be an assessment record (for teacher submissions), if there isn't...
@@ -89,6 +86,8 @@
                 $assessment->timegraded = 0;
                 $assessment->timeagreed = 0;
                 $assessment->resubmission = 0;
+                $assessment->generalcomment = '';
+                $assessment->teachercomment = '';
                 if (!$assessment->id = insert_record("workshop_assessments", $assessment)) {
                     error("Could not insert workshop assessment!");
                 }
@@ -149,4 +148,3 @@
     print_footer('none');
 
 ?>
-

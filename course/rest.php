@@ -1,4 +1,4 @@
-<?php  // $Id: rest.php,v 1.8 2006/11/22 07:36:41 vyshane Exp $
+<?php  // $Id: rest.php,v 1.8.6.2 2008/07/18 14:00:56 nicolasconnault Exp $
        // Provide interface for topics AJAX course formats
 
 require_once('../config.php');
@@ -54,7 +54,7 @@ switch($_SERVER['REQUEST_METHOD']) {
             case 'block':
 
                 switch ($field) {
-                    case 'visible':   
+                    case 'visible':
                         blocks_execute_action($PAGE, $pageblocks, 'toggle', $blockinstance);
                         break;
 
@@ -68,21 +68,22 @@ switch($_SERVER['REQUEST_METHOD']) {
                 break;
 
             case 'section':
- 
+
                 if (!record_exists('course_sections','course',$course->id,'section',$id)) {
                     error_log('AJAX commands.php: Bad Section ID '.$id);
                     die;
                 }
- 
+
                 switch ($field) {
                     case 'visible':
                         set_section_visible($course->id, $id, $value);
                         break;
 
                     case 'move':
-                        move_section($course, $id, $value);
+                        move_section_to($course, $id, $value);
                         break;
                 }
+                rebuild_course_cache($course->id);
                 break;
 
             case 'resource':
@@ -116,7 +117,7 @@ switch($_SERVER['REQUEST_METHOD']) {
                             error_log('AJAX commands.php: Bad section ID '.$sectionid);
                             die;
                         }
-                        
+
                         if ($beforeid > 0){
                             $beforemod = get_record('course_modules', 'id', $beforeid);
                         } else {
@@ -130,9 +131,10 @@ switch($_SERVER['REQUEST_METHOD']) {
                         moveto_module($mod, $section, $beforemod);
                         break;
                 }
+                rebuild_course_cache($course->id);
                 break;
-        
-            case 'course': 
+
+            case 'course':
                 switch($field) {
                     case 'marker':
                         $newcourse = new object;
@@ -152,8 +154,8 @@ switch($_SERVER['REQUEST_METHOD']) {
         switch ($class) {
             case 'block':
                 blocks_execute_action($PAGE, $pageblocks, 'delete', $blockinstance);
-                break; 
-                
+                break;
+
             case 'resource':
                 if (!$cm = get_record('course_modules', 'id', $id, 'course', $course->id)) {
                     error_log('AJAX rest.php: Bad course module ID '.$id);

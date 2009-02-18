@@ -1,4 +1,4 @@
-<?php
+<?php // $Id: auth.php,v 1.27.2.13 2008/10/30 01:42:17 peterbulmer Exp $
 
 /**
  * @author Martin Dougiamas
@@ -89,7 +89,7 @@ class auth_plugin_mnet extends auth_plugin_base {
         }
 
         // session okay, try getting the user
-        if (!$user = get_complete_user_data('id', $mnet_session->userid)) {
+        if (!$user = get_record('user', 'id', $mnet_session->userid)) {
             echo mnet_server_fault(3, get_string('authfail_usermismatch', 'mnet'));
             exit;
         }
@@ -115,7 +115,7 @@ class auth_plugin_mnet extends auth_plugin_base {
         $userdata['session.gc_maxlifetime']  = ini_get('session.gc_maxlifetime');
         $userdata['picture']                 = $user->picture;
         if (!empty($user->picture)) {
-            $imagefile = "{$CFG->dataroot}/users/{$user->id}/f1.jpg";
+            $imagefile = make_user_directory($user->id, true) . "/f1.jpg";
             if (file_exists($imagefile)) {
                 $userdata['imagehash'] = sha1(file_get_contents($imagefile));
             }
@@ -171,16 +171,16 @@ class auth_plugin_mnet extends auth_plugin_base {
         require_once $CFG->dirroot . '/mnet/xmlrpc/client.php';
 
         // check remote login permissions
-        if (! has_capability('moodle/site:mnetlogintoremote', get_context_instance(CONTEXT_SYSTEM, SITEID))
+        if (! has_capability('moodle/site:mnetlogintoremote', get_context_instance(CONTEXT_SYSTEM))
                 or is_mnet_remote_user($USER)
                 or $USER->username == 'guest'
                 or empty($USER->id)) {
-            error(get_string('notpermittedtojump', 'mnet'));
+            print_error('notpermittedtojump', 'mnet');
         }
 
         // check for SSO publish permission first
         if ($this->has_service($mnethostid, 'sso_sp') == false) {
-            error(get_string('hostnotconfiguredforsso', 'mnet'));
+            print_error('hostnotconfiguredforsso', 'mnet');
         }
 
         // set RPC timeout to 30 seconds if not configured
@@ -209,7 +209,7 @@ class auth_plugin_mnet extends auth_plugin_base {
             $mnet_session->expires = time() + (integer)ini_get('session.gc_maxlifetime');
             $mnet_session->session_id = session_id();
             if (! $mnet_session->id = insert_record('mnet_session', addslashes_object($mnet_session))) {
-                error(get_string('databaseerror', 'mnet'));
+                print_error('databaseerror', 'mnet');
             }
         } else {
             $mnet_session->useragent = sha1($_SERVER['HTTP_USER_AGENT']);
@@ -218,14 +218,14 @@ class auth_plugin_mnet extends auth_plugin_base {
             $mnet_session->expires = time() + (integer)ini_get('session.gc_maxlifetime');
             $mnet_session->session_id = session_id();
             if (false == update_record('mnet_session', addslashes_object($mnet_session))) {
-                error(get_string('databaseerror', 'mnet'));
+                print_error('databaseerror', 'mnet');
             }
         }
 
         // construct the redirection URL
         //$transport = mnet_get_protocol($mnet_peer->transport);
         $wantsurl = urlencode($wantsurl);
-        $url = "{$mnet_peer->wwwroot}/auth/mnet/land.php?token={$mnet_session->token}&idp={$MNET->wwwroot}&wantsurl={$wantsurl}";
+        $url = "{$mnet_peer->wwwroot}{$mnet_peer->application->sso_land_url}?token={$mnet_session->token}&idp={$MNET->wwwroot}&wantsurl={$wantsurl}";
 
         return $url;
     }
@@ -244,8 +244,8 @@ class auth_plugin_mnet extends auth_plugin_base {
         require_once $CFG->dirroot . '/mnet/xmlrpc/client.php';
 
         // verify the remote host is configured locally before attempting RPC call
-        if (! $remotehost = get_record('mnet_host', 'wwwroot', $remotewwwroot)) {
-            error(get_string('notpermittedtoland', 'mnet'));
+        if (! $remotehost = get_record('mnet_host', 'wwwroot', $remotewwwroot, 'deleted', 0)) {
+            print_error('notpermittedtoland', 'mnet');
         }
 
         // get the originating (ID provider) host info
@@ -268,7 +268,7 @@ class auth_plugin_mnet extends auth_plugin_base {
                 list($code, $message) = array_map('trim',explode(':', $errormessage, 2));
                 if($code == 702) {
                     $site = get_site();
-                    print_error('mnet_session_prohibited','mnet', $remotewwwroot, format_string($site->fullname));
+                    print_error('mnet_session_prohibited', 'mnet', $remotewwwroot, format_string($site->fullname));
                     exit;
                 }
                 $message .= "ERROR $code:<br/>$errormessage<br/>";
@@ -285,21 +285,21 @@ class auth_plugin_mnet extends auth_plugin_base {
         $firsttime = false;
 
         // get the local record for the remote user
-        $localuser = get_record('user', 'username', $remoteuser->username, 'mnethostid', $remotehost->id);
+        $localuser = get_record('user', 'username', addslashes($remoteuser->username), 'mnethostid', $remotehost->id);
 
         // add the remote user to the database if necessary, and if allowed
         // TODO: refactor into a separate function
-        if (! $localuser->id) {
+        if (empty($localuser) || ! $localuser->id) {
             if (empty($this->config->auto_add_remote_users)) {
-                error(get_string('nolocaluser', 'mnet'));
+                print_error('nolocaluser', 'mnet');
             }
             $remoteuser->mnethostid = $remotehost->id;
             if (! insert_record('user', addslashes_object($remoteuser))) {
-                error(get_string('databaseerror', 'mnet'));
+                print_error('databaseerror', 'mnet');
             }
             $firsttime = true;
             if (! $localuser = get_record('user', 'username', addslashes($remoteuser->username), 'mnethostid', $remotehost->id)) {
-                error(get_string('nolocaluser', 'mnet'));
+                print_error('nolocaluser', 'mnet');
             }
         }
 
@@ -319,7 +319,7 @@ class auth_plugin_mnet extends auth_plugin_base {
 
             // TODO: fetch image if it has changed
             if ($key == 'imagehash') {
-                $dirname = "{$CFG->dataroot}/users/{$localuser->id}";
+                $dirname = make_user_directory($localuser->id, true);
                 $filename = "$dirname/f1.jpg";
 
                 $localhash = '';
@@ -338,6 +338,7 @@ class auth_plugin_mnet extends auth_plugin_base {
                         if (strlen($fetchrequest->response['f1']) > 0) {
                             $imagecontents = base64_decode($fetchrequest->response['f1']);
                             file_put_contents($filename, $imagecontents);
+                            $localuser->picture = 1;
                         }
                         if (strlen($fetchrequest->response['f2']) > 0) {
                             $imagecontents = base64_decode($fetchrequest->response['f2']);
@@ -391,7 +392,7 @@ class auth_plugin_mnet extends auth_plugin_base {
             $mnet_session->expires = time() + (integer)$session_gc_maxlifetime;
             $mnet_session->session_id = session_id();
             if (! $mnet_session->id = insert_record('mnet_session', addslashes_object($mnet_session))) {
-                error(get_string('databaseerror', 'mnet'));
+                print_error('databaseerror', 'mnet');
             }
         } else {
             $mnet_session->expires = time() + (integer)$session_gc_maxlifetime;
@@ -771,76 +772,76 @@ class auth_plugin_mnet extends auth_plugin_base {
                           join("\n", $mnet_request->error));
                 break;
             }
+            $mnethostlogssql = '
+            SELECT
+                mhostlogs.remoteid, mhostlogs.time, mhostlogs.userid, mhostlogs.ip,
+                mhostlogs.course, mhostlogs.module, mhostlogs.cmid, mhostlogs.action,
+                mhostlogs.url, mhostlogs.info, mhostlogs.username, c.fullname as coursename,
+                c.modinfo
+            FROM
+                (
+                    SELECT
+                        l.id as remoteid, l.time, l.userid, l.ip, l.course, l.module, l.cmid,
+                        l.action, l.url, l.info, u.username
+                    FROM
+                        ' . $CFG->prefix . 'user u
+                        INNER JOIN ' . $CFG->prefix . 'log l on l.userid = u.id
+                    WHERE
+                        u.mnethostid = ' . $mnethostid . '
+                        AND l.id > ' . $mnet_request->response['last log id'] . '
+                    ORDER BY remoteid ASC
+                    LIMIT 500
+                ) mhostlogs
+                INNER JOIN ' . $CFG->prefix . 'course c on c.id = mhostlogs.course
+            ORDER by mhostlogs.remoteid ASC';
 
-            $query = "SELECT
-                          l.id as remoteid,
-                          l.time,
-                          l.userid,
-                          l.ip,
-                          l.course,
-                          l.module,
-                          l.cmid,
-                          l.action,
-                          l.url,
-                          l.info,
-                          c.fullname as coursename,
-                          c.modinfo as modinfo,
-                          u.username
-                      FROM
-                          {$CFG->prefix}user u,
-                          {$CFG->prefix}log l,
-                          {$CFG->prefix}course c
-                      WHERE
-                          l.userid = u.id AND
-                          u.mnethostid = '$mnethostid' AND
-                          l.id > '".$mnet_request->response['last log id']."' AND
-                          c.id = l.course
-                      ORDER BY
-                          remoteid ASC";
+            $mnethostlogs = get_records_sql($mnethostlogssql);
 
-            $results = get_records_sql($query);
+            if ($mnethostlogs == false) {
+                continue;
+            }
 
-            if (false == $results) continue;
+            $processedlogs = array();
 
-            $param = array();
-
-            foreach($results as $result) {
-                if (!empty($result->modinfo) && !empty($result->cmid)) {
-                    $modinfo = unserialize($result->modinfo);
-                    unset($result->modinfo);
+            foreach($mnethostlogs as $hostlog) {
+                // Extract the name of the relevant module instance from the
+                // course modinfo if possible.
+                if (!empty($hostlog->modinfo) && !empty($hostlog->cmid)) {
+                    $modinfo = unserialize($hostlog->modinfo);
+                    unset($hostlog->modinfo);
                     $modulearray = array();
                     foreach($modinfo as $module) {
                         $modulearray[$module->cm] = urldecode($module->name);
                     }
-                    $result->resource_name = $modulearray[$result->cmid];
+                    $hostlog->resource_name = $modulearray[$hostlog->cmid];
                 } else {
-                    $result->resource_name = '';
+                    $hostlog->resource_name = '';
                 }
 
-                $param[] = array (
-                                    'remoteid'      => $result->remoteid,
-                                    'time'          => $result->time,
-                                    'userid'        => $result->userid,
-                                    'ip'            => $result->ip,
-                                    'course'        => $result->course,
-                                    'coursename'    => $result->coursename,
-                                    'module'        => $result->module,
-                                    'cmid'          => $result->cmid,
-                                    'action'        => $result->action,
-                                    'url'           => $result->url,
-                                    'info'          => $result->info,
-                                    'resource_name' => $result->resource_name,
-                                    'username'      => $result->username
+                $processedlogs[] = array (
+                                    'remoteid'      => $hostlog->remoteid,
+                                    'time'          => $hostlog->time,
+                                    'userid'        => $hostlog->userid,
+                                    'ip'            => $hostlog->ip,
+                                    'course'        => $hostlog->course,
+                                    'coursename'    => $hostlog->coursename,
+                                    'module'        => $hostlog->module,
+                                    'cmid'          => $hostlog->cmid,
+                                    'action'        => $hostlog->action,
+                                    'url'           => $hostlog->url,
+                                    'info'          => $hostlog->info,
+                                    'resource_name' => $hostlog->resource_name,
+                                    'username'      => $hostlog->username
                                  );
             }
 
-            unset($result);
+            unset($hostlog);
 
             $mnet_request = new mnet_xmlrpc_client();
             $mnet_request->set_method('auth/mnet/auth.php/refresh_log');
 
             // set $token and $useragent parameters
-            $mnet_request->add_param($param);
+            $mnet_request->add_param($processedlogs);
 
             if ($mnet_request->send($mnet_peer) === true) {
                 if ($mnet_request->response['code'] > 0) {
@@ -885,10 +886,12 @@ class auth_plugin_mnet extends auth_plugin_base {
 
             unset($logEntryObj->username);
 
+            $logEntryObj = $this->trim_logline($logEntryObj);
             $insertok = insert_record('mnet_log', addslashes_object($logEntryObj), false);
 
             if ($insertok) {
                 $MNET_REMOTE_CLIENT->last_log_id = $logEntryObj->remoteid;
+                $MNET_REMOTE_CLIENT->updateparams->last_log_id = $logEntryObj->remoteid;
             } else {
                 $returnString .= 'Record with id '.$logEntryObj->remoteid." failed to insert.\n";
             }
@@ -1123,7 +1126,7 @@ class auth_plugin_mnet extends auth_plugin_base {
             $mnet_request->add_param($username);
             $mnet_request->add_param($useragent);
             if ($mnet_request->send($mnet_peer) === false) {
-                debugging("Server side error has occured on host $mnethostid: " .
+                debugging("Server side error has occured on host $mnetsession->mnethostid: " .
                           join("\n", $mnet_request->error));
             }
         }
@@ -1262,8 +1265,8 @@ class auth_plugin_mnet extends auth_plugin_base {
         global $CFG;
 
         if ($user = get_record('user', 'username', addslashes($username), 'mnethostid', $CFG->mnet_localhost_id)) {
-            $filename1 = "{$CFG->dataroot}/users/{$user->id}/f1.jpg";
-            $filename2 = "{$CFG->dataroot}/users/{$user->id}/f2.jpg";
+            $filename1 = make_user_directory($user->id, true) . "/f1.jpg";
+            $filename2 = make_user_directory($user->id, true) . "/f2.jpg";
             $return = array();
             if (file_exists($filename1)) {
                 $return['f1'] = base64_encode(file_get_contents($filename1));
@@ -1311,9 +1314,12 @@ class auth_plugin_mnet extends auth_plugin_base {
                 svc.apiversion,
                 h2s.id as h2s_id
             FROM
+                {$CFG->prefix}mnet_host h,
                 {$CFG->prefix}mnet_service svc,
                 {$CFG->prefix}mnet_host2service h2s
             WHERE
+                h.deleted = '0' AND
+                h.id = h2s.hostid AND
                 h2s.hostid = '$mnethostid' AND
                 h2s.serviceid = svc.id AND
                 svc.name = '$servicename' AND
@@ -1347,6 +1353,25 @@ class auth_plugin_mnet extends auth_plugin_base {
             $redirect = $host->wwwroot.'/';
         }
     }
+
+    /**
+     * Trims a log line from mnet peer to limit each part to a length which can be stored in our DB
+     *
+     * @param object $logline The log information to be trimmed
+     * @return object The passed logline object trimmed to not exceed storable limits
+     */
+    function trim_logline ($logline) {
+        $limits = array('ip' => 15, 'coursename' => 40, 'module' => 20, 'action' => 40,
+                        'url' => 255);
+        foreach ($limits as $property => $limit) {
+            if (isset($logline->$property)) {
+                $logline->$property = substr($logline->$property, 0, $limit);
+            }
+        }
+
+        return $logline;
+    }
+
 
 }
 

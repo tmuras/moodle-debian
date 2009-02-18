@@ -1,4 +1,4 @@
-<?php  /// $Id: javascript.php,v 1.33.2.1 2007/05/15 07:48:34 moodler Exp $
+<?php  /// $Id: javascript.php,v 1.36.2.3 2008/07/18 07:14:12 scyrma Exp $
        /// Load up any required Javascript libraries
 
     if (!defined('MOODLE_INTERNAL')) {
@@ -20,16 +20,19 @@
 
 <script type="text/javascript" src="<?php echo $CFG->httpswwwroot ?>/lib/javascript-static.js"></script>
 <script type="text/javascript" src="<?php echo $CFG->httpswwwroot ?>/lib/javascript-mod.php"></script>
-<script type="text/javascript" src="<?php echo $CFG->httpswwwroot ?>/lib/overlib.js"></script>
+<script type="text/javascript" src="<?php echo $CFG->httpswwwroot ?>/lib/overlib/overlib.js"></script>
+<script type="text/javascript" src="<?php echo $CFG->httpswwwroot ?>/lib/overlib/overlib_cssstyle.js"></script>
 <script type="text/javascript" src="<?php echo $CFG->httpswwwroot ?>/lib/cookies.js"></script>
 <script type="text/javascript" src="<?php echo $CFG->httpswwwroot ?>/lib/ufo.js"></script>
+<script type="text/javascript" src="<?php echo $CFG->httpswwwroot ?>/lib/dropdown.js"></script>  
 
 <script type="text/javascript" defer="defer">
-
 //<![CDATA[
-
 setTimeout('fix_column_widths()', 20);
-
+//]]>
+</script>
+<script type="text/javascript">
+//<![CDATA[
 function openpopup(url,name,options,fullscreen) {
   fullurl = "<?php echo $CFG->httpswwwroot ?>" + url;
   windowobj = window.open(fullurl,name,options);
@@ -78,12 +81,42 @@ function inserttext(text) {
     if(($pos = strpos($focus, '.')) !== false) {
         //old style focus using form name - no allowed inXHTML Strict
         $topelement = substr($focus, 0, $pos);
-        echo "function setfocus() { if(document.$topelement) document.$focus.focus(); }\n";
+        echo "addonload(function() { if(document.$topelement) document.$focus.focus(); });\n";
     } else {
         //focus element with given id
-        echo "function setfocus() { if(el = document.getElementById('$focus')) el.focus(); }\n";
+        echo "addonload(function() { if(el = document.getElementById('$focus')) el.focus(); });\n";
     }
+    $focus=false; // Prevent themes from adding it to body tag which breaks addonload(), MDL-10249
 } ?>
 
+function getElementsByClassName(oElm, strTagName, oClassNames){
+	var arrElements = (strTagName == "*" && oElm.all)? oElm.all : oElm.getElementsByTagName(strTagName);
+	var arrReturnElements = new Array();
+	var arrRegExpClassNames = new Array();
+	if(typeof oClassNames == "object"){
+		for(var i=0; i<oClassNames.length; i++){
+			arrRegExpClassNames.push(new RegExp("(^|\\s)" + oClassNames[i].replace(/\-/g, "\\-") + "(\\s|$)"));
+		}
+	}
+	else{
+		arrRegExpClassNames.push(new RegExp("(^|\\s)" + oClassNames.replace(/\-/g, "\\-") + "(\\s|$)"));
+	}
+	var oElement;
+	var bMatchesAll;
+	for(var j=0; j<arrElements.length; j++){
+		oElement = arrElements[j];
+		bMatchesAll = true;
+		for(var k=0; k<arrRegExpClassNames.length; k++){
+			if(!arrRegExpClassNames[k].test(oElement.className)){
+				bMatchesAll = false;
+				break;
+			}
+		}
+		if(bMatchesAll){
+			arrReturnElements.push(oElement);
+		}
+	}
+	return (arrReturnElements)
+}
 //]]>
 </script>

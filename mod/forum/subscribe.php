@@ -1,4 +1,4 @@
-<?php // $Id: subscribe.php,v 1.31.2.1 2007/03/15 06:23:54 nicolasconnault Exp $
+<?php // $Id: subscribe.php,v 1.37.2.7 2008/04/13 19:10:35 skodak Exp $
 
 //  Subscribe to or unsubscribe from a forum.
 
@@ -36,7 +36,7 @@
     }
 
     if (groupmode($course, $cm)
-                and !forum_is_subscribed($user->id, $forum->id)
+                and !forum_is_subscribed($user->id, $forum)
                 and !has_capability('moodle/site:accessallgroups', $context)) {
         if (!mygroupid($course->id)) {
             error('Sorry, but you must be a group member to subscribe.');
@@ -48,30 +48,24 @@
     if (isguest()) {   // Guests can't subscribe
         $wwwroot = $CFG->wwwroot.'/login/index.php';
         if (!empty($CFG->loginhttps)) {
-            $wwwroot = str_replace('http','https', $wwwroot);
+            $wwwroot = str_replace('http:','https:', $wwwroot);
         }
-
-        $strforums = get_string('modulenameplural', 'forum');
-        if ($course->id != SITEID) {
-            print_header($course->shortname, $course->fullname,
-                 "<a href=\"../../course/view.php?id=$course->id\">$course->shortname</a> ->
-                  <a href=\"../forum/index.php?id=$course->id\">$strforums</a> -> 
-                  <a href=\"view.php?f=$forum->id\">".format_string($forum->name,true)."</a>", '', '', true, "", navmenu($course, $cm));
-        } else {
-            print_header($course->shortname, $course->fullname,
-                 "<a href=\"../forum/index.php?id=$course->id\">$strforums</a> -> 
-                  <a href=\"view.php?f=$forum->id\">".format_string($forum->name,true)."</a>", '', '', true, "", navmenu($course, $cm));
-        }
+        
+        $navigation = build_navigation('', $cm);
+        print_header($course->shortname, $course->fullname, $navigation, '', '', true, "", navmenu($course, $cm));
+        
         notice_yesno(get_string('noguestsubscribe', 'forum').'<br /><br />'.get_string('liketologin'),
                      $wwwroot, $_SERVER['HTTP_REFERER']);
         print_footer($course);
         exit;
     }
 
-    $returnto = forum_go_back_to("index.php?id=$course->id");
+    $returnto = optional_param('backtoindex',0,PARAM_INT) 
+        ? "index.php?id=".$course->id 
+        : "view.php?f=$id";
 
     if ($force and has_capability('mod/forum:managesubscriptions', $context)) {
-        if (forum_is_forcesubscribed($forum->id)) {
+        if (forum_is_forcesubscribed($forum)) {
             forum_forcesubscribe($forum->id, 0);
             redirect($returnto, get_string("everyonecannowchoose", "forum"), 1);
         } else {
@@ -80,7 +74,7 @@
         }
     }
 
-    if (forum_is_forcesubscribed($forum->id)) {
+    if (forum_is_forcesubscribed($forum)) {
         redirect($returnto, get_string("everyoneisnowsubscribed", "forum"), 1);
     }
 
@@ -98,7 +92,10 @@
     } else {  // subscribe
         if ($forum->forcesubscribe == FORUM_DISALLOWSUBSCRIBE &&
                     !has_capability('mod/forum:managesubscriptions', $context)) {
-            error(get_string('disallowsubscribe'),$_SERVER["HTTP_REFERER"]);
+            print_error('disallowsubscribe', 'forum', $_SERVER["HTTP_REFERER"]);
+        }
+        if (!has_capability('mod/forum:viewdiscussion', $context)) {
+            error("Could not subscribe you to that forum", $_SERVER["HTTP_REFERER"]);
         }
         if (forum_subscribe($user->id, $forum->id) ) {
             add_to_log($course->id, "forum", "subscribe", "view.php?f=$forum->id", $forum->id, $cm->id);

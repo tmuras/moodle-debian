@@ -1,9 +1,9 @@
-<?PHP //$Id: block_news_items.php,v 1.19.2.3 2007/05/15 18:23:53 skodak Exp $
+<?PHP //$Id: block_news_items.php,v 1.23.2.4 2008/10/31 19:04:03 stronk7 Exp $
 
 class block_news_items extends block_base {
     function init() {
         $this->title = get_string('latestnews');
-        $this->version = 2005030800;
+        $this->version = 2007101509;
     }
 
     function get_content() {
@@ -32,16 +32,23 @@ class block_news_items extends block_base {
                 return '';
             }
 
-            if (!$cm = get_coursemodule_from_instance('forum', $forum->id, $COURSE->id)) {
+            $modinfo = get_fast_modinfo($COURSE);
+            if (empty($modinfo->instances['forum'][$forum->id])) {
                 return '';
             }
+            $cm = $modinfo->instances['forum'][$forum->id];
 
             $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
+        /// User must have perms to view discussions in that forum
+            if (!has_capability('mod/forum:viewdiscussion', $context)) {
+                return '';
+            }
+
         /// First work out whether we can post to this group and if so, include a link
-            $groupmode    = groupmode($COURSE, $cm);
-            $currentgroup = get_and_set_current_group($COURSE, $groupmode);
-            
+            $groupmode    = groups_get_activity_groupmode($cm);
+            $currentgroup = groups_get_activity_group($cm, true);
+
 
             if (forum_user_can_post_discussion($forum, $currentgroup, $groupmode, $cm, $context)) {
                 $text .= '<div class="newlink"><a href="'.$CFG->wwwroot.'/mod/forum/post.php?forum='.$forum->id.'">'.
@@ -50,7 +57,7 @@ class block_news_items extends block_base {
 
         /// Get all the recent discussions we're allowed to see
 
-            if (! $discussions = forum_get_discussions($forum->id, 'p.modified DESC', 0, false, 
+            if (! $discussions = forum_get_discussions($cm, 'p.modified DESC', false, 
                                                        $currentgroup, $COURSE->newsitems) ) {
                 $text .= '('.get_string('nonews', 'forum').')';
                 $this->content->text = $text;

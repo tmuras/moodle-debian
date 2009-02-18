@@ -1,4 +1,4 @@
-<?php // $Id: block_glossary_random.php,v 1.20 2006/10/24 02:36:13 moodler Exp $
+<?php // $Id: block_glossary_random.php,v 1.20.6.6 2008/04/27 01:55:49 stronk7 Exp $
 
 define('BGR_RANDOMLY',     '0');
 define('BGR_LASTMODIFIED', '1');
@@ -8,7 +8,7 @@ class block_glossary_random extends block_base {
     function init() {
 
         $this->title = get_string('blockname','block_glossary_random');
-        $this->version = 2005040500;
+        $this->version = 2007101509;
 
     }
 
@@ -153,13 +153,38 @@ class block_glossary_random extends block_base {
     }
 
     function get_content() {
-        global $USER, $CFG;
+        global $USER, $CFG, $COURSE;
 
         if (empty($this->config->glossary)) {
             $this->content->text   = get_string('notyetconfigured','block_glossary_random');
             $this->content->footer = '';
             return $this->content;
         }
+
+        $glossaryid = $this->config->glossary;
+
+        if ($this->course->id == $COURSE->id) {
+            $course = $COURSE;
+        } else {
+            $course = get_record('course', 'id', $this->course->id); 
+        }
+
+        require_once($CFG->dirroot.'/course/lib.php');
+        $modinfo = get_fast_modinfo($course);
+
+        if (!isset($modinfo->instances['glossary'][$glossaryid])) {
+            // we can get here if the glossary has been deleted, so
+            // unconfigure the glossary from the block..
+            $this->config->glossary = 0;
+            $this->config->cache = '';
+            $this->instance_config_commit();
+
+            $this->content->text   = get_string('notyetconfigured','block_glossary_random');
+            $this->content->footer = '';
+            return $this->content;
+        }
+
+        $cm = $modinfo->instances['glossary'][$glossaryid];
 
         if (empty($this->config->cache)) {
             $this->config->cache = '';
@@ -173,16 +198,9 @@ class block_glossary_random extends block_base {
         $this->content->text = $this->config->cache;
 
         // place link to glossary in the footer if the glossary is visible
-        $glossaryid = $this->config->glossary;
-        $glossary=get_record('glossary', 'id', $glossaryid);
-
-        //Create a temp valid module structure (course,id)
-        $tempmod->course = $this->course->id;
-        $tempmod->id = $glossaryid;
 
         //Obtain the visible property from the instance
-        if (instance_is_visible('glossary', $tempmod)) {
-            $cm = get_coursemodule_from_instance('glossary',$glossaryid, $this->course->id) ;
+        if ($cm->uservisible) {
             if (has_capability('mod/glossary:write', get_context_instance(CONTEXT_MODULE, $cm->id))) {
                 $this->content->footer = '<a href="'.$CFG->wwwroot.'/mod/glossary/edit.php?id='.$cm->id
                 .'" title="'.$this->config->addentry.'">'.$this->config->addentry.'</a><br />';
@@ -206,6 +224,18 @@ class block_glossary_random extends block_base {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Executed after block instance has been created, we use it to recode
+     * the glossary config setting to point to the new (restored) one
+     */
+    function after_restore($restore) {
+    /// We need to transform the glossary->id from the original one to the restored one
+        if ($rec = backup_getid($restore->backup_unique_code, 'glossary', $this->config->glossary)) {
+            $this->config->glossary = $rec->new_id;
+            $this->instance_config_commit();
+        }
     }
 
 }

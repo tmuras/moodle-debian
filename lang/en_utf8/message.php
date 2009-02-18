@@ -1,4 +1,4 @@
-<?PHP // $Id: message.php,v 1.5.2.1 2007/05/23 12:08:21 nfreear Exp $ 
+<?PHP // $Id: message.php,v 1.7.2.1 2007/11/22 01:04:59 toyomoyo Exp $ 
       // message.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -28,10 +28,12 @@ $string['incomingcontacts'] = 'Incoming Contacts ($a)';
 $string['keywords'] = 'Keywords';
 $string['keywordssearchresults'] = 'Search results: $a messages found';
 $string['maxmessages'] = 'Maximum number of messages to show in the discussion history';
+$string['mailsent'] = 'Your message was sent via email.';
 $string['message'] = 'Message';
 $string['messagehistory'] = 'Message History';
 $string['messages'] = 'Messages';
 $string['messaging'] = 'Messaging';
+$string['messagingdisabled'] = 'Messaging is disabled on this site, emails will be sent instead';
 $string['mycontacts'] = 'My Contacts';
 $string['newsearch'] = 'New search';
 $string['newonlymsg'] = 'Show only new';
@@ -55,7 +57,7 @@ $string['searchforperson'] = 'Search for a person';
 $string['searchmessages'] = 'Search messages';
 $string['sendmessage'] = 'Send message';
 $string['sendmessageto'] = 'Send message to $a';
-$string['sendmessagetopopup'] = 'Send message to $a - new window';
+$string['sendmessagetopopup'] = "Send message to \$a - new window";
 $string['settings'] = 'Settings';
 $string['settingssaved'] = 'Your settings have been saved';
 $string['showmessagewindow'] = 'Automatically show Message window when I get new messages (your browser needs to be set so that it doesn\'t block popups on this site)';

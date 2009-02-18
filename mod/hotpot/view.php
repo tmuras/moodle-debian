@@ -1,4 +1,4 @@
-<?PHP // $Id: view.php,v 1.27.2.3 2007/05/11 05:18:23 gbateson Exp $
+<?PHP // $Id: view.php,v 1.38.2.7 2008/12/10 06:30:24 dongsheng Exp $
     /// This page prints a hotpot quiz
     if (defined('HOTPOT_FIRST_ATTEMPT') && HOTPOT_FIRST_ATTEMPT==false) {
         // this script is being included (by attempt.php)
@@ -32,9 +32,9 @@
             if (! $cm = get_coursemodule_from_instance("hotpot", $hotpot->id, $course->id)) {
                 error("Course Module ID was incorrect");
             }
-        
+
         }
-        require_login($course->id);
+        require_login($course);
         $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     }
     // set nextpage (for error messages)
@@ -42,10 +42,9 @@
     // header strings
     $title = format_string($course->shortname.': '.$hotpot->name, true);
     $heading = $course->fullname;
-    $navigation = '<a '.$CFG->frametarget.' href="'.$CFG->wwwroot.'/mod/hotpot/index.php?id='.$course->id.'">'.get_string("modulenameplural", "hotpot")."</a> -> $hotpot->name";
-    if ($course->id != SITEID) {
-        $navigation = '<a '.$CFG->frametarget.' href="'.$CFG->wwwroot.'/course/view.php?id='.$course->id.'">'.$course->shortname.'</a> -> '.$navigation;
-    }
+
+    $navigation = build_navigation('', $cm);
+
     $button = update_module_button($cm->id, $course->id, get_string("modulename", "hotpot"));
     $button = '<div style="font-size:0.75em;">'.$button.'</div>';
     $loggedinas = '<span class="logininfo">'.user_login_string($course, $USER).'</span>';
@@ -62,7 +61,7 @@
         } else if ($hotpot->subnet && !address_in_subnet($_SERVER['REMOTE_ADDR'], $hotpot->subnet)) {
             $error = get_string("subneterror", "quiz");
         // check number of attempts
-        } else if ($hotpot->attempts && $hotpot->attempts <= count_records('hotpot_attempts', 'hotpot', $hotpot->id, 'userid', $USER->id)) {
+        } else if ($hotpot->attempts && $hotpot->attempts <= count_records_select('hotpot_attempts', 'hotpot='.$hotpot->id.' AND userid='.$USER->id, 'COUNT(DISTINCT clickreportid)')) {
             $error = get_string("nomoreattempts", "quiz");
         // get password
         } else if ($hotpot->password && empty($hppassword)) {
@@ -72,13 +71,13 @@
             $boxwidth = 500;
             if (trim(strip_tags($hotpot->summary))) {
                 print_simple_box_start($boxalign, $boxwidth);
-                print '<div align="center">'.format_text($hotpot->summary)."</div>\n";
+                print '<div class="mdl-align">'.format_text($hotpot->summary)."</div>\n";
                 print_simple_box_end();
                 print "<br />\n";
             }
             print '<form id="passwordform" method="post" action="view.php?id='.$cm->id.'">'."\n";
             print_simple_box_start($boxalign, $boxwidth);
-            print '<div align="center">';
+            print '<div class="mdl-align">';
             print get_string('requirepasswordmessage', 'quiz').'<br /><br />';
             print '<b>'.get_string('password').':</b> ';
             print '<input name="hppassword" type="password" value="" /> ';
@@ -129,19 +128,19 @@
     }
     // if HTML is being requested ...
     if (empty($get_js) && empty($get_css)) {
-        if (empty($frameset)) { 
+        if (empty($frameset)) {
             // HP v6
             if ($hotpot->navigation==HOTPOT_NAVIGATION_FRAME || $hotpot->navigation==HOTPOT_NAVIGATION_IFRAME) {
                 $get_html = ($framename=='main') ? true : false;
             } else {
                 $get_html = true;
             }
-        } else { 
+        } else {
             // HP5 v5
             $get_html = empty($framename) ? true : false;
         }
         if ($get_html) {
-        
+
             if (HOTPOT_FIRST_ATTEMPT) {
                 add_to_log($course->id, "hotpot", "view", "view.php?id=$cm->id", "$hotpot->id", "$cm->id");
 
@@ -153,6 +152,7 @@
             $hp->adjust_media_urls();
             if (empty($frameset)) {
                 // HP6 v6
+                $targetframe = '';
                 switch ($hotpot->navigation) {
                     case HOTPOT_NAVIGATION_BUTTONS:
                         // do nothing (i.e. leave buttons as they are)
@@ -160,13 +160,16 @@
                     case HOTPOT_NAVIGATION_GIVEUP:
                         $hp->insert_giveup_form($attemptid, '<!-- BeginTopNavButtons -->', '<!-- EndTopNavButtons -->');
                         break;
+                    case HOTPOT_NAVIGATION_FRAME:
+                        $targetframe = $CFG->framename;
+                        // drop through to remove nav buttons too
                     default:
                         $hp->remove_nav_buttons();
                 }
                 if (isset($hp->real_outputformat) && $hp->real_outputformat==HOTPOT_OUTPUTFORMAT_MOBILE) {
                     $hp->insert_submission_form($attemptid, '<!-- BeginSubmissionForm -->', '<!-- EndSubmissionForm -->', true);
                 } else {
-                    $hp->insert_submission_form($attemptid, '<!-- BeginSubmissionForm -->', '<!-- EndSubmissionForm -->');
+                    $hp->insert_submission_form($attemptid, '<!-- BeginSubmissionForm -->', '<!-- EndSubmissionForm -->', false, $targetframe);
                 }
             } else {
                 // HP5 v5
@@ -282,7 +285,7 @@
         for ($i=0; $i<$count; $i++) {
             if ($pageid) {
                 $styles .= str_replace('TheBody', $pageid, $matches[0][$i])."\n";
-			}
+            }
             $head = str_replace($matches[0][$i], '', $head);
         }
     }
@@ -294,7 +297,7 @@
         for ($i=0; $i<$count; $i++) {
             if ($pageid) {
                 $scripts .= str_replace('TheBody', $pageid, $matches[0][$i])."\n";
-			}
+            }
             $head = str_replace($matches[0][$i], '', $head);
         }
     }
@@ -302,12 +305,12 @@
     $body = '';
     $body_tags = '';
     $footer = '</html>';
-    // HP6 and some HP5 (v6 and v4) 
+    // HP6 and some HP5 (v6 and v4)
     if (preg_match('|<body'.'([^>]*'.'onLoad=(["\'])(.*?)(\\2)'.'[^>]*)'.'>(.*)</body>|is', $hp->html, $matches)) {
         $body = $matches[5]; // contents of first <body onload="StartUp()">...</body> block
         if ($pageid) {
             $body_tags = str_replace(' id="TheBody"', '', $matches[1]);
-		}
+        }
         // workaround to ensure javascript onload routine for quiz is always executed
         //  $body_tags will only be inserted into the <body ...> tag
         //  if it is included in the theme/$CFG->theme/header.html,
@@ -337,7 +340,7 @@
             default:
                 // add a HotPot navigation frame at the top of the page
                 //$rows = empty($CFG->resource_framesize) ? 85 : $CFG->resource_framesize;
-                //$frameset = "\n\t".'<frame src="view.php?id='.$cm->id.'&framename=top" frameborder="0" name="top"></frame>'.$frameset;
+                //$frameset = "\n\t".'<frame src="view.php?id='.$cm->id.'&amp;framename=top" frameborder="0" name="top"></frame>'.$frameset;
                 //$frameset_tags = preg_replace('|rows="(.*?)"|', 'rows="'.$rows.',\\1"', $frameset_tags);
                 // put navigation into var NavBar='';
                 // add form to TopFrame in "WriteFeedback" function
@@ -365,13 +368,12 @@
         print($styles);
         exit;
     }
+    // closing tags for "page" and "content" divs
+    $footer = '</div></div>'.$footer;
     switch ($hotpot->navigation) {
         case HOTPOT_NAVIGATION_BAR:
             //update_module_button($cm->id, $course->id, $strmodulename.'" style="font-size:0.8em')
-            print_header(
-                $title, $heading, $navigation,
-                "", $head.$styles.$scripts, true, $button, 
-                $loggedinas, false, $body_tags
+            print_header($title, $heading, $navigation, "", $head.$styles.$scripts, true, $button, $loggedinas, false, $body_tags
             );
             if (!empty($available_msg)) {
                 notify($available_msg);
@@ -403,12 +405,12 @@
                     print "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\" />\n";
                     print "<head><title>$title</title></head>\n";
                     print "<frameset rows=$rows,*>\n";
-                    print "<frame title=\"$txttoptitle\" src=\"view.php?id=$cm->id&framename=top\">\n";
-                    print "<frame title=\"$txtmaintitle\" src=\"view.php?id=$cm->id&framename=main\">\n";
+                    print "<frame title=\"$txttoptitle\" src=\"view.php?id=$cm->id&amp;framename=top\">\n";
+                    print "<frame title=\"$txtmaintitle\" src=\"view.php?id=$cm->id&amp;framename=main\">\n";
                     print "<noframes>\n";
                     print "<p>$txtframesetinfo</p>\n";
-                    print "<ul><li><a href=\"view.php?id=$cm->id&framename=top\">$txttoptitle</a></li>\n";
-                    print "<li><a href=\"view.php?id=$cm->id&framename=main\">$txtmaintitle</a></li></ul>\n";
+                    print "<ul><li><a href=\"view.php?id=$cm->id&amp;framename=top\">$txttoptitle</a></li>\n";
+                    print "<li><a href=\"view.php?id=$cm->id&amp;framename=main\">$txtmaintitle</a></li></ul>\n";
                     print "</noframes>\n";
                     print "</frameset>\n";
                     print "</html>\n";
@@ -425,15 +427,15 @@
                     $body_tags = " onload=\"set_iframe_height('$iframe_id')\"";
                     $iframe_js = '<script src="iframe.js" type="text/javascript"></script>'."\n";
                     print_header(
-                        $title, $heading, $navigation, 
-                        "", $head.$styles.$scripts.$iframe_js, true, $button, 
+                        $title, $heading, $navigation,
+                        "", $head.$styles.$scripts.$iframe_js, true, $button,
                         $loggedinas, false, $body_tags
                     );
                     if (!empty($available_msg)) {
                         notify($available_msg);
                     }
-                    print "<iframe id=\"$iframe_id\" src=\"view.php?id=$cm->id&framename=main\" height=\"100%\" width=\"100%\">";
-                    print "<ilayer name=\"$iframe_id\" src=\"view.php?id=$cm->id&framename=main\" height=\"100%\" width=\"100%\">";
+                    print "<iframe id=\"$iframe_id\" src=\"view.php?id=$cm->id&amp;framename=main\" height=\"100%\" width=\"100%\">";
+                    print "<ilayer name=\"$iframe_id\" src=\"view.php?id=$cm->id&amp;framename=main\" height=\"100%\" width=\"100%\">";
                     print "</ilayer>\n";
                     print "</iframe>\n";
                     print $footer;
@@ -448,8 +450,8 @@
                 // do nothing
             } else {
                 $hp->html = preg_replace(
-                    '|<meta[^>]*charset=iso-8859-1[^>]*>|is', 
-                    '<meta http-equiv="Content-Type" content="text/html; charset='.$charset.'" />', 
+                    '|<meta[^>]*charset=iso-8859-1[^>]*>|is',
+                    '<meta http-equiv="Content-Type" content="text/html; charset='.$charset.'" />',
                     $hp->html
                 );
             }

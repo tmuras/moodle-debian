@@ -1,12 +1,12 @@
-<?php
+<?php // $Id: rpclib.php,v 1.2 2007/08/29 10:48:47 stronk7 Exp $
 /**
  * Some dummy functions to test XML-RPC with
  */
 
 /**
- * The xxxx_RPC_OK must exist and return TRUE for the remote call to be 
+ * The xxxx_RPC_OK must exist and return TRUE for the remote call to be
  * permitted
- * 
+ *
  * @return bool True if the related function can be executed remotely
  */
 function mnet_concatenate_strings_RPC_OK() {

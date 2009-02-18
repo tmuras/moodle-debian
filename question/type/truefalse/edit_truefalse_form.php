@@ -6,7 +6,8 @@ require_once($CFG->dirroot.'/question/type/edit_question_form.php');
  * @copyright &copy; 2006 The Open University
  * @author T.J.Hunt@open.ac.uk
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package questions
+ * @package questionbank
+ * @subpackage questiontypes
  *//** */
 
 /**
@@ -22,10 +23,12 @@ class question_edit_truefalse_form extends question_edit_form {
         $mform->addElement('select', 'correctanswer', get_string('correctanswer', 'qtype_truefalse'),
                 array(0 => get_string('false', 'qtype_truefalse'), 1 => get_string('true', 'qtype_truefalse')));
 
-        $mform->addElement('htmleditor', 'feedbacktrue', get_string('feedbacktrue', 'qtype_truefalse'));
+        $mform->addElement('htmleditor', 'feedbacktrue', get_string('feedbacktrue', 'qtype_truefalse'),
+                                array('course' => $this->coursefilesid));;
         $mform->setType('feedbacktrue', PARAM_RAW);
 
-        $mform->addElement('htmleditor', 'feedbackfalse', get_string('feedbackfalse', 'qtype_truefalse'));
+        $mform->addElement('htmleditor', 'feedbackfalse', get_string('feedbackfalse', 'qtype_truefalse'),
+                                array('course' => $this->coursefilesid));
         $mform->setType('feedbackfalse', PARAM_RAW);
 
         // Fix penalty factor at 1.

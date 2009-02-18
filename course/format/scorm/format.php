@@ -1,4 +1,4 @@
-<?php // $Id: format.php,v 1.11.2.1 2007/04/15 07:24:37 moodler Exp $
+<?php // $Id: format.php,v 1.12.2.1 2007/10/22 06:54:40 nfreear Exp $
       // format.php - course format featuring single activity
       //              included from view.php
 
@@ -35,7 +35,7 @@
         echo '</td>';
     }
 
-    echo '<td id="middle-column"><a name="startofcontent"></a>';
+    echo '<td id="middle-column">'. skip_main_destination();
     $moduleformat = $module.'_course_format_display';
     if (function_exists($moduleformat)) {
         $moduleformat($USER,$course);

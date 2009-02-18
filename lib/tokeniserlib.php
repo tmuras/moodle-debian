@@ -1,4 +1,4 @@
-<?php // $Id: tokeniserlib.php,v 1.1.2.2 2007/06/13 23:21:36 stronk7 Exp $
+<?php // $Id: tokeniserlib.php,v 1.4 2007/10/10 05:25:15 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -16,7 +16,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //           (C) 2001-3001 Antonio Vicent          http://ludens.es      //
 //                                                                       //

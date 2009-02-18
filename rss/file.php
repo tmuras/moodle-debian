@@ -1,4 +1,4 @@
-<?PHP //$Id: file.php,v 1.20 2006/11/01 21:03:09 skodak Exp $
+<?PHP //$Id: file.php,v 1.20.6.1 2008/12/29 20:06:54 skodak Exp $
     //This file returns the required rss feeds
     //The URL format MUST include:
     //    course: the course id
@@ -89,8 +89,8 @@
         }
     }
 
-    //Check for "security" if the course is hidden or the activity is hidden
-    if (!$isblog and (!$course->visible || !$cm->visible) && (!has_capability('moodle/course:viewhiddenactivities', $context))) {
+    //Do not allow acesss to hidden courses or activities because we can not trust user id - this will be improved in 2.0
+    if (!$isblog and (!$course->visible || !$cm->visible)) {
         rss_not_found();
     }
 

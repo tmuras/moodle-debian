@@ -1,5 +1,5 @@
 <?php
-// $Id: forgot_password.php,v 1.38.2.4 2007/03/22 12:40:23 skodak Exp $
+// $Id: forgot_password.php,v 1.45.2.4 2008/12/01 22:37:12 skodak Exp $
 // forgot password routine.
 // find the user and call the appropriate routine for their authentication
 // type.
@@ -12,11 +12,19 @@ $p_username = optional_param('s', false, PARAM_RAW);
 
 httpsrequired();
 
-$sitecontext = get_context_instance(CONTEXT_SYSTEM);
+$systemcontext = get_context_instance(CONTEXT_SYSTEM);
 
 // setup text strings
 $strforgotten = get_string('passwordforgotten');
 $strlogin     = get_string('login');
+
+$navigation = build_navigation(array(array('name' => $strlogin, 'link' => "$CFG->wwwroot/login/index.php", 'type' => 'misc'),
+                                     array('name' => $strforgotten, 'link' => null, 'type' => 'misc')));
+
+// if alternatepasswordurl is defined, then we'll just head there
+if (!empty($CFG->forgottenpasswordurl)) {
+    redirect($CFG->forgottenpasswordurl);
+}
 
 // if you are logged in then you shouldn't be here!
 if (isloggedin() and !isguestuser()) {
@@ -31,20 +39,20 @@ if ($p_secret !== false) {
     update_login_count();
 
     $user = get_complete_user_data('username', $p_username);
-
     if (!empty($user) and $user->secret === '') {
-        print_header($strforgotten, $strforgotten,
-            "<a href=\"{$CFG->wwwroot}/login/index.php\">{$strlogin}</a>->{$strforgotten}");
-        error(get_string('secretalreadyused'));
+        print_header($strforgotten, $strforgotten, $navigation);
+        print_error('secretalreadyused');
 
     } else if (!empty($user) and $user->secret == stripslashes($p_secret)) {
         // make sure that url relates to a valid user
 
         // check this isn't guest user
-        // TODO: add change password capability so that we can prevent participants to change password
-        if (has_capability('moodle/legacy:guest', $sitecontext, $user->id, false)) {
+        if (isguestuser($user)) {
             error('You cannot reset the guest password');
         }
+
+        // make sure user is allowed to change password
+        require_capability('moodle/user:changeownpassword', $systemcontext, $user->id);
 
         // override email stop and mail new password
         $user->emailstop = 0;
@@ -65,14 +73,16 @@ if ($p_secret !== false) {
         $a->email = $user->email;
         $a->link = $changepasswordurl;
 
-        print_header($strforgotten, $strforgotten,
-            "<a href=\"{$CFG->wwwroot}/login/index.php\">{$strlogin}</a>->{$strforgotten}");
+        print_header($strforgotten, $strforgotten, $navigation);
         notice(get_string('emailpasswordsent', '', $a), $changepasswordurl);
 
     } else {
-        print_header($strforgotten, $strforgotten,
-            "<a href=\"{$CFG->wwwroot}/login/index.php\">{$strlogin}</a>->{$strforgotten}");
-        error(get_string('forgotteninvalidurl'));
+        if (!empty($user) and strlen($p_secret) === 15) {
+            // somebody probably tries to hack in by guessing secret - stop them!
+            set_field('user', 'secret', '', 'id', $user->id);
+        }
+        print_header($strforgotten, $strforgotten, $navigation);
+        print_error('forgotteninvalidurl');
     }
 
     die; //never reached
@@ -97,9 +107,14 @@ if ($mform->is_cancelled()) {
     if ($user and !empty($user->confirmed)) {
 
         $userauth = get_auth_plugin($user->auth);
+        if (has_capability('moodle/user:changeownpassword', $systemcontext, $user->id)) {
+            // send email (make sure mail block is off)
+            $user->emailstop = 0;
+        }
 
-        if ($userauth->can_reset_password()) {
-            // reset internal password and notify user
+        if ($userauth->can_reset_password() and is_enabled_auth($user->auth)
+          and has_capability('moodle/user:changeownpassword', $systemcontext, $user->id)) {
+            // send reset password confirmation
 
             // set 'secret' string
             $user->secret = random_string(15);
@@ -107,23 +122,18 @@ if ($mform->is_cancelled()) {
                 error('error setting user secret string');
             }
 
-            // send email (make sure mail block is off)
-            $user->mailstop = 0;
             if (!send_password_change_confirmation_email($user)) {
                 error('error sending password change confirmation email');
             }
 
         } else {
-            // send email (make sure mail block is off)
-            $user->mailstop = 0;
             if (!send_password_change_info($user)) {
                 error('error sending password change confirmation email');
             }
         }
     }
 
-    print_header($strforgotten, $strforgotten,
-        "<a href=\"{$CFG->wwwroot}/login/index.php\">{$strlogin}</a>->{$strforgotten}");
+    print_header($strforgotten, $strforgotten, $navigation);
 
     if (empty($user->email) or !empty($CFG->protectusernames)) {
         // Print general confirmation message
@@ -141,8 +151,7 @@ if ($mform->is_cancelled()) {
 
 
 /// DISPLAY FORM
-print_header($strforgotten, $strforgotten,
-    "<a href=\"{$CFG->wwwroot}/login/index.php\">{$strlogin}</a>->{$strforgotten}", 'id_email');
+print_header($strforgotten, $strforgotten, $navigation, 'id_email');
 
 print_box(get_string('passwordforgotteninstructions'), 'generalbox boxwidthnormal boxaligncenter');
 $mform->display();

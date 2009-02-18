@@ -1,4 +1,4 @@
-<?PHP  // $Id: enr_courses.php,v 1.5.2.2 2007/04/13 06:33:00 nicolasconnault Exp $
+<?PHP  // $Id: enr_courses.php,v 1.8.4.2 2008/04/02 06:09:58 dongsheng Exp $
        // enrol_config.php - allows admin to edit all enrollment variables
        //                    Yes, enrol is correct English spelling.
 
@@ -6,12 +6,11 @@
     require_once($CFG->libdir.'/adminlib.php');
 
     if (!confirm_sesskey()) {
-        error(get_string('confirmsesskeybad', 'error'));
+        print_error('confirmsesskeybad', 'error');
     }
 
 
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('mnetenrol', $adminroot);
+    admin_externalpage_setup('mnetenrol');
     $CFG->pagepath = 'admin/mnet';
 
     require_once("$CFG->dirroot/enrol/enrol.class.php");   /// Open the factory class
@@ -24,7 +23,7 @@
 
     /// Print the page
 
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
 
     print_box('<strong>' . s($host->name) . ' </strong><br />'
               . get_string("enrolcourses_desc", "mnet"));
@@ -38,7 +37,7 @@
     " class=\"icon\" alt=\"".get_string("course")."\" />";
 
     foreach ($courses as $course) {
-        $link = $CFG->wwwroot . '/admin/mnet/enr_course_enrol.php?'
+        $link = "$CFG->wwwroot/$CFG->admin/mnet/enr_course_enrol.php?"
             . "host={$mnethost}&amp;courseid={$course->id}&amp;sesskey={$USER->sesskey}";
         echo '<tr>'
                . "<td>$icon</td>"
@@ -53,6 +52,6 @@
     }
     echo '</table></div>';
 
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 
 ?>

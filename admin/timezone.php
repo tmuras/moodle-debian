@@ -1,4 +1,4 @@
-<?php   // $Id: timezone.php,v 1.7 2007/01/03 01:53:52 vyshane Exp $
+<?php   // $Id: timezone.php,v 1.8.2.1 2008/05/02 04:07:28 dongsheng Exp $
 
     require_once('../config.php');
 
@@ -6,14 +6,14 @@
 
     require_login();
 
-    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
 
     $strtimezone = get_string("timezone");
     $strsavechanges = get_string("savechanges");
     $strusers = get_string("users");
     $strall = get_string("all");
 
-    print_header($strtimezone, $strtimezone, $strtimezone);
+    print_header($strtimezone, $strtimezone, build_navigation(array(array('name' => $strtimezone, 'link' => null, 'type' => 'misc'))));
 
     print_heading("");
 

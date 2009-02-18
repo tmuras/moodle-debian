@@ -1,19 +1,15 @@
-<?php // $Id: user.php,v 1.66.2.1 2007/02/28 05:36:14 nicolasconnault Exp $
+<?php // $Id: user.php,v 1.75.2.12 2008/12/01 19:20:16 skodak Exp $
 
 // Display user activity reports for a course
 
     require_once("../config.php");
     require_once("lib.php");
 
-    $modes = array("outline", "complete", "todaylogs", "alllogs");
-
     $id      = required_param('id',PARAM_INT);       // course id
     $user    = required_param('user',PARAM_INT);     // user id
     $mode    = optional_param('mode', "todaylogs", PARAM_ALPHA);
     $page    = optional_param('page', 0, PARAM_INT);
     $perpage = optional_param('perpage', 100, PARAM_INT);
-
-    require_login();
 
     if (! $course = get_record("course", "id", $id)) {
         error("Course id is incorrect.");
@@ -23,15 +19,77 @@
         error("User ID is incorrect");
     }
 
-    $coursecontext = get_context_instance(CONTEXT_COURSE, $id);
+    $coursecontext   = get_context_instance(CONTEXT_COURSE, $course->id);
     $personalcontext = get_context_instance(CONTEXT_USER, $user->id);
 
-    // if in either context, we can read report, then we can proceed
-    if (!(has_capability('moodle/site:viewreports', $coursecontext) or ($course->showreports and $USER->id == $user->id) or has_capability('moodle/user:viewuseractivitiesreport', $personalcontext))) {
-        error("You are not allowed to look at this page");
+    require_login();
+    if (has_capability('moodle/user:viewuseractivitiesreport', $personalcontext) and !has_capability('moodle/course:view', $coursecontext)) {
+        // do not require parents to be enrolled in courses ;-)
+        course_setup($course);
+    } else {
+        require_login($course);
     }
 
-    add_to_log($course->id, "course", "user report", "user.php?id=$course->id&amp;user=$user->id&amp;mode=$mode", "$user->id"); 
+    if ($user->deleted) {
+        print_header();
+        print_heading(get_string('userdeleted'));
+        print_footer();
+        die;
+    }
+
+    // prepare list of allowed modes
+    $myreports  = ($course->showreports and $USER->id == $user->id);
+    $anyreport  = has_capability('moodle/user:viewuseractivitiesreport', $personalcontext);
+
+    $modes = array();
+
+    if ($myreports or $anyreport or has_capability('coursereport/outline:view', $coursecontext)) {
+        $modes[] = 'outline';
+    }
+
+    if ($myreports or $anyreport or has_capability('coursereport/outline:view', $coursecontext)) {
+        $modes[] = 'complete';
+    }
+
+    if ($myreports or $anyreport or has_capability('coursereport/log:viewtoday', $coursecontext)) {
+        $modes[] = 'todaylogs';
+    }
+
+    if ($myreports or $anyreport or has_capability('coursereport/log:view', $coursecontext)) {
+        $modes[] = 'alllogs';
+    }
+
+    if ($myreports or $anyreport or has_capability('coursereport/stats:view', $coursecontext)) {
+        $modes[] = 'stats';
+    }
+
+    if (has_capability('moodle/grade:viewall', $coursecontext)) {
+        //ok - can view all course grades
+        $modes[] = 'grade';
+
+    } else if ($course->showgrades and $user->id == $USER->id and has_capability('moodle/grade:view', $coursecontext)) {
+        //ok - can view own grades
+        $modes[] = 'grade';
+
+    } else if ($course->showgrades and has_capability('moodle/grade:viewall', $personalcontext)) {
+        // ok - can view grades of this user - parent most probably
+        $modes[] = 'grade';
+
+    } else if ($course->showgrades and $anyreport) {
+        // ok - can view grades of this user - parent most probably
+        $modes[] = 'grade';
+    }
+
+    if (empty($modes)) {
+        require_capability('moodle/user:viewuseractivitiesreport', $personalcontext);
+    }
+
+    if (!in_array($mode, $modes)) {
+        // forbidden or non-exitent mode
+        $mode = reset($modes);
+    }
+
+    add_to_log($course->id, "course", "user report", "user.php?id=$course->id&amp;user=$user->id&amp;mode=$mode", "$user->id");
 
     $stractivityreport = get_string("activityreport");
     $strparticipants   = get_string("participants");
@@ -42,17 +100,18 @@
     $strmode           = get_string($mode);
     $fullname          = fullname($user, true);
 
-    if ($course->id != SITEID) {
-        print_header("$course->shortname: $stractivityreport ($mode)", $course->fullname,
-                 "<a href=\"../course/view.php?id=$course->id\">$course->shortname</a> ->
-                  <a href=\"../user/index.php?id=$course->id\">$strparticipants</a> ->
-                  <a href=\"../user/view.php?id=$user->id&amp;course=$course->id\">$fullname</a> -> 
-                  $stractivityreport -> $strmode");
-    } else {
-        print_header("$course->shortname: $stractivityreport ($mode)", $course->fullname,
-                 "<a href=\"../user/view.php?id=$user->id&amp;course=$course->id\">$fullname</a> -> 
-                  $stractivityreport -> $strmode");
+    $navlinks = array();
+
+    if ($course->id != SITEID && has_capability('moodle/course:viewparticipants', $coursecontext)) {
+        $navlinks[] = array('name' => $strparticipants, 'link' => "../user/index.php?id=$course->id", 'type' => 'misc');
     }
+
+    $navlinks[] = array('name' => $fullname, 'link' => "../user/view.php?id=$user->id&amp;course=$course->id", 'type' => 'misc');
+    $navlinks[] = array('name' => $stractivityreport, 'link' => null, 'type' => 'misc');
+    $navlinks[] = array('name' => $strmode, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+
+    print_header("$course->shortname: $stractivityreport ($mode)", $course->fullname, $navigation);
 
 
 /// Print tabs at top
@@ -64,22 +123,26 @@
     $showroles = 1;
     include($CFG->dirroot.'/user/tabs.php');
 
-    get_all_mods($course->id, $mods, $modnames, $modnamesplural, $modnamesused);
-
     switch ($mode) {
         case "grade":
-            $course = get_record('course', 'id', required_param('id', PARAM_INT));
-            if (!empty($course->showgrades)) {
-                require_once($CFG->dirroot.'/grade/lib.php');
-                print_student_grade($user, $course);
+            if (empty($CFG->grade_profilereport) or !file_exists($CFG->dirroot.'/grade/report/'.$CFG->grade_profilereport.'/lib.php')) {
+                $CFG->grade_profilereport = 'user';
+            }
+            require_once $CFG->libdir.'/gradelib.php';
+            require_once $CFG->dirroot.'/grade/lib.php';
+            require_once $CFG->dirroot.'/grade/report/'.$CFG->grade_profilereport.'/lib.php';
+
+            $functionname = 'grade_report_'.$CFG->grade_profilereport.'_profilereport';
+            if (function_exists($functionname)) {
+                $functionname($course, $user);
             }
             break;
-      
+
         case "todaylogs" :
             echo '<div class="graph">';
             print_log_graph($course, $user->id, "userday.png");
             echo '</div>';
-            print_log($course, $user->id, usergetmidnight(time()), "l.time DESC", $page, $perpage, 
+            print_log($course, $user->id, usergetmidnight(time()), "l.time DESC", $page, $perpage,
                       "user.php?id=$course->id&amp;user=$user->id&amp;mode=$mode");
             break;
 
@@ -87,7 +150,7 @@
             echo '<div class="graph">';
             print_log_graph($course, $user->id, "usercourse.png");
             echo '</div>';
-            print_log($course, $user->id, 0, "l.time DESC", $page, $perpage, 
+            print_log($course, $user->id, 0, "l.time DESC", $page, $perpage,
                       "user.php?id=$course->id&amp;user=$user->id&amp;mode=$mode");
             break;
         case 'stats':
@@ -106,24 +169,24 @@
             $earliestday = get_field_sql('SELECT timeend FROM '.$CFG->prefix.'stats_user_daily ORDER BY timeend');
             $earliestweek = get_field_sql('SELECT timeend FROM '.$CFG->prefix.'stats_user_weekly ORDER BY timeend');
             $earliestmonth = get_field_sql('SELECT timeend FROM '.$CFG->prefix.'stats_user_monthly ORDER BY timeend');
-    
+
             if (empty($earliestday)) $earliestday = time();
             if (empty($earliestweek)) $earliestweek = time();
             if (empty($earliestmonth)) $earliestmonth = time();
-            
+
             $now = stats_get_base_daily();
             $lastweekend = stats_get_base_weekly();
             $lastmonthend = stats_get_base_monthly();
 
             $timeoptions = stats_get_time_options($now,$lastweekend,$lastmonthend,$earliestday,$earliestweek,$earliestmonth);
 
-            if (empty($timeoptions)) { 
-                error(get_string('nostatstodisplay'), $CFG->wwwroot.'/course/user.php?id='.$course->id.'&user='.$user->id.'&mode=outline');
+            if (empty($timeoptions)) {
+                print_error('nostatstodisplay', '', $CFG->wwwroot.'/course/user.php?id='.$course->id.'&user='.$user->id.'&mode=outline');
             }
 
             // use the earliest.
             $time = array_pop(array_keys($timeoptions));
-            
+
             $param = stats_get_parameters($time,STATS_REPORT_USER_VIEW,$course->id,STATS_MODE_DETAILED);
 
             $param->table = 'user_'.$param->table;
@@ -137,10 +200,13 @@
             $stats = get_records_sql($sql);
 
             if (empty($stats)) {
-                error(get_string('nostatstodisplay'), $CFG->wwwroot.'/course/user.php?id='.$course->id.'&user='.$user->id.'&mode=outline');
+                print_error('nostatstodisplay', '', $CFG->wwwroot.'/course/user.php?id='.$course->id.'&user='.$user->id.'&mode=outline');
             }
 
-            echo '<center><img src="'.$CFG->wwwroot.'/course/report/stats/graph.php?mode='.STATS_MODE_DETAILED.'&course='.$course->id.'&time='.$time.'&report='.STATS_REPORT_USER_VIEW.'&userid='.$user->id.'" alt="'.get_string('statisticsgraph').'" /></center>';
+            // MDL-10818, do not display broken graph when user has no permission to view graph
+            if ($myreports or has_capability('coursereport/stats:view', $coursecontext)) {
+                echo '<center><img src="'.$CFG->wwwroot.'/course/report/stats/graph.php?mode='.STATS_MODE_DETAILED.'&course='.$course->id.'&time='.$time.'&report='.STATS_REPORT_USER_VIEW.'&userid='.$user->id.'" alt="'.get_string('statisticsgraph').'" /></center>';
+            }
 
             // What the heck is this about?   -- MD
             $stats = stats_fix_zeros($stats,$param->timeafter,$param->table,(!empty($param->line2)),(!empty($param->line3)));
@@ -148,7 +214,13 @@
             $table = new object();
             $table->align = array('left','center','center','center');
             $param->table = str_replace('user_','',$param->table);
-            $table->head = array(get_string('periodending','moodle',$param->table),$param->line1,$param->line2,$param->line3);
+            switch ($param->table) {
+                case 'daily'  : $period = get_string('day'); break;
+                case 'weekly' : $period = get_string('week'); break;
+                case 'monthly': $period = get_string('month', 'form'); break;
+                default : $period = '';
+            }
+            $table->head = array(get_string('periodending','moodle',$period),$param->line1,$param->line2,$param->line3);
             foreach ($stats as $stat) {
                 if (!empty($stat->zerofixed)) {  // Don't know why this is necessary, see stats_fix_zeros above - MD
                     continue;
@@ -160,9 +232,10 @@
             }
             print_table($table);
             break;
+
         case "outline" :
         case "complete" :
-        default:
+            get_all_mods($course->id, $mods, $modnames, $modnamesplural, $modnamesused);
             $sections = get_all_sections($course->id);
 
             for ($i=0; $i<=$course->numsections; $i++) {
@@ -183,7 +256,7 @@
                                 default: print_string("section"); break;
                             }
                             echo " $i</h2>";
-    
+
                             echo '<div class="content">';
 
                             if ($mode == "outline") {
@@ -196,7 +269,7 @@
                                     continue;
                                 }
                                 $mod = $mods[$sectionmod];
-    
+
                                 if (empty($mod->visible)) {
                                     continue;
                                 }
@@ -223,7 +296,7 @@
                                                 echo "<h4>$image $mod->modfullname: ".
                                                      "<a href=\"$CFG->wwwroot/mod/$mod->modname/view.php?id=$mod->id\">".
                                                      format_string($instance->name,true)."</a></h4>";
-                                                
+
                                                 ob_start();
 
                                                 echo "<ul>";
@@ -232,7 +305,7 @@
 
                                                 $output = ob_get_contents();
                                                 ob_end_clean();
-                                                
+
                                                 if (str_replace(' ', '', $output) != '<ul></ul>') {
                                                     echo $output;
                                                 }
@@ -241,7 +314,7 @@
                                         }
                                     }
                                 }
-    
+
                             if ($mode == "outline") {
                                 echo "</table>";
                             }
@@ -252,6 +325,8 @@
                 }
             }
             break;
+        default:
+            // can not be reached ;-)
     }
 
 
@@ -285,4 +360,3 @@ function print_outline_row($mod, $instance, $result) {
 }
 
 ?>
-

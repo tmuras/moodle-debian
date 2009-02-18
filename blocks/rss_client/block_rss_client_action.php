@@ -1,11 +1,11 @@
-<?php //$Id: block_rss_client_action.php,v 1.51.4.1 2007/04/12 02:16:00 toyomoyo Exp $
+<?php //$Id: block_rss_client_action.php,v 1.54.2.6 2008/06/08 18:29:51 dongsheng Exp $
 
 /*******************************************************************
 * This file contains no classes. It will display a list of existing feeds
 * defined for the site and allow add/edit/delete of site feeds.
 *
 * @author Daryl Hawes
-* @version  $Id: block_rss_client_action.php,v 1.51.4.1 2007/04/12 02:16:00 toyomoyo Exp $
+* @version  $Id: block_rss_client_action.php,v 1.54.2.6 2008/06/08 18:29:51 dongsheng Exp $
 * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
 * @package base
 ******************************************************************/
@@ -27,7 +27,7 @@ if (isset($_SERVER['HTTP_REFERER'])) {
 
 // Ensure that the logged in user is not using the guest account
 if (isguest()) {
-    error(get_string('noguestpost', 'forum'), $referrer);
+    print_error('noguestpost', 'forum', $referrer);
 }
 
 
@@ -47,7 +47,7 @@ $act            = optional_param('act', NULL, PARAM_ALPHA);
 $rssid          = optional_param('rssid', NULL, PARAM_INT);
 $id             = optional_param('id', SITEID, PARAM_INT);
 //$url            = clean_param($url, PARAM_URL);
-$preferredtitle = optional_param('preferredtitle', '', PARAM_ALPHA);
+$preferredtitle = optional_param('preferredtitle', '', PARAM_TEXT);
 $shared         = optional_param('shared', 0, PARAM_INT);
 
 
@@ -57,24 +57,28 @@ if (!defined('MAGPIE_OUTPUT_ENCODING')) {
 
 
 if (!empty($id)) {
-    // we get the complete $course object here because print_header assumes this is 
+    // we get the complete $course object here because print_header assumes this is
     // a complete object (needed for proper course theme settings)
     if ($course = get_record('course', 'id', $id)) {
         $context = get_context_instance(CONTEXT_COURSE, $id);
     }
 } else {
-    $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
+    $context = get_context_instance(CONTEXT_SYSTEM);
 }
 
 
 $straddedit = get_string('feedsaddedit', 'block_rss_client');
-
-if (!empty($course)) {
-    $navigation = '<a href="'.$CFG->wwwroot.'/course/view.php?id='.$id.'">'.$course->shortname.'</a> -> '.$straddedit;
-} else {
-    $navigation = $straddedit;
+$link = $CFG->wwwroot.'/course/view.php?id='.$id;
+if (empty($course)) {
+    $link = '';
 }
-
+$navlinks = array();
+$navlinks = array(array('name' => get_string('administration'), 'link' => "$CFG->wwwroot/$CFG->admin/index.php", 'type' => 'misc'));
+$navlinks[] = array('name' => get_string('managemodules'), 'link' => null, 'type' => 'misc');
+$navlinks[] = array('name' => get_string('blocks'), 'link' => null, 'type' => 'misc');
+$navlinks[] = array('name' => get_string('feedstitle', 'block_rss_client'), 'link' => "$CFG->wwwroot/$CFG->admin/settings.php?section=blocksettingrss_client", 'type' => 'misc');
+$navlinks[] = array('name' => get_string('addnew', 'block_rss_client'), 'link' => null,  'type' => 'misc');
+$navigation = build_navigation($navlinks);
 print_header($straddedit, $straddedit, $navigation);
 
 
@@ -97,14 +101,15 @@ if (isset($rss_record)) {
 
 
 if ($act == 'updfeed') {
-    
+
     if (!$managefeeds) {
         error(get_string('noguestpost', 'forum').
                 ' You are not allowed to make modifications to this RSS feed at this time.',
                 $referrer);
+        //print_error('noguestpost', 'forum', $referrer, 'You are not allowed to make modifications to this RSS feed at this time.');
     }
-    
-    
+
+
     if (empty($url)) {
         error( 'URL not defined for rss feed' );
     }
@@ -148,10 +153,10 @@ if ($act == 'updfeed') {
     redirect($referrer, $message);
 
 } else if ($act == 'addfeed' ) {
-    
+
     $canaddprivfeeds = has_capability('block/rss_client:createprivatefeeds', $context);
     $canaddsharedfeeds = has_capability('block/rss_client:createsharedfeeds', $context);
-    
+
     if (!$canaddprivfeeds && !$canaddsharedfeeds) {
         error('You do not have the permission to add RSS feeds');
     }
@@ -164,13 +169,13 @@ if ($act == 'updfeed') {
     $dataobject->title = '';
     $dataobject->url = addslashes($url);
     $dataobject->preferredtitle = addslashes($preferredtitle);
-    
+
     if ($shared == 1 && $canaddsharedfeeds) {
         $dataobject->shared = 1;
     } else {
         $dataobject->shared = 0;
     }
-    
+
     $rssid = insert_record('block_rss_client', $dataobject);
     if (!$rssid) {
         error('There was an error trying to add a new rss feed:'. $url);
@@ -197,7 +202,7 @@ if ($act == 'updfeed') {
         }
         if (!empty($rss->channel['title'])) {
             $dataobject->title = addslashes($rss->channel['title']);
-        } 
+        }
         if (!update_record('block_rss_client', $dataobject)) {
             error('There was an error trying to update rss feed with id:'. $rssid);
         }
@@ -220,11 +225,12 @@ if ($act == 'updfeed') {
     rss_print_form($act, $url, $rssid, $preferredtitle, $shared, $id, $context);
 
 } else if ($act == 'delfeed') {
-    
+
     if (!$managefeeds) {
         error(get_string('noguestpost', 'forum').
                 ' You are not allowed to make modifications to this RSS feed at this time.',
                 $referrer);
+        //print_error('noguestpost', 'forum', $referrer, 'You are not allowed to make modifications to this RSS feed at this time.');
     }
 
     $file = $CFG->dataroot .'/cache/rsscache/'. $rssid .'.xml';
@@ -273,10 +279,10 @@ if ($act == 'updfeed') {
             if (file_exists($CFG->dirroot .'/blog/lib.php')) {
                 //Blog module is installed - provide "blog this" link
                 print '<td align="right">'."\n";
-                
+
                 /// MDL-9291, blog this feature needs further discussion/implementation
                 /// temporarily disabling for now.
-                
+
                 // print '<img src="'. $CFG->pixpath .'/blog/blog.gif" alt="'. get_string('blogthis', 'blog').'" title="'. get_string('blogthis', 'blog') .'" border="0" align="middle" />'."\n";
                 //print '<a href="'. $CFG->wwwroot .'/blog/blogthis.php?userid='. $USER->id .'&act=use&item='. $y .'&rssid='. $rssid .'"><small><strong>'. get_string('blogthis', 'blog') .'</strong></small></a>'."\n";
             } else {

@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.4.2.1 2007/02/23 17:55:28 mark-nielsen Exp $
+<?php  //$Id: upgrade.php,v 1.9.2.2 2008/05/01 20:52:57 skodak Exp $
 
 // This file keeps track of upgrades to 
 // the lesson module
@@ -54,6 +54,31 @@ function xmldb_lesson_upgrade($oldversion=0) {
 
     /// Launch change of nullability for field answer
         $result = $result && change_field_notnull($table, $field);
+    }
+
+    if ($result && $oldversion < 2007072200) {
+        require_once($CFG->dirroot.'/mod/lesson/lib.php');
+        // too much debug output
+        $db->debug = false;
+        lesson_update_grades();
+        $db->debug = true;
+    }
+
+//===== 1.9.0 upgrade line ======//
+
+    if ($result && $oldversion < 2007072201) {
+
+        $table = new XMLDBTable('lesson');
+        $field = new XMLDBField('usegrademax');
+        $field2 = new XMLDBField('usemaxgrade');
+
+    /// Rename lesson->usegrademax to lesson->usemaxgrade. Some old sites can have it incorrect. MDL-13177
+        if (field_exists($table, $field) && !field_exists($table, $field2)) {
+        /// Set field specs
+            $field->setAttributes(XMLDB_TYPE_INTEGER, '3', null, XMLDB_NOTNULL, null, null, null, '0', 'ongoing');
+        /// Launch rename field usegrademax to usemaxgrade
+            $result = $result && rename_field($table, $field, 'usemaxgrade');
+        }
     }
 
     return $result;

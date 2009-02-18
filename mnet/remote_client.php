@@ -1,7 +1,7 @@
-<?php
+<?php // $Id: remote_client.php,v 1.3.2.2 2008/09/25 09:57:33 peterbulmer Exp $
 /**
  * An object to represent lots of information about an RPC-peer machine
- * 
+ *
  * @author  Donal McMullan  donal@catalyst.net.nz
  * @version 0.0.1
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
@@ -48,7 +48,9 @@ class mnet_remote_client extends mnet_peer {
     }
 
     function refresh_key() {
+        global $CFG;
         // set up an RPC request
+        require_once $CFG->dirroot.'/mnet/xmlrpc/client.php';
         $mnetrequest = new mnet_xmlrpc_client();
         // Use any method - listServices is pretty lightweight.
         $mnetrequest->set_method('system/listServices');
@@ -59,7 +61,7 @@ class mnet_remote_client extends mnet_peer {
             $temp = new mnet_peer();
             $temp->set_id($this->id);
             if($this->public_key != $temp->public_key) {
-                $newkey = param_clean($temp->public_key, PARAM_PEM);
+                $newkey = clean_param($temp->public_key, PARAM_PEM);
                 if(!empty($newkey)) {
                     $this->public_key = $newkey;
                     return true;

@@ -1,4 +1,4 @@
-<?php  // $Id: encyclopedia_format.php,v 1.17 2007/01/12 06:57:34 toyomoyo Exp $
+<?php  // $Id: encyclopedia_format.php,v 1.17.4.3 2008/02/13 17:01:43 skodak Exp $
 
 function glossary_show_entry_encyclopedia($course, $cm, $glossary, $entry, $mode='',$hook='',$printicons=1,$ratings=NULL, $aliases=true) {
     global $CFG, $USER;
@@ -13,20 +13,20 @@ function glossary_show_entry_encyclopedia($course, $cm, $glossary, $entry, $mode
         echo '<tr valign="top">';
         echo '<td class="left picture">';
         
-        print_user_picture($user->id, $course->id, $user->picture);
+        print_user_picture($user, $course->id, $user->picture);
     
         echo '</td>';
-        echo '<td class="entryheader">';
-        echo '<span class="concept">';
+        echo '<th class="entryheader">';
+        echo '<div class="concept">';
         glossary_print_entry_concept($entry);
-        echo '</span><br />';
+        echo '</div>';
 
         $fullname = fullname($user);
         $by->name = '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.$course->id.'">'.$fullname.'</a>';
         $by->date = userdate($entry->timemodified);
         echo '<span class="author">'.get_string('bynameondate', 'forum', $by).'</span>';
 
-        echo '</td>';
+        echo '</th>';
         
         echo '<td class="entryapproval">';
         glossary_print_entry_approval($cm, $entry, $mode);

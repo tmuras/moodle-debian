@@ -1,9 +1,10 @@
 <?php
 /**
- * @version $Id: questiontype.php,v 1.10.2.2 2007/03/03 04:38:38 pichetp Exp $
+ * @version $Id: questiontype.php,v 1.14.4.12 2008/12/12 03:48:33 tjhunt Exp $
  * @author Martin Dougiamas and many others. Tim Hunt.
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package question
+ * @package questionbank
+ * @subpackage questiontypes
  *//** */
 
 require_once("$CFG->dirroot/question/type/shortanswer/questiontype.php");
@@ -16,6 +17,8 @@ require_once("$CFG->dirroot/question/type/shortanswer/questiontype.php");
  *
  * This question type behaves like shortanswer in most cases.
  * Therefore, it extends the shortanswer question type...
+ * @package questionbank
+ * @subpackage questiontypes
  */
 class question_numerical_qtype extends question_shortanswer_qtype {
 
@@ -36,7 +39,7 @@ class question_numerical_qtype extends question_shortanswer_qtype {
                                 "WHERE a.question = $question->id " .
                                 "    AND   a.id = n.answer " .
                                 "ORDER BY a.id ASC")) {
-            notify('Error: Missing question answer!');
+            notify('Error: Missing question answer for numerical question ' . $question->id . '!');
             return false;
         }
         $this->get_numerical_units($question);
@@ -57,44 +60,34 @@ class question_numerical_qtype extends question_shortanswer_qtype {
     }
 
     function get_numerical_units(&$question) {
-        if ($question->options->units = get_records('question_numerical_units',
+        if ($units = get_records('question_numerical_units',
                                          'question', $question->id, 'id ASC')) {
-            $question->options->units  = array_values($question->options->units);
-            usort($question->options->units, create_function('$a, $b', // make sure the default unit is at index 0
-             'if (1.0 === (float)$a->multiplier) { return -1; } else '.
-             'if (1.0 === (float)$b->multiplier) { return 1; } else { return 0; }'));
-            array_walk($question->options->units, create_function('$val',
-             '$val->multiplier = (float)$val->multiplier;'));
+            $units  = array_values($units);
         } else {
-            $question->options->units = array();
+            $units = array();
         }
+        foreach ($units as $key => $unit) {
+            $units[$key]->multiplier = clean_param($unit->multiplier, PARAM_NUMBER);
+        }
+        $question->options->units = $units;
         return true;
     }
 
     function get_default_numerical_unit(&$question) {
-        $unit = new stdClass;
-        $unit->unit = '';
-        $unit->multiplier = 1.0;
-        if (!isset($question->options->units[0])) {
-            // do nothing
-        } else if (1.0 === (float)$question->options->units[0]->multiplier) {
-            $unit->unit = $question->options->units[0]->unit;
-        } else {
-            foreach ($question->options->units as $u) {
-                if (1.0 === (float)$unit->multiplier) {
-                    $unit->unit = $u->unit;
-                    break;
+        if (isset($question->options->units[0])) {
+            foreach ($question->options->units as $unit) {
+                if (abs($unit->multiplier - 1.0) < '1.0e-' . ini_get('precision')) {
+                    return $unit;
                 }
             }
         }
-        return $unit;
+        return false;
     }
 
     /**
      * Save the units and the answers associated with this question.
      */
     function save_question_options($question) {
-        
         // Get old versions of the objects
         if (!$oldanswers = get_records('question_answers', 'question', $question->id, 'id ASC')) {
             $oldanswers = array();
@@ -114,59 +107,63 @@ class question_numerical_qtype extends question_shortanswer_qtype {
 
         // Insert all the new answers
         foreach ($question->answer as $key => $dataanswer) {
-            if (!isset( $question->deleteanswer[$key] ) && !( trim($dataanswer) == 0 && $question->fraction[$key]== 0 &&trim($question->feedback[$key])=='')) { 
-                $answer = new stdClass;
-                $answer->question = $question->id;
-                if (trim($dataanswer) == '*') {
-                    $answer->answer = '*';
-                } else {
-                    $answer->answer = $this->apply_unit($dataanswer, $units);
-                    if ($answer->answer === false) {
-                        $result->notice = get_string('invalidnumericanswer', 'quiz');
-                    }
-                }
-                $answer->fraction = $question->fraction[$key];
-                $answer->feedback = trim($question->feedback[$key]);
+            // Check for, and ingore, completely blank answer from the form.
+            if (trim($dataanswer) == '' && $question->fraction[$key] == 0 &&
+                    html_is_blank($question->feedback[$key])) {
+                continue;
+            }
 
-                if ($oldanswer = array_shift($oldanswers)) {  // Existing answer, so reuse it
-                    $answer->id = $oldanswer->id;
-                    if (! update_record("question_answers", $answer)) {
-                        $result->error = "Could not update quiz answer! (id=$answer->id)";
-                        return $result;
-                    }
-                } else { // This is a completely new answer
-                    if (! $answer->id = insert_record("question_answers", $answer)) {
-                        $result->error = "Could not insert quiz answer!";
-                        return $result;
-                    }
+            $answer = new stdClass;
+            $answer->question = $question->id;
+            if (trim($dataanswer) === '*') {
+                $answer->answer = '*';
+            } else {
+                $answer->answer = $this->apply_unit($dataanswer, $units);
+                if ($answer->answer === false) {
+                    $result->notice = get_string('invalidnumericanswer', 'quiz');
                 }
+            }
+            $answer->fraction = $question->fraction[$key];
+            $answer->feedback = trim($question->feedback[$key]);
 
-                // Set up the options object
-                if (!$options = array_shift($oldoptions)) {
-                    $options = new stdClass;
+            if ($oldanswer = array_shift($oldanswers)) {  // Existing answer, so reuse it
+                $answer->id = $oldanswer->id;
+                if (! update_record("question_answers", $answer)) {
+                    $result->error = "Could not update quiz answer! (id=$answer->id)";
+                    return $result;
                 }
-                $options->question  = $question->id;
-                $options->answer    = $answer->id;
-                if (trim($question->tolerance[$key]) == '') {
-                    $options->tolerance = '';
-                } else {
-                    $options->tolerance = $this->apply_unit($question->tolerance[$key], $units);
-                    if ($options->tolerance === false) {
-                        $result->notice = get_string('invalidnumerictolerance', 'quiz');
-                    }
+            } else { // This is a completely new answer
+                if (! $answer->id = insert_record("question_answers", $answer)) {
+                    $result->error = "Could not insert quiz answer!";
+                    return $result;
                 }
-                
-                // Save options
-                if (isset($options->id)) { // reusing existing record
-                    if (! update_record('question_numerical', $options)) {
-                        $result->error = "Could not update quiz numerical options! (id=$options->id)";
-                        return $result;
-                    }
-                } else { // new options
-                    if (! insert_record('question_numerical', $options)) {
-                        $result->error = "Could not insert quiz numerical options!";
-                        return $result;
-                    }
+            }
+
+            // Set up the options object
+            if (!$options = array_shift($oldoptions)) {
+                $options = new stdClass;
+            }
+            $options->question  = $question->id;
+            $options->answer    = $answer->id;
+            if (trim($question->tolerance[$key]) == '') {
+                $options->tolerance = '';
+            } else {
+                $options->tolerance = $this->apply_unit($question->tolerance[$key], $units);
+                if ($options->tolerance === false) {
+                    $result->notice = get_string('invalidnumerictolerance', 'quiz');
+                }
+            }
+
+            // Save options
+            if (isset($options->id)) { // reusing existing record
+                if (! update_record('question_numerical', $options)) {
+                    $result->error = "Could not update quiz numerical options! (id=$options->id)";
+                    return $result;
+                }
+            } else { // new options
+                if (! insert_record('question_numerical', $options)) {
+                    $result->error = "Could not insert quiz numerical options!";
+                    return $result;
                 }
             }
         }
@@ -188,58 +185,39 @@ class question_numerical_qtype extends question_shortanswer_qtype {
         if (!empty($result->notice)) {
             return $result;
         }
-        
+
         return true;
     }
 
     function save_numerical_units($question) {
-        if (!$oldunits = get_records('question_numerical_units', 'question', $question->id, 'id ASC')) {
-            $oldunits = array();
+        $result = new stdClass;
+
+        // Delete the units previously saved for this question.
+        delete_records('question_numerical_units', 'question', $question->id);
+
+        // Nothing to do.
+        if (!isset($question->multiplier)) {
+            $result->units = array();
+            return $result;
         }
 
-        // Set the units
+        // Save the new units.
         $units = array();
-        $keys  = array();
-        $oldunits = array_values($oldunits);
-        usort($oldunits, create_function('$a, $b', // make sure the default unit is at index 0
-                'if (1.0 === (float)$a->multiplier) { return -1; } else '.
-                'if (1.0 === (float)$b->multiplier) { return 1; } else { return 0; }'));
-        foreach ($oldunits as $unit) {
-            $units[] = clone($unit);
-        }
-        $n = isset($question->multiplier) ? count($question->multiplier) : 0;
-        for ($i = 0; $i < $n; $i++) {
+        foreach ($question->multiplier as $i => $multiplier) {
             // Discard any unit which doesn't specify the unit or the multiplier
             if (!empty($question->multiplier[$i]) && !empty($question->unit[$i])) {
+                $units[$i] = new stdClass;
                 $units[$i]->question = $question->id;
                 $units[$i]->multiplier = $this->apply_unit($question->multiplier[$i], array());
                 $units[$i]->unit = $question->unit[$i];
-            } else {
-                unset($units[$i]);
+                if (! insert_record('question_numerical_units', $units[$i])) {
+                    $result->error = 'Unable to save unit ' . $units[$i]->unit . ' to the Databse';
+                    return $result;
+                }
             }
         }
         unset($question->multiplier, $question->unit);
 
-        /// Save units
-        $result = new stdClass;
-        for ($i = 0; $i < $n; $i++) {
-            if (!isset($units[$i]) && isset($oldunits[$i])) { // Delete if it hasn't been resubmitted
-                delete_records('question_numerical_units', 'id', $oldunits[$i]->id);
-            } else if ($oldunits != $units) { // answer has changed or is new
-                if (isset($oldunits[$i]->id)) { // answer has changed
-                    $units[$i]->id = $oldunits[$i]->id;
-                    if (! update_record('question_numerical_units', $units[$i])) {
-                        $result->error = "Could not update question_numerical_unit $units[$i]->unit";
-                        return $result;
-                    }
-                } else if (isset($units[$i])) { // answer is new
-                    if (! insert_record('question_numerical_units', $units[$i])) {
-                        $result->error = "Unable to insert new unit $units[$i]->unit";
-                        return $result;
-                    }
-                }
-            }
-        }
         $result->units = &$units;
         return $result;
     }
@@ -270,7 +248,7 @@ class question_numerical_qtype extends question_shortanswer_qtype {
      */
     function test_response(&$question, &$state, $answer) {
         // Deal with the match anything answer.
-        if ($answer->answer == '*') {
+        if ($answer->answer === '*') {
             return true;
         }
 
@@ -285,20 +263,10 @@ class question_numerical_qtype extends question_shortanswer_qtype {
         return ($answer->min <= $response && $response <= $answer->max);
     }
 
-    // ULPGC ecastro
-    function check_response(&$question, &$state){
-        $answers = &$question->options->answers;
-        foreach($answers as $aid => $answer) {
-            if($this->test_response($question, $state, $answer)) {
-                return $aid;
-            }
-        }
-        return false;
-    }
-
     function get_correct_responses(&$question, &$state) {
         $correct = parent::get_correct_responses($question, $state);
-        if ($correct[''] != '*' && $unit = $this->get_default_numerical_unit($question)) {
+        $unit = $this->get_default_numerical_unit($question);
+        if (isset($correct['']) && $correct[''] != '*' && $unit) {
             $correct[''] .= ' '.$unit->unit;
         }
         return $correct;
@@ -360,15 +328,15 @@ class question_numerical_qtype extends question_shortanswer_qtype {
                 $tolerance = abs($tolerance); // important - otherwise min and max are swapped
                 // $answer->tolerance 0 or something else
                 if ((float)$answer->tolerance == 0.0  &&  abs((float)$answer->answer) <= $tolerance ){
-                    $tolerance = (float) ("1.0e-".ini_get('precision')) * abs((float)$answer->answer) ; //tiny fraction 
+                    $tolerance = (float) ("1.0e-".ini_get('precision')) * abs((float)$answer->answer) ; //tiny fraction
                 } else if ((float)$answer->tolerance != 0.0 && abs((float)$answer->tolerance) < abs((float)$answer->answer) &&  abs((float)$answer->answer) <= $tolerance){
-                    $tolerance = (1+("1.0e-".ini_get('precision')) )* abs((float) $answer->tolerance) ;//tiny fraction 
-               }     
-               
+                    $tolerance = (1+("1.0e-".ini_get('precision')) )* abs((float) $answer->tolerance) ;//tiny fraction
+               }
+
                 $max = $answer->answer + $tolerance;
                 $min = $answer->answer - $tolerance;
                 break;
-           case '3': case 'geometric':
+            case '3': case 'geometric':
                 $quotient = 1 + abs($tolerance);
                 $max = $answer->answer * $quotient;
                 $min = $answer->answer / $quotient;
@@ -401,13 +369,13 @@ class question_numerical_qtype extends question_shortanswer_qtype {
         $search  = array(' ', ',');
         $replace = array('', '.');
         $rawresponse = str_replace($search, $replace, trim($rawresponse));
-        
+
         // Apply any unit that is present.
         if (ereg('^([+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+)([eE][-+]?[0-9]+)?)([^0-9].*)?$',
                 $rawresponse, $responseparts)) {
-                    
+
             if (!empty($responseparts[5])) {
-                
+
                 if (isset($tmpunits[$responseparts[5]])) {
                     // Valid number with unit.
                     return (float)$responseparts[1] / $tmpunits[$responseparts[5]];
@@ -424,7 +392,7 @@ class question_numerical_qtype extends question_shortanswer_qtype {
         // Invalid number. Must be wrong.
         return false;
     }
-    
+
     /// BACKUP FUNCTIONS ////////////////////////////
 
     /**
@@ -467,7 +435,11 @@ class question_numerical_qtype extends question_shortanswer_qtype {
         $status = true;
 
         //Get the numerical array
-        $numericals = $info['#']['NUMERICAL'];
+        if (isset($info['#']['NUMERICAL'])) {
+            $numericals = $info['#']['NUMERICAL'];
+        } else {
+            $numericals = array();
+        }
 
         //Iterate over numericals
         for($i = 0; $i < sizeof($numericals); $i++) {
@@ -508,6 +480,34 @@ class question_numerical_qtype extends question_shortanswer_qtype {
         }
 
         return $status;
+    }
+
+    /**
+     * Runs all the code required to set up and save an essay question for testing purposes.
+     * Alternate DB table prefix may be used to facilitate data deletion.
+     */
+    function generate_test($name, $courseid = null) {
+        list($form, $question) = default_questiontype::generate_test($name, $courseid);
+        $question->category = $form->category;
+
+        $form->questiontext = "What is 674 * 36?";
+        $form->generalfeedback = "Thank you";
+        $form->penalty = 0.1;
+        $form->defaultgrade = 1;
+        $form->noanswers = 3;
+        $form->answer = array('24264', '24264', '1');
+        $form->tolerance = array(10, 100, 0);
+        $form->fraction = array(1, 0.5, 0);
+        $form->nounits = 2;
+        $form->unit = array(0 => null, 1 => null);
+        $form->multiplier = array(1, 0);
+        $form->feedback = array('Very good', 'Close, but not quite there', 'Well at least you tried....');
+
+        if ($courseid) {
+            $course = get_record('course', 'id', $courseid);
+        }
+
+        return $this->save_question($question, $form, $course);
     }
 
 }

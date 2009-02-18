@@ -1,4 +1,4 @@
-<?php  // $Id: loadSCO.php,v 1.33 2007/01/25 13:49:50 bobopinna Exp $
+<?php  // $Id: loadSCO.php,v 1.33.4.10 2008/12/09 20:38:28 danmarsden Exp $
     require_once('../../config.php');
     require_once('locallib.php');
 
@@ -40,7 +40,7 @@
         if ($sco = scorm_get_sco($scoid)) {
             if ($sco->launch == '') {
                 // Search for the next launchable sco
-                if ($scoes = get_records_select('scorm_scoes','scorm='.$scorm->id." AND launch<>'' AND id>".$sco->id,'id ASC')) {
+                if ($scoes = get_records_select('scorm_scoes','scorm='.$scorm->id." AND launch<>'".sql_empty()."' AND id>".$sco->id,'id ASC')) {
                     $sco = current($scoes);
                 }
             }
@@ -50,17 +50,17 @@
     // If no sco was found get the first of SCORM package
     //
     if (!isset($sco)) {
-        $scoes = get_records_select('scorm_scoes','scorm='.$scorm->id." AND launch<>''",'id ASC');
+        $scoes = get_records_select('scorm_scoes','scorm='.$scorm->id." AND launch<>'".sql_empty()."'",'id ASC');
         $sco = current($scoes);
     }
 
     if ($sco->scormtype == 'asset') {
        $attempt = scorm_get_last_attempt($scorm->id,$USER->id);
-       $element = $scorm->version == 'scorm_13'?'cmi.completion_status':'cmi.core.lesson_status';
+       $element = ($scorm->version == 'scorm_13' || $scorm->version == 'SCORM_1.3') ?'cmi.completion_status':'cmi.core.lesson_status';
        $value = 'completed';
        $result = scorm_insert_track($USER->id, $scorm->id, $sco->id, $attempt, $element, $value);
     }
-    
+
     //
     // Forge SCO URL
     //
@@ -76,7 +76,7 @@
             $sco->parameters = substr($sco->parameters,1);
         }
     }
-    
+
     if ($version == 'AICC') {
         if (isset($sco->parameters) && (!empty($sco->parameters))) {
             $sco->parameters = '&'. $sco->parameters;
@@ -89,13 +89,12 @@
             $launcher = $sco->launch;
         }
     }
-    
+
     if (scorm_external_link($sco->launch)) {
         // Remote learning activity
         $result = $launcher;
     } else if ($scorm->reference[0] == '#') {
         // Repository
-        require_once($repositoryconfigfile);
         $result = $CFG->repositorywebroot.substr($scorm->reference,1).'/'.$sco->launch;
     } else {
         if ((basename($scorm->reference) == 'imsmanifest.xml') && scorm_external_link($scorm->reference)) {
@@ -108,27 +107,87 @@
             } else {
                 $basedir = $CFG->moddata.'/scorm/'.$scorm->id;
             }
-            if ($CFG->slasharguments) {
-                $result = $CFG->wwwroot.'/file.php/'.$scorm->course.'/'.$basedir.'/'.$launcher;
-            } else {
-                $result = $CFG->wwwroot.'/file.php?file=/'.$scorm->course.'/'.$basedir.'/'.$launcher;
-            }
+            //note: do not convert this to use get_file_url()!
+            //      SCORM does not work without slasharguments anyway and there might be some extra ?xx=yy params
+            //      see MDL-16060
+            $result = $CFG->wwwroot.'/file.php/'.$scorm->course.'/'.$basedir.'/'.$launcher;
         }
     }
+
+    $scormpixdir = $CFG->modpixpath.'/scorm/pix';
+
+    // which API are we looking for
+    $LMS_api = ($scorm->version == 'scorm_12' || $scorm->version == 'SCORM_1.2' || empty($scorm->version)) ? 'API' : 'API_1484_11';
 ?>
 <html>
     <head>
         <title>LoadSCO</title>
         <script type="text/javascript">
         //<![CDATA[
-            setTimeout('document.location = "<?php echo $result ?>";',<?php echo $delayseconds ?>000);
+        var apiHandle = null;
+        var findAPITries = 0;
+
+        function getAPIHandle() {
+           if (apiHandle == null) {
+              apiHandle = getAPI();
+           }
+           return apiHandle;
+        }
+
+        function findAPI(win) {
+           while ((win.<?php echo $LMS_api; ?> == null) && (win.parent != null) && (win.parent != win)) {
+              findAPITries++;
+              // Note: 7 is an arbitrary number, but should be more than sufficient
+              if (findAPITries > 7) {
+                 return null;
+              }
+              win = win.parent;
+           }
+           return win.<?php echo $LMS_api; ?>;
+        }
+
+        // hun for the API - needs to be loaded before we can launch the package
+        function getAPI() {
+           var theAPI = findAPI(window);
+           if ((theAPI == null) && (window.opener != null) && (typeof(window.opener) != "undefined")) {
+              theAPI = findAPI(window.opener);
+           }
+           if (theAPI == null) {
+              return null;
+           }
+           return theAPI;
+        }
+
+        function doredirect() {
+            if (getAPI() != null) {
+                location = "<?php echo $result ?>";
+            }
+            else {
+                document.body.innerHTML = "<p><?php echo get_string('activityloading', 'scorm');?> <span id='countdown'><?php echo $delayseconds ?></span> <?php echo get_string('numseconds');?>. &nbsp; <img src='<?php echo $scormpixdir;?>/wait.gif'><p>";
+                var e = document.getElementById("countdown");
+                var cSeconds = parseInt(e.innerHTML);
+                var timer = setInterval(function() {
+                                                if( cSeconds && getAPI() == null ) {
+                                                    e.innerHTML = --cSeconds;
+                                                } else {
+                                                    clearInterval(timer);
+                                                    document.body.innerHTML = "<p><?php echo get_string('activitypleasewait', 'scorm');?></p>";
+                                                    location = "<?php echo $result ?>";
+                                                }
+                                            }, 1000);
+            }
+        }
         //]]>
         </script>
         <noscript>
-            <meta http-equiv="refresh" content="<?php echo $delayseconds ?>;url=<?php echo $result ?>" />
-        </noscript> 
+            <meta http-equiv="refresh" content="0;url=<?php echo $result ?>" />
+        </noscript>
     </head>
-    <body>
-        &nbsp;
+    <body onload="doredirect();">
+        <p><?php echo get_string('activitypleasewait', 'scorm');?></p>
+        <?php if (debugging('',DEBUG_DEVELOPER)) {
+                  add_to_log($course->id, 'scorm', 'launch', 'view.php?id='.$cm->id, $result, $cm->id);
+              }
+        ?>
     </body>
 </html>

@@ -2,7 +2,6 @@
 
 $string['description'] = 'Description of enrolment over Moodle Networking.';
 $string['enrolname'] = 'Moodle Networking';
-$string['enrolname'] = 'Moodle Networking';
 $string['allow_allcourses'] = 'Allow enrolment in all remote courses.';
 $string['allcategories'] = '$a potential categories';
 $string['allowedcategories'] = '$a allowed categories';
@@ -18,5 +17,6 @@ $string['mnet_enrol_description']      = 'Publish this service to allow administ
                                          'Subscribe to this service to be able to enrol your students in courses  on $a.<br/>'.
                                          '<ul><li><em>Dependency</em>: You must also <strong>subscribe</strong> to the SSO (Service Provider) service on $a.</li>'.
                                          '<li><em>Dependency</em>: You must also <strong>publish</strong> the SSO (Identity Provider) service to $a.</li></ul><br/>';
+$string['mnetlocalforexternal'] = 'Local courses for external users';
 
 ?>

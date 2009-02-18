@@ -1,3 +1,7 @@
+<?php
+    $yesno = array('0'=>get_string('no'), '1'=>get_string('yes'));
+?>
+
 <table cellspacing="0" cellpadding="5" border="0" class="boxaligncenter">
 <tr>
 <th colspan="2" scope="col">
@@ -52,7 +56,7 @@
 <tr>
     <td align="right">enrol_dbpass:</td>
     <td>
-        <input size="15" type="text" name="enrol_dbpass" value="<?php echo $frm->enrol_dbpass ?>" />
+        <input size="15" type="password" name="enrol_dbpass" value="<?php echo $frm->enrol_dbpass ?>" />
     </td>
     <td>
     <?php  print_string("dbpass","enrol_database") ?>
@@ -152,7 +156,7 @@
     <td align="right">enrol_db_defaultcourseroleid:</td>
     <td>
     <?php
-        $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+        $sitecontext = get_context_instance(CONTEXT_SYSTEM);
         $assignableroles = get_assignable_roles($sitecontext);
         $assignableroles = array('' => get_string('default')) + $assignableroles;
     
@@ -174,7 +178,7 @@
     <td align="right">enrol_db_autocreate:</td>
     <td>
     <?php
-       choose_from_menu(array('0'=>'no','1'=>'yes'), "enrol_db_autocreate", $frm->enrol_db_autocreate, "");
+       choose_from_menu($yesno, "enrol_db_autocreate", $frm->enrol_db_autocreate, "");
            if (isset($err["enrol_db_autocreate"])) formerr($err["enrol_db_autocreate"]); 
     ?>
     </td>
@@ -182,6 +186,7 @@
     <?php  print_string("autocreate","enrol_database") ?>
     </td>
 </tr>
+
 <tr>
         <td align="right">enrol_db_category:</td>
         <td>
@@ -208,4 +213,39 @@
     </td>
 </tr>
 
+<tr>
+   <th colspan="2" scope="col">
+        <?php print_string("general_options", "enrol_database") ?>
+   </th>
+</tr>
+
+<tr>
+    <td align="right">enrol_db_ignorehiddencourse:</td>
+    <td>
+    <?php
+        choose_from_menu($yesno, "enrol_db_ignorehiddencourse", $frm->enrol_db_ignorehiddencourse, "");
+        if (isset($err['enrol_db_ignorehiddencourse'])) {
+            formerr($err['enrol_db_ignorehiddencourse']);
+        }
+    ?>
+    </td>
+    <td>
+        <?php print_string('ignorehiddencourse', 'enrol_database' ); ?>
+    </td>
+</tr>
+
+<tr>
+    <td align="right">enrol_db_disableunenrol:</td>
+    <td>
+    <?php
+        choose_from_menu($yesno, "enrol_db_disableunenrol", $frm->enrol_db_disableunenrol, "");
+        if (isset($err['enrol_db_disableunenrol'])) {
+            formerr($err['enrol_db_disableunenrol']);
+        }
+    ?>
+    </td>
+    <td>
+        <?php print_string('disableunenrol', 'enrol_database' ); ?>
+    </td>
+</tr>
 </table>

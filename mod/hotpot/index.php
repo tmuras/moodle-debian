@@ -1,4 +1,4 @@
-<?PHP // $Id: index.php,v 1.19.2.2 2007/05/22 04:27:55 gbateson Exp $
+<?PHP // $Id: index.php,v 1.26.2.7 2008/12/10 06:30:24 dongsheng Exp $
 
 // This page lists all the instances of hotpot in a particular course
 
@@ -6,7 +6,7 @@
     require_once("../../course/lib.php");
     require_once("lib.php");
 
-    $id = required_param('id', PARAM_INT);   // course    
+    $id = required_param('id', PARAM_INT);   // course
     if (! $course = get_record("course", "id", $id)) {
         error("Course ID is incorrect");
     }
@@ -14,7 +14,7 @@
     require_login($course->id);
 
     $coursecontext = get_context_instance(CONTEXT_COURSE, $id);
-    $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+    $sitecontext = get_context_instance(CONTEXT_SYSTEM);
 
     add_to_log($course->id, "hotpot", "view all", "index.php?id=$course->id", "");
 
@@ -36,10 +36,11 @@
 
     $title = format_string($course->shortname) . ": $strmodulenameplural";
     $heading = $course->fullname;
-    $navigation = $strmodulenameplural;
-    if ($course->id != SITEID) {
-        $navigation = "<a href=\"../../course/view.php?id=$course->id\">$course->shortname</a> -> $navigation";
-    }
+
+    $navlinks = array();
+    $navlinks[] = array('name' => $strmodulenameplural, 'link' => '', 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
+
     print_header($title, $heading, $navigation, "", "", true, "", navmenu($course));
 
     $next_url = "$CFG->wwwroot/course/view.php?id=$course->id";
@@ -68,12 +69,15 @@
             if ($displaysection>0 && $hotpot_instance->section>0 && $displaysection<>$hotpot_instance->section) {
                 // do nothing (user is not diplaying this section)
             } else {
-                $hotpots[$hotpot_instance->id] = $hotpot_instance;
-            } 
+                $cm = get_coursemodule_from_instance('hotpot', $hotpot_instance->id);
+                if ($cm && hotpot_is_visible($cm)) {
+                    $hotpots[$hotpot_instance->id] = $hotpot_instance;
+                }
+            }
         }
     }
     if (empty($hotpots)) {
-        notice("There are no $strmodulenameplural", $next_url);
+        notice(get_string('thereareno', 'moodle', $strmodulenameplural), $next_url);
         exit;
     }
     $hotpotids = implode(',', array_keys($hotpots));
@@ -113,9 +117,9 @@
                     print '</ul>';
                 }
                 print ''
-                .   '<div align="center"><table border="0"><tr><td>'
+                .   '<div class="mdl-align"><table border="0"><tr><td>'
                 .   '<form target="_parent" method="post" action="'.$ME.'">'
-                .   '<input type="hidden" name="id" value="'.$course->id.'">'
+                .   '<input type="hidden" name="id" value="'.$course->id.'" />'
                 .   '<input type="hidden" name="regrade" value="'.$regrade.'" />'
                 .   '<input type="hidden" name="confirm" value="1" />'
                 .   $sesskey
@@ -123,7 +127,7 @@
                 .   '</form>'
                 .   '</td><td> &nbsp; </td><td>'
                 .   '<form target="_parent" method="post" action="'.$ME.'">'
-                .   '<input type="hidden" name="id" value="'.$course->id.'">'
+                .   '<input type="hidden" name="id" value="'.$course->id.'" />'
                 .   $sesskey
                 .   '<input type="submit" value="'.get_string("no").'" />'
                 .   '</form>'
@@ -198,9 +202,9 @@
         if ($concat_field) {
             $records = get_records_sql("
                 SELECT $concat_field, COUNT(*), hotpot, name
-                FROM {$CFG->prefix}hotpot_questions 
+                FROM {$CFG->prefix}hotpot_questions
                 WHERE hotpot IN ($hotpotids)
-                GROUP BY hotpot, name 
+                GROUP BY hotpot, name
                 HAVING COUNT(*) >1
             ");
             if ($records) {
@@ -232,7 +236,7 @@
         $select .= " AND a.userid='$USER->id'";
     }
     $usejoin = 0;
-    if (has_capability('mod/hotpot:grade', get_context_instance(CONTEXT_SYSTEM, SITEID)) && $usejoin) {
+    if (has_capability('mod/hotpot:grade', get_context_instance(CONTEXT_SYSTEM)) && $usejoin) {
         // join attempts table and details table
         $tables .= ",{$CFG->prefix}hotpot_details d";
         $fields .= ',COUNT(DISTINCT d.id) AS detailcount';
@@ -243,7 +247,7 @@
     }
     $totals = get_records_sql("SELECT $fields FROM $tables WHERE $select GROUP BY a.hotpot");
 
-    if (has_capability('mod/hotpot:grade', get_context_instance(CONTEXT_SYSTEM, SITEID)) && empty($usejoin)) {
+    if (has_capability('mod/hotpot:grade', get_context_instance(CONTEXT_SYSTEM)) && empty($usejoin)) {
         foreach ($hotpots as $hotpot) {
             $totals[$hotpot->id]->detailcount = 0;
             if ($ids = get_records('hotpot_attempts', 'hotpot', $hotpot->id)) {
@@ -269,31 +273,31 @@
     }
 
     switch ($course->format) {
-        case 'weeks' : 
+        case 'weeks' :
             $title = get_string("week");
             break;
-        case 'topics' : 
+        case 'topics' :
             $title = get_string("topic");
             break;
-        default : 
+        default :
             $title = '';
             break;
     }
     if ($title) {
-        array_push($table->head, $title); 
+        array_push($table->head, $title);
         array_push($table->align, "center");
     }
     if (has_capability('moodle/course:manageactivities', $coursecontext)) {
         array_push($table->head, $strupdate);
         array_push($table->align, "center");
     }
-    array_push($table->head, 
-        get_string("name"), 
-        get_string("quizcloses", "quiz"), 
-        get_string("bestgrade", "quiz"), 
+    array_push($table->head,
+        get_string("name"),
+        get_string("quizcloses", "quiz"),
+        get_string("bestgrade", "quiz"),
         get_string("attempts", "quiz")
     );
-    array_push($table->align, 
+    array_push($table->align,
         "left", "left", "center", "left"
     );
     if (has_capability('mod/hotpot:grade', $coursecontext)) {
@@ -312,10 +316,10 @@
                     // Show the zoom boxes
                     if ($displaysection==$hotpot->section) {
                         $strshowall = get_string('showall'.$course->format);
-                        $printsection .= '<br /><a href="index.php?id='.$course->id.'&section=all" title="'.$strshowall.'"><img src="'.$CFG->pixpath.'/i/all.gif" style="height:25px; width:16px; border:0px" alt="'.$strshowall.'"></a><br />';
+                        $printsection .= '<br /><a href="index.php?id='.$course->id.'&amp;section=all" title="'.$strshowall.'"><img src="'.$CFG->pixpath.'/i/all.gif" style="height:25px; width:16px; border:0px" alt="'.$strshowall.'" /></a><br />';
                     } else {
                         $strshowone = get_string('showonly'.preg_replace('|s$|', '', $course->format, 1), '', $hotpot->section);
-                        $printsection .=  '<br /><a href="index.php?id='.$course->id.'&section='.$hotpot->section.'" title="'.$strshowone.'"><img src="'.$CFG->pixpath.'/i/one.gif" class="icon" alt="'.$strshowone.'"></a><br />';
+                        $printsection .=  '<br /><a href="index.php?id='.$course->id.'&amp;section='.$hotpot->section.'" title="'.$strshowone.'"><img src="'.$CFG->pixpath.'/i/one.gif" class="icon" alt="'.$strshowone.'" /></a><br />';
                     }
                 }
             }
@@ -326,7 +330,7 @@
         }
 
         $class = ($hotpot->visible) ? '' : 'class="dimmed" ';
-        $quizname = '<a '.$class.'href="view.php?id='.$hotpot->coursemodule.'">'.$hotpot->name.'</A>';
+        $quizname = '<a '.$class.'href="view.php?id='.$hotpot->coursemodule.'">'.$hotpot->name.'</a>';
         $quizclose = empty($hotpot->timeclose) ? $strneverclosed : userdate($hotpot->timeclose);
 
         // are there any totals for this hotpot?
@@ -335,7 +339,7 @@
             $bestscore = "&nbsp;";
 
         } else {
-          
+
             $cm = get_coursemodule_from_instance('hotpot', $hotpot->id);
             // report number of attempts and users
             $report = get_string("viewallreports","quiz", $totals[$hotpot->id]->attemptcount);
@@ -346,9 +350,9 @@
 
             // get best score
             if (is_numeric($totals[$hotpot->id]->maxscore)) {
-				$weighting = $hotpot->grade / 100;
-				$precision = hotpot_get_precision($hotpot);
-				$bestscore = round($totals[$hotpot->id]->maxscore * $weighting, $precision)." / $hotpot->grade";
+                $weighting = $hotpot->grade / 100;
+                $precision = hotpot_get_precision($hotpot);
+                $bestscore = round($totals[$hotpot->id]->maxscore * $weighting, $precision)." / $hotpot->grade";
             } else {
                 $bestscore = "&nbsp;";
             }
@@ -368,7 +372,7 @@
 
         if (has_capability('moodle/course:manageactivities', $coursecontext)) {
             $updatebutton = ''
-            .   '<form '.$CFG->frametarget.'" method="get" action="'.$CFG->wwwroot.'/course/mod.php">'
+            .   '<form '.$CFG->frametarget.' method="get" action="'.$CFG->wwwroot.'/course/mod.php">'
             .   '<input type="hidden" name="update" value="'.$hotpot->coursemodule.'" />'
             .   $sesskey
             .   '<input type="submit" value="'.$strupdate.'" />'
@@ -387,7 +391,7 @@
                 $strregradecheck = get_string('regradecheck', 'hotpot', strtr($hotpot->name, $quotes));
                 $regradebutton = ''
                 .   '<form target="_parent" method="post" action="'.$ME.'" onsubmit="var x=window.confirm('."'$strregradecheck'".');this.confirm.value=x;return x;">'
-                .   '<input type="hidden" name="id" value="'.$course->id.'">'
+                .   '<input type="hidden" name="id" value="'.$course->id.'" />'
                 .   '<input type="hidden" name="regrade" value="'.$hotpot->id.'" />'
                 .   '<input type="hidden" name="confirm" value="" />'
                 .   $sesskey

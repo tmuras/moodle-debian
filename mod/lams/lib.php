@@ -1,4 +1,4 @@
-<?PHP  // $Id: lib.php,v 1.5.2.2 2007/02/20 17:31:37 skodak Exp $
+<?PHP  // $Id: lib.php,v 1.8.2.1 2008/01/24 20:29:31 skodak Exp $
 
 /// Library of functions and constants for module lams
 
@@ -82,16 +82,6 @@ function lams_user_complete($course, $user, $mod, $lams) {
   return true;
 }
 
-function lams_print_recent_activity($course, $isteacher, $timestart) {
-/// Given a course and a time, this module should find recent activity
-/// that has occurred in lams activities and print it out.
-/// Return true if there was output, or false is there was none.
-
-  global $CFG;
-
-  return false;  //  True if anything was printed, otherwise false
-}
-
 function lams_cron () {
 /// Function to be run periodically according to the moodle cron
 /// This function searches for things that need to be done, such
@@ -138,6 +128,17 @@ function lams_scale_used ($lamsid,$scaleid) {
   //}
 
   return $return;
+}
+
+/**
+ * Checks if scale is being used by any instance of lams
+ *
+ * This is used to find out if scale used anywhere
+ * @param $scaleid int
+ * @return boolean True if the scale is used by any lams
+ */
+function lams_scale_used_anywhere($scaleid) {
+ return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////

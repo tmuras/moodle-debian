@@ -4,7 +4,7 @@
  * uploadlib.php - This class handles all aspects of fileuploading
  *
  * @author ?
- * @version $Id: uploadlib.php,v 1.22.4.2 2007/04/02 14:53:13 skodak Exp $
+ * @version $Id: uploadlib.php,v 1.25.4.3 2008/07/14 02:37:24 fmarier Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package moodlecore
  */
@@ -298,28 +298,37 @@ class upload_manager {
      * Handles filename collisions - if the desired filename exists it will rename it according to the pattern in $format
      * @param string $destination Destination directory (to check existing files against)
      * @param object $file Passed in by reference. The current file from $files we're processing.
-     * @param string $format The printf style format to rename the file to (defaults to filename_number.extn)
-     * @return string The new filename.
-     * @todo verify return type - this function does not appear to return anything since $file is passed in by reference
+     * @return void - modifies &$file parameter.
      */
-    function handle_filename_collision($destination, &$file, $format='%s_%d.%s') {
-        $part1 = explode('.', $file['name']); 
-        $bits = array(); 
-        $bits[1] = array_pop($part1); 
-        $bits[0] = implode('.', $part1);
-        // check for collisions and append a nice numberydoo.
-        if (file_exists($destination .'/'. $file['name'])) {
-            $a->oldname = $file['name'];
-            for ($i = 1; true; $i++) {
-                $try = sprintf($format, $bits[0], $i, $bits[1]);
-                if ($this->check_before_renaming($destination, $try, $file)) {
-                    $file['name'] = $try;
-                    break;
-                }
-            }
-            $a->newname = $file['name'];
-            $file['uploadlog'] .= "\n". get_string('uploadrenamedcollision','moodle', $a);
+    function handle_filename_collision($destination, &$file) {
+        if (!file_exists($destination .'/'. $file['name'])) {
+            return;
         }
+
+        $parts     = explode('.', $file['name']);
+        if (count($parts) > 1) {
+            $extension = '.'.array_pop($parts);
+            $name      = implode('.', $parts);
+        } else {
+            $extension = '';
+            $name      = $file['name'];
+        }
+
+        $current = 0;
+        if (preg_match('/^(.*)_(\d*)$/s', $name, $matches)) {
+            $name    = $matches[1];
+            $current = (int)$matches[2];
+        }
+        $i = $current + 1;
+
+        while (!$this->check_before_renaming($destination, $name.'_'.$i.$extension, $file)) {
+            $i++;
+        }
+        $a = new object();
+        $a->oldname = $file['name'];
+        $file['name'] = $name.'_'.$i.$extension;
+        $a->newname = $file['name'];
+        $file['uploadlog'] .= "\n". get_string('uploadrenamedcollision','moodle', $a);
     }
     
     /**
@@ -381,6 +390,20 @@ class upload_manager {
             $errmessage = get_string('uploadnofilefound');
             break;
             
+        // Note: there is no error with a value of 5
+
+        case 6: // UPLOAD_ERR_NO_TMP_DIR
+            $errmessage = get_string('uploadnotempdir');
+            break;
+
+        case 7: // UPLOAD_ERR_CANT_WRITE
+            $errmessage = get_string('uploadcantwrite');
+            break;
+
+        case 8: // UPLOAD_ERR_EXTENSION
+            $errmessage = get_string('uploadextension');
+            break;
+
         default:
             $errmessage = get_string('uploadproblem', $file['name']);
         }
@@ -392,6 +415,7 @@ class upload_manager {
      * @param $return - optional, defaults to false (log is echoed)
      */
     function print_upload_log($return=false,$skipemptyifmultiple=false) {
+        $str = '';
         foreach (array_keys($this->files) as $i => $key) {
             if (count($this->files) > 1 && !empty($skipemptyifmultiple) && $this->files[$key]['error'] == 4) {
                 continue;
@@ -444,7 +468,11 @@ class upload_manager {
      * @return string
      */
     function get_errors() {
+        if (!empty($this->notify)) {
         return '<p class="notifyproblem">'. $this->notify .'</p>';
+        } else {
+            return null;
+        }
     }
 }
 

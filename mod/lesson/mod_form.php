@@ -1,9 +1,9 @@
-<?php  // $Id: mod_form.php,v 1.10.2.3 2007/06/10 23:28:47 skodak Exp $
+<?php  // $Id: mod_form.php,v 1.20.2.4 2008/11/26 14:30:22 thepurpleblob Exp $
 /**
  * Form to define a new instance of lesson or edit an instance.
  * It is used from /course/modedit.php.
  *
- * @version $Id: mod_form.php,v 1.10.2.3 2007/06/10 23:28:47 skodak Exp $
+ * @version $Id: mod_form.php,v 1.20.2.4 2008/11/26 14:30:22 thepurpleblob Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -14,7 +14,7 @@ require_once('locallib.php');
 class mod_lesson_mod_form extends moodleform_mod {
 
     function definition() {
-        global $LESSON_NEXTPAGE_ACTION, $COURSE;
+        global $CFG, $LESSON_NEXTPAGE_ACTION, $COURSE;
 
         $mform    =& $this->_form;
 
@@ -22,18 +22,30 @@ class mod_lesson_mod_form extends moodleform_mod {
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
         $mform->addElement('text', 'name', get_string('name'), array('size'=>'64'));
-        $mform->setType('name', PARAM_TEXT);
+        if (!empty($CFG->formatstringstriptags)) {
+            $mform->setType('name', PARAM_TEXT);
+        } else {
+            $mform->setType('name', PARAM_CLEAN);
+        }
         $mform->addRule('name', null, 'required', null, 'client');
 
-        $mform->addElement('selectyesno', 'timed', get_string('timed', 'lesson'));
-        $mform->setDefault('timed', 0);
-        $mform->setHelpButton('timed', array('timed', get_string('timed', 'lesson'), 'lesson'));
+        // Create a text box that can be enabled/disabled for lesson time limit
+        $timedgrp = array();
+        $timedgrp[] = &$mform->createElement('text', 'maxtime');
+        $timedgrp[] = &$mform->createElement('checkbox', 'timed', '', get_string('enable'));
+        $mform->addGroup($timedgrp, 'timedgrp', get_string('maxtime', 'lesson'), array(' '), false);
+        $mform->disabledIf('timedgrp', 'timed');
 
-        $mform->addElement('text', 'maxtime', get_string('maxtime', 'lesson'));
+        // Add numeric rule to text field
+        $timedgrprules = array();
+        $timedgrprules['maxtime'][] = array(null, 'numeric', null, 'client');
+        $mform->addGroupRule('timedgrp', $timedgrprules);
+
+        // Rest of group setup
+        $mform->setDefault('timed', 0);
         $mform->setDefault('maxtime', 20);
-        $mform->addRule('maxtime', null, 'required', null, 'client');
-        $mform->addRule('maxtime', null, 'numeric', null, 'client');
         $mform->setType('maxtime', PARAM_INT);
+        $mform->setHelpButton('timedgrp', array('timed', get_string('timed', 'lesson'), 'lesson'));
 
         $numbers = array();
         for ($i=20; $i>1; $i--) {
@@ -41,7 +53,7 @@ class mod_lesson_mod_form extends moodleform_mod {
         }
         $mform->addElement('select', 'maxanswers', get_string('maximumnumberofanswersbranches', 'lesson'), $numbers);
         $mform->setDefault('maxanswers', 4);
-        $mform->setHelpButton('maxanswers', array('maxanswers', get_string('displayformat', 'lesson'), 'lesson'));
+        $mform->setHelpButton('maxanswers', array('maxanswers', get_string('maximumnumberofanswersbranches', 'lesson'), 'lesson'));
 
 //-------------------------------------------------------------------------------
         $mform->addElement('header', '', get_string('gradeoptions', 'lesson'));
@@ -60,7 +72,7 @@ class mod_lesson_mod_form extends moodleform_mod {
         }
         $mform->addElement('select', 'grade', get_string('maximumgrade'), $grades);
         $mform->setDefault('grade', 0);
-        $mform->setHelpButton('grade', array('grade', get_string('maximumgrade', 'lesson'), 'lesson'));
+        $mform->setHelpButton('grade', array('grade', get_string('maximumgrade'), 'lesson'));
 
         $mform->addElement('selectyesno', 'retake', get_string('canretake', 'lesson', $COURSE->student));
         $mform->setHelpButton('retake', array('retake', get_string('canretake', 'lesson', $COURSE->student), 'lesson'));
@@ -170,16 +182,15 @@ class mod_lesson_mod_form extends moodleform_mod {
         $mform->setHelpButton('usepassword', array('usepassword', get_string('usepassword', 'lesson'), 'lesson'));
         $mform->setDefault('usepassword', 0);
 
-        $mform->addElement('text', 'password', get_string('password', 'lesson'));
+        $mform->addElement('passwordunmask', 'password', get_string('password', 'lesson'));
         $mform->setHelpButton('password', array('password', get_string('password', 'lesson'), 'lesson'));
         $mform->setDefault('password', '');
-        //never displayed converted to md5
         $mform->setType('password', PARAM_RAW);
 
-        $mform->addElement('date_time_selector', 'available', get_string('available', 'lesson'));
+        $mform->addElement('date_time_selector', 'available', get_string('available', 'lesson'), array('optional'=>true));
         $mform->setDefault('available', 0);
 
-        $mform->addElement('date_time_selector', 'deadline', get_string('deadline', 'lesson'));
+        $mform->addElement('date_time_selector', 'deadline', get_string('deadline', 'lesson'), array('optional'=>true));
         $mform->setDefault('deadline', 0);
 
 //-------------------------------------------------------------------------------
@@ -195,7 +206,7 @@ class mod_lesson_mod_form extends moodleform_mod {
             }
         }
         $mform->addElement('select', 'dependency', get_string('dependencyon', 'lesson'), $options);
-        $mform->setHelpButton('dependency', array('dependency', get_string('dependency', 'lesson'), 'lesson'));
+        $mform->setHelpButton('dependency', array('dependency', get_string('dependencyon', 'lesson'), 'lesson'));
         $mform->setDefault('dependency', 0);
 
         $mform->addElement('text', 'timespent', get_string('timespentminutes', 'lesson'));
@@ -270,9 +281,13 @@ class mod_lesson_mod_form extends moodleform_mod {
         $mform->setDefault('lessondefault', 0);
 
 //-------------------------------------------------------------------------------
-        $this->standard_coursemodule_elements(false);
+        $features = new stdClass;
+        $features->groups = false;
+        $features->groupings = true;
+        $features->groupmembersonly = true;
+        $this->standard_coursemodule_elements($features);
 //-------------------------------------------------------------------------------
-        // buttons
+// buttons
         $this->add_action_buttons();
     }
 
@@ -283,13 +298,15 @@ class mod_lesson_mod_form extends moodleform_mod {
      * @return void
      **/
     function data_preprocessing(&$default_values) {
+        global $module;
         if (isset($default_values['conditions'])) {
             $conditions = unserialize($default_values['conditions']);
             $default_values['timespent'] = $conditions->timespent;
             $default_values['completed'] = $conditions->completed;
             $default_values['gradebetterthan'] = $conditions->gradebetterthan;
         }
-        if (isset($default_values['password'])) {
+        // after this passwords are clear text, MDL-11090
+        if (isset($default_values['password']) and ($module->version<2008112600)) {
             unset($default_values['password']);
         }
         if (isset($default_values['add']) and $defaults = get_record('lesson_default', 'course', $default_values['course'])) {
@@ -307,6 +324,22 @@ class mod_lesson_mod_form extends moodleform_mod {
                 }
             }
         }
+    }
+
+    /**
+     * Enforce validation rules here
+     *
+     * @param object $data Post data to validate
+     * @return array
+     **/
+    function validation($data, $files) {
+        $errors = parent::validation($data, $files);
+
+        if (empty($data['maxtime']) and !empty($data['timed'])) {
+            $errors['timedgrp'] = get_string('err_numeric', 'form');
+        }
+
+        return $errors;
     }
 }
 ?>

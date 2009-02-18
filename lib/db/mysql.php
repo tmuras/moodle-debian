@@ -1,4 +1,4 @@
-<?PHP  //$Id: mysql.php,v 1.251.2.2 2007/03/22 12:40:26 skodak Exp $
+<?PHP  //$Id: mysql.php,v 1.256.2.2 2008/05/01 06:03:32 dongsheng Exp $
 // THIS FILE IS DEPRECATED!  PLEASE DO NOT MAKE CHANGES TO IT!
 //
 // IT IS USED ONLY FOR UPGRADES FROM BEFORE MOODLE 1.7, ALL 
@@ -712,8 +712,8 @@ function main_upgrade($oldversion=0) {
     }
 
     if ($oldversion < 2004042600) {     /// Rebuild course caches for resource icons
-        include_once("$CFG->dirroot/course/lib.php");
-        rebuild_course_cache();
+        //include_once("$CFG->dirroot/course/lib.php");
+        //rebuild_course_cache();
     }
 
     if ($oldversion < 2004042700) {     /// Increase size of lang fields
@@ -1805,7 +1805,7 @@ function main_upgrade($oldversion=0) {
         modify_database('', "ALTER TABLE prefix_log_display ADD UNIQUE `moduleaction`(`module` , `action`)");
         
         // Insert the records back in, sans duplicates.
-        if ($rs && $rs->RecordCount() > 0) {
+        if ($rs) {
             while (!$rs->EOF) {
                 $sql = "INSERT INTO {$CFG->prefix}log_display ".
                             "VALUES('', '".$rs->fields['module']."', ".
@@ -1816,6 +1816,7 @@ function main_upgrade($oldversion=0) {
                 execute_sql($sql, false);
                 $rs->MoveNext();
             }
+            rs_close($rs);
         }
     }
     
@@ -2074,9 +2075,11 @@ function main_upgrade($oldversion=0) {
         execute_sql("ALTER TABLE `{$CFG->prefix}role_assignments` ADD UNIQUE INDEX `contextid-roleid-userid` (`contextid`, `roleid`, `userid`)",true);
         execute_sql("ALTER TABLE `{$CFG->prefix}role_assignments` ADD INDEX `sortorder` (`sortorder`)",true);
 
-        execute_sql("ALTER TABLE `{$CFG->prefix}role_capabilities` ADD INDEX `roleid` (`roleid`)",true);  
+        execute_sql("ALTER TABLE `{$CFG->prefix}role_capabilities` ADD INDEX `roleid` (`roleid`)",true);
         execute_sql("ALTER TABLE `{$CFG->prefix}role_capabilities` ADD INDEX `contextid` (`contextid`)",true); 
-        execute_sql("ALTER TABLE `{$CFG->prefix}role_capabilities` ADD INDEX `modifierid` (`modifierid`)",true); 
+        execute_sql("ALTER TABLE `{$CFG->prefix}role_capabilities` ADD INDEX `modifierid` (`modifierid`)",true);                
+        // MDL-10640  adding missing index from upgrade
+        execute_sql("ALTER TABLE `{$CFG->prefix}role_capabilities` ADD INDEX `capability` (`capability`)",true);   
         execute_sql("ALTER TABLE `{$CFG->prefix}role_capabilities` ADD UNIQUE INDEX `roleid-contextid-capability` (`roleid`, `contextid`, `capability`)",true);         
                         
         execute_sql("ALTER TABLE `{$CFG->prefix}role_deny_grant` ADD INDEX `roleid` (`roleid`)",true);
@@ -2193,10 +2196,10 @@ function main_upgrade($oldversion=0) {
                     )TYPE=MYISAM COMMENT ='time user last accessed any page in a course';", true);
     }
 
-    if ($oldversion < 2006091212) {   // Reload the guest roles completely with new defaults
+    if (!empty($CFG->rolesactive) and $oldversion < 2006091212) {   // Reload the guest roles completely with new defaults
         if ($guestroles = get_roles_with_capability('moodle/legacy:guest', CAP_ALLOW)) {
             delete_records('capabilities');
-            $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+            $sitecontext = get_context_instance(CONTEXT_SYSTEM);
             foreach ($guestroles as $guestrole) {
                 delete_records('role_capabilities', 'roleid', $guestrole->id);
                 assign_capability('moodle/legacy:guest', CAP_ALLOW, $guestrole->id, $sitecontext->id);
@@ -2216,7 +2219,7 @@ function main_upgrade($oldversion=0) {
         delete_records('config', 'name', 'requestedstudentsname');
     }
 
-    if ($oldversion < 2006091901) {
+    if (!empty($CFG->rolesactive) and $oldversion < 2006091901) {
         if ($roles = get_records('role')) {
             $first = array_shift($roles);
             if (!empty($first->shortname)) {

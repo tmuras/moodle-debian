@@ -1,4 +1,4 @@
-<?php // $Id: field.class.php,v 1.5 2007/01/13 00:32:19 stronk7 Exp $
+<?php // $Id: field.class.php,v 1.6.2.3 2008/05/30 16:10:42 robertall Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -23,7 +23,6 @@
 ///////////////////////////////////////////////////////////////////////////
 
 class data_field_number extends data_field_base {
-
     var $type = 'number';
 
     function data_field_number($field=0, $data=0) {
@@ -34,8 +33,12 @@ class data_field_number extends data_field_base {
         $content = new object;
         $content->fieldid = $this->field->id;
         $content->recordid = $recordid;
-        $content->content = (float)$value;
-
+        $value = trim($value);
+        if (strlen($value) > 0) {
+            $content->content = floatval($value);
+        } else {
+            $content->content = null;
+        }
         if ($oldcontent = get_record('data_content','fieldid', $this->field->id, 'recordid', $recordid)) {
             $content->id = $oldcontent->id;
             return update_record('data_content', $content);
@@ -44,15 +47,52 @@ class data_field_number extends data_field_base {
         }
     }
 
+    function display_browse_field($recordid, $template) {
+        if ($content = get_record('data_content', 'fieldid', $this->field->id, 'recordid', $recordid)) {
+            if (strlen($content->content) < 1) {
+                return false;
+            }
+            $number = $content->content;
+            $decimals = trim($this->field->param1);
+            // only apply number formatting if param1 contains an integer number >= 0:
+            if (preg_match("/^\d+$/", $decimals)) {
+                $decimals = $decimals * 1;
+                // removes leading zeros (eg. '007' -> '7'; '00' -> '0')
+                $str = format_float($number, $decimals, true);
+                // For debugging only:
+#                $str .= " ($decimals)";
+            } else {
+                $str = $number;
+            }
+            return $str;
+        }
+        return false;
+    }
+
+    function display_search_field($value = '') {
+        return '<input type="text" size="16" name="f_'.$this->field->id.'" value="'.$value.'" />';
+    }
+
+    function parse_search_field() {
+        return optional_param('f_'.$this->field->id, '', PARAM_NOTAGS);
+    }
+    
+    // need to cast?
+    function generate_sql($tablealias, $value) {
+        return " ({$tablealias}.fieldid = {$this->field->id} AND {$tablealias}.content = '$value') ";
+    }
+
     function get_sort_sql($fieldname) {
         global $CFG;
-
         switch ($CFG->dbfamily) {
-            case 'mysql':   // string in an arithmetic operation is converted to a floating-point number
+            case 'mysql':
+                // string in an arithmetic operation is converted to a floating-point number
                 return '('.$fieldname.'+0.0)';
-            case 'postgres': // cast for PG
+            case 'postgres':
+                // cast for PG
                 return 'CAST('.$fieldname.' AS REAL)';
-            default: // the rest, just the field name. TODO: Analyse behaviour under MSSQL and Oracle
+            default:
+                // the rest, just the field name. TODO: Analyse behaviour under MSSQL and Oracle
                 return $fieldname;
         }
     }

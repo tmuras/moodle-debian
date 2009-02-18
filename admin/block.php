@@ -1,18 +1,18 @@
-<?PHP  // $Id: block.php,v 1.16.6.1 2007/04/20 07:49:39 nicolasconnault Exp $
+<?PHP  // $Id: block.php,v 1.18.4.2 2008/04/02 06:09:57 dongsheng Exp $
 
 // block.php - allows admin to edit all local configuration variables for a block
 
     require_once('../config.php');
     require_once($CFG->libdir.'/adminlib.php');
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('manageblocks', $adminroot);
     require_once($CFG->libdir.'/blocklib.php');
 
     $blockid = required_param('block', PARAM_INT);
 
-    if(($blockrecord = blocks_get_record($blockid)) === false) {
+    if(!$blockrecord = blocks_get_record($blockid)) {
         error('This block does not exist');
     }
+
+    admin_externalpage_setup('blocksetting'.$blockrecord->name);
 
     $block = block_instance($blockrecord->name);
     if($block === false) {
@@ -31,7 +31,7 @@
     if ($config = data_submitted()) {
 
         if (!confirm_sesskey()) {
-             error(get_string('confirmsesskeybad', 'error'));
+             print_error('confirmsesskeybad', 'error');
         }
         if(!$block->has_config()) {
             error('This block does not support global configuration');
@@ -50,12 +50,7 @@
     $strmanageblocks = get_string('manageblocks');
     $strblockname = $block->get_title();
 
-    // $CFG->pagepath is used to generate the body and id attributes for the body tag
-    // of the page. It is also used to generate the link to the Moodle Docs for this view.
-    $CFG->pagepath = 'block/' . $block->name() . '/config';
-
-
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
 
     print_heading($strblockname);
 
@@ -70,6 +65,6 @@
     echo '</p>';
     $block->config_print();
     echo '</form>';
-    admin_externalpage_print_footer($adminroot);
+    print_footer();
 
 ?>

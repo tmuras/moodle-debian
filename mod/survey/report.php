@@ -1,4 +1,4 @@
-<?php // $Id: report.php,v 1.46.2.1 2007/02/28 05:36:23 nicolasconnault Exp $
+<?php // $Id: report.php,v 1.53.2.1 2007/10/12 16:09:38 tjhunt Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -23,7 +23,7 @@
         error("Course is misconfigured");
     }
 
-    require_login($course->id, false);
+    require_login($course->id, false, $cm);
     
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
@@ -64,26 +64,30 @@
         $navigation = "<a href=\"index.php?id=$course->id\">$strsurveys</a> ->
                        <a href=\"view.php?id=$cm->id\">".format_string($survey->name,true)."</a> -> ";
     }
-
-    print_header("$course->shortname: ".format_string($survey->name), $course->fullname, "$navigation $strreport",
+    
+    $navigation = build_navigation($strreport, $cm);
+    print_header("$course->shortname: ".format_string($survey->name), $course->fullname, $navigation,
                  "", "", true,
                  update_module_button($cm->id, $course->id, $strsurvey), navmenu($course, $cm));
 
 /// Check to see if groups are being used in this survey
-    if ($groupmode = groupmode($course, $cm)) {   // Groups are being used
+    if ($groupmode = groups_get_activity_groupmode($cm)) {   // Groups are being used
         $menuaction = $action == "student" ? "students" : $action;
-        $currentgroup = setup_and_print_groups($course, $groupmode,
-                                       "report.php?id=$cm->id&amp;action=$menuaction&amp;qid=$qid");
+        $currentgroup = groups_get_activity_group($cm, true);
+        groups_print_activity_menu($cm, "report.php?id=$cm->id&amp;action=$menuaction&amp;qid=$qid");
     } else {
         $currentgroup = 0;
     }
 
     if ($currentgroup) {
-        $users = get_group_users($currentgroup);
+        $users = groups_get_members($currentgroup);
+    } else if (!empty($CFG->enablegroupings) && !empty($cm->groupingid)) { 
+        $users = groups_get_grouping_members($cm->groupingid);
     } else {
         $users = get_course_users($course->id);
     }
-
+    $groupingid = $cm->groupingid;
+    
     print_simple_box_start("center");
     if ($showscales) {
         echo "<a href=\"report.php?action=summary&amp;id=$id\">$strsummary</a>";
@@ -120,7 +124,7 @@
       case "summary":
         print_heading($strsummary);
 
-        if (survey_count_responses($survey->id, $currentgroup)) {
+        if (survey_count_responses($survey->id, $currentgroup, $groupingid)) {
             echo "<div class='reportsummary'><a href=\"report.php?action=scales&amp;id=$id\">";
             survey_print_graph("id=$id&amp;group=$currentgroup&amp;type=overall.png");
             echo "</a></div>";
@@ -132,7 +136,7 @@
       case "scales":
         print_heading($strscales);
 
-        if (! $results = survey_get_responses($survey->id, $currentgroup) ) {
+        if (! $results = survey_get_responses($survey->id, $currentgroup, $groupingid) ) {
             notify(get_string("nobodyyet","survey"));
 
         } else {
@@ -183,7 +187,7 @@
             print_heading($strallquestions);
         }
 
-        if (! $results = survey_get_responses($survey->id, $currentgroup) ) {
+        if (! $results = survey_get_responses($survey->id, $currentgroup, $groupingid) ) {
             notify(get_string("nobodyyet","survey"));
 
         } else {
@@ -303,7 +307,7 @@
 
          print_heading(get_string("analysisof", "survey", "$course->students"));
 
-         if (! $results = survey_get_responses($survey->id, $currentgroup) ) {
+         if (! $results = survey_get_responses($survey->id, $currentgroup, $groupingid) ) {
              notify(get_string("nobodyyet","survey"));
          } else {
              survey_print_all_responses($cm->id, $results, $course->id);

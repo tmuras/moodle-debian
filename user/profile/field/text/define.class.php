@@ -1,4 +1,4 @@
-<?php  //$Id: define.class.php,v 1.3 2007/01/26 13:49:33 skodak Exp $
+<?php  //$Id: define.class.php,v 1.3.4.1 2007/12/21 08:17:36 scyrma Exp $
 
 class profile_define_text extends profile_define_base {
 
@@ -16,6 +16,11 @@ class profile_define_text extends profile_define_base {
         $form->addElement('text', 'param2', get_string('profilefieldmaxlength', 'admin'), 'size="6"');
         $form->setDefault('param2', 2048);
         $form->setType('param2', PARAM_INT);
+
+        /// Param 3 for text type detemines if this is a password field or not
+        $form->addElement('selectyesno', 'param3', get_string('profilefieldispassword', 'admin'));
+        $form->setDefault('param3', 0); // defaults to 'no'
+        $form->setType('param3', PARAM_INT);
     }
 
 }

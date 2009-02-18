@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.1 2006/10/26 17:33:41 stronk7 Exp $
+<?php  //$Id: upgrade.php,v 1.1.8.1 2008/05/01 20:39:47 skodak Exp $
 
 // This file keeps track of upgrades to 
 // the choice module
@@ -31,6 +31,8 @@ function xmldb_choice_upgrade($oldversion=0) {
 /// if ($result && $oldversion < YYYYMMDD00) { //New version in version.php
 ///     $result = result of "/lib/ddllib.php" function calls
 /// }
+
+//===== 1.9.0 upgrade line ======//
 
     return $result;
 }

@@ -1,4 +1,4 @@
-<?php // $Id: edit_index.class.php,v 1.5.2.2 2007/04/02 21:36:09 stronk7 Exp $
+<?php // $Id: edit_index.class.php,v 1.8.2.1 2008/12/26 23:19:47 arborrow Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -84,7 +84,7 @@ class edit_index extends XMLDBAction {
     /// Fetch request data
         $tableparam = required_param('table', PARAM_CLEAN);
         if (!$table =& $structure->getTable($tableparam)) {
-            $this->errormsg = 'Wrong table specified: ' . $tableparm;
+            $this->errormsg = 'Wrong table specified: ' . $tableparam;
             return false;
         }
         $indexparam = required_param('index', PARAM_CLEAN);

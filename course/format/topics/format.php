@@ -1,4 +1,4 @@
-<?php // $Id: format.php,v 1.78.2.1 2007/04/15 07:24:37 moodler Exp $
+<?php // $Id: format.php,v 1.83.2.3 2008/12/10 06:05:27 dongsheng Exp $
       // Display the whole course as "topics" made of of modules
       // In fact, this is very similar to the "weeks" format, in that
       // each "topic" is actually a week.  The main difference is that
@@ -78,15 +78,9 @@
 
     if (blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $editing) {
         echo '<td style="width:'.$preferred_width_left.'px" id="left-column">';
-        if (!empty($THEME->roundcorners)) {
-            echo '<div class="bt"><div></div></div>';
-            echo '<div class="i1"><div class="i2"><div class="i3">';
-        }
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
-        if (!empty($THEME->roundcorners)) {
-            echo '</div></div></div>';
-            echo '<div class="bb"><div></div></div>';
-        }
+        print_container_end();
         echo '</td>';
     }
 
@@ -94,11 +88,8 @@
             case 'middle':
 /// Start main column
     echo '<td id="middle-column">';
-    if (!empty($THEME->roundcorners)) {
-        echo '<div class="bt"><div></div></div>';
-        echo '<div class="i1"><div class="i2"><div class="i3">';
-    }
-    echo '<a name="startofcontent"></a>';
+    print_container_start();
+    echo skip_main_destination();
 
     print_heading_block(get_string('topicoutline'), 'outline');
 
@@ -129,7 +120,7 @@
         $summaryformatoptions->noclean = true;
         echo format_text($thissection->summary, FORMAT_HTML, $summaryformatoptions);
 
-        if (isediting($course->id)) {
+        if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
             echo '<a title="'.$streditsummary.'" '.
                  ' href="editsection.php?id='.$thissection->id.'"><img src="'.$CFG->pixpath.'/t/edit.gif" '.
                  ' alt="'.$streditsummary.'" /></a><br /><br />';
@@ -192,16 +183,18 @@
 
             $currenttopic = ($course->marker == $section);
 
+            $currenttext = '';
             if (!$thissection->visible) {
                 $sectionstyle = ' hidden';
             } else if ($currenttopic) {
                 $sectionstyle = ' current';
+                $currenttext = get_accesshide(get_string('currenttopic','access'));
             } else {
                 $sectionstyle = '';
             }
 
             echo '<tr id="section-'.$section.'" class="section main'.$sectionstyle.'">';
-            echo '<td class="left side">'.$section.'</td>';
+            echo '<td class="left side">'.$currenttext.$section.'</td>';
 
             echo '<td class="content">';
             if (!has_capability('moodle/course:viewhiddensections', $context) and !$thissection->visible) {   // Hidden for students
@@ -211,7 +204,7 @@
                 $summaryformatoptions->noclean = true;
                 echo format_text($thissection->summary, FORMAT_HTML, $summaryformatoptions);
 
-                if (isediting($course->id)) {
+                if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
                     echo ' <a title="'.$streditsummary.'" href="editsection.php?id='.$thissection->id.'">'.
                          '<img src="'.$CFG->pixpath.'/t/edit.gif" alt="'.$streditsummary.'" /></a><br /><br />';
                 }
@@ -235,7 +228,7 @@
                      '<img src="'.$CFG->pixpath.'/i/one.gif" alt="'.$strshowonlytopic.'" /></a><br />';
             }
 
-            if (isediting($course->id)) {
+            if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
                 if ($course->marker == $section) {  // Show the "light globe" on/off
                     echo '<a href="view.php?id='.$course->id.'&amp;marker=0&amp;sesskey='.$USER->sesskey.'#section-'.$section.'" title="'.$strmarkedthistopic.'">'.
                          '<img src="'.$CFG->pixpath.'/i/marked.gif" alt="'.$strmarkedthistopic.'" /></a><br />';
@@ -273,16 +266,13 @@
     echo '</table>';
 
     if (!empty($sectionmenu)) {
-        echo '<div align="center" class="jumpmenu">';
+        echo '<div class="jumpmenu">';
         echo popup_form($CFG->wwwroot.'/course/view.php?id='.$course->id.'&amp;', $sectionmenu,
                    'sectionmenu', '', get_string('jumpto'), '', '', true);
         echo '</div>';
     }
 
-    if (!empty($THEME->roundcorners)) {
-        echo '</div></div></div>';
-        echo '<div class="bb"><div></div></div>';
-    }
+    print_container_end();
     echo '</td>';
 
             break;
@@ -290,15 +280,9 @@
     // The right column
     if (blocks_have_content($pageblocks, BLOCK_POS_RIGHT) || $editing) {
         echo '<td style="width:'.$preferred_width_right.'px" id="right-column">';
-        if (!empty($THEME->roundcorners)) {
-            echo '<div class="bt"><div></div></div>';
-            echo '<div class="i1"><div class="i2"><div class="i3">';
-        }
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_RIGHT);
-        if (!empty($THEME->roundcorners)) {
-            echo '</div></div></div>';
-            echo '<div class="bb"><div></div></div>';
-        }
+        print_container_end();
         echo '</td>';
     }
 

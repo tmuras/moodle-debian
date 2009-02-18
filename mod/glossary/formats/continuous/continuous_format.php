@@ -1,4 +1,4 @@
-<?php  // $Id: continuous_format.php,v 1.10 2005/02/25 11:09:46 moodler Exp $
+<?php  // $Id: continuous_format.php,v 1.10.22.1 2007/11/09 14:35:07 nfreear Exp $
 
 function glossary_show_entry_continuous($course, $cm, $glossary, $entry, $mode='', $hook='', $printicons=1, $ratings=NULL, $aliases=false) {
 
@@ -9,9 +9,9 @@ function glossary_show_entry_continuous($course, $cm, $glossary, $entry, $mode='
     echo '<td class="entry">';
     glossary_print_entry_approval($cm, $entry, $mode);
     glossary_print_entry_attachment($entry,'html','right');
-    echo '<span class="concept">';
+    echo '<div class="concept">';
     glossary_print_entry_concept($entry);
-    echo ':</span> ';
+    echo ':</div> ';
     glossary_print_entry_definition($entry);
     $entry->alias = '';
     echo '</td></tr>';

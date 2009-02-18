@@ -1,12 +1,13 @@
-<?php // $Id: delete.php,v 1.8.6.1 2007/03/06 10:48:12 skodak Exp $
+<?php // $Id: delete.php,v 1.9.2.2 2008/04/02 06:09:59 dongsheng Exp $
 
 require('../../config.php');
 
 require_once($CFG->libdir.'/adminlib.php');
-$adminroot = admin_get_root();
-require_login();
 
-if ($section = optional_param('section', '', PARAM_ALPHAEXT) and confirm_sesskey()) {
+require_login();
+$adminroot =& admin_get_root(false, false); // settings not required - only pages
+
+if ($section = optional_param('section', '', PARAM_SAFEDIR) and confirm_sesskey()) {
 
     if (get_user_preferences('admin_bookmarks')) {
 
@@ -15,12 +16,12 @@ if ($section = optional_param('section', '', PARAM_ALPHAEXT) and confirm_sesskey
         $key = array_search($section, $bookmarks);
 
         if ($key === false) {
-                    error(get_string('nonexistentbookmark','admin'));
+            print_error('nonexistentbookmark','admin');
             die;
         }
 
         unset($bookmarks[$key]);
-        $bookmarks = implode(',',$bookmarks);
+        $bookmarks = implode(',', $bookmarks);
         set_user_preference('admin_bookmarks', $bookmarks);
 
         $temp = $adminroot->locate($section);
@@ -37,11 +38,11 @@ if ($section = optional_param('section', '', PARAM_ALPHAEXT) and confirm_sesskey
 
     }
 
-        error(get_string('nobookmarksforuser','admin'));
+    print_error('nobookmarksforuser','admin');
     die;
 
 } else {
-    error(get_string('invalidsection', 'admin'));
+    print_error('invalidsection', 'admin');
     die;
 }
 

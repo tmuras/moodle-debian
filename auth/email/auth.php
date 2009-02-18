@@ -74,11 +74,21 @@ class auth_plugin_email extends auth_plugin_base {
      * @param boolean $notify print notice with link and terminate
      */
     function user_signup($user, $notify=true) {
+        global $CFG;
+        require_once($CFG->dirroot.'/user/profile/lib.php');
+        
         $user->password = hash_internal_user_password($user->password);
 
         if (! ($user->id = insert_record('user', $user)) ) {
             print_error('auth_emailnoinsert','auth');
         }
+        
+        /// Save any custom profile field information
+        profile_save_data($user);
+
+        $user = get_record('user', 'id', $user->id);
+        events_trigger('user_created', $user);
+
         if (! send_confirmation_email($user)) {
             print_error('auth_emailnoemail','auth');
         }
@@ -86,7 +96,11 @@ class auth_plugin_email extends auth_plugin_base {
         if ($notify) {
             global $CFG;
             $emailconfirm = get_string('emailconfirm');
-            print_header($emailconfirm, $emailconfirm, $emailconfirm);
+            $navlinks = array();
+            $navlinks[] = array('name' => $emailconfirm, 'link' => null, 'type' => 'misc');
+            $navigation = build_navigation($navlinks);
+
+            print_header($emailconfirm, $emailconfirm, $navigation);
             notice(get_string('emailconfirmsent', '', $user->email), "$CFG->wwwroot/index.php");
         } else {
             return true;
@@ -186,7 +200,23 @@ class auth_plugin_email extends auth_plugin_base {
      * Processes and stores configuration data for this authentication plugin.
      */
     function process_config($config) {
+        // set to defaults if undefined
+        if (!isset($config->recaptcha)) { 
+            $config->recaptcha = false; 
+        }
+        
+        // save settings
+        set_config('recaptcha', $config->recaptcha, 'auth/email');
         return true;
+    }
+    
+    /**
+     * Returns whether or not the captcha element is enabled, and the admin settings fulfil its requirements.
+     * @abstract Implement in child classes
+     * @return bool
+     */
+    function is_captcha_enabled() {
+        return false;
     }
 
 }

@@ -1,6 +1,18 @@
-<?php // $Id: scorm_12lib.php,v 1.4.2.5 2007/06/20 09:23:22 bobopinna Exp $
+<?php // $Id: scorm_12lib.php,v 1.11.2.9 2008/12/22 07:04:37 danmarsden Exp $
 
-function scorm_eval_prerequisites($prerequisites,$usertracks) {
+/**
+* This is really a little language parser for AICC_SCRIPT
+* evaluates the expression and returns a boolean answer
+* see 2.3.2.5.1. Sequencing/Navigation Today  - from the SCORM 1.2 spec (CAM).
+*
+* @param string $prerequisites the aicc_script prerequisites expression
+* @param array  $usertracks the tracked user data of each SCO visited
+* @return boolean
+*/
+function scorm_eval_prerequisites($prerequisites, $usertracks) {
+
+    // this is really a little language parser - AICC_SCRIPT is the reference
+    // see 2.3.2.5.1. Sequencing/Navigation Today  - from the SCORM 1.2 spec
     $element = '';
     $stack = array();
     $statuses = array(
@@ -17,169 +29,108 @@ function scorm_eval_prerequisites($prerequisites,$usertracks) {
                 'b' => 'browsed',
                 'n' => 'notattempted'
                 );
-    $i=0;  
-    while ($i<strlen($prerequisites)) {
-        $symbol = $prerequisites[$i];
-        switch ($symbol) {
-            case '&':
-            case '|':
-                $symbol .= $symbol;
-            case '~':
-            case '(':
-            case ')':
-            case '*':
-                $element = trim($element);
-                
-                if (!empty($element)) {
-                    $element = trim($element);
-                    if (isset($usertracks[$element])) {
-                        $element = '((\''.$usertracks[$element]->status.'\' == \'completed\') || '.
-                                  '(\''.$usertracks[$element]->status.'\' == \'passed\'))'; 
-                    } else if (($operator = strpos($element,'=')) !== false) {
-                        $item = trim(substr($element,0,$operator));
-                        if (!isset($usertracks[$item])) {
-                            return false;
-                        }
-                        
-                        $value = trim(trim(substr($element,$operator+1)),'"');
-                        if (isset($statuses[$value])) {
-                            $status = $statuses[$value];
-                        } else {
-                            return false;
-                        }
-                                              
-                        $element = '(\''.$usertracks[$item]->status.'\' == \''.$status.'\')';
-                    } else if (($operator = strpos($element,'<>')) !== false) {
-                        $item = trim(substr($element,0,$operator));
-                        if (!isset($usertracks[$item])) {
-                            return false;
-                        }
-                        
-                        $value = trim(trim(substr($element,$operator+2)),'"');
-                        if (isset($statuses[$value])) {
-                            $status = $statuses[$value];
-                        } else {
-                            return false;
-                        }
-                        
-                        $element = '(\''.$usertracks[$item]->status.'\' != \''.$status.'\')';
-                    } else if (is_numeric($element)) {
-                        if ($symbol == '*') {
-                            $symbol = '';
-                            $open = strpos($prerequisites,'{',$i);
-                            $opened = 1;
-                            $closed = 0;
-                            for ($close=$open+1; (($opened > $closed) && ($close<strlen($prerequisites))); $close++) { 
-                                 if ($prerequisites[$close] == '}') {
-                                     $closed++;
-                                 } else if ($prerequisites[$close] == '{') {
-                                     $opened++;
-                                 }
-                            } 
-                            $i = $close;
-                            
-                            $setelements = explode(',', substr($prerequisites, $open+1, $close-($open+1)-1));
-                            $settrue = 0;
-                            foreach ($setelements as $setelement) {
-                                if (scorm_eval_prerequisites($setelement,$usertracks)) {
-                                    $settrue++;
-                                }
-                            }
-                            
-                            if ($settrue >= $element) {
-                                $element = 'true'; 
-                            } else {
-                                $element = 'false';
-                            }
-                        }
-                    } else {
-                        return false;
-                    }
-                    
-                    array_push($stack,$element);
-                    $element = '';
-                }
-                if ($symbol == '~') {
-                    $symbol = '!';
-                }
-                if (!empty($symbol)) {
-                    array_push($stack,$symbol);
-                }
-            break;
-            default:
-                $element .= $symbol;
-            break;
-        }
-        $i++;
-    }
-    if (!empty($element)) {
+    $i=0;
+
+    // expand the amp entities
+    $prerequisites = preg_replace('/&amp;/', '&', $prerequisites);
+    // find all my parsable tokens
+    $prerequisites = preg_replace('/(&|\||\(|\)|\~)/', '\t$1\t', $prerequisites);
+    // expand operators
+    $prerequisites = preg_replace('/&/', '&&', $prerequisites);
+    $prerequisites = preg_replace('/\|/', '||', $prerequisites);
+    // now - grab all the tokens
+    $elements = explode('\t', trim($prerequisites));
+
+    // process each token to build an expression to be evaluated
+    $stack = array();
+    foreach ($elements as $element) {
         $element = trim($element);
-        if (isset($usertracks[$element])) {
-            $element = '((\''.$usertracks[$element]->status.'\' == \'completed\') || '.
-                       '(\''.$usertracks[$element]->status.'\' == \'passed\'))'; 
-        } else if (($operator = strpos($element,'=')) !== false) {
-            $item = trim(substr($element,0,$operator));
-            if (!isset($usertracks[$item])) {
-                return false;
-            }
-            
-            $value = trim(trim(substr($element,$operator+1)),'"');
-            if (isset($statuses[$value])) {
-                $status = $statuses[$value];
-            } else {
-                return false;
-            }
-            
-            $element = '(\''.$usertracks[$item]->status.'\' == \''.$status.'\')';
-        } else if (($operator = strpos($element,'<>')) !== false) {
-            $item = trim(substr($element,0,$operator));
-            if (!isset($usertracks[$item])) {
-                return false;
-            }
-            
-            $value = trim(trim(substr($element,$operator+1)),'"');
-            if (isset($statuses[$value])) {
-                $status = $statuses[$value];
-            } else {
-                return false;
-            }
-            
-            $element = '(\''.$usertracks[$item]->status.'\' != \''.trim($status).'\')';
-        } else {
-            return false;
+        if (empty($element)) {
+            continue;
         }
-        
-        array_push($stack,$element);
+        if (!preg_match('/^(&&|\|\||\(|\))$/', $element)) {
+            // create each individual expression
+            // search for ~ = <> X*{}
+
+            // sets like 3*{S34, S36, S37, S39}
+            if (preg_match('/^(\d+)\*\{(.+)\}$/', $element, $matches)) {
+                $repeat = $matches[1];
+                $set = explode(',', $matches[2]);
+                $count = 0;
+                foreach ($set as $setelement) {
+                  if (isset($usertracks[$setelement]) &&
+                      ($usertracks[$setelement]->status == 'completed' || $usertracks[$element]->status == 'passed')) {
+                      $count++;
+                  }
+                }
+                if ($count >= $repeat) {
+                    $element = 'true';
+                } else {
+                    $element = 'false';
+                }
+
+            // ~ Not
+            } else if ($element == '~') {
+                $element = '!';
+
+            // = | <>
+            } else if (preg_match('/^(.+)(\=|\<\>)(.+)$/', $element, $matches)) {
+                $element = trim($matches[1]);
+                if (isset($usertracks[$element])) {
+                    $value = trim(preg_replace('/(\'|\")/', '', $matches[3]));
+                    if (isset($statuses[$value])) {
+                        $value = $statuses[$value];
+                    }
+                    if ($matches[2] == '<>') {
+                        $oper = '!=';
+                    } else {
+                      $oper = '==';
+                    }
+                    $element = '(\''.$usertracks[$element]->status.'\' '.$oper.' \''.$value.'\')';
+                } else {
+                  $element = 'false';
+                }
+
+            // everything else must be an element defined like S45 ...
+            } else {
+                if (isset($usertracks[$element]) &&
+                    ($usertracks[$element]->status == 'completed' || $usertracks[$element]->status == 'passed')) {
+                    $element = 'true';
+                } else {
+                    $element = 'false';
+                }
+            }
+
+        }
+        $stack []= ' '.$element.' ';
     }
     return eval('return '.implode($stack).';');
 }
 
 function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='normal',$attempt='',$play=false) {
     global $CFG;
-    
+
     $strexpand = get_string('expcoll','scorm');
     $modestr = '';
     if ($mode == 'browse') {
         $modestr = '&amp;mode='.$mode;
-    } 
+    }
     $scormpixdir = $CFG->modpixpath.'/scorm/pix';
-    
+
     $result = new stdClass();
     $result->toc = "<ul id='s0' class='$liststyle'>\n";
     $tocmenus = array();
     $result->prerequisites = true;
     $incomplete = false;
-    
+
     //
     // Get the current organization infos
     //
-    $organizationsql = '';
     if (!empty($currentorg)) {
         if (($organizationtitle = get_field('scorm_scoes','title','scorm',$scorm->id,'identifier',$currentorg)) != '') {
             $result->toc .= "\t<li>$organizationtitle</li>\n";
             $tocmenus[] = $organizationtitle;
         }
-        $organizationsql = "AND organization='$currentorg'";
     }
     //
     // If not specified retrieve the last attempt number
@@ -188,14 +139,14 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
         $attempt = scorm_get_last_attempt($scorm->id, $user->id);
     }
     $result->attemptleft = $scorm->maxattempt - $attempt;
-    if ($scoes = get_records_select('scorm_scoes',"scorm='$scorm->id' $organizationsql order by id ASC")){
+    if ($scoes = scorm_get_scoes($scorm->id, $currentorg)){
         //
         // Retrieve user tracking data for each learning object
-        // 
+        //
         $usertracks = array();
         foreach ($scoes as $sco) {
             if (!empty($sco->launch)) {
-                if ($usertrack=scorm_get_tracks($sco->id,$user->id,$attempt)) {
+                if ($usertrack = scorm_get_tracks($sco->id,$user->id,$attempt)) {
                     if ($usertrack->status == '') {
                         $usertrack->status = 'notattempted';
                     }
@@ -210,17 +161,14 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
         $nextid = 0;
         $findnext = false;
         $parents[$level]='/';
-        
-        foreach ($scoes as $sco) {
+
+        foreach ($scoes as $pos => $sco) {
             $isvisible = false;
-            if ($optionaldatas = scorm_get_sco($sco->id, SCO_DATA)) {
-                if (!isset($optionaldatas->isvisible) || (isset($optionaldatas->isvisible) && ($optionaldatas->isvisible == 'true'))) {
-                    $isvisible = true;
-                }
+            $sco->title = stripslashes($sco->title);
+            if (!isset($sco->isvisible) || (isset($sco->isvisible) && ($sco->isvisible == 'true'))) {
+                $isvisible = true;
             }
-            else
-				$isvisible = true;
-            if ($parents[$level]!=$sco->parent) {
+            if ($parents[$level] != $sco->parent) {
                 if ($newlevel = array_search($sco->parent,$parents)) {
                     for ($i=0; $i<($level-$newlevel); $i++) {
                         $result->toc .= "\t\t</ul></li>\n";
@@ -244,18 +192,20 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
                         $result->toc .= $closelist;
                         $level = $i;
                     }
-                    $parents[$level]=$sco->parent;
+                    $parents[$level] = $sco->parent;
                 }
             }
             if ($isvisible) {
                 $result->toc .= "\t\t<li>";
             }
-            $nextsco = next($scoes);
+            if (isset($scoes[$pos+1])) {
+                $nextsco = $scoes[$pos+1];
+            } else {
+                $nextsco = false;
+            }
             $nextisvisible = false;
-            if (($nextsco !== false) && ($optionaldatas = scorm_get_sco($nextsco->id, SCO_DATA))) {
-                if (!isset($optionaldatas->isvisible) || (isset($optionaldatas->isvisible) && ($optionaldatas->isvisible == 'true'))) {
-                    $nextisvisible = true;
-                }
+            if (($nextsco !== false) && (!isset($nextsco->isvisible) || (isset($nextsco->isvisible) && ($nextsco->isvisible == 'true')))) {
+                $nextisvisible = true;
             }
             if ($nextisvisible && ($nextsco !== false) && ($sco->parent != $nextsco->parent) && (($level==0) || (($level>0) && ($nextsco->parent == $sco->identifier)))) {
                 $sublist++;
@@ -263,9 +213,9 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
                 if (isset($_COOKIE['hide:SCORMitem'.$nextsco->id])) {
                     $icon = 'plus';
                 }
-                $result->toc .= '<a href="javascript:expandCollide(\'img'.$sublist.'\',s'.$sublist.','.$nextsco->id.');"><img id="img'.$sublist.'" src="'.$scormpixdir.'/'.$icon.'.gif" alt="'.$strexpand.'" title="'.$strexpand.'"/></a>';
+               $result->toc .= '<a href="javascript:expandCollide(\'img'.$sublist.'\',\'s'.$sublist.'\','.$nextsco->id.');"><img id="img'.$sublist.'" src="'.$scormpixdir.'/'.$icon.'.gif" alt="'.$strexpand.'" title="'.$strexpand.'"/></a>';
             } else if ($isvisible) {
-                $result->toc .= '<img src="'.$scormpixdir.'/spacer.gif" />';
+                $result->toc .= '<img src="'.$scormpixdir.'/spacer.gif" alt=""/>';
             }
             if (empty($sco->title)) {
                 $sco->title = $sco->identifier;
@@ -286,7 +236,7 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
                         } else {
                             $statusicon = '<img src="'.$scormpixdir.'/assetc.gif" alt="'.get_string('assetlaunched','scorm').'" title="'.get_string('assetlaunched','scorm').'" />';
                         }
-                    
+
                         if (($usertrack->status == 'notattempted') || ($usertrack->status == 'incomplete') || ($usertrack->status == 'browsed')) {
                             $incomplete = true;
                             if ($play && empty($scoid)) {
@@ -298,7 +248,9 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
                         }
                         $strsuspended = get_string('suspended','scorm');
                         if (isset($usertrack->{'cmi.core.exit'}) && ($usertrack->{'cmi.core.exit'} == 'suspend')) {
-                            $statusicon = '<img src="'.$scormpixdir.'/suspend.gif" alt="'.$strstatus.' - '.$strsuspended.'" title="'.$strstatus.' - '.$strsuspended.'" />';
+                            if($usertrack->status !='completed') {
+                                $statusicon = '<img src="'.$scormpixdir.'/suspend.gif" alt="'.$strstatus.' - '.$strsuspended.'" title="'.$strstatus.' - '.$strsuspended.'" />';
+                            }
                         }
                     } else {
                         if ($play && empty($scoid)) {
@@ -312,14 +264,13 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
                         }
                     }
                     if ($sco->id == $scoid) {
-                        $scodata = scorm_get_sco($sco->id, SCO_DATA);
                         $startbold = '<b>';
                         $endbold = '</b>';
                         $findnext = true;
-                        $shownext = isset($scodata->next) ? $scodata->next : 0;
-                        $showprev = isset($scodata->previous) ? $scodata->previous : 0;
+                        $shownext = isset($sco->next) ? $sco->next : 0;
+                        $showprev = isset($sco->previous) ? $sco->previous : 0;
                     }
-                
+
                     if (($nextid == 0) && (scorm_count_launchable($scorm->id,$currentorg) > 1) && ($nextsco!==false) && (!$findnext)) {
                         if (!empty($sco->launch)) {
                             $previd = $sco->id;
@@ -336,11 +287,11 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
                         if ($sco->id == $scoid) {
                             $result->prerequisites = false;
                         }
-                        $result->toc .= $statusicon.'&nbsp;'.$sco->title."</li>\n";
+                        $result->toc .= $statusicon.'&nbsp;'.format_string($sco->title)."</li>\n";
                     }
                 }
             } else {
-                $result->toc .= '&nbsp;'.$sco->title."</li>\n";
+                $result->toc .= '&nbsp;'.format_string($sco->title)."</li>\n";
             }
             if (($nextsco !== false) && ($nextid == 0) && ($findnext)) {
                 if (!empty($nextsco->launch)) {
@@ -351,9 +302,12 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
         for ($i=0;$i<$level;$i++) {
             $result->toc .= "\t\t</ul></li>\n";
         }
-        
+
         if ($play) {
-            $sco = scorm_get_sco($scoid);
+            // it is possible that scoid is still not set, in this case we dont want an empty object
+            if ($scoid) {
+                $sco = scorm_get_sco($scoid);
+            }
             $sco->previd = $previd;
             $sco->nextid = $nextid;
             $result->sco = $sco;
@@ -368,25 +322,23 @@ function scorm_get_toc($user,$scorm,$liststyle,$currentorg='',$scoid='',$mode='n
           <script type="text/javascript">
           //<![CDATA[
               function expandCollide(which,list,item) {
-                  var nn=document.ids?true:false
-                  var w3c=document.getElementById?true:false
-                  var beg=nn?"document.ids.":w3c?"document.getElementById(":"document.all.";
-                  var mid=w3c?").style":".style";
+                  var el = document.ids ? document.ids[list] : document.getElementById ? document.getElementById(list) : document.all[list];
                   which = which.substring(0,(which.length));
-                  if (eval(beg+list+mid+".display") != "none") {
-                      document.getElementById(which).src = "'.$scormpixdir.'/plus.gif";
-                      eval(beg+list+mid+".display=\'none\';");
+                  var el2 = document.ids ? document.ids[which] : document.getElementById ? document.getElementById(which) : document.all[which];
+                  if (el.style.display != "none") {
+                      el2.src = "'.$scormpixdir.'/plus.gif";
+                      el.style.display=\'none\';
                       new cookie("hide:SCORMitem" + item, 1, 356, "/").set();
                   } else {
-                      document.getElementById(which).src = "'.$scormpixdir.'/minus.gif";
-                      eval(beg+list+mid+".display=\'block\';");
+                      el2.src = "'.$scormpixdir.'/minus.gif";
+                      el.style.display=\'block\';
                       new cookie("hide:SCORMitem" + item, 1, -1, "/").set();
                   }
               }
           //]]>
           </script>'."\n";
     }
-    
+
     $url = $CFG->wwwroot.'/mod/scorm/player.php?a='.$scorm->id.'&amp;currentorg='.$currentorg.$modestr.'&amp;scoid=';
     $result->tocmenu = popup_form($url,$tocmenus, "tocmenu", $sco->id, '', '', '', true);
 

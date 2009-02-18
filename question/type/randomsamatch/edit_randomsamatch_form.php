@@ -5,7 +5,8 @@
  * @copyright &copy; 2007 Jamie Pratt
  * @author Jamie Pratt me@jamiep.org
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package questions
+ * @package questionbank
+ * @subpackage questiontypes
  */
 
 /**
@@ -46,25 +47,29 @@ class question_edit_randomsamatch_form extends question_edit_form {
         return 'randomsamatch';
     }
 
-    function validation($data){
+    function validation($data, $files) {
         global $QTYPES;
-        $errors = array();
-        $saquestions = $QTYPES['randomsamatch']->get_sa_candidates($data['category']);
+        $errors = parent::validation($data, $files);
+        if (isset($data->categorymoveto)) {
+            list($category) = explode(',', $data['categorymoveto']);
+        } else {
+            list($category) = explode(',', $data['category']);
+        }
+        $saquestions = $QTYPES['randomsamatch']->get_sa_candidates($category);
         $numberavailable = count($saquestions);
         if ($saquestions === false){
             $a = new object();
-            $a->catname = get_field('question_categories', 'name', 'id', $data['category']);
+            $a->catname = get_field('question_categories', 'name', 'id', $category);
             $errors['choose'] = get_string('nosaincategory', 'qtype_randomsamatch', $a);
 
         } elseif ($numberavailable < $data['choose']){
             $a = new object();
-            $a->catname = get_field('question_categories', 'name', 'id', $data['category']);
+            $a->catname = get_field('question_categories', 'name', 'id', $category);
             $a->nosaquestions = $numberavailable;
             $errors['choose'] = get_string('notenoughsaincategory', 'qtype_randomsamatch', $a);
         }
         return $errors;
 
     }
-
 }
 ?>

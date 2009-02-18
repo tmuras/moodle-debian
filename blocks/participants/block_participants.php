@@ -1,14 +1,14 @@
-<?PHP //$Id: block_participants.php,v 1.30.2.1 2007/03/05 20:09:57 skodak Exp $
+<?PHP //$Id: block_participants.php,v 1.33.2.2 2008/03/03 11:41:03 moodler Exp $
 
 class block_participants extends block_list {
     function init() {
         $this->title = get_string('people');
-        $this->version = 2004052600;
+        $this->version = 2007101509;
     }
 
     function get_content() {
 
-        global $CFG;
+        global $CFG, $COURSE;
 
         if (empty($this->instance)) {
             $this->content = '';
@@ -19,21 +19,29 @@ class block_participants extends block_list {
         if (empty($this->instance->pageid)) {
             return '';
         }
-
-        if (!$currentcontext = get_context_instance(CONTEXT_COURSE, $this->instance->pageid)) {
-            $this->content = '';
-            return $this->content;
-        }
-
-        if (!has_capability('moodle/course:viewparticipants', $currentcontext)) {
-            $this->content = '';
-            return $this->content;
-        }
-
+        
         $this->content = new object();
         $this->content->items = array();
         $this->content->icons = array();
         $this->content->footer = '';
+        
+        /// MDL-13252 Always get the course context or else the context may be incorrect in the user/index.php
+        if (!$currentcontext = get_context_instance(CONTEXT_COURSE, $COURSE->id)) {
+            $this->content = '';
+            return $this->content;
+        }
+        
+        if ($COURSE->id == SITEID) {
+            if (!has_capability('moodle/site:viewparticipants', get_context_instance(CONTEXT_SYSTEM))) {
+                $this->content = '';
+                return $this->content;
+            }
+        } else {
+            if (!has_capability('moodle/course:viewparticipants', $currentcontext)) {
+                $this->content = '';
+                return $this->content;
+            }
+        }
 
         $this->content->items[] = '<a title="'.get_string('listofallpeople').'" href="'.
                                   $CFG->wwwroot.'/user/index.php?contextid='.$currentcontext->id.'">'.get_string('participants').'</a>';
@@ -44,7 +52,7 @@ class block_participants extends block_list {
 
     // my moodle can only have SITEID and it's redundant here, so take it away
     function applicable_formats() {
-        return array('all' => true, 'my' => false);
+        return array('all' => true, 'my' => false, 'tag' => false);
     }
 
 }

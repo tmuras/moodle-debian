@@ -1,10 +1,13 @@
-<?PHP // $Id: resource.php,v 1.6.4.2 2007/04/11 01:03:42 nicolasconnault Exp $ 
+<?PHP // $Id: resource.php,v 1.7.4.7 2009/01/08 02:59:54 jerome Exp $ 
       // resource.php - created with Moodle 1.7 beta + (2006101003)
 
 
 $string['addresource'] = 'Add a resource';
 $string['affectedresources'] = 'Affected resources';
+$string['allowlocalfiles'] = 'Allow local files';
+$string['autofilerename'] = 'Update link if file renamed';
 $string['back'] = 'Back';
+$string['blockdeletingfile'] = 'Block deleting of referenced files';
 $string['browserepository'] = 'Browse repository';
 $string['choose'] = 'Choose';
 $string['chooseafile'] = 'Choose or upload a file';
@@ -45,7 +48,9 @@ $string['fetcherror'] = 'An error was found while trying to retrieve the web pag
 $string['fetchservererror'] = 'An error was found with the remote server while trying to retrieve the web page (possibly a program error).';
 $string['filename'] = 'File name';
 $string['filtername'] = 'Resource Names Auto-linking';
+$string['forcedownload'] = 'Force download';
 $string['frameifpossible'] = 'Put resource in a frame to keep site navigation visible';
+$string['framesize'] = 'Frame size';
 $string['fulltext'] = 'Full text';
 $string['htmlfragment'] = 'HTML fragment';
 $string['imspackageloaded'] = 'Package loaded';
@@ -59,6 +64,9 @@ $string['localfileselect'] = 'Choose this file path.';
 $string['maindirectory'] = 'Main files directory';
 $string['modulename'] = 'Resource';
 $string['modulenameplural'] = 'Resources';
+$string['keepnavigationvisibleno'] = 'No';
+$string['keepnavigationvisibleyesframe'] = 'Yes, with frame';
+$string['keepnavigationvisibleyesobject'] = 'Yes, without frame';
 $string['navigationbuttons'] = 'Navigation buttons';
 $string['navigationmenu'] = 'Navigation side menu';
 $string['navigationup'] = 'Up button';
@@ -95,6 +103,7 @@ $string['previous'] = 'Previous';
 $string['redeploy'] = 'Deploy again';
 $string['repository'] = 'IMS repository';
 $string['resource:view'] = 'View resource';
+$string['resourcedefaulturl'] = 'Default URL';
 $string['resourcetype'] = 'Type of resource';
 $string['resourcetype1'] = 'Reference';
 $string['resourcetype2'] = 'Web Page';
@@ -117,11 +126,13 @@ $string['serverurl'] = 'Server URL ($a->wwwroot)';
 $string['showcourseblocks'] = 'Show the course blocks';
 $string['skipsubmenus'] = 'Skip sub-menu pages';
 $string['tableofcontents'] = 'Table of contents';
+$string['tableofcontentsabbrev'] = 'TOC';
 $string['upbutton'] = 'Up';
 $string['variablename'] = 'Variable name';
 $string['viewims'] = 'View IMS Content Package';
 $string['vol'] = 'Vol';
-$string['warningblockingdelete'] = 'Warning: Delete operation is blocked by existing resource. Either update your resources first or ask administartor to disable this safety mechanism in global Resource configuration.';
+$string['warningblockingdelete'] = 'Warning: Delete operation is blocked by existing resource. Either update your resources first or ask administrator to disable this safety mechanism in global Resource configuration.';
 $string['warningdisabledrename'] = 'Warning: The automatic renaming of references in resources is disabled. Please update affected resources manually if needed. Administrator can also enable automatic renaming in global Resource configuration.';
+$string['websearchdefault'] = 'Websearch default';
 
 ?>

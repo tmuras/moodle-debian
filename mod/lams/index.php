@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.4.4.1 2007/02/28 05:36:35 nicolasconnault Exp $
+<?php // $Id: index.php,v 1.5.2.2 2007/10/29 10:42:17 poltawski Exp $
 
 /// This page lists all the instances of lams in a particular course
 
@@ -24,16 +24,16 @@
 
 /// Print the header
 
-    if ($course->id != SITEID) {
-        $navigation = "<a href=\"../../course/view.php?id=$course->id\">$course->shortname</a> ->";
-    }
+    $navlinks = array();
+    $navlinks[] = array('name' => $strlamss, 'link' => '', 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
 
     print_header("$course->shortname: $strlamss", $course->fullname, "$navigation $strlamss", "", "", true, "", navmenu($course));
 
 /// Get all the appropriate data
 
     if (! $lamss = get_all_instances_in_course("lams", $course)) {
-        notice("There are no lams", "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strlamss) , "../../course/view.php?id=$course->id");
         die;
     }
 

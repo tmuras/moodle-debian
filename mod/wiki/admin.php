@@ -1,4 +1,4 @@
-<?PHP  // $Id: admin.php,v 1.26 2007/01/09 08:21:30 toyomoyo Exp $
+<?PHP  // $Id: admin.php,v 1.30.2.2 2008/04/02 06:10:05 dongsheng Exp $
 /// Extended by Michael Schneider
 
     require_once("../../config.php");
@@ -58,7 +58,7 @@
 
     /// Is an Action given ?
     if(!$action) {
-      error(get_string("noadministrationaction","wiki"));
+      print_error("noadministrationaction","wiki");
     }
 
     /// Correct Action ?
@@ -69,7 +69,7 @@
 
     /// May the User administrate it ?
     if (($wiki_entry = wiki_get_entry($wiki, $course, $userid, $groupid)) === false || wiki_can_edit_entry($wiki_entry, $wiki, $USER, $course) === false) {
-      error(get_string("notadministratewiki","wiki"));
+      print_error("notadministratewiki","wiki");
     }
 
     $canedit = wiki_can_edit_entry($wiki_entry, $wiki, $USER, $course);
@@ -115,9 +115,8 @@
        }
     }
 
-    print_header_simple("$wiki_entry->pagename", "",
-                "<a href=\"index.php?id=$course->id\">$strwikis</a> -> <a href=\"view.php?id=$id\">".format_string($wiki->name,true)."</a> ->".
-                get_string("administration","wiki"),
+    $navigation = build_navigation(get_string("administration","wiki"), $cm);
+    print_header_simple("$wiki_entry->pagename", "", $navigation,
                 $focus, "", true, update_module_button($cm->id, $course->id, $strwiki),
                 navmenu($course, $cm));
 

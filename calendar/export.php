@@ -1,4 +1,4 @@
-<?php // $Id: export.php,v 1.2.4.2 2007/05/06 04:26:38 martinlanghoff Exp $
+<?php // $Id: export.php,v 1.7.2.6 2009/01/20 06:21:03 moodler Exp $
 
 require_once('../config.php');
 require_once($CFG->dirroot.'/course/lib.php');
@@ -6,12 +6,20 @@ require_once($CFG->dirroot.'/calendar/lib.php');
 //require_once($CFG->libdir.'/bennu/bennu.inc.php');
 
 $action = optional_param('action', '', PARAM_ALPHA);
-$course = optional_param('course', 0);
 $day  = optional_param('cal_d', 0, PARAM_INT);
 $mon  = optional_param('cal_m', 0, PARAM_INT);
 $yr   = optional_param('cal_y', 0, PARAM_INT);
+if ($courseid = optional_param('course', 0, PARAM_INT)) {
+    $course = get_record('course', 'id', $courseid);
+} else {
+    $course = NULL;
+}
 
 require_login();
+
+if (empty($CFG->enablecalendarexport)) {
+    die('no export');
+}
 
 if(!$site = get_site()) {
     redirect($CFG->wwwroot.'/'.$CFG->admin.'/index.php');
@@ -21,8 +29,21 @@ if(!$site = get_site()) {
 calendar_session_vars();
 
 $pagetitle = get_string('export', 'calendar');
+$navlinks = array();
 $now = usergetdate(time());
-$nav = calendar_get_link_tag(get_string('calendar', 'calendar'), CALENDAR_URL.'view.php?view=upcoming&amp;', $now['mday'], $now['mon'], $now['year']).' -> '.$pagetitle;
+
+if (!empty($courseid) && $course->id != SITEID) {
+    $navlinks[] = array('name' => $course->shortname,
+                        'link' => "$CFG->wwwroot/course/view.php?id=$course->id",
+                        'type' => 'misc');
+}
+$navlinks[] = array('name' => get_string('calendar', 'calendar'),
+                    'link' =>calendar_get_link_href(CALENDAR_URL.'view.php?view=upcoming&amp;course='.$courseid.'&amp;',
+                                                    $now['mday'], $now['mon'], $now['year']),
+                    'type' => 'misc');
+$navlinks[] = array('name' => $pagetitle, 'link' => null, 'type' => 'misc');
+
+$navigation = build_navigation($navlinks);
 
 if(!checkdate($mon, $day, $yr)) {
     $day = intval($now['mday']);
@@ -31,8 +52,12 @@ if(!checkdate($mon, $day, $yr)) {
 }
 $time = make_timestamp($yr, $mon, $day);
 
-$SESSION->cal_courses_shown = calendar_get_default_courses(true);
-calendar_set_referring_course(0);
+if (empty($USER->id) or isguest()) {
+    $defaultcourses = calendar_get_default_courses();
+    calendar_set_filters($courses, $groups, $users, $defaultcourses, $defaultcourses);
+} else {
+    calendar_set_filters($courses, $groups, $users);
+}
 
 if (empty($USER->id) or isguest()) {
     $defaultcourses = calendar_get_default_courses();
@@ -46,7 +71,7 @@ $strcalendar = get_string('calendar', 'calendar');
 $prefsbutton = calendar_preferences_button();
 
 // Print title and header
-print_header("$site->shortname: $strcalendar: $pagetitle", $strcalendar, $nav,
+print_header("$site->shortname: $strcalendar: $pagetitle", $strcalendar, $navigation,
              '', '', true, $prefsbutton, user_login_string($site));
 
 echo calendar_overlib_html();
@@ -61,7 +86,7 @@ echo '<td class="maincalendar">';
 
 $username = $USER->username;
 $usernameencoded = urlencode($USER->username);
-$authtoken = sha1($USER->username . $USER->password);
+$authtoken = sha1($USER->username . $USER->password . $CFG->calendar_exportsalt);
 
 switch($action) {
     case 'advanced':
@@ -94,13 +119,13 @@ list($nextmon, $nextyr) = calendar_add_month($mon, $yr);
 $getvars = 'cal_d='.$day.'&amp;cal_m='.$mon.'&amp;cal_y='.$yr; // For filtering
 
 echo '<div class="minicalendarblock">';
-echo calendar_top_controls('display', array('m' => $prevmon, 'y' => $prevyr));
+echo calendar_top_controls('display', array('id' => $courseid, 'm' => $prevmon, 'y' => $prevyr));
 echo calendar_get_mini($courses, $groups, $users, $prevmon, $prevyr);
 echo '</div><div class="minicalendarblock">';
-echo calendar_top_controls('display', array('m' => $mon, 'y' => $yr));
+echo calendar_top_controls('display', array('id' => $courseid, 'm' => $mon, 'y' => $yr));
 echo calendar_get_mini($courses, $groups, $users, $mon, $yr);
 echo '</div><div class="minicalendarblock">';
-echo calendar_top_controls('display', array('m' => $nextmon, 'y' => $nextyr));
+echo calendar_top_controls('display', array('id' => $courseid, 'm' => $nextmon, 'y' => $nextyr));
 echo calendar_get_mini($courses, $groups, $users, $nextmon, $nextyr);
 echo '</div>';
 

@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.41 2006/08/08 22:09:56 skodak Exp $
+<?php  // $Id: view.php,v 1.42 2007/08/17 12:15:33 skodak Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -30,7 +30,7 @@
         }
     }
 
-    require_login($course->id);
+    require_login($course, true, $cm);
 
     require ("$CFG->dirroot/mod/assignment/type/$assignment->assignmenttype/assignment.class.php");
     $assignmentclass = "assignment_$assignment->assignmenttype";

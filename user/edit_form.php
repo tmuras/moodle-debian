@@ -1,4 +1,4 @@
-<?php //$Id: edit_form.php,v 1.19.2.4 2007/04/16 18:29:08 skodak Exp $
+<?php //$Id: edit_form.php,v 1.24.2.10 2009/01/12 02:05:12 peterbulmer Exp $
 
 require_once($CFG->dirroot.'/lib/formslib.php');
 
@@ -10,6 +10,8 @@ class user_edit_form extends moodleform {
 
         $mform =& $this->_form;
         $this->set_upload_manager(new upload_manager('imagefile', false, false, null, false, 0, true, true, false));
+        //Accessibility: "Required" is bad legend text.
+        $strgeneral  = get_string('general');
         $strrequired = get_string('required');
 
         /// Add some extra hidden fields
@@ -17,7 +19,7 @@ class user_edit_form extends moodleform {
         $mform->addElement('hidden', 'course', $COURSE->id);
 
         /// Print the required moodle fields first
-        $mform->addElement('header', 'moodle', $strrequired);
+        $mform->addElement('header', 'moodle', $strgeneral);
 
         /// shared fields
         useredit_shared_definition($mform);
@@ -45,11 +47,23 @@ class user_edit_form extends moodleform {
         // if language does not exist, use site default lang
         if ($langsel = $mform->getElementValue('lang')) {
             $lang = reset($langsel);
-            if (!file_exists($CFG->dataroot.'/lang/'.$lang) and 
+            // missing _utf8 in language, add it before further processing. MDL-11829 MDL-16845
+            if (strpos($lang, '_utf8') === false) {
+                $lang = $lang . '_utf8';
+                $lang_el =& $mform->getElement('lang');
+                $lang_el->setValue($lang);
+            }
+            // check lang exists
+            if (!file_exists($CFG->dataroot.'/lang/'.$lang) and
               !file_exists($CFG->dirroot .'/lang/'.$lang)) {
                 $lang_el =& $mform->getElement('lang');
                 $lang_el->setValue($CFG->lang);
             }
+        }
+
+        // remove description
+        if (empty($user->description) && !empty($CFG->profilesforenrolledusersonly) && !record_exists('role_assignments', 'userid', $userid)) {
+            $mform->removeElement('description');
         }
 
         if ($user = get_record('user', 'id', $userid)) {
@@ -58,7 +72,7 @@ class user_edit_form extends moodleform {
             if (!empty($CFG->gdversion)) {
                 $image_el =& $mform->getElement('currentpicture');
                 if ($user and $user->picture) {
-                    $image_el->setValue(print_user_picture($user->id, SITEID, $user->picture, 64,true,false,'',true));
+                    $image_el->setValue(print_user_picture($user, SITEID, $user->picture, 64,true,false,'',true));
                 } else {
                     $image_el->setValue(get_string('none'));
                 }
@@ -66,7 +80,6 @@ class user_edit_form extends moodleform {
 
             /// disable fields that are locked by auth plugins
             $fields = get_user_fieldnames();
-            $freezefields = array();
             $authplugin = get_auth_plugin($user->auth);
             foreach ($fields as $field) {
                 if (!$mform->elementExists($field)) {
@@ -75,13 +88,15 @@ class user_edit_form extends moodleform {
                 $configvariable = 'field_lock_' . $field;
                 if (isset($authplugin->config->{$configvariable})) {
                     if ($authplugin->config->{$configvariable} === 'locked') {
-                        $freezefields[] = $field;
+                        $mform->hardFreeze($field);
+                        $mform->setConstant($field, $user->$field);
                     } else if ($authplugin->config->{$configvariable} === 'unlockedifempty' and $user->$field != '') {
-                        $freezefields[] = $field;
+                        $mform->hardFreeze($field);
+                        $mform->setConstant($field, $user->$field);
                     }
                 }
             }
-            $mform->hardFreeze($freezefields);
+            
         }
 
         /// Next the customisable profile fields
@@ -89,32 +104,38 @@ class user_edit_form extends moodleform {
 
     }
 
-    function validation ($usernew) {
+    function validation($usernew, $files) {
         global $CFG;
+
+        $errors = parent::validation($usernew, $files);
 
         $usernew = (object)$usernew;
         $user    = get_record('user', 'id', $usernew->id);
-        $err     = array();
 
         // validate email
-        if (!validate_email($usernew->email)) {
-            $err['email'] = get_string('invalidemail');
-        } else if (($usernew->email !== $user->email) and record_exists('user', 'email', $usernew->email, 'mnethostid', $CFG->mnet_localhost_id)) {
-            $err['email'] = get_string('emailexists');
+        if (!isset($usernew->email)) {
+            // mail not confirmed yet
+        } else if (!validate_email($usernew->email)) {
+            $errors['email'] = get_string('invalidemail');
+        } else if ((stripslashes($usernew->email) !== $user->email) and record_exists('user', 'email', $usernew->email, 'mnethostid', $CFG->mnet_localhost_id)) {
+            $errors['email'] = get_string('emailexists');
         }
 
-        if ($usernew->email === $user->email and over_bounce_threshold($user)) {
-            $err['email'] = get_string('toomanybounces');
+        if (isset($usernew->email) and $usernew->email === $user->email and over_bounce_threshold($user)) {
+            $errors['email'] = get_string('toomanybounces');
+        }
+
+        if (isset($usernew->email) and !empty($CFG->verifychangedemail) and !isset($errors['email']) and !has_capability('moodle/user:update', get_context_instance(CONTEXT_SYSTEM))) {
+            $errorstr = email_is_not_allowed($usernew->email);
+            if ($errorstr !== false) {
+                $errors['email'] = $errorstr;
+            }
         }
 
         /// Next the customisable profile fields
-        $err += profile_validation($usernew);
+        $errors += profile_validation($usernew, $files);
 
-        if (count($err) == 0){
-            return true;
-        } else {
-            return $err;
-        }
+        return $errors;
     }
 
     function get_um() {

@@ -1,12 +1,9 @@
-<?PHP //$Id: block_search_forums.php,v 1.21.2.1 2007/05/11 11:29:48 nfreear Exp $
-
-require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
-require_once($CFG->dirroot.'/mod/forum/lib.php');
+<?PHP //$Id: block_search_forums.php,v 1.22.2.2 2008/03/03 11:41:04 moodler Exp $
 
 class block_search_forums extends block_base {
     function init() {
         $this->title = get_string('blocktitle', 'block_search_forums');
-        $this->version = 2005030900;
+        $this->version = 2007101509;
     }
 
     function get_content() {
@@ -29,7 +26,7 @@ class block_search_forums extends block_base {
         $search = get_string('search');
 
         //Accessibility: replaced <input value=" />" type="submit"> with configurable text/'silent' character.
-        // Theme config, $CFG->block_search_button = link_arrow_right(get_string('search'), $url='', $accesshide=true);
+        // Theme config, $CFG->block_search_button = get_arrow_right() .'<span class="accesshide">'.get_string('search').'</span>';
         $button = (isset($CFG->block_search_button)) ? $CFG->block_search_button : get_string('go');
         
         $this->content->text  = '<div class="searchform">';

@@ -1,4 +1,4 @@
-<?PHP // $Id: wiki.php,v 1.6 2006/11/01 09:44:08 moodler Exp $ 
+<?PHP // $Id: wiki.php,v 1.6.8.1 2008/11/13 14:54:17 wildgirl Exp $ 
       // wiki.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -149,7 +149,7 @@ $string['revertpagescheck'] = 'Do you really want to revert the following change
 $string['revertthe'] = 'Version diving, but only purge the affected one';
 $string['safehtml'] = 'Safe HTML';
 $string['save'] = 'Save';
-$string['savenolock'] = 'You cannot save the page because you do not have an editing lock. This can happen if your browser has Javascript turned off, or if another user overrides your lock.<br/><br/>You can return to the previous screen using your browser\'s Back button and copy the text of any changes you made, then try editing again.';
+$string['savenolock'] = 'You cannot save the page because you do not have an editing lock. This can happen if your browser has Javascript turned off, or if another user overrides your lock.<br />You can return to the previous screen using your browser\'s Back button and copy the text of any changes you made, then try editing again.';
 $string['searchwiki'] = 'Search Wiki';
 $string['setpageflags'] = 'Set page flags';
 $string['showversions'] = 'Show versions:';

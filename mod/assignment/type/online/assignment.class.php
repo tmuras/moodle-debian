@@ -1,4 +1,4 @@
-<?php // $Id: assignment.class.php,v 1.43.2.1 2007/03/30 02:09:07 danmarsden Exp $
+<?php // $Id: assignment.class.php,v 1.46.2.8 2008/07/24 11:11:58 skodak Exp $
 require_once($CFG->libdir.'/formslib.php');
 
 /**
@@ -7,8 +7,9 @@ require_once($CFG->libdir.'/formslib.php');
  */
 class assignment_online extends assignment_base {
 
-    function assignment_online($cmid=0) {
-        parent::assignment_base($cmid);
+    function assignment_online($cmid='staticonly', $assignment=NULL, $cm=NULL, $course=NULL) {
+        parent::assignment_base($cmid, $assignment, $cm, $course);
+        $this->type = 'online';
     }
 
     function view() {
@@ -34,9 +35,11 @@ class assignment_online extends assignment_base {
         if ($editmode) {
             //guest can not edit or submit assignment
             if (!has_capability('mod/assignment:submit', $context)) {
-                error(get_string('guestnosubmit', 'assignment'));
+                print_error('guestnosubmit', 'assignment');
             }
         }
+
+        add_to_log($this->course->id, "assignment", "view", "view.php?id={$this->cm->id}", $this->assignment->id, $this->cm->id);
 
 /// prepare form and process submitted data
         $mform = new mod_assignment_online_edit_form();
@@ -93,10 +96,11 @@ class assignment_online extends assignment_base {
         }
 
         if (has_capability('mod/assignment:submit', $context)) {
-            print_simple_box_start('center', '70%', '', 0, 'generalbox', 'online');
             if ($editmode) {
+                print_box_start('generalbox', 'online');
                 $mform->display();
             } else {
+                print_box_start('generalbox boxwidthwide boxaligncenter', 'online');
                 if ($submission) {
                     echo format_text($submission->data1, $submission->data2);
                 } else if (!has_capability('mod/assignment:submit', $context)) { //fix for #4604
@@ -105,13 +109,13 @@ class assignment_online extends assignment_base {
                     echo '<div style="text-align:center">'.get_string('emptysubmission', 'assignment').'</div>';
                 }
             }
-            print_simple_box_end();
-            if (!$editmode && $editable) { 
-                echo "<div style='text-align:center'>"; 
-                print_single_button('view.php', array('id'=>$this->cm->id,'edit'=>'1'), 
-                        get_string('editmysubmission', 'assignment')); 
-                echo "</div>"; 
-            } 
+            print_box_end();
+            if (!$editmode && $editable) {
+                echo "<div style='text-align:center'>";
+                print_single_button('view.php', array('id'=>$this->cm->id,'edit'=>'1'),
+                        get_string('editmysubmission', 'assignment'));
+                echo "</div>";
+            }
 
         }
 
@@ -166,7 +170,13 @@ class assignment_online extends assignment_base {
         $update->data2        = $data->format;
         $update->timemodified = time();
 
-        return update_record('assignment_submissions', $update);
+        if (!update_record('assignment_submissions', $update)) {
+            return false;
+        }
+
+        $submission = $this->get_submission($USER->id);
+        $this->update_grade($submission);
+        return true;
     }
 
 
@@ -176,7 +186,7 @@ class assignment_online extends assignment_base {
             return '';
         }
         $output = '<div class="files">'.
-                  '<img align="middle" src="'.$CFG->pixpath.'/f/html.gif" class="icon" alt="html" />'.
+                  '<img src="'.$CFG->pixpath.'/f/html.gif" class="icon" alt="html" />'.
                   link_to_popup_window ('/mod/assignment/type/online/file.php?id='.$this->cm->id.'&amp;userid='.
                   $submission->userid, 'file'.$userid, shorten_text(trim(strip_tags(format_text($submission->data1,$submission->data2))), 15), 450, 580,
                   get_string('submission', 'assignment'), 'none', true).
@@ -201,20 +211,12 @@ class assignment_online extends assignment_base {
         ///Stolen code from file.php
 
         print_simple_box_start('center', '', '', 0, 'generalbox', 'wordcount');
-        echo '<table>';
-        //if ($assignment->timedue) {
-        //    echo '<tr><td class="c0">'.get_string('duedate','assignment').':</td>';
-        //    echo '    <td class="c1">'.userdate($assignment->timedue).'</td></tr>';
-        //}
-        echo '<tr>';//<td class="c0">'.get_string('lastedited').':</td>';
-        echo '    <td class="c1">';//.userdate($submission->timemodified);
-        /// Decide what to count
-            if ($CFG->assignment_itemstocount == ASSIGNMENT_COUNT_WORDS) {
-                echo ' ('.get_string('numwords', '', count_words(format_text($submission->data1, $submission->data2))).')</td></tr>';
-            } else if ($CFG->assignment_itemstocount == ASSIGNMENT_COUNT_LETTERS) {
-                echo ' ('.get_string('numletters', '', count_letters(format_text($submission->data1, $submission->data2))).')</td></tr>';
-            }
-        echo '</table>';
+    /// Decide what to count
+        if ($CFG->assignment_itemstocount == ASSIGNMENT_COUNT_WORDS) {
+            echo ' ('.get_string('numwords', '', count_words(format_text($submission->data1, $submission->data2))).')';
+        } else if ($CFG->assignment_itemstocount == ASSIGNMENT_COUNT_LETTERS) {
+            echo ' ('.get_string('numletters', '', count_letters(format_text($submission->data1, $submission->data2))).')';
+        }
         print_simple_box_end();
         print_simple_box(format_text($submission->data1, $submission->data2), 'center', '100%');
 
@@ -266,9 +268,10 @@ class mod_assignment_online_edit_form extends moodleform {
         $mform =& $this->_form;
 
         // visible elements
-        $mform->addElement('htmleditor', 'text', get_string('submission', 'assignment'), array('cols'=>85, 'rows'=>30));
+        $mform->addElement('htmleditor', 'text', get_string('submission', 'assignment'), array('cols'=>60, 'rows'=>30));
         $mform->setType('text', PARAM_RAW); // to be cleaned before display
         $mform->setHelpButton('text', array('reading', 'writing', 'richtext'), false, 'editorhelpbutton');
+        $mform->addRule('text', get_string('required'), 'required', null, 'client');
 
         $mform->addElement('format', 'format', get_string('format'));
         $mform->setHelpButton('format', array('textformat', get_string('helpformatting')));

@@ -1,4 +1,4 @@
-<?php //$Id: backup.php,v 1.40.2.3 2007/02/28 05:36:21 nicolasconnault Exp $
+<?php //$Id: backup.php,v 1.46.2.1 2008/03/08 15:36:00 skodak Exp $
     //This script is used to configure and execute the backup proccess.
 
     //Define some globals for all the script
@@ -14,14 +14,15 @@
     $cancel = optional_param( 'cancel' );
     $launch = optional_param( 'launch' );
 
-    require_login();
 
     if (!empty($id)) {
+        require_login($id);
         if (!has_capability('moodle/site:backup', get_context_instance(CONTEXT_COURSE, $id))) {
             error("You need to be a teacher or admin user to use this page.", "$CFG->wwwroot/login/index.php");
         }
     } else {
-        if (!has_capability('moodle/site:backup', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+        require_login();
+        if (!has_capability('moodle/site:backup', get_context_instance(CONTEXT_SYSTEM))) {
             error("You need to be an admin user to use this page.", "$CFG->wwwroot/login/index.php");
         }
     }
@@ -39,7 +40,7 @@
 
     //Check necessary functions exists. Thanks to gregb@crowncollege.edu
     backup_required_functions();
-    
+
     //Check backup_version
     if ($id) {
         $linkto = "backup.php?id=".$id.((!empty($to)) ? '&to='.$to : '');
@@ -70,9 +71,13 @@
 
     //If no course has been selected, show a list of available courses
 
+    $navlinks = array();
     if (!$id) {
-        print_header("$site->shortname: $strcoursebackup", $site->fullname,
-                     "<a href=\"$CFG->wwwroot/$CFG->admin/index.php\">$stradministration</a> -> $strcoursebackup");
+        $navlinks[] = array('name' => $stradministration, 'link' => "$CFG->wwwroot/$CFG->admin/index.php", 'type' => 'misc');
+        $navlinks[] = array('name' => $strcoursebackup, 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
+
+        print_header("$site->shortname: $strcoursebackup", $site->fullname, $navigation);
 
         if ($courses = get_courses('all','c.shortname','c.id,c.shortname,c.fullname')) {
             print_heading(get_string("choosecourse"));
@@ -95,17 +100,21 @@
     }
 
     //Print header
-    if (has_capability('moodle/site:backup', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
-        print_header("$site->shortname: $strcoursebackup", $site->fullname,
-                     "<a href=\"$CFG->wwwroot/$CFG->admin/index.php\">$stradministration</a> ->
-                      <a href=\"backup.php\">$strcoursebackup</a> -> $course->fullname ($course->shortname)");
+    if (has_capability('moodle/site:backup', get_context_instance(CONTEXT_SYSTEM))) {
+        $navlinks[] = array('name' => $stradministration, 'link' => "$CFG->wwwroot/$CFG->admin/index.php", 'type' => 'misc');
+        $navlinks[] = array('name' => $strcoursebackup, 'link' => 'backup.php', 'type' => 'misc');
+        $navlinks[] = array('name' => "$course->fullname ($course->shortname)", 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
+
+        print_header("$site->shortname: $strcoursebackup", $site->fullname, $navigation);
     } else {
-        print_header("$course->shortname: $strcoursebackup", $course->fullname,
-                     "<a href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</a> -> 
-                     $strcoursebackup");
+        $navlinks[] = array('name' => $course->fullname, 'link' => "$CFG->wwwroot/course/view.php?id=$course->id", 'type' => 'misc');
+        $navlinks[] = array('name' => $strcoursebackup, 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
+        print_header("$course->shortname: $strcoursebackup", $course->fullname, $navigation);
     }
 
-    //Print form     
+    //Print form
     print_heading(format_string("$strcoursebackup: $course->fullname ($course->shortname)"));
     print_simple_box_start("center");
 
@@ -129,5 +138,4 @@
 
     //Print footer
     print_footer();
-
 ?>

@@ -1,4 +1,4 @@
-<?php // $Id: ddllib.php,v 1.53 2007/01/27 20:13:23 stronk7 Exp $
+<?php // $Id: ddllib.php,v 1.59.2.4 2008/12/08 01:18:44 tjhunt Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -56,7 +56,7 @@
 
 /// Based on $CFG->dbtype, add the proper generator class
     if (!file_exists($CFG->libdir . '/xmldb/classes/generators/' . $CFG->dbtype . '/' . $CFG->dbtype . '.class.php')) {
-        error ('DB Type: ' . $CFG->dbtype . ' not supported by XMLDDB');
+        error ('DB Type: ' . $CFG->dbtype . ' not supported by XMLDB');
     }
     require_once($CFG->libdir . '/xmldb/classes/generators/' . $CFG->dbtype . '/' . $CFG->dbtype . '.class.php');
 
@@ -65,6 +65,10 @@
     require_once($CFG->libdir . '/xmlize.php');
 /**
  * Add a new field to a table, or modify an existing one (if oldfield is defined).
+ *
+ * WARNING: This function is deprecated and will be removed in future versions.
+ * Please use XMLDB (see http://docs.moodle.org/en/Development:DDL_functions ).
+ *
  * Warning: Please be careful on primary keys, as this function will eat auto_increments
  *
  * @uses $CFG
@@ -319,7 +323,7 @@ function field_exists($table, $field) {
         $exists = false;
     }
 
-/// Re-set original debug 
+/// Re-set original debug
     $db->debug = $olddbdebug;
 
     return $exists;
@@ -348,7 +352,36 @@ function index_exists($table, $index) {
         $exists = false;
     }
 
-/// Re-set original debug 
+/// Re-set original debug
+    $db->debug = $olddbdebug;
+
+    return $exists;
+}
+
+/**
+ * Given one XMLDBField, check if it has a check constraint in DB
+ *
+ * @uses, $db
+ * @param XMLDBTable the table
+ * @param XMLDBField the field to be searched for any existing constraint
+ * @return boolean true/false
+ */
+function check_constraint_exists($table, $field) {
+
+    global $CFG, $db;
+
+    $exists = true;
+
+/// Do this function silenty (to avoid output in install/upgrade process)
+    $olddbdebug = $db->debug;
+    $db->debug = false;
+
+/// Wrap over find_check_constraint_name to see if the index exists
+    if (!find_check_constraint_name($table, $field)) {
+        $exists = false;
+    }
+
+/// Re-set original debug
     $db->debug = $olddbdebug;
 
     return $exists;
@@ -472,6 +505,59 @@ function find_index_name($table, $index) {
 }
 
 /**
+ * Given one XMLDBField, the function returns the name of the check constraint in DB (if exists)
+ * of false if it doesn't exist. Note that XMLDB limits the number of check constrainst per field
+ * to 1 "enum-like" constraint. So, if more than one is returned, only the first one will be
+ * retrieved by this funcion.
+ *
+ * @uses, $db
+ * @param XMLDBTable the table to be searched
+ * @param XMLDBField the field to be searched
+ * @return string check consrtaint name or false
+ */
+function find_check_constraint_name($table, $field) {
+
+    global $CFG, $db;
+
+/// Do this function silenty (to avoid output in install/upgrade process)
+    $olddbdebug = $db->debug;
+    $db->debug = false;
+
+/// Check the table exists
+    if (!table_exists($table)) {
+        $db->debug = $olddbdebug; //Re-set original $db->debug
+        return false;
+    }
+
+/// Check the field exists
+    if (!field_exists($table, $field)) {
+        $db->debug = $olddbdebug; //Re-set original $db->debug
+        return false;
+    }
+
+/// Load the needed generator
+    $classname = 'XMLDB' . $CFG->dbtype;
+    $generator = new $classname();
+    $generator->setPrefix($CFG->prefix);
+/// Calculate the name of the table
+    $tablename = $generator->getTableName($table, false);
+
+/// Get list of check_constraints in table/field
+    $checks = null;
+    if ($objchecks = $generator->getCheckConstraintsFromDB($table, $field)) {
+    /// Get only the 1st element. Shouldn't be more than 1 under XMLDB
+        $objcheck = array_shift($objchecks);
+        if ($objcheck) {
+            $checks = strtolower($objcheck->name);
+        }
+    }
+
+/// Arriving here, check not found
+    $db->debug = $olddbdebug; //Re-set original $db->debug
+    return $checks;
+}
+
+/**
  * Given one XMLDBTable, the function returns the name of its sequence in DB (if exists)
  * of false if it doesn't exist
  *
@@ -495,7 +581,8 @@ function find_sequence_name($table) {
 
 /// Check table exists
     if (!table_exists($table)) {
-        debugging('Table ' . $table->getName() . ' do not exist. Sequence not found', DEBUG_DEVELOPER);
+        debugging('Table ' . $table->getName() .
+                  ' does not exist. Sequence not found', DEBUG_DEVELOPER);
         $db->debug = $olddbdebug; //Re-set original $db->debug
         return false; //Table doesn't exist, nothing to do
     }
@@ -549,6 +636,200 @@ function install_from_xmldb_file($file) {
 }
 
 /**
+ * This function will all tables found in XMLDB file from db
+ *
+ * @uses $CFG, $db
+ * @param $file full path to the XML file to be used
+ * @param $feedback
+ * @return boolean (true on success, false on error)
+ */
+function delete_tables_from_xmldb_file($file, $feedback=true ) {
+
+    global $CFG, $db;
+
+    $status = true;
+
+
+    $xmldb_file = new XMLDBFile($file);
+
+    if (!$xmldb_file->fileExists()) {
+        return false;
+    }
+
+    $loaded    = $xmldb_file->loadXMLStructure();
+    $structure =& $xmldb_file->getStructure();
+
+    if (!$loaded || !$xmldb_file->isLoaded()) {
+    /// Show info about the error if we can find it
+        if ($feedback and $structure) {
+            if ($errors = $structure->getAllErrors()) {
+                notify('Errors found in XMLDB file: '. implode (', ', $errors));
+            }
+        }
+        return false;
+    }
+
+    if ($tables = $structure->getTables()) {
+        foreach($tables as $table) {
+            if (table_exists($table)) {
+                drop_table($table, true, $feedback);
+            }
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Delete all plugin tables
+ * @name string name of plugin, used as table prefix
+ * @file string path to install.xml file
+ * @feedback boolean
+ */
+function drop_plugin_tables($name, $file, $feedback=true) {
+    global $CFG, $db;
+
+    // first try normal delete
+    if (delete_tables_from_xmldb_file($file, $feedback)) {
+        return true;
+    }
+
+    // then try to find all tables that start with name and are not in any xml file
+    $used_tables = get_used_table_names();
+
+    $tables = $db->MetaTables();
+    /// Iterate over, fixing id fields as necessary
+    foreach ($tables as $table) {
+        if (strlen($CFG->prefix)) {
+            if (strpos($table, $CFG->prefix) !== 0) {
+                continue;
+            }
+            $table = substr($table, strlen($CFG->prefix));
+        }
+        $table = strtolower($table);
+        if (strpos($table, $name) !== 0) {
+            continue;
+        }
+        if (in_array($table, $used_tables)) {
+            continue;
+        }
+
+        // found orphan table --> delete it
+        $table = new XMLDBTable($table);
+        if (table_exists($table)) {
+            drop_table($table, true, $feedback);
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Returns names of all known tables == tables that moodle knowns about.
+ * @return array of lowercase table names
+ */
+function get_used_table_names() {
+    $table_names = array();
+    $dbdirs = get_db_directories();
+
+    foreach ($dbdirs as $dbdir) {
+        $file = $dbdir.'/install.xml';
+
+        $xmldb_file = new XMLDBFile($file);
+
+        if (!$xmldb_file->fileExists()) {
+            continue;
+        }
+
+        $loaded    = $xmldb_file->loadXMLStructure();
+        $structure =& $xmldb_file->getStructure();
+
+        if ($loaded and $tables = $structure->getTables()) {
+            foreach($tables as $table) {
+                $table_names[] = strtolower($table->name);
+            }
+        }
+    }
+
+    return $table_names;
+}
+
+/**
+ * Returns list of all directories where we expect install.xml files
+ * @return array of paths
+ */
+function get_db_directories() {
+    global $CFG;
+
+    $dbdirs = array();
+
+/// First, the main one (lib/db)
+    $dbdirs[] = $CFG->libdir.'/db';
+
+/// Now, activity modules (mod/xxx/db)
+    if ($plugins = get_list_of_plugins('mod')) {
+        foreach ($plugins as $plugin) {
+            $dbdirs[] = $CFG->dirroot.'/mod/'.$plugin.'/db';
+        }
+    }
+
+/// Now, assignment submodules (mod/assignment/type/xxx/db)
+    if ($plugins = get_list_of_plugins('mod/assignment/type')) {
+        foreach ($plugins as $plugin) {
+            $dbdirs[] = $CFG->dirroot.'/mod/assignment/type/'.$plugin.'/db';
+        }
+    }
+
+/// Now, question types (question/type/xxx/db)
+    if ($plugins = get_list_of_plugins('question/type')) {
+        foreach ($plugins as $plugin) {
+            $dbdirs[] = $CFG->dirroot.'/question/type/'.$plugin.'/db';
+        }
+    }
+
+/// Now, backup/restore stuff (backup/db)
+    $dbdirs[] = $CFG->dirroot.'/backup/db';
+
+/// Now, block system stuff (blocks/db)
+    $dbdirs[] = $CFG->dirroot.'/blocks/db';
+
+/// Now, blocks (blocks/xxx/db)
+    if ($plugins = get_list_of_plugins('blocks', 'db')) {
+        foreach ($plugins as $plugin) {
+            $dbdirs[] = $CFG->dirroot.'/blocks/'.$plugin.'/db';
+        }
+    }
+
+/// Now, course formats (course/format/xxx/db)
+    if ($plugins = get_list_of_plugins('course/format', 'db')) {
+        foreach ($plugins as $plugin) {
+            $dbdirs[] = $CFG->dirroot.'/course/format/'.$plugin.'/db';
+        }
+    }
+
+/// Now, enrolment plugins (enrol/xxx/db)
+    if ($plugins = get_list_of_plugins('enrol', 'db')) {
+        foreach ($plugins as $plugin) {
+            $dbdirs[] = $CFG->dirroot.'/enrol/'.$plugin.'/db';
+        }
+    }
+
+/// Now admin report plugins (admin/report/xxx/db)
+    if ($plugins = get_list_of_plugins($CFG->admin.'/report', 'db')) {
+        foreach ($plugins as $plugin) {
+            $dbdirs[] = $CFG->dirroot.'/'.$CFG->admin.'/report/'.$plugin.'/db';
+        }
+    }
+
+/// Local database changes, if the local folder exists.
+    if (file_exists($CFG->dirroot . '/local')) {
+        $dbdirs[] = $CFG->dirroot.'/local/db';
+    }
+
+    return $dbdirs;
+}
+
+/**
  * This function will create the table passed as argument with all its
  * fields/keys/indexes/sequences, everything based in the XMLDB object
  *
@@ -570,7 +851,8 @@ function create_table($table, $continue=true, $feedback=true) {
 
 /// Check table doesn't exist
     if (table_exists($table)) {
-        debugging('Table ' . $table->getName() . ' exists. Create skipped', DEBUG_DEVELOPER);
+        debugging('Table ' . $table->getName() .
+                  ' already exists. Create skipped', DEBUG_DEVELOPER);
         return true; //Table exists, nothing to do
     }
 
@@ -604,7 +886,8 @@ function drop_table($table, $continue=true, $feedback=true) {
 
 /// Check table exists
     if (!table_exists($table)) {
-        debugging('Table ' . $table->getName() . ' do not exist. Delete skipped', DEBUG_DEVELOPER);
+        debugging('Table ' . $table->getName() .
+                  ' does not exist. Delete skipped', DEBUG_DEVELOPER);
         return true; //Table don't exist, nothing to do
     }
 
@@ -613,6 +896,68 @@ function drop_table($table, $continue=true, $feedback=true) {
     }
 
     return execute_sql_arr($sqlarr, $continue, $feedback);
+}
+
+/**
+ * This function will create the temporary table passed as argument with all its
+ * fields/keys/indexes/sequences, everything based in the XMLDB object
+ *
+ * TRUNCATE the table immediately after creation. A previous process using
+ * the same persistent connection may have created the temp table and failed to
+ * drop it. In that case, the table will exist, and create_temp_table() will
+ * will succeed.
+ *
+ * NOTE: The return value is the tablename - some DBs (MSSQL at least) use special
+ * names for temp tables.
+ *
+ * @uses $CFG, $db
+ * @param XMLDBTable table object (full specs are required)
+ * @param boolean continue to specify if must continue on error (true) or stop (false)
+ * @param boolean feedback to specify to show status info (true) or not (false)
+ * @return string tablename on success, false on error
+ */
+function create_temp_table($table, $continue=true, $feedback=true) {
+
+    global $CFG, $db;
+
+    $status = true;
+
+    if (strtolower(get_class($table)) != 'xmldbtable') {
+        return false;
+    }
+
+
+    $temporary = 'TEMPORARY';
+    switch (strtolower($CFG->dbfamily)) {
+        case 'mssql':
+            // TODO: somehow change the name to have a #
+            $temporary = '';
+            break;
+        case 'oracle':
+            $temporary = 'GLOBAL TEMPORARY';
+            break;
+    }
+
+/// Check table doesn't exist
+    if (table_exists($table)) {
+        debugging('Table ' . $table->getName() .
+                  ' already exists. Create skipped', DEBUG_DEVELOPER);
+        return $table->getName(); //Table exists, nothing to do
+    }
+
+    if(!$sqlarr = $table->getCreateTableSQL($CFG->dbtype, $CFG->prefix, false)) {
+        return $table->getName(); //Empty array = nothing to do = no error
+    }
+
+    if (!empty($temporary)) {
+        $sqlarr = preg_replace('/^CREATE/', "CREATE $temporary", $sqlarr);
+    }
+
+    if (execute_sql_arr($sqlarr, $continue, $feedback)) {
+        return $table->getName();
+    } else {
+        return false;
+    }
 }
 
 /**
@@ -638,20 +983,23 @@ function rename_table($table, $newname, $continue=true, $feedback=true) {
 
 /// Check table exists
     if (!table_exists($table)) {
-        debugging('Table ' . $table->getName() . ' do not exist. Rename skipped', DEBUG_DEVELOPER);
+        debugging('Table ' . $table->getName() .
+                  ' does not exist. Rename skipped', DEBUG_DEVELOPER);
         return true; //Table doesn't exist, nothing to do
     }
 
 /// Check new table doesn't exist
     $check = new XMLDBTable($newname);
     if (table_exists($check)) {
-        debugging('Table ' . $check->getName() . ' already exists. Rename skipped', DEBUG_DEVELOPER);
+        debugging('Table ' . $check->getName() .
+                  ' already exists. Rename skipped', DEBUG_DEVELOPER);
         return true; //Table exists, nothing to do
     }
 
 /// Check newname isn't empty
     if (!$newname) {
-        debugging('New name for table ' . $index->getName() . ' is empty! Rename skipped', DEBUG_DEVELOPER);
+        debugging('New name for table ' . $table->getName() .
+                  ' is empty! Rename skipped', DEBUG_DEVELOPER);
         return true; //Table doesn't exist, nothing to do
     }
 
@@ -685,15 +1033,23 @@ function add_field($table, $field, $continue=true, $feedback=true) {
         return false;
     }
 
+/// Load the needed generator
+    $classname = 'XMLDB' . $CFG->dbtype;
+    $generator = new $classname();
+    $generator->setPrefix($CFG->prefix);
+
 /// Check the field doesn't exist
     if (field_exists($table, $field)) {
-        debugging('Field ' . $field->getName() . ' exists. Create skipped', DEBUG_DEVELOPER);
+        debugging('Field ' . $table->getName() . '->' . $field->getName() .
+                  ' already exists. Create skipped', DEBUG_DEVELOPER);
         return true;
     }
 
-/// If NOT NULL and no default given, check the table is empty
-    if ($field->getNotNull() && $field->getDefault() === NULL && count_records($table->getName())) {
-        debugging('Field ' . $field->getName() . ' cannot be added. Not null fields added to non empty tables require default value. Create skipped', DEBUG_DEVELOPER);
+/// If NOT NULL and no default given (we ask the generator about the
+/// *real* default that will be used) check the table is empty
+    if ($field->getNotNull() && $generator->getDefaultValue($field) === NULL && count_records($table->getName())) {
+        debugging('Field ' . $table->getName() . '->' . $field->getName() .
+                  ' cannot be added. Not null fields added to non empty tables require default value. Create skipped', DEBUG_DEVELOPER);
          return true;
     }
 
@@ -729,7 +1085,8 @@ function drop_field($table, $field, $continue=true, $feedback=true) {
 
 /// Check the field exists
     if (!field_exists($table, $field)) {
-        debugging('Field ' . $field->getName() . ' do not exist. Delete skipped', DEBUG_DEVELOPER);
+        debugging('Field ' . $table->getName() . '->' . $field->getName() .
+                  ' does not exist. Delete skipped', DEBUG_DEVELOPER);
         return true;
     }
 
@@ -841,6 +1198,21 @@ function change_field_enum($table, $field, $continue=true, $feedback=true) {
         return false;
     }
 
+/// If enum is defined, we're going to create it, check it doesn't exist.
+    if ($field->getEnum()) {
+        if (check_constraint_exists($table, $field)) {
+            debugging('Enum for ' . $table->getName() . '->' . $field->getName() .
+                      ' already exists. Create skipped', DEBUG_DEVELOPER);
+            return true; //Enum exists, nothing to do
+        }
+    } else { /// Else, we're going to drop it, check it exists
+        if (!check_constraint_exists($table, $field)) {
+            debugging('Enum for ' . $table->getName() . '->' . $field->getName() .
+                      ' does not exist. Delete skipped', DEBUG_DEVELOPER);
+            return true; //Enum doesn't exist, nothing to do
+        }
+    }
+
     if(!$sqlarr = $table->getModifyEnumSQL($CFG->dbtype, $CFG->prefix, $field, false)) {
         return true; //Empty array = nothing to do = no error
     }
@@ -905,25 +1277,29 @@ function rename_field($table, $field, $newname, $continue=true, $feedback=true) 
 
 /// Check we have included full field specs
     if (!$field->getType()) {
-        debugging('Field ' . $field->getName() . ' must contain full specs. Rename skipped', DEBUG_DEVELOPER);
-        return false; 
+        debugging('Field ' . $table->getName() . '->' . $field->getName() .
+                  ' must contain full specs. Rename skipped', DEBUG_DEVELOPER);
+        return false;
     }
 
 /// Check field isn't id. Renaming over that field is not allowed
     if ($field->getName() == 'id') {
-        debugging('Field ' . $field->getName() . ' cannot be renamed. Rename skipped', DEBUG_DEVELOPER);
+        debugging('Field ' . $table->getName() . '->' . $field->getName() .
+                  ' cannot be renamed. Rename skipped', DEBUG_DEVELOPER);
         return true; //Field is "id", nothing to do
     }
 
 /// Check field exists
     if (!field_exists($table, $field)) {
-        debugging('Field ' . $field->getName() . ' do not exist. Rename skipped', DEBUG_DEVELOPER);
+        debugging('Field ' . $table->getName() . '->' . $field->getName() .
+                  ' does not exist. Rename skipped', DEBUG_DEVELOPER);
         return true; //Field doesn't exist, nothing to do
     }
 
 /// Check newname isn't empty
     if (!$newname) {
-        debugging('New name for field ' . $field->getName() . ' is empty! Rename skipped', DEBUG_DEVELOPER);
+        debugging('New name for field ' . $table->getName() . '->' . $field->getName() .
+                  ' is empty! Rename skipped', DEBUG_DEVELOPER);
         return true; //Field doesn't exist, nothing to do
     }
 
@@ -1031,7 +1407,8 @@ function rename_key($table, $key, $newname, $continue=true, $feedback=true) {
 
 /// Check newname isn't empty
     if (!$newname) {
-        debugging('New name for key ' . $key->getName() . ' is empty! Rename skipped', DEBUG_DEVELOPER);
+        debugging('New name for key ' . $table->getName() . '->' . $key->getName() .
+                  ' is empty! Rename skipped', DEBUG_DEVELOPER);
         return true; //Key doesn't exist, nothing to do
     }
 
@@ -1069,7 +1446,8 @@ function add_index($table, $index, $continue=true, $feedback=true) {
 
 /// Check index doesn't exist
     if (index_exists($table, $index)) {
-        debugging('Index ' . $index->getName() . ' exists. Create skipped', DEBUG_DEVELOPER);
+        debugging('Index ' . $table->getName() . '->' . $index->getName() .
+                  ' already exists. Create skipped', DEBUG_DEVELOPER);
         return true; //Index exists, nothing to do
     }
 
@@ -1106,7 +1484,8 @@ function drop_index($table, $index, $continue=true, $feedback=true) {
 
 /// Check index exists
     if (!index_exists($table, $index)) {
-        debugging('Index ' . $index->getName() . ' do not exist. Delete skipped', DEBUG_DEVELOPER);
+        debugging('Index ' . $table->getName() . '->' . $index->getName() .
+                  ' does not exist. Delete skipped', DEBUG_DEVELOPER);
         return true; //Index doesn't exist, nothing to do
     }
 
@@ -1147,13 +1526,15 @@ function rename_index($table, $index, $newname, $continue=true, $feedback=true) 
 
 /// Check index exists
     if (!index_exists($table, $index)) {
-        debugging('Index ' . $index->getName() . ' do not exist. Rename skipped', DEBUG_DEVELOPER);
+        debugging('Index ' . $table->getName() . '->' . $index->getName() .
+                  ' does not exist. Rename skipped', DEBUG_DEVELOPER);
         return true; //Index doesn't exist, nothing to do
     }
 
 /// Check newname isn't empty
     if (!$newname) {
-        debugging('New name for index ' . $index->getName() . ' is empty! Rename skipped', DEBUG_DEVELOPER);
+        debugging('New name for index ' . $table->getName() . '->' . $index->getName() .
+                  ' is empty! Rename skipped', DEBUG_DEVELOPER);
         return true; //Index doesn't exist, nothing to do
     }
 

@@ -1,4 +1,4 @@
-<?php // $Id: testajaxlib.php,v 1.1.2.3 2007/03/06 05:01:24 nicolasconnault Exp $
+<?php // $Id: testajaxlib.php,v 1.7 2007/10/10 05:29:35 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.org                                            //
 //                                                                       //
-// Copyright (C) 1999-2004  Martin Dougiamas  http://dougiamas.com       //
+// Copyright (C) 1999 onwards Martin Dougiamas  http://dougiamas.com       //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
 // it under the terms of the GNU General Public License as published by  //
@@ -32,11 +32,10 @@
  * @package moodlecore
  */
 
-/** $Id */
-require_once(dirname(__FILE__) . '/../../config.php');
+if (!defined('MOODLE_INTERNAL')) {
+    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
+}
 
-global $CFG;
-require_once($CFG->libdir . '/simpletestlib.php');
 require_once($CFG->libdir . '/moodlelib.php');
 require_once($CFG->libdir . '/ajax/ajaxlib.php');
 

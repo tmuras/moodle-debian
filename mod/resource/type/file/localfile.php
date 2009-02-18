@@ -1,4 +1,4 @@
-<?php    // $Id: localfile.php,v 1.6 2007/01/11 19:21:18 skodak Exp $
+<?php    // $Id: localfile.php,v 1.6.4.3 2008/12/10 06:30:25 dongsheng Exp $
 
     require('../../../../config.php');
     require('../../lib.php');
@@ -33,7 +33,7 @@
     </script>
     
     <br />
-    <div align="center" class="form">
+    <div class="form mdl-align">
     <form id="myform">
     <fieldset class="invisiblefieldset">
     <input type="file" size="60" name="myfile" /><br />
@@ -45,5 +45,6 @@
     </form>
     </div>
 
-    </body>
-    </html>
+<?php
+    print_footer('empty');
+?>

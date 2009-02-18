@@ -1,4 +1,4 @@
-<?php /// $Id: index.php,v 1.17.2.1 2007/02/28 05:36:20 nicolasconnault Exp $
+<?php /// $Id: index.php,v 1.19.2.1 2008/05/02 05:09:41 jerome Exp $
        /// Main interface window for messaging
 
     require('../config.php');
@@ -20,13 +20,13 @@
     $removecontact  = optional_param('removecontact',  0, PARAM_INT); // removing a contact
     $blockcontact   = optional_param('blockcontact',   0, PARAM_INT); // blocking a contact
     $unblockcontact = optional_param('unblockcontact', 0, PARAM_INT); // unblocking a contact
-    $popup          = optional_param('popup', false, PARAM_ALPHA);    // If set then starts a new popup window
+    $popup          = optional_param('popup', false, PARAM_ALPHANUM);    // If set then starts a new popup window
 
 /// Popup a window if required and quit (usually from external links).
     if ($popup) {
         print_header();
         echo '<script type="text/javascript">'."\n//<![CDATA[\n openpopup('/message/index.php', 'message', 'menubar=0,location=0,scrollbars,status,resizable,width=400,height=500', 0);\n//]]>\n</script>";
-        redirect("$CFG->wwwroot/");
+        redirect("$CFG->wwwroot/", '', 0);
         exit;
     }
 
@@ -57,7 +57,7 @@
         print_header(get_string('messages', 'message').' - '.format_string($SITE->fullname));
     }
 
-    echo '<table cellspacing="2" cellpadding="2" border="0" align="center" width="95%">';
+    echo '<table cellspacing="2" cellpadding="2" border="0" width="95%" class="boxaligncenter">';  
     echo '<tr>';
 
 /// Print out the tabs
@@ -70,8 +70,8 @@
     $tabrow[] = new tabobject('settings', $CFG->wwwroot.'/message/index.php?tab=settings', 
                                get_string('settings', 'message'));
     $tabrows = array($tabrow);
-
-    print_tabs($tabrows, $tab);
+         
+    print_tabs($tabrows, $tab); 
     
     echo '</td>';
 

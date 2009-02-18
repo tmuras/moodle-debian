@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.4 2006/11/29 11:05:56 ethem Exp $
+<?php  //$Id: upgrade.php,v 1.5.2.1 2008/09/27 00:40:01 ethem Exp $
 
 // This file keeps track of upgrades to
 // the authorize enrol plugin
@@ -35,28 +35,69 @@ function xmldb_enrol_authorize_upgrade($oldversion=0) {
     if ($result && $oldversion < 2006112900) {
         if (isset($CFG->an_login)) {
             if (empty($CFG->an_login)) {
-            	unset_config('an_login');
+                unset_config('an_login');
             }
             else {
-            	$result = $result && set_config('an_login', rc4encrypt($CFG->an_login), 'enrol/authorize') && unset_config('an_login');
+                $result = $result && set_config('an_login', rc4encrypt($CFG->an_login), 'enrol/authorize') && unset_config('an_login');
             }
         }
         if (isset($CFG->an_tran_key)) {
             if (empty($CFG->an_tran_key)) {
-            	unset_config('an_tran_key');
+                unset_config('an_tran_key');
             }
             else {
-            	$result = $result && set_config('an_tran_key', rc4encrypt($CFG->an_tran_key), 'enrol/authorize') && unset_config('an_tran_key');
+                $result = $result && set_config('an_tran_key', rc4encrypt($CFG->an_tran_key), 'enrol/authorize') && unset_config('an_tran_key');
             }
         }
         if (isset($CFG->an_password)) {
             if (empty($CFG->an_password)) {
-            	unset_config('an_password');
+                unset_config('an_password');
             }
             else {
                 $result = $result && set_config('an_password', rc4encrypt($CFG->an_password), 'enrol/authorize') && unset_config('an_password');
             }
         }
+    }
+
+
+    if ($result && $oldversion < 2006112903) {
+        /// enrol_authorize.transid
+        /// Define index transid (not unique) to be dropped form enrol_authorize
+        $table = new XMLDBTable('enrol_authorize');
+        $index = new XMLDBIndex('transid');
+        $index->setAttributes(XMLDB_INDEX_NOTUNIQUE, array('transid'));
+        drop_index($table, $index);
+
+        /// Changing precision of field transid on table enrol_authorize to (20)
+        $table = new XMLDBTable('enrol_authorize');
+        $field = new XMLDBField('transid');
+        $field->setAttributes(XMLDB_TYPE_INTEGER, '20', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null, null, '0', 'userid');
+        change_field_precision($table, $field);
+
+        /// Launch add index transid again
+        $table = new XMLDBTable('enrol_authorize');
+        $index = new XMLDBIndex('transid');
+        $index->setAttributes(XMLDB_INDEX_NOTUNIQUE, array('transid'));
+        add_index($table, $index);
+
+        /// enrol_authorize_refunds.transid
+        /// Define index transid (not unique) to be dropped form enrol_authorize_refunds
+        $table = new XMLDBTable('enrol_authorize_refunds');
+        $index = new XMLDBIndex('transid');
+        $index->setAttributes(XMLDB_INDEX_NOTUNIQUE, array('transid'));
+        drop_index($table, $index);
+
+        /// Changing precision of field transid on table enrol_authorize_refunds to (20)
+        $table = new XMLDBTable('enrol_authorize_refunds');
+        $field = new XMLDBField('transid');
+        $field->setAttributes(XMLDB_TYPE_INTEGER, '20', XMLDB_UNSIGNED, null, null, null, null, '0', 'amount');
+        change_field_precision($table, $field);
+
+        /// Launch add index transid again
+        $table = new XMLDBTable('enrol_authorize_refunds');
+        $index = new XMLDBIndex('transid');
+        $index->setAttributes(XMLDB_INDEX_NOTUNIQUE, array('transid'));
+        add_index($table, $index);
     }
 
     return $result;

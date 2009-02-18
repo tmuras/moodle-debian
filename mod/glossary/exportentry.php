@@ -1,4 +1,4 @@
-<?php  // $Id: exportentry.php,v 1.26 2007/01/12 06:57:33 toyomoyo Exp $
+<?php  // $Id: exportentry.php,v 1.30.2.1 2007/10/12 16:09:44 tjhunt Exp $
     require_once('../../config.php');
     require_once('lib.php');
 
@@ -38,10 +38,8 @@
     $entryalreadyexist = get_string('entryalreadyexist','glossary');
     $entryexported = get_string('entryexported','glossary');
 
-    print_header_simple(format_string($glossary->name), '',
-                 '<a href="index.php?id='.$course->id.'">'.$strglossaries.'</a> -> '.format_string($glossary->name),
-                  '', '', true, '',
-                  navmenu($course, $cm));
+    $navigation = build_navigation('', $cm);
+    print_header_simple(format_string($glossary->name), '', $navigation, '', '', true, '', navmenu($course, $cm));
 
     if ( $PermissionGranted ) {
         $entry = get_record('glossary_entries', 'id', $entry);

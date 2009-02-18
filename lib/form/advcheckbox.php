@@ -17,6 +17,13 @@ class MoodleQuickForm_advcheckbox extends HTML_QuickForm_advcheckbox{
      * @var string
      */
     var $_helpbutton='';
+
+    /**
+     * Group to which this checkbox belongs (for select all/select none button)
+     * @var string $_group
+     */
+    var $_group;
+
     /**
      * Class constructor
      *
@@ -36,6 +43,27 @@ class MoodleQuickForm_advcheckbox extends HTML_QuickForm_advcheckbox{
         if ($values === null){
             $values = array(0, 1);
         }
+        
+        if (!is_null($attributes['group'])) {
+            
+            $this->_group = 'checkboxgroup' . $attributes['group'];
+            unset($attributes['group']);
+            if (is_null($attributes)) {
+                $attributes = array();
+                $attributes['class'] .= " $this->_group"; 
+            } elseif (is_array($attributes)) {
+                if (isset($attributes['class'])) {
+                    $attributes['class'] .= " $this->_group";
+                } else {
+                    $attributes['class'] = $this->_group; 
+                }
+            } elseif ($strpos = stripos($attributes, 'class="')) {
+                $attributes = str_ireplace('class="', 'class="' . $this->_group . ' ', $attributes);
+            } else {
+                $attributes .= ' class="' . $this->_group . '"';
+            } 
+        } 
+        
         parent::HTML_QuickForm_advcheckbox($elementName, $elementLabel, $text, $attributes, $values);
     } //end constructor
 
@@ -88,6 +116,28 @@ class MoodleQuickForm_advcheckbox extends HTML_QuickForm_advcheckbox{
             $this->updateAttributes(array('id' => 'id_'.substr(md5(microtime() . $idx++), 0, 6)));
         }
     } // end func _generateId
+
+    function toHtml()
+    {
+        return '<span>' . parent::toHtml() . '</span>';
+    }
+
+    /**
+     * Returns the disabled field. Accessibility: the return "[ ]" from parent
+     * class is not acceptable for screenreader users, and we DO want a label.
+     * @return    string
+     */
+    function getFrozenHtml()
+    {
+        //$this->_generateId();
+        $output = '<input type="checkbox" disabled="disabled" id="'.$this->getAttribute('id').'" ';
+        if ($this->getChecked()) {
+            $output .= 'checked="checked" />'.$this->_getPersistantData();
+        } else {
+            $output .= '/>';
+        }
+        return $output;
+    } //end func getFrozenHtml
 
 }
 ?>

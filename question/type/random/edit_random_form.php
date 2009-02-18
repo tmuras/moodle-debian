@@ -5,7 +5,8 @@
  * @copyright &copy; 2007 Jamie Pratt
  * @author Jamie Pratt me@jamiep.org
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package questions
+ * @package questionbank
+ * @subpackage questiontypes
  */
 
 /**
@@ -30,13 +31,8 @@ class question_edit_random_form extends question_edit_form {
         // Standard fields at the start of the form.
         $mform->addElement('header', 'generalheader', get_string("general", 'form'));
 
-        $mform->addElement('questioncategory', 'category', get_string('category', 'quiz'),
-                array('courseid' => $COURSE->id, 'published' => true, 'only_editable' => true));
-
-        $mform->addElement('text', 'name', get_string('questionname', 'quiz'),
-                array('size' => 50));
-        $mform->setType('name', PARAM_TEXT);
-        $mform->addRule('name', null, 'required', null, 'client');
+        $mform->addElement('questioncategory', 'category', get_string('category', 'quiz'), 
+                array('contexts' => $this->contexts->having_cap('moodle/question:useall')));
 
         $mform->addElement('advcheckbox', 'questiontext', get_string("recurse", "quiz"), null, null, array(0, 1));
 
@@ -56,6 +52,18 @@ class question_edit_random_form extends question_edit_form {
         $mform->addElement('hidden', 'versioning');
         $mform->setType('versioning', PARAM_BOOL);
 
+        $mform->addElement('hidden', 'cmid');
+        $mform->setType('cmid', PARAM_INT);
+        $mform->setDefault('cmid', 0);
+
+        $mform->addElement('hidden', 'courseid');
+        $mform->setType('courseid', PARAM_INT);
+        $mform->setDefault('courseid', 0);
+
+        $mform->addElement('hidden', 'returnurl');
+        $mform->setType('returnurl', PARAM_LOCALURL);
+        $mform->setDefault('returnurl', 0);
+
         $buttonarray = array();
         $buttonarray[] = &$mform->createElement('submit', 'submitbutton', get_string('savechanges'));
 
@@ -63,14 +71,11 @@ class question_edit_random_form extends question_edit_form {
         $mform->addGroup($buttonarray, 'buttonar', '', array(' '), false);
         $mform->closeHeaderBefore('buttonar');
     }
-
-    function set_data($question) {
-        if (empty($question->name)) {
-            $question->name = get_string("random", "quiz");
-        }
-        parent::set_data($question);
+    function validation($fromform, $files) {
+        //validation of category
+        //is not relevant for this question type
+        return array();
     }
-
     function qtype() {
         return 'random';
     }

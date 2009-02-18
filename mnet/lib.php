@@ -1,4 +1,4 @@
-<?php
+<?php // $Id: lib.php,v 1.16.2.9 2008/12/14 23:40:21 jonathanharker Exp $
 /**
  * Library functions for mnet
  *
@@ -45,7 +45,7 @@ function mnet_get_hostname_from_uri($uri = null) {
  *                          its http:// or https:// prefix
  * @return string           A PEM formatted SSL Certificate.
  */
-function mnet_get_public_key($uri) {
+function mnet_get_public_key($uri, $application=null) {
     global $CFG, $MNET;
     // The key may be cached in the mnet_set_public_key function...
     // check this first
@@ -54,8 +54,12 @@ function mnet_get_public_key($uri) {
         return $key;
     }
 
-    $rq = xmlrpc_encode_request('system/keyswap', array($CFG->wwwroot, $MNET->public_key), array("encoding" => "utf-8"));
-    $ch = curl_init($uri.'/mnet/xmlrpc/server.php');
+    if (empty($application)) {
+        $application = get_record('mnet_application', 'name', 'moodle');
+    }
+
+    $rq = xmlrpc_encode_request('system/keyswap', array($CFG->wwwroot, $MNET->public_key, $application->name), array("encoding" => "utf-8"));
+    $ch = curl_init($uri . $application->xmlrpc_server_url);
 
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -67,6 +71,19 @@ function mnet_get_public_key($uri) {
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
 
     $res = xmlrpc_decode(curl_exec($ch));
+
+    // check for curl errors
+    $curlerrno = curl_errno($ch);
+    if ($curlerrno!=0) {
+        debugging("Request for $uri failed with curl error $curlerrno");
+    } 
+
+    // check HTTP error code
+    $info =  curl_getinfo($ch);
+    if (!empty($info['http_code']) and ($info['http_code'] != 200)) {
+        debugging("Request for $uri failed with HTTP code ".$info['http_code']);
+    }
+
     curl_close($ch);
 
     if (!is_array($res)) { // ! error
@@ -79,7 +96,16 @@ function mnet_get_public_key($uri) {
                 mnet_set_public_key($uri, $public_certificate);
                 return $public_certificate;
             }
+            else {
+                debugging("Request for $uri returned public key for different URI - $host");
+            }
         }
+        else {
+            debugging("Request for $uri returned empty response");
+        }
+    }
+    else {
+        debugging( "Request for $uri returned unexpected result");
     }
     return false;
 }
@@ -127,12 +153,23 @@ function mnet_set_public_key($uri, $key = null) {
  * site
  *
  * @param  string   $message              The data you want to sign
+ * @param  resource $privatekey           The private key to sign the response with
  * @return string                         An XML-DSig document
  */
-function mnet_sign_message($message) {
+function mnet_sign_message($message, $privatekey = null) {
     global $CFG, $MNET;
     $digest = sha1($message);
-    $sig = $MNET->sign_message($message);
+
+    // If the user hasn't supplied a private key (for example, one of our older,
+    //  expired private keys, we get the current default private key and use that.
+    if ($privatekey == null) {
+        $privatekey = $MNET->get_private_key();
+    }
+
+    // The '$sig' value below is returned by reference.
+    // We initialize it first to stop my IDE from complaining.
+    $sig  = '';
+    $bool = openssl_sign($message, $sig, $privatekey); // TODO: On failure?
 
     $message = '<?xml version="1.0" encoding="iso-8859-1"?>
     <signedMessage>
@@ -246,7 +283,7 @@ function mnet_get_keypair() {
     static $keypair = null;
     if (!is_null($keypair)) return $keypair;
     if ($result = get_field('config_plugins', 'value', 'plugin', 'mnet', 'name', 'openssl')) {
-        $keypair               = explode('@@@@@@@@', $keypair);
+        list($keypair['certificate'], $keypair['keypair_PEM']) = explode('@@@@@@@@', $result);
         $keypair['privatekey'] = openssl_pkey_get_private($keypair['keypair_PEM']);
         $keypair['publickey']  = openssl_pkey_get_public($keypair['certificate']);
         return $keypair;
@@ -270,6 +307,12 @@ function mnet_get_keypair() {
  */
 function mnet_generate_keypair($dn = null, $days=28) {
     global $CFG, $USER;
+
+    // check if lifetime has been overriden
+    if (!empty($CFG->mnetkeylifetime)) {
+        $days = $CFG->mnetkeylifetime;
+    }
+
     $host = strtolower($CFG->wwwroot);
     $host = ereg_replace("^http(s)?://",'',$host);
     $break = strpos($host.'/' , '/');
@@ -407,7 +450,7 @@ function mnet_permit_rpc_call($includefile, $functionname, $class=false) {
 
     $permissionobj = record_exists_sql($sql);
 
-    if ($permissionobj === false) {
+    if ($permissionobj === false && 'dangerous' != $CFG->mnet_dispatcher_mode) {
         return RPC_FORBIDDENMETHOD;
     }
 
@@ -470,9 +513,9 @@ function mnet_update_sso_access_control($username, $mnet_host_id, $accessctrl) {
         $aclrecord->accessctrl = $accessctrl;
         if (update_record('mnet_sso_access_control', $aclrecord)) {
             add_to_log(SITEID, 'admin/mnet', 'update', 'admin/mnet/access_control.php',
-                    "SSO ACL: $access user '$username' from {$mnethost->name}");
+                    "SSO ACL: $accessctrl user '$username' from {$mnethost->name}");
         } else {
-            error(get_string('failedaclwrite','mnet', $username));
+            print_error('failedaclwrite', 'mnet', '', $username);
             return false;
         }
     } else {
@@ -482,12 +525,73 @@ function mnet_update_sso_access_control($username, $mnet_host_id, $accessctrl) {
         $aclrecord->mnet_host_id = $mnet_host_id;
         if ($id = insert_record('mnet_sso_access_control', $aclrecord)) {
             add_to_log(SITEID, 'admin/mnet', 'add', 'admin/mnet/access_control.php',
-                    "SSO ACL: $access user '$username' from {$mnethost->name}");
+                    "SSO ACL: $accessctrl user '$username' from {$mnethost->name}");
         } else {
-            error(get_string('failedaclwrite','mnet', $username));
+            print_error('failedaclwrite', 'mnet', '', $username);
             return false;
         }
     }
     return true;
 }
+
+function mnet_get_peer_host ($mnethostid) {
+    static $hosts;
+    if (!isset($hosts[$mnethostid])) {
+        $host = get_record('mnet_host', 'id', $mnethostid);
+        $hosts[$mnethostid] = $host;
+    }
+    return $hosts[$mnethostid];
+}
+
+/**
+ * Inline function to modify a url string so that mnet users are requested to
+ * log in at their mnet identity provider (if they are not already logged in)
+ * before ultimately being directed to the original url.
+ *
+ * uses global MNETIDPJUMPURL the url which user should initially be directed to
+ *     MNETIDPJUMPURL is a URL associated with a moodle networking peer when it
+ *     is fulfiling a role as an identity provider (IDP). Different urls for
+ *     different peers, the jumpurl is formed partly from the IDP's webroot, and
+ *     partly from a predefined local path within that webwroot.
+ *     The result of the user hitting MNETIDPJUMPURL is that they will be asked
+ *     to login (at their identity provider (if they aren't already)), mnet
+ *     will prepare the necessary authentication information, then redirect
+ *     them back to somewhere at the content provider(CP) moodle (this moodle)
+ * @param array $url array with 2 elements
+ *     0 - context the url was taken from, possibly just the url, possibly href="url"
+ *     1 - the destination url
+ * @return string the url the remote user should be supplied with.
+ */
+function mnet_sso_apply_indirection ($url) {
+    global $MNETIDPJUMPURL;
+    global $CFG;
+
+    $localpart='';
+    $urlparts = parse_url($url[1]);
+    if($urlparts) {
+        if (isset($urlparts['path'])) {
+            $path = $urlparts['path'];
+            // if our wwwroot has a path component, need to strip that path from beginning of the
+            // 'localpart' to make it relative to moodle's wwwroot
+            $wwwrootparts = parse_url($CFG->wwwroot);
+            if (!empty($wwwrootparts['path']) and strpos($path, $wwwrootparts['path']) === 0) {
+                $path = substr($path, strlen($wwwrootparts['path']));
+            }
+            $localpart .= $path;
+        }
+        if (isset($urlparts['query'])) {
+            $localpart .= '?'.$urlparts['query'];
+        }
+        if (isset($urlparts['fragment'])) {
+            $localpart .= '#'.$urlparts['fragment'];
+        }
+    }
+    $indirecturl = $MNETIDPJUMPURL . urlencode($localpart);
+    //If we matched on more than just a url (ie an html link), return the url to an href format
+    if ($url[0] != $url[1]) {
+        $indirecturl = 'href="'.$indirecturl.'"';
+    }
+    return $indirecturl;
+}
+
 ?>

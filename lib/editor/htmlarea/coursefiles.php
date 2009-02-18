@@ -1,4 +1,4 @@
-<?php // $Id: coursefiles.php,v 1.13 2007/01/27 23:23:45 skodak Exp $
+<?php // $Id: coursefiles.php,v 1.13.8.3 2008/07/11 02:28:32 scyrma Exp $
 
 //  Manage all uploaded files in a course file area
 
@@ -439,7 +439,7 @@
                 }
 
                 if (!zip_files($files,"$basedir/$wdir/$name")) {
-                    error(get_string("zipfileserror","error"));
+                    print_error("zipfileserror","error");
                 }
 
                 clearfilelist();
@@ -491,7 +491,7 @@
                 $file = basename($file);
 
                 if (!unzip_file("$basedir/$wdir/$file")) {
-                    error(get_string("unzipfileserror","error"));
+                    print_error("unzipfileserror","error");
                 }
 
                 echo "<center><form action=\"coursefiles.php\" method=\"get\">\n";
@@ -755,17 +755,13 @@ function displaydir ($wdir) {
                 print_cell("center", "<input type=\"checkbox\" name=\"file$count\" value=\"$fileurl\" onclick=\";return set_rename('$file');\" />");
             }
             echo "<td align=\"left\" nowrap=\"nowrap\">";
-            if ($CFG->slasharguments) {
-                $ffurl = "/file.php/$id$fileurl";
-            } else {
-                $ffurl = "/file.php?file=/$id$fileurl";
-            }
+            $ffurl = get_file_url($id.$fileurl);
             link_to_popup_window ($ffurl, "display",
                                   "<img src=\"$CFG->pixpath/f/$icon\" class=\"icon\" alt=\"$strfile\" />",
                                   480, 640);
             $file_size = filesize($filename);
 
-            echo "<a onclick=\"return set_value(info = {url: '".$CFG->wwwroot.$ffurl."',";
+            echo "<a onclick=\"return set_value(info = {url: '".$ffurl."',";
             echo " isize: '".$file_size."', itype: '".$imgtype."', iwidth: '".$imgwidth."',";
             echo " iheight: '".$imgheight."', imodified: '".$filedate."' })\" href=\"#\">$file</a>";
             echo "</td>\n";

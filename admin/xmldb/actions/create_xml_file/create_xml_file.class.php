@@ -1,4 +1,4 @@
-<?php // $Id: create_xml_file.class.php,v 1.3 2006/09/20 21:00:49 skodak Exp $
+<?php // $Id: create_xml_file.class.php,v 1.5 2007/10/10 05:25:28 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -82,10 +82,10 @@ class create_xml_file extends XMLDBAction {
         $c.= '    <TABLES>' . "\n";
         $c.= '      <TABLE NAME="' . $xmltable . '" COMMENT="Default comment for ' . $xmltable .', please edit me">' . "\n";
         $c.= '        <FIELDS>' . "\n";
-        $c.= '          <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" COMMENT="id of the table, please edit me" />' . "\n";
+        $c.= '          <FIELD NAME="id" TYPE="int" LENGTH="10" UNSIGNED="true" NOTNULL="true" SEQUENCE="true" />' . "\n";
         $c.= '        </FIELDS>' . "\n";
         $c.= '        <KEYS>' . "\n";
-        $c.= '          <KEY NAME="primary" COMMENT="Primary key for ' . $xmltable . '" TYPE="primary" FIELDS="id" />' . "\n";
+        $c.= '          <KEY NAME="primary" TYPE="primary" FIELDS="id" />' . "\n";
         $c.= '        </KEYS>' . "\n";
         $c.= '      </TABLE>' . "\n";
         $c.= '    </TABLES>' . "\n";

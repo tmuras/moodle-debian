@@ -1,4 +1,4 @@
-<?php  // $Id: rsslib.php,v 1.46.2.4 2007/03/23 07:58:27 nicolasconnault Exp $
+<?php  // $Id: rsslib.php,v 1.52.2.4 2008/09/16 08:55:43 moodler Exp $
        // This file contains all the common stuff to be used in RSS System
 
 //This function returns the icon (from theme) with the link to rss/file.php
@@ -25,12 +25,8 @@ function rss_get_link($courseid, $userid, $modulename, $id, $tooltiptext='') {
 //This function returns the URL for the RSS XML file.
 function rss_get_url($courseid, $userid, $modulename, $id) {
     global $CFG;
-    if ($CFG->slasharguments) {
-        $rsspath = "$CFG->wwwroot/rss/file.php/$courseid/$userid/$modulename/$id/rss.xml";
-    } else {
-        $rsspath = "$CFG->wwwroot/rss/file.php?file=/$courseid/$userid/$modulename/$id/rss.xml";
-    }
-    return $rsspath;
+    require_once($CFG->libdir.'/filelib.php');
+    return get_file_url($courseid.'/'.$userid.'/'.$modulename.'/'.$id.'/rss.xml', null, 'rssfile');
 }
 
 //This function prints the icon (from theme) with the link to rss/file.php
@@ -47,7 +43,7 @@ function cron_rss_feeds () {
     global $CFG;
 
     $status = true;
-   
+
     mtrace('    Generating rssfeeds...');
 
     //Check for required functions...
@@ -97,9 +93,9 @@ function cron_rss_feeds () {
 
 //This function saves to file the rss feed specified in the parameters
 function rss_save_file ($modname, $mod, $result) {
- 
+
     global $CFG;
-    
+
     $status = true;
 
     if (! $basedir = make_upload_directory ('rss/'. $modname)) {
@@ -207,7 +203,7 @@ function rss_standard_header($title = NULL, $link = NULL, $description = NULL) {
 function rss_add_items($items) {
 
     global $CFG;
-        
+
     $result = '';
 
     if (!empty($items)) {
@@ -220,7 +216,7 @@ function rss_add_items($items) {
             $result .= rss_full_tag('title',3,false,strip_tags($item->title));
             $result .= rss_full_tag('link',3,false,$item->link);
             $result .= rss_add_enclosures($item);
-            $result .= rss_full_tag('pubDate',3,false,date('D, d M Y H:i:s T',$item->pubdate));
+            $result .= rss_full_tag('pubDate',3,false,gmdate('D, d M Y H:i:s',$item->pubdate).' GMT');  # MDL-12563
             //Include the author if exists 
             if (isset($item->author)) {
                 //$result .= rss_full_tag('author',3,false,$item->author);
@@ -268,8 +264,9 @@ function rss_geterrorxmlfile() {
     //XML Header
     $return = rss_standard_header();
 
-    //XML item 
+    //XML item
     if ($return) {
+        $item = new object();
         $item->title = "RSS Error";
         $item->link = $CFG->wwwroot;
         $item->pubdate = time();
@@ -281,7 +278,7 @@ function rss_geterrorxmlfile() {
     if ($return) {
         $return .= rss_standard_footer();
     }
-    
+
     return $return;
 }
 
@@ -336,18 +333,16 @@ if (!isset($CFG->block_rss_client_submitters) ) {
 if (empty($CFG->block_rss_client_num_entries) ) {
     $CFG->block_rss_client_num_entries = 5; //default to 5 entries per block
 }
-if (!isset($CFG->block_rss_timeout) ) {
-    $CFG->block_rss_timeout = 30;
+if (!isset($CFG->block_rss_client_timeout) ) {
+    $CFG->block_rss_client_timeout = 30; //default to 30 mins
 }
 
 // Defines for moodle's use of magpierss classes
-define('MAGPIE_PROXY_HOST', $CFG->proxyhost);   // Could be empty, that's OK
-define('MAGPIE_PROXY_PORT', $CFG->proxyport);   // Could be empty, that's OK
-define('MAGPIE_DIR', $CFG->dirroot.'/lib/magpie/');
+define('MAGPIE_DIR', $CFG->libdir.'/magpie/');
 define('MAGPIE_CACHE_DIR', $CFG->dataroot .'/cache/rsscache');
 define('MAGPIE_CACHE_ON', true); //might want to expose as an admin config option, but perhaps this is something that should truly just be on unless the code is tweaked
 define('MAGPIE_CACHE_FRESH_ONLY', false); //should be exposed as an admin config option
-define('MAGPIE_CACHE_AGE', $CFG->block_rss_timeout);
+define('MAGPIE_CACHE_AGE', $CFG->block_rss_client_timeout * 60);
 define('MAGPIE_DEBUG', $CFG->debug); // magpie, like moodle, takes an integer debug
 
 // defines for config var block_rss_client_submitters
@@ -371,7 +366,7 @@ function rss_display_feeds($courseid, $userid, $rssid='', $context) {
     $select = '';
     $managesharedfeeds = has_capability('block/rss_client:manageanyfeeds', $context);
     $manageownfeeds = has_capability('block/rss_client:manageownfeeds', $context);
-    
+
     if ($rssid != '') {
         $select = 'id = '.$rssid.' AND ';
     }
@@ -407,10 +402,10 @@ function rss_display_feeds($courseid, $userid, $rssid='', $context) {
 
             if ( ($feed->userid == $USER->id && $manageownfeeds)
                     || ($feed->shared && $managesharedfeeds) ) {
-                
+
                 $feedicons = '<a href="'. $CFG->wwwroot .'/blocks/rss_client/block_rss_client_action.php?id='. $courseid .'&amp;act=rssedit&amp;rssid='. $feed->id .'&amp;shared='.$feed->shared.'&amp;blogid='. $blogid .'">'.
                              '<img src="'. $CFG->pixpath .'/t/edit.gif" alt="'. get_string('edit').'" title="'. get_string('edit') .'" /></a>&nbsp;'.
-                             
+
                              '<a href="'. $CFG->wwwroot .'/blocks/rss_client/block_rss_client_action.php?id='. $courseid .'&amp;act=delfeed&amp;rssid='. $feed->id.'&amp;shared='.$feed->shared.'blogid='. $blogid .'" 
                 onclick="return confirm(\''. get_string('deletefeedconfirm', 'block_rss_client') .'\');">'.
                              '<img src="'. $CFG->pixpath .'/t/delete.gif" alt="'. get_string('delete').'" title="'. get_string('delete') .'" /></a>';
@@ -428,7 +423,7 @@ function rss_display_feeds($courseid, $userid, $rssid='', $context) {
         <a href="'. $feed->url .'">'. $feed->url .'</a>
     </div>
     <div class="description">'.$feed->description.'</div>';
-            
+
             $table->add_data(array($feedinfo, $feedicons));
         }
     }
@@ -463,29 +458,29 @@ function rss_get_form($act='none', $url='', $rssid='', $preferredtitle='', $shar
     $stradd = get_string('add');
     $strupdatefeed = get_string('updatefeed', 'block_rss_client');
     $straddfeed = get_string('addfeed', 'block_rss_client');
-   
+
     $returnstring = '';
 
     $returnstring .= '<form action="'. $CFG->wwwroot .'/blocks/rss_client/block_rss_client_action.php" method="post" id="block_rss">'."\n";
     print_location_comment(__FILE__,__LINE__);
-    $returnstring .= '<div id="rss_table">'."\n";    
+    $returnstring .= '<div id="rss_table">'."\n";
     if ($act == 'rssedit') {
-        $returnstring .= $strupdatefeed; 
-    } else { 
-        $returnstring .= $straddfeed; 
+        $returnstring .= $strupdatefeed;
+    } else {
+        $returnstring .= $straddfeed;
     }
 
     $returnstring .= "\n".'<br /><input type="text" size="60" maxlength="256" name="url" value="';
-    if ($act == 'rssedit') { 
-        $returnstring .= $url; 
+    if ($act == 'rssedit') {
+        $returnstring .= $url;
     }
 
     $returnstring .= '" />'."\n";
     $returnstring .= '<br />'. get_string('customtitlelabel', 'block_rss_client');
     $returnstring .= '<br /><input type="text" size="60" maxlength="128" name="preferredtitle" value="';
 
-    if ($act == 'rssedit') { 
-        $returnstring .= $preferredtitle; 
+    if ($act == 'rssedit') {
+        $returnstring .= $preferredtitle;
     }
 
     $returnstring .= '" />'."\n";
@@ -499,7 +494,7 @@ function rss_get_form($act='none', $url='', $rssid='', $preferredtitle='', $shar
         $returnstring .= get_string('sharedfeed', 'block_rss_client');
         $returnstring .= '<br />'."\n";
     }
-    
+
     $returnstring .= '<input type="hidden" name="act" value="';
 
     if ($act == 'rssedit') {
@@ -509,16 +504,15 @@ function rss_get_form($act='none', $url='', $rssid='', $preferredtitle='', $shar
     }
 
     $returnstring .= '" />'."\n";
-    if ($act == 'rssedit') { 
-        $returnstring .= '<input type="hidden" name="rssid" value="'. $rssid .'" />'. "\n"; 
+    if ($act == 'rssedit') {
+        $returnstring .= '<input type="hidden" name="rssid" value="'. $rssid .'" />'. "\n";
     }
 
     $returnstring .= '<input type="hidden" name="id" value="'. $courseid .'" />'."\n";
     $returnstring .= '<input type="hidden" name="blogid" value="'. $blogid .'" />'."\n";
     $returnstring .= '<input type="hidden" name="user" value="'. $USER->id .'" />'."\n";
     $returnstring .= '<br /><input type="submit" value="';
-    $validatestring = "<a href=\"#\" 
-onclick=\"window.open('http://feedvalidator.org/check.cgi?url='+getElementId('block_rss').elements['url'].value,'validate','width=640,height=480,scrollbars=yes,status=yes,resizable=yes');return true;\">". get_string('validatefeed', 'block_rss_client')."</a>";
+    $validatestring = "<a href=\"#\" onclick=\"window.open('http://feedvalidator.org/check.cgi?url='+getElementById('block_rss').elements['url'].value,'validate','width=640,height=480,scrollbars=yes,status=yes,resizable=yes');return true;\">". get_string('validatefeed', 'block_rss_client')."</a>";
 
     if ($act == 'rssedit') {
         $returnstring .= $stredit;
@@ -534,17 +528,17 @@ onclick=\"window.open('http://feedvalidator.org/check.cgi?url='+getElementId('bl
 
 /**
 * Adds RSS Media Enclosures for "podcasting" by examining links to media files,
-* and attachments which are media files. Please note that the RSS that is 
+* and attachments which are media files. Please note that the RSS that is
 * produced cannot be strictly valid for the linked files, since we do not know
-* the files' sizes and cannot include them in the "length" attribute. At 
+* the files' sizes and cannot include them in the "length" attribute. At
 * present, the validity (and therefore the podcast working in most software)
 * can only be ensured for attachments, and not for links.
-* Note also that iTunes does some things very badly - one thing it does is 
+* Note also that iTunes does some things very badly - one thing it does is
 * refuse to download ANY of your files if you're using "file.php?file=blah"
-* and can't use the more elegant "file.php/blah" slasharguments setting. It 
-* stops after ".php" and assumes the files are not media files, despite what 
+* and can't use the more elegant "file.php/blah" slasharguments setting. It
+* stops after ".php" and assumes the files are not media files, despite what
 * is specified in the "type" attribute. Dodgy coding all round!
-* 
+*
 * @param    $item     object representing an RSS item
 * @return   string    RSS enclosure tags
 * @author   Hannes Gassert <hannes@mediagonal.ch>
@@ -556,7 +550,7 @@ function rss_add_enclosures($item){
 
     $returnstring = '';
     $rss_text = $item->description;
-    
+
     // list of media file extensions and their respective mime types
     include_once($CFG->libdir.'/filelib.php');
     $mediafiletypes = get_mimetypes_array();
@@ -576,12 +570,12 @@ function rss_add_enclosures($item){
             $returnstring .= "\n<enclosure url=\"$attachment->url\" length=\"$attachment->length\" type=\"$type\" />\n";
         }
     }
-    
+
     if (!preg_match_all($medialinkpattern, $rss_text, $matches)){
         return $returnstring;
     }
 
-    // loop over matches of regular expression 
+    // loop over matches of regular expression
     for ($i = 0; $i < count($matches[2]); $i++){
         $url = htmlspecialchars($matches[2][$i]);
         $extension = strtolower($matches[3][$i]);
@@ -594,7 +588,7 @@ function rss_add_enclosures($item){
         // the rss_*_tag functions can't deal with methods, unfortunately
         $returnstring .= "\n<enclosure url='$url' type='$type' />\n";
     }
-    
+
     return $returnstring;
 }
 ?>

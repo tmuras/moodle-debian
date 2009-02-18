@@ -1,5 +1,5 @@
 #!/usr/bin/php -f
-<?php // $Id: process_email.php,v 1.4.12.1 2007/02/28 05:36:21 nicolasconnault Exp $
+<?php // $Id: process_email.php,v 1.5.4.1 2008/01/24 02:17:17 scyrma Exp $
 define('FULLME','cron'); // prevent warnings
 //error_reporting(0);
 //ini_set('display_errors',0);
@@ -54,7 +54,7 @@ if ($modid == '0') { // special
 }
 else {
     $modname = get_field("modules","name","id",$modid);
-    require_once('mod/'.$modname.'/lib.php');
+    include_once('mod/'.$modname.'/lib.php');
 }
 $function = $modname.'_process_email';
 

@@ -1,4 +1,4 @@
-<?PHP // $Id: install.php,v 1.13.2.1 2007/04/15 14:25:10 skodak Exp $ 
+<?PHP // $Id: install.php,v 1.15.2.5 2008/11/13 14:52:06 wildgirl Exp $ 
       // install.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -68,7 +68,7 @@ $string['databasesettingssub'] = '<b>Type:</b> mysql or postgres7<br />
        <b>User:</b> your database username<br />
        <b>Password:</b> your database password<br />
        <b>Tables Prefix:</b> optional prefix to use for all table names';
-$string['databasesettingssub_mssql'] = '<b>Type:</b> SQL*Server (non UTF-8) <b><font color=\"red\">Experimental! (not for use in production)</font></b><br />
+$string['databasesettingssub_mssql'] = '<b>Type:</b> SQL*Server (non UTF-8) <b><strong  class=\"errormsg\">Experimental! (not for use in production)</strong></b><br />
        <b>Host:</b> eg localhost or db.isp.com<br />
        <b>Name:</b> database name, eg moodle<br />
        <b>User:</b> your database username<br />
@@ -86,13 +86,19 @@ $string['databasesettingssub_mysql'] = '<b>Type:</b> MySQL<br />
        <b>User:</b> your database username<br />
        <b>Password:</b> your database password<br />
        <b>Tables Prefix:</b> prefix to use for all table names (optional)';
+$string['databasesettingssub_mysqli'] = '<b>Type:</b> Improved MySQL<br />
+       <b>Host:</b> eg localhost or db.isp.com<br />
+       <b>Name:</b> database name, eg moodle<br />
+       <b>User:</b> your database username<br />
+       <b>Password:</b> your database password<br />
+       <b>Tables Prefix:</b> prefix to use for all table names (optional)';
 $string['databasesettingssub_oci8po'] = '<b>Type:</b> Oracle<br />
        <b>Host:</b> not used, must be left blank<br />
        <b>Name:</b> given name of the tnsnames.ora connection<br />
        <b>User:</b> your database username<br />
        <b>Password:</b> your database password<br />
        <b>Tables Prefix:</b> prefix to use for all table names (mandatory, 2cc. max)';
-$string['databasesettingssub_odbc_mssql'] = '<b>Type:</b> SQL*Server (over ODBC) <b><font color=\"red\">Experimental! (not for use in production)</font></b><br />
+$string['databasesettingssub_odbc_mssql'] = '<b>Type:</b> SQL*Server (over ODBC) <b><strong  class=\"errormsg\">Experimental! (not for use in production)</strong></b><br />
        <b>Host:</b> given name of the DSN in the ODBC control panel<br />
        <b>Name:</b> database name, eg moodle<br />
        <b>User:</b> your database username<br />
@@ -104,8 +110,10 @@ $string['databasesettingssub_postgres7'] = '<b>Type:</b> PostgreSQL<br />
        <b>User:</b> your database username<br />
        <b>Password:</b> your database password<br />
        <b>Tables Prefix:</b> prefix to use for all table names (mandatory)';
+$string['databasesettingswillbecreated'] = '<b>Note:</b> The installer will try to create the database automatically if not exists.';
 $string['dataroot'] = 'Data Directory';
 $string['datarooterror'] = 'The \'Data Directory\' you specified could not be found or created.  Either correct the path or create that directory manually.';
+$string['datarootpublicerror'] = 'The \'Data Directory\' you specified is directly accessible via web, you must use different directory.';
 $string['dbconnectionerror'] = 'We could not connect to the database you specified. Please check your database settings.';
 $string['dbcreationerror'] = 'Database creation error. Could not create the given database name with the settings provided';
 $string['dbhost'] = 'Host Server';
@@ -148,8 +156,8 @@ Make sure the upper/lower case is correct.
 <br />
 <b>Data Directory:</b>
 You need a place where Moodle can save uploaded files.  This
-directory should be readable AND WRITEABLE by the web server user 
-(usually \'nobody\' or \'apache\'), but it should not be accessible 
+directory must be readable AND WRITEABLE by the web server user 
+(usually \'nobody\' or \'apache\'), but it must not be accessible 
 directly via the web.';
 $string['dirroot'] = 'Moodle Directory';
 $string['dirrooterror'] = 'The \'Moodle Directory\' setting seems to be incorrect - we can\'t find a Moodle installation there. The value below has been reset.';
@@ -190,10 +198,10 @@ $string['globalsquoteshelp'] = '<p>Combination of disabled Magic Quotes GPC and 
 <p>The recommended setting is <b>magic_quotes_gpc = On</b> and <b>register_globals = Off</b> in your php.ini</p>
 
 <p>If you don\'t have access to your php.ini, you might be able to place the following line in a file 
-   called .htaccess within your Moodle directory:
-   <blockquote>php_value magic_quotes_gpc On</blockquote>
-   <blockquote>php_value register_globals Off</blockquote>
-</p>';
+   called .htaccess within your Moodle directory:</p>
+   <blockquote><div>php_value magic_quotes_gpc On</div></blockquote>
+   <blockquote><div>php_value register_globals Off</div></blockquote>
+';
 $string['installation'] = 'Installation';
 $string['langdownloaderror'] = 'Unfortunately the language \"$a\" was not installed. The installation process will continue in English.';
 $string['langdownloadok'] = 'The language \"$a\" was installed successfully. The installation process will continue in this language.';
@@ -204,9 +212,9 @@ $string['magicquotesruntimehelp'] = '<p>Magic quotes runtime should be turned of
 <p>Normally it is off by default ... see the setting <b>magic_quotes_runtime</b> in your php.ini file.</p>
 
 <p>If you don\'t have access to your php.ini, you might be able to place the following line in a file 
-   called .htaccess within your Moodle directory:
-   <blockquote>php_value magic_quotes_runtime Off</blockquote>
-</p>';
+   called .htaccess within your Moodle directory:</p>
+   <blockquote><div>php_value magic_quotes_runtime Off</div></blockquote>
+';
 $string['memorylimit'] = 'Memory Limit';
 $string['memorylimiterror'] = 'The PHP memory limit is set quite low ... you may run into problems later.';
 $string['memorylimithelp'] = '<p>The PHP memory limit for your server is currently set to $a.</p>
@@ -224,7 +232,7 @@ $string['memorylimithelp'] = '<p>The PHP memory limit for your server is current
     be able to ask your administrator to do this for you.</li>
 <li>On some PHP servers you can create a .htaccess file in the Moodle directory 
     containing this line:
-    <p><blockquote>php_value memory_limit 40M</blockquote></p>
+    <blockquote><div>php_value memory_limit 40M</div></blockquote>
     <p>However, on some servers this will prevent <b>all</b> PHP pages from working 
     (you will see errors when you look at pages) so you\'ll have to remove the .htaccess file.</p></li>
 </ol>';
@@ -232,7 +240,9 @@ $string['mssql'] = 'SQL*Server (mssql)';
 $string['mssql_n'] = 'SQL*Server with UTF-8 support (mssql_n)';
 $string['mssqlextensionisnotpresentinphp'] = 'PHP has not been properly configured with the MSSQL extension so that it can communicate with SQL*Server.  Please check your php.ini file or recompile PHP.';
 $string['mysql'] = 'MySQL (mysql)';
+$string['mysqli'] = 'Improved MySQL (mysqli)';
 $string['mysqlextensionisnotpresentinphp'] = 'PHP has not been properly configured with the MySQL extension so that it can communicate with MySQL.  Please check your php.ini file or recompile PHP.';
+$string['mysqliextensionisnotpresentinphp'] = 'PHP has not been properly configured with the MySQLi extension so that it can communicate with MySQL.  Please check your php.ini file or recompile PHP.  MySQLi extension is not available for PHP 4.';
 $string['oci8po'] = 'Oracle (oci8po)';
 $string['ociextensionisnotpresentinphp'] = 'PHP has not been properly configured with the OCI8 extension so that it can communicate with Oracle.  Please check your php.ini file or recompile PHP.';
 $string['odbc_mssql'] = 'SQL*Server over ODBC (odbc_mssql)';
@@ -243,9 +253,12 @@ $string['phpversion'] = 'PHP version';
 $string['phpversionerror'] = 'PHP version must be at least 4.3.0 or 5.1.0 (5.0.x has a number of known problems).';
 $string['phpversionhelp'] = '<p>Moodle requires a PHP version of at least 4.3.0 or 5.1.0 (5.0.x has a number of known problems).</p>
 <p>You are currently running version $a</p>
-<p>You must upgrade PHP or move to a host with a newer version of PHP!<br/>
+<p>You must upgrade PHP or move to a host with a newer version of PHP!<br />
 (In case of 5.0.x you could also downgrade to 4.4.x version)</p>';
 $string['postgres7'] = 'PostgreSQL (postgres7)';
+$string['postgresqlwarning'] = '<strong>Note:</strong> If you experience some connection problems, you can try to set Host Server field as
+ host=\'postgresql_host\' port=\'5432\' dbname=\'postgresql_database_name\' user=\'postgresql_user\' password=\'postgresql_user_password\'
+and to leave empty the Database, User and Password fields. More information on <a href=\"http://docs.moodle.org/en/Installing_Postgres_for_PHP\">Moodle Docs</a>';
 $string['safemode'] = 'Safe Mode';
 $string['safemodeerror'] = 'Moodle may have trouble with safe mode on';
 $string['safemodehelp'] = '<p>Moodle may have a variety of problems with safe mode on, not least is that 

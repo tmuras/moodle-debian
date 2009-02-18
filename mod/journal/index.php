@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.21 2006/04/05 07:46:53 gustav_delius Exp $
+<?php // $Id: index.php,v 1.26.2.3 2008/02/05 21:39:53 skodak Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -17,12 +17,16 @@
     $strweek = get_string("week");
     $strtopic = get_string("topic");
 
-    print_header_simple("$strjournals", "", "$strjournals", 
+    $navlinks = array();
+    $navlinks[] = array('name' => $strjournals, 'link' => '', 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
+
+    print_header_simple("$strjournals", "", $navigation,
                  "", "", true, "", navmenu($course));
 
 
     if (! $journals = get_all_instances_in_course("journal", $course)) {
-        notice("There are no journals", "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strjournals), "../../course/view.php?id=$course->id");
         die;
     }
 
@@ -54,6 +58,5 @@
     echo "<br />";
 
     print_footer($course);
- 
-?>
 
+?>

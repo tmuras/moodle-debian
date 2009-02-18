@@ -1,4 +1,4 @@
-<?php //  $Id: importstudents.php,v 1.22.2.1 2007/02/28 05:36:15 nicolasconnault Exp $
+<?php //  $Id: importstudents.php,v 1.24 2007/08/17 19:09:11 nicolasconnault Exp $
 // script to assign students to a meta course by selecting which courses the meta course comprises.
 // this is basically a hack of student.php that uses courses instead.
 
@@ -45,8 +45,7 @@
 
     print_header("$course->shortname: $strassigncourses",
                  $site->fullname,
-                 "<a href=\"view.php?id=$course->id\">$course->shortname</a> -> $strassigncourses",
-                 "searchtext");
+                 build_navigation(array(array('name' => $strassigncourses, 'link' => null, 'type' => 'misc'))), "searchtext");
 
 
 /// Print a help notice about the need to use this page

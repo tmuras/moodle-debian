@@ -16,9 +16,8 @@
 //
 function AICCapi() {
     // Standard Data Type Definition
-    CMIString256 = '^.{0,255}$';
-    //CMIString4096 = '^[.|\\n|\\r]{0,4095}$';
-    CMIString4096 = '^.{0,4096}$';
+    CMIString256 = '^[\\u0000-\\uffff]{0,255}$';
+    CMIString4096 = '^[\\u0000-\\uffff]{0,4096}$';
     CMITime = '^([0-2]{1}[0-9]{1}):([0-5]{1}[0-9]{1}):([0-5]{1}[0-9]{1})(\.[0-9]{1,2})?$';
     CMITimespan = '^([0-9]{2,4}):([0-9]{2}):([0-9]{2})(\.[0-9]{1,2})?$';
     CMIInteger = '^\\d+$';
@@ -69,7 +68,7 @@ function AICCapi() {
         'cmi.core.total_time':{'defaultvalue':'<?php echo isset($userdata->{'cmi.core.total_time'})?$userdata->{'cmi.core.total_time'}:'00:00:00' ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.core.lesson_mode':{'defaultvalue':'<?php echo $userdata->mode ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.suspend_data':{'defaultvalue':'<?php echo isset($userdata->{'cmi.suspend_data'})?$userdata->{'cmi.suspend_data'}:'' ?>', 'format':CMIString4096, 'mod':'rw', 'writeerror':'405'},
-        'cmi.launch_data':{'defaultvalue':'<?php echo $userdata->datafromlms ?>', 'mod':'r', 'writeerror':'403'},
+        'cmi.launch_data':{'defaultvalue':'<?php echo isset($userdata->datafromlms)?$userdata->datafromlms:'' ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.comments':{'defaultvalue':'<?php echo isset($userdata->{'cmi.comments'})?$userdata->{'cmi.comments'}:'' ?>', 'format':CMIString4096, 'mod':'rw', 'writeerror':'405'},
         'cmi.evaluation.comments._count':{'defaultvalue':'0', 'mod':'r', 'writeerror':'402'},
         'cmi.evaluation.comments._children':{'defaultvalue':comments_children, 'mod':'r', 'writeerror':'402'},
@@ -92,9 +91,9 @@ function AICCapi() {
         'cmi.student_data.tries.n.score.max':{'defaultvalue':'', 'pattern':CMIIndex, 'format':CMIDecimal, 'range':score_range, 'mod':'rw', 'writeerror':'405'},
         'cmi.student_data.tries.n.status':{'pattern':CMIIndex, 'format':CMIStatus2, 'mod':'rw', 'writeerror':'405'},
         'cmi.student_data.tries.n.time':{'pattern':CMIIndex, 'format':CMITime, 'mod':'rw', 'writeerror':'405'},
-        'cmi.student_data.mastery_score':{'defaultvalue':'<?php echo $userdata->masteryscore ?>', 'mod':'r', 'writeerror':'403'},
-        'cmi.student_data.max_time_allowed':{'defaultvalue':'<?php echo $userdata->maxtimeallowed ?>', 'mod':'r', 'writeerror':'403'},
-        'cmi.student_data.time_limit_action':{'defaultvalue':'<?php echo $userdata->timelimitaction ?>', 'mod':'r', 'writeerror':'403'},
+        'cmi.student_data.mastery_score':{'defaultvalue':'<?php echo isset($userdata->masteryscore)?$userdata->masteryscore:'' ?>', 'mod':'r', 'writeerror':'403'},
+        'cmi.student_data.max_time_allowed':{'defaultvalue':'<?php echo isset($userdata->maxtimeallowed)?$userdata->maxtimeallowed:'' ?>', 'mod':'r', 'writeerror':'403'},
+        'cmi.student_data.time_limit_action':{'defaultvalue':'<?php echo isset($userdata->timelimitaction)?$userdata->timelimitaction:'' ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.student_data.tries_during_lesson':{'defaultvalue':'<?php echo isset($userdata->{'cmi.student_data.tries_during_lesson'})?$userdata->{'cmi.student_data.tries_during_lesson'}:'' ?>', 'mod':'r', 'writeerror':'402'},
         'cmi.student_preference._children':{'defaultvalue':student_preference_children, 'mod':'r', 'writeerror':'402'},
         'cmi.student_preference.audio':{'defaultvalue':'0', 'format':CMISInteger, 'range':audio_range, 'mod':'rw', 'writeerror':'405'},
@@ -126,6 +125,8 @@ function AICCapi() {
         cmi.student_data = new Object();
         cmi.student_preference = new Object();
         cmi.interactions = new Object();
+        cmi.evaluation = new Object();
+        cmi.evaluation.comments = new Object();
 
     // Navigation Object
     var nav = new Object();
@@ -141,14 +142,15 @@ function AICCapi() {
     }
 
 <?php
+    $current_objective = '';
     $count = 0;
     $objectives = '';
     foreach($userdata as $element => $value){
         if (substr($element,0,14) == 'cmi.objectives') {
-            preg_match('/.(\d+)./',$element,$matches);
-            $element = preg_replace('/.(\d+)./',"_\$1.",$element);
-            if ($matches[1] == $count) {
-                $count++;
+            $element = preg_replace('/\.(\d+)\./', "_\$1.", $element);
+            preg_match('/\_(\d+)\./', $element, $matches);
+            if (count($matches) > 0 && $current_objective != $matches[1]) {
+                $current_objective = $matches[1];
                 $end = strpos($element,$matches[1])+strlen($matches[1]);
                 $subelement = substr($element,0,$end);
                 echo '    '.$subelement." = new Object();\n";
@@ -223,10 +225,10 @@ function AICCapi() {
         if (Initialized) {
             if (element !="") {
                 expression = new RegExp(CMIIndex,'g');
-                elementmodel = element.replace(expression,'.n.');
+                elementmodel = String(element).replace(expression,'.n.');
                 if ((typeof eval('datamodel["'+elementmodel+'"]')) != "undefined") {
                     if (eval('datamodel["'+elementmodel+'"].mod') != 'w') {
-                            element = element.replace(expression, "_$1.");
+                            element = String(element).replace(expression, "_$1.");
                             elementIndexes = element.split('.');
                         subelement = 'cmi';
                         i = 1;
@@ -277,7 +279,7 @@ function AICCapi() {
         if (Initialized) {
             if (element != "") {
                 expression = new RegExp(CMIIndex,'g');
-                elementmodel = element.replace(expression,'.n.');
+                elementmodel = String(element).replace(expression,'.n.');
                 if ((typeof eval('datamodel["'+elementmodel+'"]')) != "undefined") {
                     if (eval('datamodel["'+elementmodel+'"].mod') != 'r') {
                         expression = new RegExp(eval('datamodel["'+elementmodel+'"].format'));
@@ -473,7 +475,7 @@ function AICCapi() {
             } else {
                 element = parent+'.'+property;
                 expression = new RegExp(CMIIndex,'g');
-                elementmodel = element.replace(expression,'.n.');
+                elementmodel = String(element).replace(expression,'.n.');
                 if ((typeof eval('datamodel["'+elementmodel+'"]')) != "undefined") {
                     if (eval('datamodel["'+elementmodel+'"].mod') != 'r') {
                         elementstring = '&'+underscore(element)+'='+escape(data[property]);

@@ -3,67 +3,6 @@
  * Library functions for using AJAX with Moodle.
  */
 
-
-/**
- * Used to include JavaScript libraries.
- *
- * When the $lib parameter is given, the function will add $lib to an
- * internal list of libraries. When called without any parameters, it will
- * return the html that is needed to load the JavaScript libraries in that
- * list. Libraries that are included more than once will still only get loaded
- * once, so this works like require_once() in PHP.
- *
- * @param $lib - string or array of strings
- *               string(s) should be the shortname for the library or the
- *               full path to the library file.
- * @return string or false or nothing.
- */
-function require_js($lib='') {
-    global $CFG;
-    static $loadlibs = array();
-
-    if (!ajaxenabled()) {
-        //return false;
-    }
-
-    if (!empty($lib)) {
-        // Add the lib to the list of libs to be loaded, if it isn't already
-        // in the list.
-        if (is_array($lib)) {
-            array_map('require_js', $lib);
-        } else {
-            $libpath = ajax_get_lib($lib);
-            if (array_search($libpath, $loadlibs) === false) {
-                $loadlibs[] = $libpath;
-                // If this is called after header, then we print it right away
-                // as otherwise nothing will ever happen!
-                if (defined('HEADER_PRINTED')) {
-                    $realloadlibs=$loadlibs;
-                    $loadlibs=array($libpath);
-                    print require_js();
-                    $loadlibs=$realloadlibs;
-                }             
-            }
-        }
-    } else {
-        // Return the html needed to load the JavaScript files defined in
-        // our list of libs to be loaded.
-        $output = '';
-
-        foreach ($loadlibs as $loadlib) {
-            $output .= '<script type="text/javascript" ';
-            $output .= " src=\"$loadlib\"></script>\n";
-            if ($loadlib == $CFG->wwwroot.'/lib/yui/logger/logger-min.js') {
-                // Special case, we need the CSS too.
-                $output .= '<link type="text/css" rel="stylesheet" ';
-                $output .= " href=\"{$CFG->wwwroot}/lib/yui/logger/assets/logger.css\" />\n";
-            }
-        }
-        return $output;
-    }
-}
-
-
 /**
  * Get the path to a JavaScript library.
  * @param $libname - the name of the library whose path we need.
@@ -71,39 +10,67 @@ function require_js($lib='') {
  */
 function ajax_get_lib($libname) {
 
-    global $CFG;
+    global $CFG, $HTTPSPAGEREQUIRED;
     $libpath = '';
 
     $translatelist = array(
             'yui_yahoo' => '/lib/yui/yahoo/yahoo-min.js',
-			'yui_animation' => '/lib/yui/animation/animation-min.js',
-			'yui_autocomplete' => '/lib/yui/autocomplete/autocomplete-min.js',
-			'yui_calendar' => '/lib/yui/calendar/calendar-min.js',
-			'yui_connection' => '/lib/yui/connection/connection-min.js',
-			'yui_container' => '/lib/yui/container/container-min.js',
+            'yui_animation' => '/lib/yui/animation/animation-min.js',
+            'yui_autocomplete' => '/lib/yui/autocomplete/autocomplete-min.js',
+            'yui_button' => '/lib/yui/button/button-min.js',
+            'yui_calendar' => '/lib/yui/calendar/calendar-min.js',
+            'yui_charts' => '/lib/yui/charts/charts-experimental-min.js',
+            'yui_colorpicker' => '/lib/yui/colorpicker/colorpicker-min.js',
+            'yui_connection' => '/lib/yui/connection/connection-min.js',
+            'yui_container' => '/lib/yui/container/container-min.js',
+            'yui_cookie' => '/lib/yui/cookie/cookie-min.js',
+            'yui_datasource' => '/lib/yui/datasource/datasource-min.js',
+            'yui_datatable' => '/lib/yui/datatable/datatable-min.js',
             'yui_dom' => '/lib/yui/dom/dom-min.js',
-			'yui_dom-event' => '/lib/yui/yahoo-dom-event/yahoo-dom-event.js',
-			'yui_dragdrop' => '/lib/yui/dragdrop/dragdrop-min.js',
+            'yui_dom-event' => '/lib/yui/yahoo-dom-event/yahoo-dom-event.js',
+            'yui_dragdrop' => '/lib/yui/dragdrop/dragdrop-min.js',
+            'yui_editor' => '/lib/yui/editor/editor-min.js',
+            'yui_element' => '/lib/yui/element/element-beta-min.js',
             'yui_event' => '/lib/yui/event/event-min.js',
+            'yui_get' => '/lib/yui/get/get-min.js',
+            'yui_history' => '/lib/yui/history/history-min.js',
+            'yui_imagecropper' => '/lib/yui/imagecropper/imagecropper-beta-min.js',
+            'yui_imageloader' => '/lib/yui/imageloader/imageloader-min.js',
+            'yui_json' => '/lib/yui/json/json-min.js',
+            'yui_layout' => '/lib/yui/layout/layout-min.js',
             'yui_logger' => '/lib/yui/logger/logger-min.js',
-			'yui_menu' => '/lib/yui/menu/menu-min.js',
-			'yui_tabview' => '/lib/yui/tabview/tabview-min.js',
-			'yui_treeview' => '/lib/yui/treeview/treeview-min.js',
-			'yui_slider' => '/lib/yui/slider/slider-min.js',
-			'yui_utilities' => '/lib/yui/utilities/utilities.js',
+            'yui_menu' => '/lib/yui/menu/menu-min.js',
+            'yui_profiler' => '/lib/yui/profiler/profiler-min.js',
+            'yui_profilerviewer' => '/lib/yui/profilerviewer/profilerviewer-beta-min.js',
+            'yui_resize' => '/lib/yui/resize/resize-min.js',
+            'yui_selector' => '/lib/yui/selector/selector-beta-min.js',
+            'yui_simpleeditor' => '/lib/yui/editor/simpleeditor-min.js',
+            'yui_slider' => '/lib/yui/slider/slider-min.js',
+            'yui_tabview' => '/lib/yui/tabview/tabview-min.js',
+            'yui_treeview' => '/lib/yui/treeview/treeview-min.js',
+            'yui_uploader' => '/lib/yui/uploader/uploader-experimental-min.js',
+            'yui_utilities' => '/lib/yui/utilities/utilities.js',
+            'yui_yuiloader' => '/lib/yui/yuiloader/yuiloader-min.js',
+            'yui_yuitest' => '/lib/yui/yuitest/yuitest-min.js',
             'ajaxcourse_blocks' => '/lib/ajax/block_classes.js',
             'ajaxcourse_sections' => '/lib/ajax/section_classes.js',
             'ajaxcourse' => '/lib/ajax/ajaxcourse.js'
             );
 
+    if (!empty($HTTPSPAGEREQUIRED)) {
+        $wwwroot = $CFG->httpswwwroot;
+    } else {
+        $wwwroot = $CFG->wwwroot;
+    }
+
     if (array_key_exists($libname, $translatelist)) {
-        $libpath = $CFG->wwwroot . $translatelist[$libname];
+        $libpath = $wwwroot . $translatelist[$libname];
     } else {
         $libpath = $libname;
     }
 
-    $testpath = str_replace($CFG->wwwroot, $CFG->dirroot, $libpath);
-    if (!file_exists($testpath)) {        
+    $testpath = str_replace($wwwroot, $CFG->dirroot, $libpath);
+    if (!file_exists($testpath)) {
         error('require_js: '.$libpath.' - file not found.');
     }
 
@@ -117,20 +84,20 @@ function ajax_get_lib($libname) {
 function ajaxenabled($browsers = array()) {
 
     global $CFG, $USER;
-    
+
     if (!empty($browsers)) {
         $valid = false;
         foreach ($browsers as $brand => $version) {
             if (check_browser_version($brand, $version)) {
                 $valid = true;
-            }    
+            }
         }
-        
+
         if (!$valid) {
             return false;
         }
     }
-    
+
     $ie = check_browser_version('MSIE', 6.0);
     $ff = check_browser_version('Gecko', 20051106);
     $op = check_browser_version('Opera', 9.0);
@@ -138,7 +105,7 @@ function ajaxenabled($browsers = array()) {
 
     if (!$ie && !$ff && !$op && !$sa) {
         /** @see http://en.wikipedia.org/wiki/User_agent */
-        // Gecko build 20051107 is what is in Firefox 1.5. 
+        // Gecko build 20051107 is what is in Firefox 1.5.
         // We still have issues with AJAX in other browsers.
         return false;
     }
@@ -191,11 +158,18 @@ class jsportal {
             }
         }
         $output .= "<script type=\"text/javascript\">\n";
-        $output .= " 	main.portal.id = ".$courseid.";\n";
+        $output .= "    main.portal.id = ".$courseid.";\n";
         $output .= "    main.portal.blocks = new Array(".$blocksoutput.");\n";
         $output .= "    main.portal.strings['wwwroot']='".$CFG->wwwroot."';\n";
         $output .= "    main.portal.strings['pixpath']='".$CFG->pixpath."';\n";
+        $output .= "    main.portal.strings['marker']='".get_string('markthistopic', '', '_var_')."';\n";
+        $output .= "    main.portal.strings['marked']='".get_string('markedthistopic', '', '_var_')."';\n";
+        $output .= "    main.portal.strings['hide']='".get_string('hide')."';\n";
+        $output .= "    main.portal.strings['hidesection']='".get_string('hidesection', '', '_var_')."';\n";
+        $output .= "    main.portal.strings['show']='".get_string('show')."';\n";
+        $output .= "    main.portal.strings['delete']='".get_string('delete')."';\n";
         $output .= "    main.portal.strings['move']='".get_string('move')."';\n";
+        $output .= "    main.portal.strings['movesection']='".get_string('movesection', '', '_var_')."';\n";
         $output .= "    main.portal.strings['moveleft']='".get_string('moveleft')."';\n";
         $output .= "    main.portal.strings['moveright']='".get_string('moveright')."';\n";
         $output .= "    main.portal.strings['update']='".get_string('update')."';\n";

@@ -1,4 +1,4 @@
-<?php  // $Id: index.php,v 1.16.2.1 2007/02/28 05:36:22 nicolasconnault Exp $
+<?php  // $Id: index.php,v 1.18.2.1 2008/10/08 06:41:55 dongsheng Exp $
 
     require_once('../../../config.php');
     require_once('../lib.php');
@@ -30,9 +30,9 @@
     }
 
 /// Check to see if groups are being used here
-     if ($groupmode = groupmode($course, $cm)) {   // Groups are being used
-        if ($groupid = get_and_set_current_group($course, $groupmode, $groupid)) {
-            if (! groups_group_exists($groupid)) {
+     if ($groupmode = groups_get_activity_groupmode($cm)) {   // Groups are being used
+        if ($groupid = groups_get_activity_group($cm)) {
+            if (!$group = groups_get_group($groupid, false)) {
                 error("That group (id $groupid) doesn't exist!");
             }
             $groupname = ': '.$group->name;
@@ -64,8 +64,8 @@
  </head>
  <frameset cols="*,200" border="5" framespacing="no" frameborder="yes" marginwidth="2" marginheight="1">
   <frameset rows="0,*,50" border="0" framespacing="no" frameborder="no" marginwidth="2" marginheight="1">
-   <frame src="empty.php" name="empty" scrolling="auto" noresize marginwidth="2" marginheight="0">
-   <frame src="<?php echo "http://$CFG->chat_serverhost:$CFG->chat_serverport?win=chat&amp;$params"; ?>" name="msg" scrolling="auto" noresize marginwidth="2" marginheight="0">
+   <frame src="../empty.php" name="empty" scrolling="auto" noresize marginwidth="2" marginheight="0">
+   <frame src="<?php echo "http://$CFG->chat_serverhost:$CFG->chat_serverport?win=chat&amp;$params"; ?>" scrolling="auto" name="msg" noresize marginwidth="2" marginheight="0">
    <frame src="chatinput.php?<?php echo $params ?>" name="input" scrolling="no" marginwidth="2" marginheight="1">
   </frameset>
   <frame src="<?php echo "http://$CFG->chat_serverhost:$CFG->chat_serverport?win=users&amp;$params"; ?>" name="users" scrolling="auto" marginwidth="5" marginheight="5">

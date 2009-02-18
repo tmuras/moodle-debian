@@ -1,18 +1,18 @@
-<?php // $Id: create.php,v 1.8.6.1 2007/03/06 10:48:12 skodak Exp $
+<?php // $Id: create.php,v 1.9.2.3 2008/04/02 06:09:59 dongsheng Exp $
 
 require('../../config.php');
 
 require_once($CFG->libdir.'/adminlib.php');
-$adminroot = admin_get_root();
 require_login();
+$adminroot =& admin_get_root(false, false);  // settings not required - only pages
 
-if ($section = optional_param('section', '', PARAM_ALPHAEXT) and confirm_sesskey()) {
+if ($section = optional_param('section', '', PARAM_SAFEDIR) and confirm_sesskey()) {
 
     if (get_user_preferences('admin_bookmarks')) {
-        $bookmarks = explode(',',get_user_preferences('admin_bookmarks'));
+        $bookmarks = explode(',', get_user_preferences('admin_bookmarks'));
 
         if (in_array($section, $bookmarks)) {
-            error(get_string('bookmarkalreadyexists','admin'));
+            print_error('bookmarkalreadyexists','admin');
             die;
         }
 
@@ -23,32 +23,24 @@ if ($section = optional_param('section', '', PARAM_ALPHAEXT) and confirm_sesskey
     $temp = $adminroot->locate($section);
 
     if (is_a($temp, 'admin_settingpage') || is_a($temp, 'admin_externalpage')) {
-
         $bookmarks[] = $section;
-
-        $bookmarks = implode(',',$bookmarks);
-
+        $bookmarks = implode(',', $bookmarks);
         set_user_preference('admin_bookmarks', $bookmarks);
 
     } else {
-
-        error(get_string('invaludsection','admin'));
+        print_error('invalidsection','admin');
         die;
-
     }
 
     if (is_a($temp, 'admin_settingpage')) {
-
         redirect($CFG->wwwroot . '/' . $CFG->admin . '/settings.php?section=' . $section);
 
     } elseif (is_a($temp, 'admin_externalpage')) {
-
         redirect($temp->url);
-
     }
 
 } else {
-    error(get_string('invalidsection','admin'));
+    print_error('invalidsection','admin');
     die;
 }
 

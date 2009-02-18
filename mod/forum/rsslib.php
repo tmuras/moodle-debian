@@ -1,4 +1,4 @@
-<?php  // $Id: rsslib.php,v 1.24 2006/12/20 16:41:11 stronk7 Exp $
+<?php  // $Id: rsslib.php,v 1.25.2.1 2008/07/10 09:48:46 scyrma Exp $
     //This file adds support to rss feeds generation
 
     //This function is the main entry point to forum
@@ -174,15 +174,8 @@
                                             p.discussion = d.id AND
                                             p.parent = 0 AND
                                             u.id = p.userid $newsince
-                                      ORDER BY p.created desc")) {
+                                      ORDER BY p.created desc", 0, $forum->rssarticles)) {
 
-            //Are we just looking for new ones?  If so, then return now.
-            if ($newsince) {
-                return true;
-            }
-
-            //Iterate over each discussion to get forum->rssarticles records
-            $articlesleft = $forum->rssarticles;
             $item = NULL;
             $user = NULL;
 
@@ -200,10 +193,6 @@
                 $item->link = $CFG->wwwroot."/mod/forum/discuss.php?d=".$rec->discussionid;
                 $item->description = format_text($rec->postmessage,$rec->postformat,$formatoptions,$forum->course);
                 $items[] = $item;
-                $articlesleft--;
-                if ($articlesleft < 1) {
-                    break;
-                }
             }
         }
         return $items;
@@ -239,20 +228,15 @@
                                       WHERE d.forum = '$forum->id' AND
                                             p.discussion = d.id AND
                                             u.id = p.userid $newsince
-                                      ORDER BY p.created desc")) {
+                                      ORDER BY p.created desc", 0, $forum->rssarticles)) {
 
-            //Are we just looking for new ones?  If so, then return now.
-            if ($newsince) {
-                return true;
-            }
-
-            //Iterate over each discussion to get forum->rssarticles records
-            $articlesleft = $forum->rssarticles;
             $item = NULL;
             $user = NULL;
 
             $formatoptions = new object;
             $formatoptions->trusttext = true;
+
+            require_once($CFG->libdir.'/filelib.php');
 
             foreach ($recs as $rec) {
                 unset($item);
@@ -274,21 +258,13 @@
                     $item->attachments = array();
                     foreach ($post_files as $file) {                    
                         $attachment = new stdClass;
-                        if ($CFG->slasharguments) {
-                            $attachment->url = "{$CFG->wwwroot}/file.php/$post_file_area_name/$file";
-                        } else {
-                            $attachment->url = "{$CFG->wwwroot}/file.php?file=/$post_file_area_name/$file";
-                        }                         
+                        $attachment->url = get_file_url("$post_file_area_name/$file");
                         $attachment->length = filesize("$CFG->dataroot/$post_file_area_name/$file");
                         $item->attachments[] = $attachment;
                     }
                 }
 
                 $items[] = $item;
-                $articlesleft--;
-                if ($articlesleft < 1) {
-                    break;
-                }
             }
         }
         return $items;

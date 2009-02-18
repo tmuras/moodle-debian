@@ -1,4 +1,4 @@
-<?php //$Id: lib.php,v 1.62.2.4 2007/04/05 05:58:39 toyomoyo Exp $
+<?php //$Id: lib.php,v 1.80.2.16 2008/07/10 09:48:43 scyrma Exp $
 
     /**
      * Library of functions and constants for blog
@@ -7,7 +7,7 @@
     require_once($CFG->libdir .'/pagelib.php');
     require_once($CFG->dirroot .'/blog/rsslib.php');
     require_once($CFG->dirroot .'/blog/blogpage.php');
-
+    require_once($CFG->dirroot.'/tag/lib.php');
 
     /**
      * Definition of blogcourse page type (blog page with course id present).
@@ -32,12 +32,12 @@
 
                 // add blog_menu block
                 $newblock = new object();
-                $newblock -> blockid  = $menublock->id;
-                $newblock -> pageid   = $USER->id;
-                $newblock -> pagetype = 'blog-view';
-                $newblock -> position = 'r';
-                $newblock -> weight   = 0;
-                $newblock -> visible  = 1;
+                $newblock->blockid  = $menublock->id;
+                $newblock->pageid   = $USER->id;
+                $newblock->pagetype = 'blog-view';
+                $newblock->position = 'r';
+                $newblock->weight   = 0;
+                $newblock->visible  = 1;
                 insert_record('block_instance', $newblock);
 
                 // add blog_tags menu
@@ -77,12 +77,12 @@
         $bloglimit = optional_param('limit', get_user_preferences('blogpagesize', 10), PARAM_INT);
         $start     = $blogpage * $bloglimit;
 
-        $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+        $sitecontext = get_context_instance(CONTEXT_SYSTEM);
 
         $morelink = '<br />&nbsp;&nbsp;';
-    
-        $totalentries = get_viewable_entry_count($postid, $bloglimit, $start, $filtertype, $filterselect, $tagid, $tag, $sort='lastmodified DESC');
-        $blogEntries = fetch_entries($postid, $bloglimit, $start, $filtertype, $filterselect, $tagid, $tag, $sort='lastmodified DESC', true);
+
+        $totalentries = get_viewable_entry_count($postid, $bloglimit, $start, $filtertype, $filterselect, $tagid, $tag, $sort='created DESC');
+        $blogEntries = blog_fetch_entries($postid, $bloglimit, $start, $filtertype, $filterselect, $tagid, $tag, $sort='created DESC', true);
 
         print_paging_bar($totalentries, $blogpage, $bloglimit, get_baseurl($filtertype, $filterselect), 'blogpage');
 
@@ -105,21 +105,21 @@
                 blog_print_entry($blogEntry, 'list', $filtertype, $filterselect); //print this entry.
                 $count++;
             }
-            
+
             print_paging_bar($totalentries, $blogpage, $bloglimit, get_baseurl($filtertype, $filterselect), 'blogpage');
-            
+
             if (!$count) {
                 print '<br /><div style="text-align:center">'. get_string('noentriesyet', 'blog') .'</div><br />';
 
             }
-                       
+
             print $morelink.'<br />'."\n";
             return;
         }
 
         $output = '<br /><div style="text-align:center">'. get_string('noentriesyet', 'blog') .'</div><br />';
-        
-        print $output;       
+
+        print $output;
 
     }
 
@@ -144,13 +144,17 @@
         global $USER, $CFG, $COURSE, $ME;
 
         $template['body'] = format_text($blogEntry->summary, $blogEntry->format);
-        //$template['title'] = '<a name="'. $blogEntry->subject .'"></a>';
+        $template['title'] = '<a id=b"'. s($blogEntry->id) .' /">';
         //enclose the title in nolink tags so that moodle formatting doesn't autolink the text
-        $template['title'] = '<span class="nolink">'.$blogEntry->subject.'</span>';
+        $template['title'] .= '<span class="nolink">'. format_string($blogEntry->subject) .'</span>';
         $template['userid'] = $blogEntry->userid;
         $template['author'] = fullname(get_record('user','id',$blogEntry->userid));
-        $template['lastmod'] = userdate($blogEntry->lastmodified);
         $template['created'] = userdate($blogEntry->created);
+
+        if($blogEntry->created != $blogEntry->lastmodified){
+            $template['lastmod'] = userdate($blogEntry->lastmodified);
+        }
+        
         $template['publishstate'] = $blogEntry->publishstate;
 
         /// preventing user to browse blogs that they aren't supposed to see
@@ -171,7 +175,7 @@
         echo '<table cellspacing="0" class="forumpost blogpost blog'.$template['publishstate'].'" width="100%">';
 
         echo '<tr class="header"><td class="picture left">';
-        print_user_picture($template['userid'], SITEID, $user->picture);
+        print_user_picture($user, SITEID, $user->picture);
         echo '</td>';
 
         echo '<td class="topic starter"><div class="subject">'.$template['title'].'</div><div class="author">';
@@ -179,7 +183,7 @@
         $by = new object();
         $by->name =  '<a href="'.$CFG->wwwroot.'/user/view.php?id='.
                     $user->id.'&amp;course='.$COURSE->id.'">'.$fullname.'</a>';
-        $by->date = $template['lastmod'];
+        $by->date = $template['created'];
         print_string('bynameondate', 'forum', $by);
         echo '</div></td></tr>';
 
@@ -188,7 +192,7 @@
     /// Actual content
 
         echo '</td><td class="content">'."\n";
-        
+
         if ($blogEntry->attachment) {
             echo '<div class="attachments">';
             $attachedimages = blog_print_attachments($blogEntry);
@@ -217,23 +221,16 @@
 
         // Print whole message
         echo format_text($template['body']);
-        
+
         /// Print attachments
         echo $attachedimages;
     /// Links to tags
 
-        if ($blogtags = get_records_sql('SELECT t.* FROM '.$CFG->prefix.'tags t, '.$CFG->prefix.'blog_tag_instance ti
-                                     WHERE t.id = ti.tagid
-                                     AND ti.entryid = '.$blogEntry->id)) {
+        if ( !empty($CFG->usetags) && ($blogtags = tag_get_tags_csv('post', $blogEntry->id)) ) {
             echo '<div class="tags">';
             if ($blogtags) {
-                print_string('tags');
-                echo ': ';
-                foreach ($blogtags as $key => $blogtag) {
-                    $taglist[] = '<a href="index.php?filtertype='.$filtertype.'&amp;filterselect='.$filterselect.'&amp;tagid='.$blogtag->id.'">'.$blogtag->text.'</a>';
-                }
-                echo implode(', ', $taglist);
-            }
+                print(get_string('tags', 'tag') .': '. $blogtags);
+           }
             echo '</div>';
         }
 
@@ -243,15 +240,23 @@
 
         if (blog_user_can_edit_post($blogEntry)) {
             echo '<a href="'.$CFG->wwwroot.'/blog/edit.php?action=edit&amp;id='.$blogEntry->id.'">'.$stredit.'</a>';
-            echo '| <a href="'.$CFG->wwwroot.'/blog/edit.php?action=delete&amp;id='.$blogEntry->id.'">'.$strdelete.'</a>';
+            echo '| <a href="'.$CFG->wwwroot.'/blog/edit.php?action=delete&amp;id='.$blogEntry->id.'">'.$strdelete.'</a> | ';
         }
 
+        echo '<a href="'.$CFG->wwwroot.'/blog/index.php?postid='.$blogEntry->id.'">'.get_string('permalink', 'blog').'</a>';
+
         echo '</div>';
+
+        if( isset($template['lastmod']) ){
+            echo '<div style="font-size: 55%;">';
+            echo ' [ '.get_string('modified').': '.$template['lastmod'].' ]';
+            echo '</div>';
+        }
 
         echo '</td></tr></table>'."\n\n";
 
     }
-    
+
     function blog_file_area_name($blogentry) {
     //  Creates a directory file name, suitable for make_upload_directory()
         global $CFG;
@@ -301,11 +306,7 @@
                     include_once($CFG->libdir.'/filelib.php');
                     $icon = mimeinfo("icon", $file);
                     $type = mimeinfo("type", $file);
-                    if ($CFG->slasharguments) {
-                        $ffurl = "$CFG->wwwroot/file.php/$filearea/$file";
-                    } else {
-                        $ffurl = "$CFG->wwwroot/file.php?file=/$filearea/$file";
-                    }
+                    $ffurl = get_file_url("$filearea/$file");
                     $image = "<img src=\"$CFG->pixpath/f/$icon\" class=\"icon\" alt=\"\" />";
 
                     if ($return == "html") {
@@ -350,11 +351,11 @@
         if ($CFG->bloglevel >= BLOG_USER_LEVEL) {
             $options = array ( 'draft' => get_string('publishtonoone', 'blog') );
         }
-        
+
         if ($CFG->bloglevel > BLOG_USER_LEVEL) {
             $options['site'] = get_string('publishtosite', 'blog');
         }
-        
+
         if ($CFG->bloglevel >= BLOG_GLOBAL_LEVEL) {
             $options['public'] = get_string('publishtoworld', 'blog');
         }
@@ -374,7 +375,7 @@
 
         global $CFG, $USER;
 
-        $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+        $sitecontext = get_context_instance(CONTEXT_SYSTEM);
 
         if (has_capability('moodle/blog:manageentries', $sitecontext)) {
             return true; // can edit any blog post
@@ -405,19 +406,19 @@
             return true; // can view own posts in any case
         }
 
-        $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+        $sitecontext = get_context_instance(CONTEXT_SYSTEM);
         if (has_capability('moodle/blog:manageentries', $sitecontext)) {
             return true; // can manage all posts
         }
-        
+
         // coming for 1 post, make sure it's not a draft
         if ($blogEntry and $blogEntry->publishstate == 'draft') {
             return false;  // can not view draft of others
         }
-        
+
         // coming for 1 post, make sure user is logged in, if not a public blog
         if ($blogEntry && $blogEntry->publishstate != 'public' && !isloggedin()) {
-            return false;  
+            return false;
         }
 
         switch ($CFG->bloglevel) {
@@ -433,7 +434,7 @@
             break;
 
             case BLOG_COURSE_LEVEL:
-                $mycourses = array_keys(get_my_courses($targetuserid));
+                $mycourses = array_keys(get_my_courses($USER->id));
                 $usercourses = array_keys(get_my_courses($targetuserid));
                 $shared = array_intersect($mycourses, $usercourses);
                 if (!empty($shared)) {
@@ -443,18 +444,19 @@
             break;
 
             case BLOG_GROUP_LEVEL:
-                $mycourses = array_keys(get_my_courses($targetuserid));
+                $mycourses = array_keys(get_my_courses($USER->id));
                 $usercourses = array_keys(get_my_courses($targetuserid));
                 $shared = array_intersect($mycourses, $usercourses);
                 foreach ($shared as $courseid) {
+                    $course = get_record('course', 'id', $courseid);
                     $coursecontext = get_context_instance(CONTEXT_COURSE, $courseid);
                     if (has_capability('moodle/site:accessallgroups', $coursecontext)
-                      or groupmode($courseid) != SEPARATEGROUPS) {
+                      or groups_get_course_groupmode($course) != SEPARATEGROUPS) {
                         return true;
                     } else {
-                        if ($usergroups = user_group($courseid, $targetuserid)) {
+                        if ($usergroups = groups_get_all_groups($courseid, $targetuserid)) {
                             foreach ($usergroups as $usergroup) {
-                                if (ismember($usergroup->id)) {
+                                if (groups_is_member($usergroup->id)) {
                                     return true;
                                 }
                             }
@@ -477,18 +479,18 @@
     /**
      * Main filter function.
      */
-    function fetch_entries($postid='', $fetchlimit=10, $fetchstart='', $filtertype='', $filterselect='', $tagid='', $tag ='', $sort='lastmodified DESC', $limit=true) {
+    function blog_fetch_entries($postid='', $fetchlimit=10, $fetchstart='', $filtertype='', $filterselect='', $tagid='', $tag ='', $sort='lastmodified DESC', $limit=true) {
 
         global $CFG, $USER;
-        
+
         /// the post table will be used for other things too
-        $typesql = " AND p.module = 'blog' ";    
+        $typesql = " AND p.module = 'blog' ";
 
         /// set the tag id for searching
         if ($tagid) {
             $tag = $tagid;
         } else if ($tag) {
-            if ($tagrec = get_record_sql('SELECT * FROM '.$CFG->prefix.'tags WHERE text LIKE "'.$tag.'"')) {
+            if ($tagrec = get_record_sql('SELECT * FROM '.$CFG->prefix.'tag WHERE name LIKE "'.$tag.'"')) {
                 $tag = $tagrec->id;
             } else {
                 $tag = -1;    //no records found
@@ -521,25 +523,25 @@
         }
 
         if ($tag) {
-            $tagtablesql = $CFG->prefix.'blog_tag_instance bt, ';
-            $tagquerysql = ' AND bt.entryid = p.id AND bt.tagid = '.$tag.' ';
+            $tagtablesql = $CFG->prefix.'tag_instance ti, ';
+            $tagquerysql = ' AND ti.itemid = p.id AND ti.tagid = '.$tag.' AND ti.itemtype = \'post\' ';
         } else {
             $tagtablesql = '';
             $tagquerysql = '';
         }
 
-        if (isloggedin() && !has_capability('moodle/legacy:guest', get_context_instance(CONTEXT_SYSTEM, SITEID), $USER->id, false)) {
+        if (isloggedin() && !has_capability('moodle/legacy:guest', get_context_instance(CONTEXT_SYSTEM), $USER->id, false)) {
             $permissionsql =  'AND (p.publishstate = \'site\' OR p.publishstate = \'public\' OR p.userid = '.$USER->id.')';
         } else {
             $permissionsql =  'AND p.publishstate = \'public\'';
         }
-        
+
         // fix for MDL-9165, use with readuserblogs capability in a user context can read that user's private blogs
         // admins can see all blogs regardless of publish states, as described on the help page
-        if (has_capability('moodle/user:readuserblogs', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
-            $permissionsql = ''; 
+        if (has_capability('moodle/user:readuserblogs', get_context_instance(CONTEXT_SYSTEM))) {
+            $permissionsql = '';
         } else if ($filtertype=='user' && has_capability('moodle/user:readuserblogs', get_context_instance(CONTEXT_USER, $filterselect))) {
-            $permissionsql = '';  
+            $permissionsql = '';
         }
         /****************************************
          * depending on the type, there are 4   *
@@ -568,34 +570,31 @@
                 // all users with a role assigned
                 $context = get_context_instance(CONTEXT_COURSE, $filterselect);
 
+                // MDL-10037, hidden users' blogs should not appear
+                if (has_capability('moodle/role:viewhiddenassigns', $context)) {
+                    $hiddensql = '';
+                } else {
+                    $hiddensql = ' AND ra.hidden = 0 ';
+                }
+
                 $SQL = 'SELECT '.$requiredfields.' FROM '.$CFG->prefix.'post p, '.$tagtablesql
                         .$CFG->prefix.'role_assignments ra, '.$CFG->prefix.'user u
                         WHERE p.userid = ra.userid '.$tagquerysql.'
                         AND ra.contextid '.get_related_contexts_string($context).'
                         AND u.id = p.userid
                         AND u.deleted = 0
-                        '.$permissionsql.$typesql;
+                        '.$hiddensql.$permissionsql.$typesql;
 
             break;
 
             case 'group':
 
                 $SQL = 'SELECT '.$requiredfields.' FROM '.$CFG->prefix.'post p, '.$tagtablesql
-                        .groups_members_from_sql().', '.$CFG->prefix.'user u
-                        WHERE '.groups_members_where_sql($filterselect, 'p.userid').'
-                        AND u.id = p.userid
-                        AND u.deleted = 0
-                        '.$permissionsql.$typesql;
-
-                        /*'SELECT '.$requiredfields.' FROM '.$CFG->prefix.'post p, '.$tagtablesql
-                        .$CFG->prefix.'groups_members m, '.$CFG->prefix.'user u
-                        WHERE p.userid = m.userid '.$tagquerysql.'
-                        AND u.id = p.userid
-                        AND m.groupid = '.$filterselect.'
-                        AND u.deleted = 0
-                        AND '.$permissionsql.$typesql;
-                        '.$permissionsql;
-                        */
+                          .$CFG->prefix.'groups_members gm, '.$CFG->prefix.'user u
+                        WHERE p.userid = gm.userid AND u.id = p.userid '.$tagquerysql.'
+                          AND gm.groupid = '.$filterselect.'
+                          AND u.deleted = 0
+                          '.$permissionsql.$typesql;
             break;
 
             case 'user':
@@ -632,16 +631,16 @@
 
 
     /**
-     * get the count of viewable entries, easiest way is to count fetch_entries
+     * get the count of viewable entries, easiest way is to count blog_fetch_entries
      * this is used for print_paging_bar
-     * this is not ideal, but because of the UNION in the sql in fetch_entries,
+     * this is not ideal, but because of the UNION in the sql in blog_fetch_entries,
      * it is hard to use count_records_sql
      */
     function get_viewable_entry_count($postid='', $fetchlimit=10,
                 $fetchstart='', $filtertype='', $filterselect='', $tagid='',
                 $tag ='', $sort='lastmodified DESC') {
 
-        $blogEntries = fetch_entries($postid, $fetchlimit,
+        $blogEntries = blog_fetch_entries($postid, $fetchlimit,
                 $fetchstart, $filtertype, $filterselect, $tagid, $tag,
                 $sort='lastmodified DESC', false);
 
@@ -688,5 +687,19 @@
         return strip_querystring(qualified_me()) . $querystring. 'filtertype='.
                 $filtertype.'&amp;filterselect='.$filterselect.'&amp;';
 
+    }
+
+    /**
+     * Returns a list of all user ids who have used blogs in the site
+     * Used in backup of site courses.
+     */
+    function blog_get_participants() {
+
+        global $CFG;
+
+        return get_records_sql("SELECT userid as id 
+                                  FROM {$CFG->prefix}post
+                                 WHERE module = 'blog'
+                                   AND courseid = 0");
     }
 ?>

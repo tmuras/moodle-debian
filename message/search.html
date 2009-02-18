@@ -1,8 +1,8 @@
 <form id="personsearch" action="index.php" method="post">
-<input type="hidden" name="tab" value="search" />
+<div><input type="hidden" name="tab" value="search" /></div>
 
 
-<table cellpadding="5" align="center" class="message_form">
+<table cellpadding="5" class="message_form boxaligncenter">
 
 
     <tr>
@@ -41,7 +41,7 @@
     <tr><td>&nbsp;</td><td colspan="2"><input type="radio" name="keywordsoption" id="keywordsoption2" value="fromme" /><label for="keywordsoption2"><?php print_string('onlyfromme', 'message') ?></label></td></tr>
     <tr><td>&nbsp;</td><td colspan="2"><input type="radio" checked="checked" name="keywordsoption" id="keywordsoption3" value="allmine" /><label for="keywordsoption3"><?php print_string('allmine', 'message') ?></label></td></tr>
     
-    <?php if (has_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_SYSTEM, SITEID))) { ?>
+    <?php if (has_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_SYSTEM))) { ?>
     <tr><td>&nbsp;</td><td colspan="2"><input type="radio" name="keywordsoption" id="keywordsoption4" value="allusers" /><label for="keywordsoption4"><?php print_string('allusers', 'message') ?></label></td></tr>
     <?php } ?>
 

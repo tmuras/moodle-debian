@@ -32,7 +32,11 @@ class mod_assignment_mod_form extends moodleform_mod {
 //        $mform->addElement('static', 'statictype', get_string('assignmenttype', 'assignment'), get_string('type'.$type,'assignment'));
 
         $mform->addElement('text', 'name', get_string('assignmentname', 'assignment'), array('size'=>'64'));
-        $mform->setType('name', PARAM_TEXT);
+        if (!empty($CFG->formatstringstriptags)) {
+            $mform->setType('name', PARAM_TEXT);
+        } else {
+            $mform->setType('name', PARAM_CLEAN);
+        }
         $mform->addRule('name', null, 'required', null, 'client');
 
         $mform->addElement('htmleditor', 'description', get_string('description', 'assignment'));
@@ -56,7 +60,11 @@ class mod_assignment_mod_form extends moodleform_mod {
         $mform->addElement('header', 'typedesc', get_string('type'.$type,'assignment'));
         $assignmentinstance->setup_elements($mform);
 
-        $this->standard_coursemodule_elements();
+        $features = new stdClass;
+        $features->groups = true;
+        $features->groupings = true;
+        $features->groupmembersonly = true;
+        $this->standard_coursemodule_elements($features);
 
         $this->add_action_buttons();
     }

@@ -1,8 +1,8 @@
-<?php  // $Id: highscores.php,v 1.6 2007/01/29 06:43:22 mark-nielsen Exp $
+<?php  // $Id: highscores.php,v 1.6.4.2 2008/12/10 06:30:25 dongsheng Exp $
 /**
  * Provides the interface for viewing and adding high scores
  *
- * @version $Id: highscores.php,v 1.6 2007/01/29 06:43:22 mark-nielsen Exp $
+ * @version $Id: highscores.php,v 1.6.4.2 2008/12/10 06:30:25 dongsheng Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -138,7 +138,7 @@
     switch ($mode) {
         case 'add':
             print_simple_box_start('center');
-            echo '<div align="center">
+            echo '<div class="mdl-align">
                  <form id="nickname" method ="post" action="'.$CFG->wwwroot.'/mod/lesson/highscores.php" autocomplete="off">
                  <input type="hidden" name="id" value="'.$cm->id.'" />
                  <input type="hidden" name="mode" value="save" />
@@ -192,7 +192,7 @@
             }
         
             if (!has_capability('mod/lesson:manage', $context)) {  // teachers don't need the links
-                echo '<div align="center">';
+                echo '<div style="text-align:center">';
                 if ($link) {
                     echo "<br /><div class=\"lessonbutton standardbutton\"><a href=\"$CFG->wwwroot/course/view.php?id=$course->id\">".get_string("returntocourse", "lesson")."</a></div>";
                 } else {

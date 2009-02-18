@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.4.2.1 2007/03/26 21:51:18 stronk7 Exp $
+<?php  //$Id: upgrade.php,v 1.5.2.1 2008/05/01 20:56:29 skodak Exp $
 
 // This file keeps track of upgrades to 
 // the resource module
@@ -62,6 +62,8 @@ function xmldb_resource_upgrade($oldversion=0) {
             $result = $result && change_field_precision($table, $field);
         }
     }
+
+//===== 1.9.0 upgrade line ======//
 
     return $result;
 }

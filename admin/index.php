@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.265.2.7 2007/07/06 17:39:55 stronk7 Exp $
+<?php // $Id: index.php,v 1.286.2.30 2009/01/23 02:10:11 tjhunt Exp $
 
 /// Check that config.php exists, if not then call the install script
     if (!file_exists('../config.php')) {
@@ -24,13 +24,15 @@
     require_once('../config.php');
     require_once($CFG->libdir.'/adminlib.php');  // Contains various admin-only functions
     require_once($CFG->libdir.'/ddllib.php'); // Install/upgrade related db functions
+    require_once($CFG->libdir.'/db/upgradelib.php');  // Upgrade-related functions
 
-    $id             = optional_param('id', '', PARAM_ALPHANUM);
+    $id             = optional_param('id', '', PARAM_TEXT);
     $confirmupgrade = optional_param('confirmupgrade', 0, PARAM_BOOL);
     $confirmrelease = optional_param('confirmrelease', 0, PARAM_BOOL);
     $agreelicense   = optional_param('agreelicense', 0, PARAM_BOOL);
     $autopilot      = optional_param('autopilot', 0, PARAM_BOOL);
     $ignoreupgradewarning = optional_param('ignoreupgradewarning', 0, PARAM_BOOL);
+    $confirmplugincheck = optional_param('confirmplugincheck', 0, PARAM_BOOL);
 
 /// check upgrade status first
     if ($ignoreupgradewarning and !empty($_SESSION['upgraderunning'])) {
@@ -57,6 +59,10 @@
 
     if (!ini_get_bool('file_uploads')) {
         error("The PHP server variable 'file_uploads' is not turned On - $documentationlink");
+    }
+
+    if (is_float_problem()) {
+        print_error('phpfloatproblem', 'admin', '', $documentationlink);
     }
 
     if (empty($CFG->prefix) && $CFG->dbfamily != 'mysql') {  //Enforce prefixes for everybody but mysql
@@ -122,6 +128,7 @@
             }
         }
     }
+    
     if (! $maintables) {
     /// hide errors from headers in case debug enabled in config.php
         $origdebug = $CFG->debug;
@@ -129,7 +136,8 @@
         error_reporting($CFG->debug);
         if (empty($agreelicense)) {
             $strlicense = get_string('license');
-            print_header($strlicense, $strlicense, $strlicense, "", "", false, "&nbsp;", "&nbsp;");
+            $navigation = build_navigation(array(array('name'=>$strlicense, 'link'=>null, 'type'=>'misc')));
+            print_header($strlicense, $strlicense, $navigation, "", "", false, "&nbsp;", "&nbsp;");
             print_heading("<a href=\"http://moodle.org\">Moodle</a> - Modular Object-Oriented Dynamic Learning Environment");
             print_heading(get_string('copyrightnotice'));
             print_box(text_to_html(get_string('gpl')), 'copyrightnotice');
@@ -141,7 +149,8 @@
         }
         if (empty($confirmrelease)) {
             $strcurrentrelease = get_string("currentrelease");
-            print_header($strcurrentrelease, $strcurrentrelease, $strcurrentrelease, "", "", false, "&nbsp;", "&nbsp;");
+            $navigation = build_navigation(array(array('name'=>$strcurrentrelease, 'link'=>null, 'type'=>'misc')));
+            print_header($strcurrentrelease, $strcurrentrelease, $navigation, "", "", false, "&nbsp;", "&nbsp;");
             print_heading("Moodle $release");
             print_box(get_string('releasenoteslink', 'admin', 'http://docs.moodle.org/en/Release_Notes'), 'generalbox boxaligncenter boxwidthwide');
             echo '<form action="index.php"><div>';
@@ -155,9 +164,11 @@
             die;
         }
 
+
         $strdatabasesetup    = get_string("databasesetup");
         $strdatabasesuccess  = get_string("databasesuccess");
-        print_header($strdatabasesetup, $strdatabasesetup, $strdatabasesetup,
+        $navigation = build_navigation(array(array('name'=>$strdatabasesetup, 'link'=>null, 'type'=>'misc')));
+        print_header($strdatabasesetup, $strdatabasesetup, $navigation,
                         "", upgrade_get_javascript(), false, "&nbsp;", "&nbsp;");
     /// return to original debugging level
         $CFG->debug = $origdebug;
@@ -167,13 +178,13 @@
 
     /// Both old .sql files and new install.xml are supported
     /// But we prioritise install.xml (XMLDB) if present
-    
+
         change_db_encoding(); // first try to change db encoding to utf8
         if (!setup_is_unicodedb()) {
             // If could not convert successfully, throw error, and prevent installation
-            print_error('unicoderequired', 'admin');  
+            print_error('unicoderequired', 'admin');
         }
-    
+
         $status = false;
         if (file_exists("$CFG->libdir/db/install.xml")) {
             $status = install_from_xmldb_file("$CFG->libdir/db/install.xml"); //New method
@@ -189,35 +200,30 @@
     /// Continue with the instalation
         $db->debug = false;
         if ($status) {
-            //ugly hack - install new groups: MDL-9217
-            require_once("$CFG->dirroot/group/db/upgrade.php");
-            install_group_db();
+
+            /// Groups install is now in core above.
 
             // Install the roles system.
             moodle_install_roles();
             set_config('statsrolesupgraded',time());
 
-
-            // Write default settings unconditionally (i.e. even if a setting is already set, overwrite it)
-            // (this should only have any effect during initial install).
-            $adminroot = admin_get_root();
-            $adminroot->prune('backups'); // backup settings table not created yet
-            apply_default_settings($adminroot);
+            // install core event handlers
+            events_update_definition();
 
             /// This is used to handle any settings that must exist in $CFG but which do not exist in
             /// admin_get_root()/$ADMIN as admin_setting objects (there are some exceptions).
-            apply_default_exception_settings(array('alternateloginurl' => '',
-                                                   'auth' => 'email',
+            apply_default_exception_settings(array('auth' => 'email',
                                                    'auth_pop3mailbox' => 'INBOX',
-                                                   'changepassword' => '',
                                                    'enrol' => 'manual',
                                                    'enrol_plugins_enabled' => 'manual',
-                                                   'guestloginbutton' => 1,
-                                                   'registerauth' => 'email',
                                                    'style' => 'default',
                                                    'template' => 'default',
                                                    'theme' => 'standardwhite',
                                                    'filter_multilang_converted' => 1));
+
+            // Write default settings unconditionally (i.e. even if a setting is already set, overwrite it)
+            // (this should only have any effect during initial install).
+            admin_apply_default_settings(NULL, true);
 
             notify($strdatabasesuccess, "green");
             require_once $CFG->dirroot.'/mnet/lib.php';
@@ -260,46 +266,84 @@
             $CFG->debug = DEBUG_MINIMAL;
             error_reporting($CFG->debug);
 
-            // logout in case we are upgrading from pre 1.7 version - prevention of weird session problems
-            if ($CFG->version < 2006050600) {
+            // logo ut in case we are upgrading from pre 1.9 version in order to prevent
+            // weird session/role problems caused by incorrect data in USER and SESSION
+            if ($CFG->version < 2007101500) {
                 require_logout();
             }
 
             if (empty($confirmupgrade)) {
-                print_header($strdatabasechecking, $stradministration, $strdatabasechecking,
+                $navigation = build_navigation(array(array('name'=>$strdatabasechecking, 'link'=>null, 'type'=>'misc')));
+                print_header($strdatabasechecking, $stradministration, $navigation,
                         "", "", false, "&nbsp;", "&nbsp;");
 
                 notice_yesno(get_string('upgradesure', 'admin', $a->newversion), 'index.php?confirmupgrade=1', 'index.php');
+                print_footer('none');
                 exit;
 
             } else if (empty($confirmrelease)){
                 $strcurrentrelease = get_string("currentrelease");
-                print_header($strcurrentrelease, $strcurrentrelease, $strcurrentrelease, "", "", false, "&nbsp;", "&nbsp;");
+                $navigation = build_navigation(array(array('name'=>$strcurrentrelease, 'link'=>null, 'type'=>'misc')));
+                print_header($strcurrentrelease, $strcurrentrelease, $navigation, "", "", false, "&nbsp;", "&nbsp;");
                 print_heading("Moodle $release");
                 print_box(get_string('releasenoteslink', 'admin', 'http://docs.moodle.org/en/Release_Notes'));
 
                 require_once($CFG->libdir.'/environmentlib.php');
                 print_heading(get_string('environment', 'admin'));
                 if (!check_moodle_environment($release, $environment_results, true)) {
-                    notice_yesno(get_string('environmenterrorupgrade', 'admin'), 
-                                 'index.php?confirmupgrade=1&confirmrelease=1', 'index.php');
+                    if (empty($CFG->skiplangupgrade)) {
+                        print_box_start('generalbox', 'notice'); // MDL-8330
+                        print_string('langpackwillbeupdated', 'admin');
+                        print_box_end();
+                    }
+                    notice_yesno(get_string('environmenterrorupgrade', 'admin'),
+                                 'index.php?confirmupgrade=1&amp;confirmrelease=1', 'index.php');
                 } else {
                     notify(get_string('environmentok', 'admin'), 'notifysuccess');
-
+                    if (empty($CFG->skiplangupgrade)) {
+                        print_box_start('generalbox', 'notice'); // MDL-8330
+                        print_string('langpackwillbeupdated', 'admin');
+                        print_box_end();
+                    }
                     echo '<form action="index.php"><div>';
                     echo '<input type="hidden" name="confirmupgrade" value="1" />';
                     echo '<input type="hidden" name="confirmrelease" value="1" />';
                     echo '</div>';
-                    echo '<div class="continuebutton"><input name="autopilot" id="autopilot" type="checkbox" value="1" /><label for="autopilot">'.get_string('unattendedoperation', 'admin').'</label>';
+                    echo '<div class="continuebutton">';
                     echo '<br /><br /><input type="submit" value="'.get_string('continue').'" /></div>';
                     echo '</form>';
                 }
 
                 print_footer('none');
                 die;
+            } elseif (empty($confirmplugincheck)) { 
+                $strplugincheck = get_string('plugincheck');
+                $navigation = build_navigation(array(array('name'=>$strplugincheck, 'link'=>null, 'type'=>'misc')));
+                print_header($strplugincheck, $strplugincheck, $navigation, "", "", false, "&nbsp;", "&nbsp;");
+                print_heading($strplugincheck);
+                print_box_start('generalbox', 'notice'); // MDL-8330
+                print_string('pluginchecknotice');
+                print_box_end();
+                print_plugin_tables();
+                echo "<br />";
+                echo '<div class="continuebutton">';
+                echo '<a href="index.php?confirmupgrade=1&amp;confirmrelease=1" title="'.get_string('reload').'" ><img src="'.$CFG->pixpath.'/i/reload.gif" alt="" /> '.get_string('reload').'</a>';
+                echo '</div><br />';
+                echo '<form action="index.php"><div>';
+                echo '<input type="hidden" name="confirmupgrade" value="1" />';
+                echo '<input type="hidden" name="confirmrelease" value="1" />';
+                echo '<input type="hidden" name="confirmplugincheck" value="1" />';
+                echo '</div>';
+                echo '<div class="continuebutton"><input name="autopilot" id="autopilot" type="checkbox" value="1" /><label for="autopilot">'.get_string('unattendedoperation', 'admin').'</label>';
+                echo '<br /><br /><input type="submit" value="'.get_string('continue').'" /></div>';
+                echo '</form>';
+                print_footer('none');
+                die();
+    
             } else {
                 $strdatabasesuccess  = get_string("databasesuccess");
-                print_header($strdatabasechecking, $stradministration, $strdatabasechecking,
+                $navigation = build_navigation(array(array('name'=>$strdatabasesuccess, 'link'=>null, 'type'=>'misc')));
+                print_header($strdatabasechecking, $stradministration, $navigation,
                         "", upgrade_get_javascript(), false, "&nbsp;", "&nbsp;");
 
             /// return to original debugging level
@@ -308,7 +352,9 @@
                 upgrade_log_start();
 
             /// Upgrade current language pack if we can
-                upgrade_language_pack();   
+                if (empty($CFG->skiplangupgrade)) {
+                    upgrade_language_pack();
+                }
 
                 print_heading($strdatabasechecking);
                 $db->debug=true;
@@ -325,15 +371,18 @@
             /// If successful, continue upgrading roles and setting everything properly
                 if ($status) {
                     if (empty($CFG->rolesactive)) {
-                        //ugly hack - upgrade to new groups (from 1.6) : MDL-9217
-                        require_once("$CFG->dirroot/group/db/upgrade.php");
-                        install_group_db();
+
+                        /// Groups upgrade is now in core above.
+
                         // Upgrade to the roles system.
                         moodle_install_roles();
                         set_config('rolesactive', 1);
                     } else if (!update_capabilities()) {
                         error('Had trouble upgrading the core capabilities for the Roles System');
                     }
+                    // update core events
+                    events_update_definition();
+
                     require_once($CFG->libdir.'/statslib.php');
                     if (!stats_upgrade_for_roles_wrapper()) {
                         notify('Couldn\'t upgrade the stats tables to use the new roles system');
@@ -350,7 +399,7 @@
             /// Main upgrade not success
                 } else {
                     notify('Main Upgrade failed!  See lib/db/upgrade.php');
-                    print_continue('index.php?confirmupgrade=1&amp;confirmrelease=1');
+                    print_continue('index.php?confirmupgrade=1&amp;confirmrelease=1&amp;confirmplugincheck=1');
                     print_footer('none');
                     die;
                 }
@@ -375,9 +424,7 @@
         }
     }
 
-/// ugly hack - convert to new groups if upgrading from 1.7; must be reworked
-    require_once("$CFG->dirroot/group/db/upgrade.php");
-    upgrade_group_db("$CFG->wwwroot/$CFG->admin/index.php");  // Return here afterwards
+/// Groups install/upgrade is now in core above.
 
 
 /// Find and check all main modules and load them up or upgrade them if necessary
@@ -407,6 +454,9 @@
 /// first old *.php update and then the new upgrade.php script
     upgrade_plugins('enrol', 'enrol', "$CFG->wwwroot/$CFG->admin/index.php");  // Return here afterwards
 
+/// Check all auth plugins and upgrade if necessary
+    upgrade_plugins('auth','auth',"$CFG->wwwroot/$CFG->admin/index.php");
+
 /// Check all course formats and upgrade if necessary
     upgrade_plugins('format','course/format',"$CFG->wwwroot/$CFG->admin/index.php");
 
@@ -416,8 +466,22 @@
     upgrade_local_db("$CFG->wwwroot/$CFG->admin/index.php");  // Return here afterwards
 
 /// Check for changes to RPC functions
-    require_once($CFG->dirroot.'/admin/mnet/adminlib.php');
+    require_once("$CFG->dirroot/$CFG->admin/mnet/adminlib.php");
     upgrade_RPC_functions("$CFG->wwwroot/$CFG->admin/index.php");  // Return here afterwards
+
+/// Upgrade all plugins for gradebook
+    upgrade_plugins('gradeexport', 'grade/export', "$CFG->wwwroot/$CFG->admin/index.php");
+    upgrade_plugins('gradeimport', 'grade/import', "$CFG->wwwroot/$CFG->admin/index.php");
+    upgrade_plugins('gradereport', 'grade/report', "$CFG->wwwroot/$CFG->admin/index.php");
+
+/// Check all message output plugins and upgrade if necessary
+    upgrade_plugins('message','message/output',"$CFG->wwwroot/$CFG->admin/index.php");
+
+/// Check all course report plugins and upgrade if necessary
+    upgrade_plugins('coursereport', 'course/report', "$CFG->wwwroot/$CFG->admin/index.php");
+
+/// Check all admin report plugins and upgrade if necessary
+    upgrade_plugins('report', $CFG->admin.'/report', "$CFG->wwwroot/$CFG->admin/index.php");
 
 
 /// just make sure upgrade logging is properly terminated
@@ -430,10 +494,10 @@
         // We are about to create the site "course"
         require_once($CFG->libdir.'/blocklib.php');
 
-        $newsite = new Object();
+        $newsite = new object();
         $newsite->fullname = "";
         $newsite->shortname = "";
-        $newsite->summary = "";
+        $newsite->summary = NULL;
         $newsite->newsitems = 3;
         $newsite->numsections = 0;
         $newsite->category = 0;
@@ -444,21 +508,27 @@
         $newsite->students = get_string("defaultcoursestudents");
         $newsite->timemodified = time();
 
-        if ($newid = insert_record('course', $newsite)) {
-            // Site created, add blocks for it
-            $page = page_create_object(PAGE_COURSE_VIEW, $newid);
-            blocks_repopulate_page($page); // Return value not checked because you can always edit later
-
-            $cat = new Object();
-            $cat->name = get_string('miscellaneous');
-            if (insert_record('course_categories', $cat)) {
-                  redirect('index.php');
-            } else {
-                 error("Serious Error! Could not set up a default course category!");
-            }
-        } else {
+        if (!$newid = insert_record('course', $newsite)) {
             error("Serious Error! Could not set up the site!");
         }
+        // make sure course context exists
+        get_context_instance(CONTEXT_COURSE, $newid);
+
+        // Site created, add blocks for it
+        $page = page_create_object(PAGE_COURSE_VIEW, $newid);
+        blocks_repopulate_page($page); // Return value not checked because you can always edit later
+
+        $cat = new object();
+        $cat->name = get_string('miscellaneous');
+        $cat->depth = 1;
+        if (!$catid = insert_record('course_categories', $cat)) {
+            error("Serious Error! Could not set up a default course category!");
+        }
+        // make sure category context exists
+        get_context_instance(CONTEXT_COURSECAT, $catid);
+        mark_context_dirty('/'.SYSCONTEXTID);
+
+        redirect('index.php');
     }
 
     // initialise default blocks on admin and site page if needed
@@ -472,19 +542,19 @@
         //add admin_tree block to site if not already present
         if ($admintree = get_record('block', 'name', 'admin_tree')) {
             $page = page_create_object(PAGE_COURSE_VIEW, SITEID);
-            blocks_execute_action($page, blocks_get_by_page($page), 'add', (int)$admintree->id, false, false);
+            $pageblocks=blocks_get_by_page($page);
+            blocks_execute_action($page, $pageblocks, 'add', (int)$admintree->id, false, false);
             if ($admintreeinstance = get_record('block_instance', 'pagetype', $page->type, 'pageid', SITEID, 'blockid', $admintree->id)) {
-                blocks_execute_action($page, blocks_get_by_page($page), 'moveleft', $admintreeinstance, false, false);
+                $pageblocks=blocks_get_by_page($page); // Needs to be re-got, since has just changed
+                blocks_execute_action($page, $pageblocks, 'moveleft', $admintreeinstance, false, false);
             }
         }
 
         set_config('adminblocks_initialised', 1);
     }
 
-/// Define the unique site ID code if it isn't already
-    if (empty($CFG->siteidentifier)) {    // Unique site identification code
-        set_config('siteidentifier', random_string(32).$_SERVER['HTTP_HOST']);
-    }
+/// Define the unique site ID code if it isn't already set. This getter does that as a side-effect.
+    get_site_identifier();
 
 /// Check if the guest user exists.  If not, create one.
     if (! record_exists("user", "username", "guest")) {
@@ -496,19 +566,23 @@
 
 /// Set up the admin user
     if (empty($CFG->rolesactive)) {
+        build_context_path(); // just in case - should not be needed
         create_admin_user();
     }
 
-/// Check for valid admin user
-    require_login();
+/// Check for valid admin user - no guest autologin
+    require_login(0, false);
 
-    $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
+    $context = get_context_instance(CONTEXT_SYSTEM);
 
     require_capability('moodle/site:config', $context);
 
 /// check that site is properly customized
-    if (empty($site->shortname) or empty($site->shortname)) {
-        redirect('settings.php?section=frontpagesettings&amp;return=site');
+    if (empty($site->shortname)) {
+        // probably new installation - lets return to frontpage after this step
+        // remove settings that we want uninitialised
+        unset_config('registerauth');
+        redirect('upgradesettings.php?return=site');
     }
 
 /// Check if we are returning from moodle.org registration and if so, we mark that fact to remove reminders
@@ -519,13 +593,25 @@
         }
     }
 
+/// setup critical warnings before printing admin tree block
+    $insecuredataroot         = is_dataroot_insecure(true);
+    $register_globals_enabled = ini_get_bool('register_globals'); 
+
+    $SESSION->admin_critical_warning = ($register_globals_enabled || $insecuredataroot==INSECURE_DATAROOT_ERROR); 
+
+    $adminroot =& admin_get_root();
+
+/// Check if there are any new admin settings which have still yet to be set
+    if (any_new_admin_settings($adminroot)){
+        redirect('upgradesettings.php');
+    }
+
 /// Everything should now be set up, and the user is an admin
 
 /// Print default admin page with notifications.
 
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('adminnotifications', $adminroot);
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_setup('adminnotifications');
+    admin_externalpage_print_header();
 
 /// Deprecated database! Warning!!
     if (!empty($CFG->migrated_to_new_db)) {
@@ -537,12 +623,26 @@
         print_box(get_string("upgrade$CFG->upgrade", "admin", "$CFG->wwwroot/$CFG->admin/upgrade$CFG->upgrade.php"));
     }
 
-    if (ini_get_bool('register_globals') && !ini_get_bool('magic_quotes_gpc')) {
-        print_box(get_string('globalsquoteswarning', 'admin'), 'generalbox adminwarning');
+    if ($register_globals_enabled) {
+        print_box(get_string('globalswarning', 'admin'), 'generalbox adminerror');
     }
 
-    if (is_dataroot_insecure()) {
+    if ($insecuredataroot == INSECURE_DATAROOT_WARNING) {
         print_box(get_string('datarootsecuritywarning', 'admin', $CFG->dataroot), 'generalbox adminwarning');
+    } else if ($insecuredataroot == INSECURE_DATAROOT_ERROR) {
+        print_box(get_string('datarootsecurityerror', 'admin', $CFG->dataroot), 'generalbox adminerror');
+        
+    }
+
+    if (defined('WARN_DISPLAY_ERRORS_ENABLED')) {
+        print_box(get_string('displayerrorswarning', 'admin'), 'generalbox adminwarning');
+    }
+
+    if (substr($CFG->wwwroot, -1) == '/') {
+        print_box(get_string('cfgwwwrootslashwarning', 'admin'), 'generalbox adminwarning');
+    }
+    if (strpos($ME, $CFG->httpswwwroot.'/') === false) {
+        print_box(get_string('cfgwwwrootwarning', 'admin'), 'generalbox adminwarning');
     }
 
 /// If no recently cron run
@@ -564,46 +664,30 @@
     }
 
 
-/// Print slightly annoying registration button every six months   ;-)
-/// You can set the "registered" variable to something far in the future
-/// if you really want to prevent this.   eg  9999999999
-    if (!isset($CFG->registered) || $CFG->registered < (time() - 3600*24*30*6)) {
-        $options = array();
-        $options['sesskey'] = $USER->sesskey;
-        print_box_start('generalbox adminwarning');
-        print_string('pleaseregister', 'admin');
-        print_single_button('register.php', $options, get_string('registration'));
-        print_box_end();
-        $registrationbuttonshown = true;
+/// Print slightly annoying registration button
+    $options = array();
+    $options['sesskey'] = $USER->sesskey;
+    print_box_start('generalbox adminwarning');
+    if(!isset($CFG->registered)) {
+       print_string('pleaseregister', 'admin');
     }
+    else { /* if (isset($CFG->registered) && $CFG->registered < (time() - 3600*24*30*6)) { */
+       print_string('pleaserefreshregistration', 'admin', userdate($CFG->registered));
+    }
+    print_single_button('register.php', $options, get_string('registration'));
+    print_box_end();
+
 
     //////////////////////////////////////////////////////////////////////////////////////////////////
     ////  IT IS ILLEGAL AND A VIOLATION OF THE GPL TO HIDE, REMOVE OR MODIFY THIS COPYRIGHT NOTICE ///
     $copyrighttext = '<a href="http://moodle.org/">Moodle</a> '.
-                     '<a href="http://docs.moodle.org/en/Release">'.$CFG->release.'</a> ('.$CFG->version.')<br />'.
+                     '<a href="http://docs.moodle.org/en/Release" title="'.$CFG->version.'">'.$CFG->release.'</a><br />'.
                      'Copyright &copy; 1999 onwards, Martin Dougiamas<br />'.
                      'and <a href="http://docs.moodle.org/en/Credits">many other contributors</a>.<br />'.
                      '<a href="http://docs.moodle.org/en/License">GNU Public License</a>';
     print_box($copyrighttext, 'copyright');
     //////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-    if (empty($registrationbuttonshown)) {
-        $options = array();
-        $options['sesskey'] = $USER->sesskey;
-        print_single_button('register.php', $options, get_string('registration'));
-    }
-
-
-    if (optional_param('dbmigrate')) {               // ??? Is this actually used?
-        print_box_start();
-        require_once($CFG->dirroot.'/'.$CFG->admin.'/utfdbmigrate.php');
-        db_migrate2utf8();
-        print_box_end();
-    }
-
-
-    admin_externalpage_print_footer($adminroot);
-
+    admin_externalpage_print_footer();
 
 ?>

@@ -1,4 +1,4 @@
-<?php // $Id: deploy.php,v 1.19 2007/01/04 18:24:09 skodak Exp $
+<?php // $Id: deploy.php,v 1.24.2.2 2008/04/02 06:10:04 dongsheng Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -54,13 +54,7 @@
 
 /// Instantiate a resource_ims object and modify its navigation
     $resource_obj = new resource_ims ($cmid);
-    if ($resource_obj->course->id != SITEID) {
-        $resource_obj->navigation = "<a $CFG->frametarget href=\"$CFG->wwwroot/course/view.php?id={$course->id}\">{$course->shortname}</a> -> ".
-                                    "<a $CFG->frametarget href=\"$CFG->wwwroot/mod/resource/index.php?id={$course->id}\">$resource_obj->strresources</a> -> ";
-    } else {
-        $resource_obj->navigation = "<a $CFG->frametarget href=\"$CFG->wwwroot/mod/resource/index.php?id={$course->id}\">$resource_obj->strresources</a> -> ";
-    }
-
+    
 /// Print the header of the page
     $pagetitle = strip_tags($course->shortname.': '.
                      format_string($resource->name)).': '.
@@ -69,17 +63,19 @@
     if ($inpopup) {
         print_header($pagetitle, $course->fullname);
     } else {
-        print_header($pagetitle, $course->fullname, 
-                     $resource_obj->navigation.format_string($resource->name).' -> '.$strdeploy,
+
+        $resource_obj->navlinks[] = array('name' => $strdeploy, 'link' => '', 'type' => 'action');
+        $navigation = build_navigation($resource_obj->navlinks, $cm);
+        print_header($pagetitle, $course->fullname, $navigation,
                      '', '', true, 
                      update_module_button($cm->id, $course->id, $resource_obj->strresource));
     }
 
 /// Security Constraints (sesskey and isteacheredit)
     if (!confirm_sesskey()) {
-        error(get_string('confirmsesskeybad', 'error'));
+        print_error('confirmsesskeybad', 'error');
     } else if (!has_capability('moodle/course:manageactivities', get_context_instance(CONTEXT_COURSE, $courseid))) {
-        error(get_string('onlyeditingteachers', 'error'));
+        print_error('onlyeditingteachers', 'error');
     }
 
 ///

@@ -1,4 +1,4 @@
-<?php // $Id: fullscreen.php,v 1.5.2.1 2007/04/09 20:39:41 mjollnir_ Exp $
+<?php // $Id: fullscreen.php,v 1.6.6.2 2008/12/05 00:57:21 dongsheng Exp $
     require("../../../../config.php");
 
     $id = optional_param('id', SITEID, PARAM_INT);
@@ -34,7 +34,9 @@ for (var i = 0; i < scripts.length; ++i) {
     } else {
       new_script.src = "../" + script.src;
     }
-    head.appendChild(new_script);
+    if (navigator.appVersion.indexOf("MSIE") == -1  || script.src.indexOf("yui/event/event") == -1) {
+      head.appendChild(new_script);
+    }
   }
 }
 </script>

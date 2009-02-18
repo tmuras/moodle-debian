@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.114.2.8 2007/06/02 14:09:42 skodak Exp $
+<?php  // $Id: view.php,v 1.128.2.9 2009/01/16 08:59:39 dongsheng Exp $
 /// This page prints a particular instance of glossary
     require_once("../../config.php");
     require_once("lib.php");
@@ -227,23 +227,19 @@
 /// If we are in approval mode, prit special header
     if ($tab == GLOSSARY_APPROVAL_VIEW) {
         require_capability('mod/glossary:approve', $context);
-        print_header_simple(format_string($glossary->name), "",
-            "<a href=\"index.php?id=$course->id\">$strglossaries</a> -> " .
-            "<a href=\"view.php?id=$id\">" .format_string($glossary->name) . "</a> -> " .
-            $strwaitingapproval,
-            "", "", true, 
+
+        $navigation = build_navigation($strwaitingapproval, $cm);
+        print_header_simple(format_string($glossary->name), "", $navigation, "", "", true,
             update_module_button($cm->id, $course->id, $strglossary), navmenu($course, $cm));
 
         print_heading($strwaitingapproval);
     } else { /// Print standard header
-        print_header_simple(format_string($glossary->name), "",
-            "<a href=\"index.php?id=$course->id\">$strglossaries</a> -> " .
-            format_string($glossary->name),
-            "", "", true, 
+        $navigation = build_navigation('', $cm);
+        print_header_simple(format_string($glossary->name), "", $navigation, "", "", true,
             update_module_button($cm->id, $course->id, $strglossary), navmenu($course, $cm));
     }
 
-/// All this depends if whe have $showcommonelements 
+/// All this depends if whe have $showcommonelements
     if ($showcommonelements) {
     /// To calculate available options
         $availableoptions = '';
@@ -262,7 +258,7 @@
                 $availableoptions .= '&nbsp;/&nbsp;';
             }
             $availableoptions .='<span class="helplink">' .
-                                '<a href="' . $CFG->wwwroot . '/mod/glossary/export.php?id=' . $cm->id . 
+                                '<a href="' . $CFG->wwwroot . '/mod/glossary/export.php?id=' . $cm->id .
                                 '&amp;mode='.$mode . '&amp;hook=' . urlencode($hook) . '"' .
                                 '  title="' . s(get_string('exportentries', 'glossary')) . '">' .
                                 get_string('exportentries', 'glossary') . '</a>' .
@@ -277,7 +273,7 @@
                     $availableoptions .= '<br />';
                 }
                 $availableoptions .='<span class="helplink">' .
-                                    '<a href="' . $CFG->wwwroot . '/mod/glossary/view.php?id=' . $cm->id . 
+                                    '<a href="' . $CFG->wwwroot . '/mod/glossary/view.php?id=' . $cm->id .
                                     '&amp;mode=approval' . '"' .
                                     '  title="' . s(get_string('waitingapproval', 'glossary')) . '">' .
                                     get_string('waitingapproval', 'glossary') . ' ('.$hiddenentries.')</a>' .
@@ -286,41 +282,49 @@
         }
 
     /// Start to print glossary controls
-        print_box_start('glossarycontrol');
+//        print_box_start('glossarycontrol clearfix');
+        echo '<div class="glossarycontrol" style="text-align: right">';
         echo $availableoptions;
 
     /// If rss are activated at site and glossary level and this glossary has rss defined, show link
         if (isset($CFG->enablerssfeeds) && isset($CFG->glossary_enablerssfeeds) &&
             $CFG->enablerssfeeds && $CFG->glossary_enablerssfeeds && $glossary->rsstype && $glossary->rssarticles) {
-    
+
             $tooltiptext = get_string("rsssubscriberss","glossary",format_string($glossary->name,true));
             if (empty($USER->id)) {
                 $userid = 0;
             } else {
                 $userid = $USER->id;
             }
-            print_box_start('rsslink');
+//            print_box_start('rsslink');
+            echo '<span class="wrap rsslink">';
             rss_print_link($course->id, $userid, "glossary", $glossary->id, $tooltiptext);
-            print_box_end(); 
+            echo '</span>';
+//            print_box_end();
         }
 
     /// The print icon
         if ( $showcommonelements and $mode != 'search') {
             if (has_capability('mod/glossary:manageentries', $context) or $glossary->allowprintview) {
-                print_box_start('printicon');
+//                print_box_start('printicon');
+                echo '<span class="wrap printicon">';
                 echo " <a title =\"". get_string("printerfriendly","glossary") ."\" href=\"print.php?id=$cm->id&amp;mode=$mode&amp;hook=".urlencode($hook)."&amp;sortkey=$sortkey&amp;sortorder=$sortorder&amp;offset=$offset\"><img class=\"icon\" src=\"print.gif\" alt=\"". get_string("printerfriendly","glossary") . "\" /></a>";
-                print_box_end(); 
+                echo '</span>';
+//                print_box_end();
             }
         }
     /// End glossary controls
-        print_box_end(); /// glossarycontrol
-
-        print_box('&nbsp;', 'clearer');
+//        print_box_end(); /// glossarycontrol
+        echo '</div>';
+        
+//        print_box('&nbsp;', 'clearer');
     }
 
 /// Info box
     if ( $glossary->intro && $showcommonelements ) {
-        print_box(format_text($glossary->intro), 'generalbox', 'intro');
+        $options = new stdclass;
+        $options->para = false;
+        print_box(format_text($glossary->intro, FORMAT_MOODLE, $options), 'generalbox', 'intro');
     }
 
 /// Search box
@@ -341,10 +345,10 @@
         } else {
             $fullsearchchecked = '';
         }
-        echo '<input type="checkbox" name="fullsearch" value="1" '.$fullsearchchecked.' alt="'.$strsearchindefinition.'" />';
+        echo '<input type="checkbox" name="fullsearch" id="fullsearch" value="1" '.$fullsearchchecked.' />';
         echo '<input type="hidden" name="mode" value="search" />';
         echo '<input type="hidden" name="id" value="'.$cm->id.'" />';
-        echo $strsearchindefinition;
+        echo '<label for="fullsearch">'.$strsearchindefinition.'</label>';
         echo '</td></tr></table>';
 
         echo '</form>';
@@ -410,7 +414,7 @@
 
             echo "<form method=\"post\" action=\"rate.php\">";
             echo "<div>";
-            echo "<input type=\"hidden\" name=\"id\" value=\"$course->id\" />";
+            echo "<input type=\"hidden\" name=\"glossaryid\" value=\"$glossary->id\" />";
         }
 
         foreach ($allentries as $entry) {
@@ -421,8 +425,8 @@
             // Reduce pivot to 1cc if necessary
             if ( !$fullpivot ) {
                 $upperpivot = $textlib->substr($upperpivot, 0, 1);
-            }            
-            
+            }
+
             // if there's a group break
             if ( $currentpivot != $upperpivot ) {
 
@@ -437,17 +441,17 @@
                     $pivottoshow = $currentpivot;
                     if ( isset($entry->userispivot) ) {
                     // printing the user icon if defined (only when browsing authors)
-                        echo '<td align="left">';
+                        echo '<th align="left">';
 
                         $user = get_record("user","id",$entry->userid);
-                        print_user_picture($user->id, $course->id, $user->picture);
+                        print_user_picture($user, $course->id, $user->picture);
                         $pivottoshow = fullname($user, has_capability('moodle/site:viewfullnames', get_context_instance(CONTEXT_COURSE, $course->id)));
                     } else {
-                        echo '<td align="center">';
+                        echo '<th >';
                     }
 
-                    echo "<strong> $pivottoshow</strong>" ;
-                    echo '</td></tr></table></div>';
+                    print_heading($pivottoshow);
+                    echo "</th></tr></table></div>\n";
 
                 }
             }
@@ -497,15 +501,15 @@
                 print_scale_menu_helpbutton($course->id, $scale );
             }
         }
-        echo "</div>";    
+        echo "</div>";
     }
 
     if (!empty($formsent)) {
         // close the form properly if used
         echo "</div>";
-        echo "</form>";  
+        echo "</form>";
     }
-    
+
     if ( $paging ) {
         echo '<hr />';
         echo '<div class="paging">';

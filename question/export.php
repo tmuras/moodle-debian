@@ -1,204 +1,145 @@
-<?php // $Id: export.php,v 1.28.2.4 2007/04/11 12:20:46 thepurpleblob Exp $
+<?php // $Id: export.php,v 1.43.2.4 2008/09/15 14:21:02 thepurpleblob Exp $
 /**
-* Export quiz questions into the given category
-*
-* @version $Id: export.php,v 1.28.2.4 2007/04/11 12:20:46 thepurpleblob Exp $
-* @author Martin Dougiamas, Howard Miller, and many others.
-*         {@link http://moodle.org}
-* @license http://www.gnu.org/copyleft/gpl.html GNU Public License
-* @package quiz
-*/
+ * Export quiz questions into the given category
+ *
+ * @author Martin Dougiamas, Howard Miller, and many others.
+ *         {@link http://moodle.org}
+ * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
+ * @package questionbank
+ * @subpackage importexport
+ */
 
     require_once("../config.php");
-    require_once( "editlib.php" );
+    require_once("editlib.php");
+    require_once("export_form.php");
 
-    // get parameters
-    $categoryid = optional_param('category',0, PARAM_INT);
-    $cattofile = optional_param('cattofile',0, PARAM_BOOL);
-    $courseid = required_param('courseid',PARAM_INT);
-    $exportfilename = optional_param('exportfilename','',PARAM_FILE );
-    $format = optional_param('format','', PARAM_FILE );
+    list($thispageurl, $contexts, $cmid, $cm, $module, $pagevars) = question_edit_setup('export');
 
 
     // get display strings
-    $txt = new object;
-    $txt->category = get_string('category','quiz');
-    $txt->download = get_string('download','quiz');
-    $txt->downloadextra = get_string('downloadextra','quiz');
-    $txt->exporterror = get_string('exporterror','quiz');
-    $txt->exportname = get_string('exportname','quiz');
-    $txt->exportquestions = get_string('exportquestions', 'quiz');
-    $txt->fileformat = get_string('fileformat','quiz');
-    $txt->exportcategory = get_string('exportcategory','quiz');
-    $txt->modulename = get_string('modulename','quiz');
-    $txt->modulenameplural = get_string('modulenameplural','quiz');
-    $txt->tofile = get_string('tofile','quiz');
+    $strexportquestions = get_string('exportquestions', 'quiz');
 
-
-    if (!$course = get_record("course", "id", $courseid)) {
-        error("Course does not exist!");
+    // make sure we are using the user's most recent category choice
+    if (empty($categoryid)) {
+        $categoryid = $pagevars['cat'];
     }
 
-    if ($categoryid) { // update category in session variable
-        $SESSION->questioncat = $categoryid;
-    } else { // try to get category from modform
-        if (isset($SESSION->questioncat)) {
-            $categoryid = $SESSION->questioncat;
-        }
-    }
-
-    if (!$category = get_record("question_categories", "id", $categoryid)) {   
-        $category = get_default_question_category($courseid); 
-    }
-    
-    if (!$categorycourse = get_record("course", "id", $category->course)) {
+    // ensure the files area exists for this course
+    make_upload_directory("$COURSE->id");
+    list($catid, $catcontext) = explode(',', $pagevars['cat']);
+    if (!$category = get_record("question_categories", "id", $catid, 'contextid', $catcontext)) {
         print_error('nocategory','quiz');
     }
 
-    require_login($course->id, false);
-
-    // check role capability
-    $context = get_context_instance(CONTEXT_COURSE, $course->id);
-    require_capability('moodle/question:export', $context);
-
-    // ensure the files area exists for this course
-    make_upload_directory( "$course->id" );
-
-    // check category is valid
-    if (!empty($categoryid)) {
-        $validcats = question_category_options( $course->id, true, false );
-        if (!array_key_exists( $categoryid, $validcats)) {
-            print_error( 'invalidcategory','quiz' );
-        }
-    }
-
     /// Header
-    if (isset($SESSION->modform->instance) and $quiz = get_record('quiz', 'id', $SESSION->modform->instance)) {
-        $strupdatemodule = has_capability('moodle/course:manageactivities', $context)
-            ? update_module_button($SESSION->modform->cmid, $course->id, $txt->modulename )
+    if ($cm!==null) {
+        $strupdatemodule = has_capability('moodle/course:manageactivities', $contexts->lowest())
+            ? update_module_button($cm->id, $COURSE->id, get_string('modulename', $cm->modname))
             : "";
-        print_header_simple($txt->exportquestions, '',
-            "<a href=\"$CFG->wwwroot/mod/quiz/index.php?id=$course->id\">$txt->modulenameplural</a>".
-            " -> <a href=\"$CFG->wwwroot/mod/quiz/view.php?q=$quiz->id\">".format_string($quiz->name).'</a>'.
-            ' -> '.$txt->exportquestions,
-            "", "", true, $strupdatemodule);
+        $navlinks = array();
+        $navlinks[] = array('name' => get_string('modulenameplural', $cm->modname), 'link' => "$CFG->wwwroot/mod/{$cm->modname}/index.php?id=$COURSE->id", 'type' => 'activity');
+        $navlinks[] = array('name' => format_string($module->name), 'link' => "$CFG->wwwroot/mod/{$cm->modname}/view.php?id={$cm->id}", 'type' => 'title');
+        $navlinks[] = array('name' => $strexportquestions, 'link' => '', 'type' => 'title');
+        $navigation = build_navigation($navlinks);
+        print_header_simple($strexportquestions, '', $navigation, "", "", true, $strupdatemodule);
+
         $currenttab = 'edit';
         $mode = 'export';
-        include($CFG->dirroot.'/mod/quiz/tabs.php');
+        ${$cm->modname} = $module;
+        include($CFG->dirroot."/mod/$cm->modname/tabs.php");
     } else {
-        print_header_simple($txt->exportquestions, '', $txt->exportquestions);
+        // Print basic page layout.
+        $navlinks = array();
+        $navlinks[] = array('name' => $strexportquestions, 'link' => '', 'type' => 'title');
+        $navigation = build_navigation($navlinks);
+
+        print_header_simple($strexportquestions, '', $navigation);
         // print tabs
         $currenttab = 'export';
         include('tabs.php');
     }
 
-    if (!empty($format)) {   /// Filename
+    $exportfilename = default_export_filename($COURSE, $category);
+    $export_form = new question_export_form($thispageurl, array('contexts'=>$contexts->having_one_edit_tab_cap('export'), 'defaultcategory'=>$pagevars['cat'],
+                                    'defaultfilename'=>$exportfilename));
 
-        if (!confirm_sesskey()) {
-            print_error( 'sesskey' );
+
+    if ($from_form = $export_form->get_data()) {   /// Filename
+
+
+        if (! is_readable("format/$from_form->format/format.php")) {
+            error("Format not known ($from_form->format)");
         }
 
-        if (! is_readable("format/$format/format.php")) {
-            error( "Format not known ($format)" );  }
-
         // load parent class for import/export
-        require("format.php");
+        require_once("format.php");
 
         // and then the class for the selected format
-        require("format/$format/format.php");
+        require_once("format/$from_form->format/format.php");
 
-        $classname = "qformat_$format";
+        $classname = "qformat_$from_form->format";
         $qformat = new $classname();
+        $qformat->setContexts($contexts->having_one_edit_tab_cap('export'));
+        $qformat->setCategory($category);
+        $qformat->setCourse($COURSE);
 
-        $qformat->setCategory( $category );
-        $qformat->setCourse( $course );
-        $qformat->setFilename( $exportfilename );
-        $qformat->setCattofile( $cattofile );
+        if (empty($from_form->exportfilename)) {
+            $from_form->exportfilename = default_export_filename($COURSE, $category);
+        }
+        $qformat->setFilename($from_form->exportfilename);
+        $canaccessbackupdata = has_capability('moodle/site:backup', $contexts->lowest());
+        $qformat->set_can_access_backupdata($canaccessbackupdata);
+        $qformat->setCattofile(!empty($from_form->cattofile));
+        $qformat->setContexttofile(!empty($from_form->contexttofile));
 
         if (! $qformat->exportpreprocess()) {   // Do anything before that we need to
-            error( $txt->exporterror, "$CFG->wwwroot/question/export.php?courseid={$course->id}&amp;category=$category->id");
+            print_error('exporterror', 'quiz', $thispageurl->out());
         }
 
         if (! $qformat->exportprocess()) {         // Process the export data
-            error( $txt->exporterror, "$CFG->wwwroot/question/export.php?courseid={$course->id}&amp;category=$category->id");
+            print_error('exporterror', 'quiz', $thispageurl->out());
         }
 
         if (! $qformat->exportpostprocess()) {                    // In case anything needs to be done after
-            error( $txt->exporterror, "$CFG->wwwroot/question/export.php?courseid={$course->id}&amp;category=$category->id");
+            print_error('exporterror', 'quiz', $thispageurl->out());
         }
         echo "<hr />";
 
         // link to download the finished file
         $file_ext = $qformat->export_file_extension();
-        if ($CFG->slasharguments) {
-          $efile = "{$CFG->wwwroot}/file.php/".$qformat->question_get_export_dir()."/$exportfilename".$file_ext."?forcedownload=1";
-        }
-        else {
-          $efile = "{$CFG->wwwroot}/file.php?file=/".$qformat->question_get_export_dir()."/$exportfilename".$file_ext."&forcedownload=1";
-        }
-        echo "<p><div class=\"boxaligncenter\"><a href=\"$efile\">$txt->download</a></div></p>";
-        echo "<p><div class=\"boxaligncenter\"><font size=\"-1\">$txt->downloadextra</font></div></p>";
+        $filename = $from_form->exportfilename . $file_ext;
+        if ($canaccessbackupdata) {
+            $efile = get_file_url($qformat->question_get_export_dir() . '/' . $filename,
+                    array('forcedownload' => 1));
+            echo '<p><div class="boxaligncenter"><a href="' . $efile . '">' .
+                    get_string('download', 'quiz') . '</a></div></p>';
+            echo '<p><div class="boxaligncenter"><font size="-1">' .
+                    get_string('downloadextra', 'quiz') . '</font></div></p>';
+        } else {
+            $efile = get_file_url($filename, null, 'questionfile');
+            echo '<p><div class="boxaligncenter">' .
+                    get_string('yourfileshoulddownload', 'question', $efile) . '</a></div></p>';
+            echo '
+<script type="text/javascript">
+//<![CDATA[
 
-        print_continue("edit.php?courseid=$course->id");
-        print_footer($course);
+  function redirect() {
+      document.location.replace("' .  addslashes_js($efile) . '");
+  }
+  setTimeout("redirect()", 1000);
+//]]>
+</script>';
+        }
+
+        print_continue('edit.php?' . $thispageurl->get_query_string());
+        print_footer($COURSE);
         exit;
     }
 
-    /// Display upload form
+    /// Display export form
+    print_heading_with_help($strexportquestions, 'export', 'quiz');
 
-    // get valid formats to generate dropdown list
-    $fileformatnames = get_import_export_formats( 'export' );
+    $export_form->display();
 
-    // get filename
-    if (empty($exportfilename)) {
-        $exportfilename = default_export_filename($course, $category);
-    }
-
-    print_heading_with_help($txt->exportquestions, 'export', 'quiz');
-    print_simple_box_start('center');
+    print_footer($COURSE);
 ?>
-
-    <form enctype="multipart/form-data" method="post" action="export.php">
-        <fieldset class="invisiblefieldset" style="display: block;">
-            <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>" />
-            <input type="hidden" name="courseid" value="<?php echo $course->id; ?>" />
-
-            <table cellpadding="5">
-                <tr>
-                    <td align="right"><?php echo $txt->category; ?>:</td>
-                    <td>
-                        <?php
-                        question_category_select_menu($course->id, true, false, $category->id);
-                        echo $txt->tofile; ?>
-                        <input name="cattofile" type="checkbox" />
-                        <?php helpbutton('exportcategory', $txt->exportcategory, 'quiz'); ?>
-                    </td>
-                </tr>
-                <tr>
-                    <td align="right"><?php echo $txt->fileformat; ?>:</td>
-                    <td>
-                        <?php choose_from_menu($fileformatnames, 'format', 'gift', '');
-                        helpbutton('export', $txt->exportquestions, 'quiz'); ?>
-                    </td>
-                </tr>
-                <tr>
-                    <td align="right"><?php echo $txt->exportname; ?>:</td>
-                    <td>
-                        <input type="text" size="40" name="exportfilename" value="<?php echo $exportfilename; ?>" />
-                    </td>
-                </tr>
-                <tr>
-                    <td align="center" >
-                        <input type="submit" name="save" value="<?php echo $txt->exportquestions; ?>" />
-                    </td>
-                    <td>&nbsp;</td>
-                </tr>
-            </table>
-        </fieldset>
-    </form>
-    <?php
-
-    print_simple_box_end();
-    print_footer($course);
-?>
-

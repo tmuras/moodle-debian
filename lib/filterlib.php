@@ -1,4 +1,4 @@
-<?php // $Id: filterlib.php,v 1.24 2006/11/11 17:23:21 skodak Exp $
+<?php // $Id: filterlib.php,v 1.24.10.2 2008/07/26 22:11:33 stronk7 Exp $
       // Contains special functions that are particularly useful to filters
 
 
@@ -73,7 +73,7 @@ function filter_phrases ($text, &$link_array, $ignoretagsopen=NULL, $ignoretagsc
 /// Unless specified otherwise, we will not replace within <a></a> tags
     if ( $ignoretagsopen === NULL ) {
         //$ignoretagsopen  = array('<a(.+?)>');
-        $ignoretagsopen  = array('<a[^>]+?>');
+        $ignoretagsopen  = array('<a\s[^>]+?>');
         $ignoretagsclose = array('</a>');
     }
     
@@ -287,7 +287,7 @@ function filter_save_ignore_tags(&$text,$filterignoretagsopen,$filterignoretagsc
     /// form regular expression
         $opentag  = str_replace('/','\/',$opentag); // delimit forward slashes
         $closetag = str_replace('/','\/',$closetag); // delimit forward slashes
-        $pregexp = '/'.$opentag.'(.+?)'.$closetag.'/is';
+        $pregexp = '/'.$opentag.'(.*?)'.$closetag.'/is';
         
         preg_match_all($pregexp, $text, $list_of_ignores);
         foreach (array_unique($list_of_ignores[0]) as $key=>$value) {

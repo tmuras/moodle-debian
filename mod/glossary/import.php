@@ -1,4 +1,4 @@
-<?php   // $Id: import.php,v 1.33.2.5 2007/04/04 03:34:00 nicolasconnault Exp $
+<?php   // $Id: import.php,v 1.43.2.1 2007/10/12 16:09:44 tjhunt Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -27,7 +27,7 @@
         error("Course module is incorrect");
     }
 
-    require_login($course->id, false);  
+    require_login($course->id, false, $cm);  
     
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_capability('mod/glossary:import', $context);
@@ -45,10 +45,8 @@
     $strsearch = get_string("search");
     $strimportentries = get_string('importentriesfromxml', 'glossary');
 
-    print_header_simple(format_string($glossary->name), "",
-        "<a href=\"index.php?id=$course->id\">$strglossaries</a> -> " .
-        "<a href=\"view.php?id=$id\">" .format_string($glossary->name) . "</a> -> " .
-        $strimportentries,
+    $navigation = build_navigation($strimportentries, $cm);
+    print_header_simple(format_string($glossary->name), "", $navigation,
         "", "", true, update_module_button($cm->id, $course->id, $strglossary),
         navmenu($course, $cm));
 

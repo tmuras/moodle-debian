@@ -1,4 +1,4 @@
-<?php  // $Id: report.php,v 1.10 2007/01/08 19:34:16 skodak Exp $
+<?php  // $Id: report.php,v 1.12.2.2 2008/03/06 07:34:05 gbateson Exp $
 /// Overview report just displays a big table of all the attempts
 class hotpot_report extends hotpot_default_report {
 
@@ -29,13 +29,13 @@ class hotpot_report extends hotpot_default_report {
 			$table->size[] = 10;
 			$table->wrap[] = "nowrap";
 		}
-		array_push($table->head, 
-			get_string("name"), 
+		array_push($table->head,
+			get_string("name"),
 			hotpot_grade_heading($hotpot, $options),
-			get_string("attempt", "quiz"), 
-			get_string("time", "quiz"), 
-			get_string("reportstatus", "hotpot"), 
-			get_string("timetaken", "quiz"), 
+			get_string("attempt", "quiz"),
+			get_string("time", "quiz"),
+			get_string("reportstatus", "hotpot"),
+			get_string("timetaken", "quiz"),
 			get_string("score", "quiz")
 		);
 		array_push($table->align, "left", "center", "center", "left", "center", "center", "center");
@@ -49,7 +49,7 @@ class hotpot_report extends hotpot_default_report {
 			$name = fullname($u);
 			if ($is_html) {
 				$picture = print_user_picture($u->userid, $course->id, $u->picture, false, true);
-				$name = '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$u->userid.'&course='.$course->id.'">'.$name.'</a>';
+				$name = '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$u->userid.'&amp;course='.$course->id.'">'.$name.'</a>';
 			}
 			$grade = isset($user->grade) && $user->grade<>'&nbsp;' ? $user->grade : $spacer;
 			$attemptcount = count($user->attempts);
@@ -83,11 +83,11 @@ class hotpot_report extends hotpot_default_report {
 				$attemptnumber = $attempt->attempt;
 				$starttime = trim(userdate($attempt->timestart, $strtimeformat));
 				if ($is_html && isset($attempt->score) && (has_capability('mod/hotpot:viewreport',get_context_instance(CONTEXT_COURSE, $course->id)) || $hotpot->review)) {
-					$attemptnumber = '<a href="review.php?hp='.$hotpot->id.'&attempt='.$attempt->id.'">'.$attemptnumber.'</a>';
-					$starttime = '<a href="review.php?hp='.$hotpot->id.'&attempt='.$attempt->id.'">'.$starttime.'</a>';
+					$attemptnumber = '<a href="review.php?hp='.$hotpot->id.'&amp;attempt='.$attempt->id.'">'.$attemptnumber.'</a>';
+					$starttime = '<a href="review.php?hp='.$hotpot->id.'&amp;attempt='.$attempt->id.'">'.$starttime.'</a>';
 				}
 				if ($is_html && has_capability('mod/hotpot:viewreport',get_context_instance(CONTEXT_COURSE, $course->id))) {
-					$checkbox = '<input type=checkbox name="box'.$attempt->clickreportid.'" value="'.$attempt->clickreportid.'">'.$spacer;
+					$checkbox = '<input type="checkbox" name="box'.$attempt->clickreportid.'" value="'.$attempt->clickreportid.'" />'.$spacer;
 				} else {
 					$checkbox = '';
 				}
@@ -96,7 +96,7 @@ class hotpot_report extends hotpot_default_report {
 				if ($is_html && is_numeric($score) && $score==$user->grade) { // best grade
 					$score = '<span class="highlight">'.$score.'</span>';
 				}
-				array_push($data, 
+				array_push($data,
 					$attemptnumber,
 					$checkbox.$starttime,
 					hotpot_format_status($attempt),
@@ -116,13 +116,13 @@ class hotpot_report extends hotpot_default_report {
 			$table->start = $this->deleteform_javascript();
 			$table->start .= '<form method="post" action="report.php" id="deleteform" onsubmit="'."return deletecheck('".$strdeletecheck."', 'selection')".'">'."\n";
 			$table->start .= '<input type="hidden" name="del" value="selection" />'."\n";
-			$table->start .= '<input type="hidden" name="id" value="'.$cm->id.'">'."\n";
+			$table->start .= '<input type="hidden" name="id" value="'.$cm->id.'" />'."\n";
 			$table->finish = '<center>'."\n";
 			$table->finish .= '<input type="submit" value="'.get_string("deleteselected").'" />&nbsp;'."\n";
 			if ($abandoned) {
-				$table->finish .= '<input type=button value="'.get_string('deleteabandoned', 'hotpot').'" onClick="if(deletecheck('."'".addslashes(get_string('deleteabandonedcheck', 'hotpot', $abandoned))."', 'abandoned', true".')) getElementById(\'deleteform\').submit();" />'."\n";
+				$table->finish .= '<input type="button" value="'.get_string('deleteabandoned', 'hotpot').'" onClick="if(deletecheck('."'".addslashes(get_string('deleteabandonedcheck', 'hotpot', $abandoned))."', 'abandoned', true".')) document.getElementById(\'deleteform\').submit();" />'."\n";
 			}
-			$table->finish .= '<input type=button value="'.get_string("deleteall").'" onClick="if(deletecheck('."'".addslashes($strdeletecheck)."', 'all', true".'))getElementById(\'deleteform\').submit();" />'."\n";
+			$table->finish .= '<input type="button" value="'.get_string("deleteall").'" onClick="if(deletecheck('."'".addslashes($strdeletecheck)."', 'all', true".'))document.getElementById(\'deleteform\').submit();" />'."\n";
 			$table->finish .= '</center>'."\n";
 			$table->finish .= '</form>'."\n";
 		}
@@ -136,7 +136,7 @@ class hotpot_report extends hotpot_default_report {
 function deletecheck(p, v, x) {
 	var r = false; // result
 	// get length of form elements
-	var f = getElementById('deleteform');
+	var f = document.getElementById('deleteform');
 	var l = f ? f.elements.length : 0;
 	// count selected items, if necessary
 	if (!x) {
@@ -150,7 +150,7 @@ function deletecheck(p, v, x) {
 	}
 	// confirm deletion
 	var n = navigator;
-	if (x || (n.appName=='Netscape' && parseint(n.appVersion)==2)) {
+	if (x || (n.appName=='Netscape' && parseInt(n.appVersion)==2)) {
 		r = confirm(p);
 		if (r) {
 			f.del.value = v;

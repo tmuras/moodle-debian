@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.20 2006/09/02 11:44:08 skodak Exp $
+<?php // $Id: index.php,v 1.24.2.5 2008/02/05 21:39:52 skodak Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -21,13 +21,17 @@
     $strdone  = get_string("done", "survey");
     $strnotdone  = get_string("notdone", "survey");
 
-    print_header_simple("$strsurveys", "", "$strsurveys", 
+    $navlinks = array();
+    $navlinks[] = array('name' => $strsurveys, 'link' => '', 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
+
+    print_header_simple("$strsurveys", "", $navigation,
                  "", "", true, "", navmenu($course));
 
     if (! $surveys = get_all_instances_in_course("survey", $course)) {
-        notice("There are no surveys.", "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strsurveys), "../../course/view.php?id=$course->id");
     }
-    
+
     if ($course->format == "weeks") {
         $table->head  = array ($strweek, $strname, $strstatus);
         $table->align = array ("CENTER", "LEFT", "LEFT");

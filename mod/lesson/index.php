@@ -1,8 +1,8 @@
-<?php // $Id: index.php,v 1.18.2.1 2007/02/28 05:36:16 nicolasconnault Exp $
+<?php // $Id: index.php,v 1.25.2.4 2008/03/06 04:57:42 scyrma Exp $
 /**
  * This page lists all the instances of lesson in a particular course
  *
- * @version $Id: index.php,v 1.18.2.1 2007/02/28 05:36:16 nicolasconnault Exp $
+ * @version $Id: index.php,v 1.25.2.4 2008/03/06 04:57:42 scyrma Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -29,19 +29,17 @@
 
 
 /// Print the header
+    $navlinks = array();
+    $navlinks[] = array('name' => $strlessons, 'link' => '', 'type' => 'activity');
 
-    if ($course->id != SITEID) {
-        $navigation = "<a href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</a> ->";
-    } else {
-        $navigation = '';
-    }
+    $navigation = build_navigation($navlinks);
 
-    print_header("$course->shortname: $strlessons", $course->fullname, "$navigation $strlessons", "", "", true, "", navmenu($course));
+    print_header("$course->shortname: $strlessons", $course->fullname, $navigation, "", "", true, "", navmenu($course));
 
 /// Get all the appropriate data
 
     if (! $lessons = get_all_instances_in_course("lesson", $course)) {
-        notice("There are no lessons", "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strlessons), "../../course/view.php?id=$course->id");
         die;
     }
 
@@ -53,6 +51,7 @@
     $strdeadline  = get_string("deadline", "lesson");
     $strweek  = get_string("week");
     $strtopic  = get_string("topic");
+    $strnodeadline = get_string("nodeadline", "lesson");
     $table = new stdClass;
 
     if ($course->format == "weeks") {
@@ -77,7 +76,9 @@
         $cm = get_coursemodule_from_instance('lesson', $lesson->id);
         $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
-        if ($lesson->deadline > $timenow) {
+        if ($lesson->deadline == 0) {
+            $due = $strnodeadline;
+        } else if ($lesson->deadline > $timenow) {
             $due = userdate($lesson->deadline);
         } else {
             $due = "<font color=\"red\">".userdate($lesson->deadline)."</font>";
@@ -89,11 +90,8 @@
             } else {
                 // it's a student, show their grade
                 $grade_value = 0;
-                if ($return = lesson_grades($lesson->id)) {
-                    // grades are stored as percentages
-                    if (isset($return->grades[$USER->id])) {
-                        $grade_value = $return->grades[$USER->id];
-                    }
+                if ($return = lesson_get_user_grades($lesson, $USER->id)) {
+                    $grade_value = $return[$USER->id]->rawgrade;
                 }
             }
             $table->data[] = array ($lesson->section, $link, $grade_value, $due);

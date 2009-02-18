@@ -29,7 +29,7 @@ function mnet_get_functions($type, $parentname) {
         $docname = 'rpclib.php';
         $relname  = '/mod/'.$parentname.'/'.$docname;
         $filename = $CFG->dirroot.$relname;
-        if (file_exists($filename)) include $filename;
+        if (file_exists($filename)) include_once $filename;
         $mnet_publishes = $parentname.'_mnet_publishes';
         if (function_exists($mnet_publishes)) {
             (array)$publishes = $mnet_publishes();
@@ -38,7 +38,7 @@ function mnet_get_functions($type, $parentname) {
         // auth or enrol
         $relname  = '/'.$type.'/'.$parentname.'/'.$docname;
         $filename = $CFG->dirroot.$relname;
-        if (file_exists($filename)) include $filename;
+        if (file_exists($filename)) include_once $filename;
         $class = $type.($type=='enrol'? 'ment':'').'_plugin_'.$parentname;
         if (class_exists($class)) {
             $object = new $class();
@@ -72,7 +72,7 @@ function mnet_get_functions($type, $parentname) {
     if (!file_exists($filename)) return false;
 
     if (extension_loaded('tokenizer')) {
-        include_once $CFG->dirroot.'/admin/mnet/MethodTable.php';
+        include_once "$CFG->dirroot/$CFG->admin/mnet/MethodTable.php";
         $functions = (array)MethodTable::create($filename,false);
     }
 

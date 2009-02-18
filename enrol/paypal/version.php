@@ -1,4 +1,4 @@
-<?PHP // $Id: version.php,v 1.3 2006/09/22 16:19:24 moodler Exp $
+<?PHP // $Id: version.php,v 1.4 2007/10/10 16:09:51 skodak Exp $
 
 /////////////////////////////////////////////////////////////////////////////////
 ///  Code fragment to define the version of this enrolment module
@@ -7,6 +7,6 @@
 
 $plugin->version  = 2006092200;   // This module's version
 
-$plugin->requires = 2006092100;   // Requires this Moodle version
+$plugin->requires = 2007101000;   // Requires this Moodle version
 
 ?>

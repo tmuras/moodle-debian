@@ -1,4 +1,4 @@
-<?php //$Id: block_blog_menu.php,v 1.14 2006/10/25 08:17:44 skodak Exp $
+<?php //$Id: block_blog_menu.php,v 1.16.2.2 2008/05/02 04:07:31 dongsheng Exp $
 
 require_once($CFG->dirroot .'/blog/lib.php');
 
@@ -7,15 +7,11 @@ class block_blog_menu extends block_base {
     function init() {
         $this->title = get_string('blockmenutitle', 'blog');
         $this->content_type = BLOCK_TYPE_TEXT;
-        $this->version = 2004112000;
+        $this->version = 2007101509;
     }
 
     function get_content() {
-        global $CFG, $course;
-
-        if (!isset($course)) {
-            $course = SITEID;
-        }
+        global $CFG, $USER, $COURSE;
 
         if (empty($CFG->bloglevel)) {
             $this->content->text = '';
@@ -32,7 +28,6 @@ class block_blog_menu extends block_base {
             $userBlog ->userid = 0;
         }
 
-        global $CFG, $USER, $course;
         if (!empty($USER->id)) {
             $userBlog->userid = $USER->id;
         }   //what is $userBlog anyway
@@ -56,13 +51,12 @@ class block_blog_menu extends block_base {
             $addentrylink = '';
             $coursearg = '';
 
-            $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+            $sitecontext = get_context_instance(CONTEXT_SYSTEM);
 
-            if (isset($course) && isset($course->id)
-                    && $course->id != 0 && $course->id != SITEID) {
+            if ($COURSE->id != SITEID) {
 
                 $incoursecontext = true;
-                $curcontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                $curcontext = get_context_instance(CONTEXT_COURSE, $COURSE->id);
             } else {
                 $incoursecontext = false;
                 $curcontext = $sitecontext;
@@ -75,10 +69,10 @@ class block_blog_menu extends block_base {
             if ( (isloggedin() && !isguest()) && $incoursecontext
                     && $CFG->bloglevel >= BLOG_COURSE_LEVEL && $canviewblogs) {
 
-                $coursearg = '&amp;courseid='.$course->id;
+                $coursearg = '&amp;courseid='.$COURSE->id;
                 // a course is specified
 
-                $courseviewlink = '<li><a href="'. $CFG->wwwroot .'/blog/index.php?filtertype=course&amp;filterselect='. $course->id .'">';
+                $courseviewlink = '<li><a href="'. $CFG->wwwroot .'/blog/index.php?filtertype=course&amp;filterselect='. $COURSE->id .'">';
                 $courseviewlink .= get_string('viewcourseentries', 'blog') ."</a></li>\n";
             }
 
@@ -113,12 +107,7 @@ class block_blog_menu extends block_base {
                 $output .= get_string('viewsiteentries', 'blog')."</a></li>\n";
             }
 
-            if (has_capability('moodle/blog:manageofficialtags', $sitecontext)
-              or has_capability('moodle/blog:managepersonaltags', $sitecontext)
-              or has_capability('moodle/blog:create', $sitecontext)) {
-
-                $output .= '<li>'. link_to_popup_window("/blog/tags.php",'popup',get_string('tagmanagement'), 400, 500, 'Popup window', 'none', true) ."</li>\n";
-            }
+            // took out tag management interface/link, should use tag/manage.php
 
             // show Help with blogging link
             //$output .= '<li><a href="'. $CFG->wwwroot .'/help.php?module=blog&amp;file=user.html">';

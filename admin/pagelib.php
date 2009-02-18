@@ -1,4 +1,4 @@
-<?php // $Id: pagelib.php,v 1.17.2.4 2007/03/15 01:14:07 poltawski Exp $
+<?php // $Id: pagelib.php,v 1.23.2.3 2008/12/11 09:21:53 tjhunt Exp $
 
 require_once($CFG->libdir.'/pagelib.php');
 
@@ -15,68 +15,63 @@ define('BLOCK_L_MIN_WIDTH', $lmin);
 define('BLOCK_L_MAX_WIDTH', $lmax);
 define('BLOCK_R_MIN_WIDTH', $rmin);
 define('BLOCK_R_MAX_WIDTH', $rmax);
-  
+
 page_map_class(PAGE_ADMIN, 'page_admin');
 
 class page_admin extends page_base {
 
-    var $section;
-    var $pathtosection;
+    var $section = '';
     var $visiblepathtosection;
+    var $extraurlparams = array();
+    var $extrabutton = '';
+    var $url = '';
 
     // hack alert!
     // this function works around the inability to store the section name
     // in default block, maybe we should "improve" the blocks a bit?
-    function init_extra($section) { 
+    function init_extra($section) {
         global $CFG;
 
         if($this->full_init_done) {
             return;
         }
 
-        $adminroot = admin_get_root();
+        $adminroot =& admin_get_root(false, false); //settings not required - only pages
 
         // fetch the path parameter
         $this->section = $section;
-
-        $this->visiblepathtosection = array();
-        
-        // this part is (potentially) processor-intensive... there's gotta be a better way
-        // of handling this
-        if ($this->pathtosection = $adminroot->path($this->section)) {
-            foreach($this->pathtosection as $element) {
-                if ($pointer = $adminroot->locate($element)) {
-                    array_push($this->visiblepathtosection, $pointer->visiblename);
-                }
-            }
-        }
+        $current =& $adminroot->locate($section, true);
+        $this->visiblepathtosection = array_reverse($current->visiblepath);
 
         // all done
         $this->full_init_done = true;
     }
-    
+
     function blocks_get_default() {
         return 'admin_tree,admin_bookmarks';
     }
 
     // seems reasonable that the only people that can edit blocks on the admin pages
     // are the admins... but maybe we want a role for this?
-    function user_allowed_editing() { 
-        return has_capability('moodle/site:manageblocks', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    function user_allowed_editing() {
+        return has_capability('moodle/site:manageblocks', get_context_instance(CONTEXT_SYSTEM));
     }
 
     // has to be fixed. i know there's a "proper" way to do this
-    function user_is_editing() { 
+    function user_is_editing() {
         global $USER;
         return $USER->adminediting;
     }
 
-    function url_get_path() { 
+    function url_get_path() {
         global $CFG;
+        if (!empty($this->url)) {
+            return $this->url;
+        }
 
-        $adminroot = admin_get_root();
+        $adminroot =& admin_get_root(false, false); //settings not required - only pages
 
-        $root = $adminroot->locate($this->section);
+        $root =& $adminroot->locate($this->section);
         if (is_a($root, 'admin_externalpage')) {
             return $root->url;
         } else {
@@ -84,15 +79,36 @@ class page_admin extends page_base {
         }
     }
 
-    function url_get_parameters() {  // only handles parameters relevant to the admin pagetype
-        return array('section' => (isset($this->section) ? $this->section : ''));
+    /**
+     * Use this to pass extra HTML that is added after the turn blocks editing on/off button.
+     *
+     * @param string $extrabutton HTML code.
+     */
+    function set_extra_button($extrabutton) {
+        $this->extrabutton = $extrabutton;
     }
 
-    function blocks_get_positions() { 
+    /**
+     * Use this to pass extra URL parameters that, for example, the blocks editing controls need to reload the current page accurately.
+     *
+     * @param array $extraurlparams paramname => value array.
+     */
+    function set_extra_url_params($extraurlparams, $actualurl = '') {
+        $this->extraurlparams = $extraurlparams;
+        if (!empty($actualurl)) {
+            $this->url = $actualurl;
+        }
+    }
+
+    function url_get_parameters() {  // only handles parameters relevant to the admin pagetype
+        return array_merge($this->extraurlparams, array('section' => $this->section));
+    }
+
+    function blocks_get_positions() {
         return array(BLOCK_POS_LEFT, BLOCK_POS_RIGHT);
     }
 
-    function blocks_default_position() { 
+    function blocks_default_position() {
         return BLOCK_POS_LEFT;
     }
 
@@ -110,24 +126,35 @@ class page_admin extends page_base {
         parent::init_quick($data);
     }
 
-    function print_header($section = '') {
+    function print_header($section = '', $focus='') {
         global $USER, $CFG, $SITE;
 
         $this->init_full($section); // we're trusting that init_full() has already been called by now; it should have.
                                     // if not, print_header() has to be called with a $section parameter
 
-	// The search page currently doesn't handle block editing 
+        // The search page currently doesn't handle block editing
         if ($this->section != 'search' and $this->user_allowed_editing()) {
-            $buttons = '<div><form '.$CFG->frametarget.' method="get" action="' . $this->url_get_path() . '">'.
-                       '<div><input type="hidden" name="adminedit" value="'.($this->user_is_editing()?'off':'on').'" />'.
-                       '<input type="hidden" name="section" value="'.$this->section.'" />'.
-                       '<input type="submit" value="'.get_string($this->user_is_editing()?'blockseditoff':'blocksediton').'" /></div></form></div>';
+            $options = $this->url_get_parameters();
+            if ($this->user_is_editing()) {
+                $caption = get_string('blockseditoff');
+                $options['adminedit'] = 'off';
+            } else {
+                $caption = get_string('blocksediton');
+                $options['adminedit'] = 'on';
+            }
+            $buttons = print_single_button($this->url_get_path(), $options, $caption, 'get', '', true);
         } else {
             $buttons = '&nbsp;';
         }
-        
-        print_header("$SITE->shortname: " . implode(": ",$this->visiblepathtosection), $SITE->fullname, 
-                       implode(" -> ",$this->visiblepathtosection),'', '', true, $buttons, '');
+        $buttons .= $this->extrabutton;
+
+        $navlinks = array();
+        foreach ($this->visiblepathtosection as $element) {
+            $navlinks[] = array('name' => $element, 'link' => null, 'type' => 'misc');
+        }
+        $navigation = build_navigation($navlinks);
+
+        print_header("$SITE->shortname: " . implode(": ",$this->visiblepathtosection), $SITE->fullname, $navigation, $focus, '', true, $buttons, '');
     }
 
     function get_type() {

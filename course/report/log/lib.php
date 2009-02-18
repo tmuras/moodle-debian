@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.18.2.2 2007/03/15 16:02:32 poltawski Exp $
+<?php  // $Id: lib.php,v 1.22.2.3 2009/01/14 17:47:00 stronk7 Exp $
 
 function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $selecteddate='today',
                                  $modname="", $modid=0, $modaction='', $selectedgroup=-1, $showcourses=0, $showusers=0, $logformat='showashtml') {
@@ -19,7 +19,7 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
         $showcourses = 1;
     }
     
-    $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+    $sitecontext = get_context_instance(CONTEXT_SYSTEM);
     
     // Context for remote data is always SITE
     // Groups for remote data are always OFF
@@ -47,15 +47,20 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
     // Get all the possible users
     $users = array();
 
+    // Define limitfrom and limitnum for queries below
+    // If $showusers is enabled... don't apply limitfrom and limitnum
+    $limitfrom = empty($showusers) ? 0 : '';
+    $limitnum  = empty($showusers) ? COURSE_MAX_USERS_PER_DROPDOWN + 1 : '';
+
     // If looking at a different host, we're interested in all our site users
     if ($hostid == $CFG->mnet_localhost_id && $course->id != SITEID) {
         if ($selectedgroup) {   // If using a group, only get users in that group.
-            $courseusers = get_group_users($selectedgroup, 'u.lastname ASC', '', 'u.id, u.firstname, u.lastname, u.idnumber');
+            $courseusers = get_group_users($selectedgroup, 'u.lastname ASC', '', 'u.id, u.firstname, u.lastname, u.idnumber', $limitfrom, $imitnum);
         } else {
-            $courseusers = get_course_users($course->id, '', '', 'u.id, u.firstname, u.lastname, u.idnumber');
+            $courseusers = get_course_users($course->id, '', '', 'u.id, u.firstname, u.lastname, u.idnumber', $limitfrom, $limitnum);
         }
     } else {
-        $courseusers = get_site_users("u.lastaccess DESC", "u.id, u.firstname, u.lastname, u.idnumber");
+        $courseusers = get_site_users("u.lastaccess DESC", "u.id, u.firstname, u.lastname, u.idnumber", '', $limitfrom, $limitnum);
     }
 
     if (count($courseusers) < COURSE_MAX_USERS_PER_DROPDOWN && !$showusers) {
@@ -98,7 +103,7 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
         $courses = array();
         $sites = array();
         if ($CFG->mnet_localhost_id == $hostid) {
-            if (has_capability('moodle/site:viewreports', $sitecontext) && $showcourses) {
+            if (has_capability('coursereport/log:view', $sitecontext) && $showcourses) {
                 if ($ccc = get_records("course", "", "", "fullname","id,fullname,category")) {
                     foreach ($ccc as $cc) {
                         if ($cc->id == SITEID) {
@@ -110,8 +115,8 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
                 }
             }
         } else {
-            if (has_capability('moodle/site:viewreports', $sitecontext) && $showcourses) {
-                $sql = "select distinct course, coursename from mdl_mnet_log where hostid = '$hostid'";
+            if (has_capability('coursereport/log:view', $sitecontext) && $showcourses) {
+                $sql = "select distinct course, coursename from {$CFG->prefix}mnet_log where hostid = '$hostid'";
                 if ($ccc = get_records_sql($sql)) {
                     foreach ($ccc as $cc) {
                         if (1 == $cc->course) { // TODO: this might be wrong - site course may have another id
@@ -163,7 +168,7 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
         }
     }
 
-    if (has_capability('moodle/site:viewreports', $sitecontext) && !$course->category) {
+    if (has_capability('coursereport/log:view', $sitecontext) && !$course->category) {
         $activities["site_errors"] = get_string("siteerrors");
         if ($modid === "site_errors") {
             $selectedactivity = "site_errors";
@@ -217,14 +222,14 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
     echo "<input type=\"hidden\" name=\"chooselog\" value=\"1\" />\n";
     echo "<input type=\"hidden\" name=\"showusers\" value=\"$showusers\" />\n";
     echo "<input type=\"hidden\" name=\"showcourses\" value=\"$showcourses\" />\n";
-    if (has_capability('moodle/site:viewreports', $sitecontext) && $showcourses) {
+    if (has_capability('coursereport/log:view', $sitecontext) && $showcourses) {
         $cid = empty($course->id)? '1' : $course->id; 
         choose_from_menu_nested($dropdown, "host_course", $hostid.'/'.$cid, "");
     } else {
         $courses = array();
         $courses[$course->id] = $course->fullname . ((empty($course->category)) ? ' ('.get_string('site').') ' : '');
         choose_from_menu($courses,"id",$course->id,false);
-        if (has_capability('moodle/site:viewreports', $sitecontext)) {
+        if (has_capability('coursereport/log:view', $sitecontext)) {
             $a = new object();
             $a->url = "$CFG->wwwroot/course/report/log/index.php?chooselog=0&group=$selectedgroup&user=$selecteduser"
                 ."&id=$course->id&date=$selecteddate&modid=$selectedactivity&showcourses=1&showusers=$showusers";
@@ -233,7 +238,7 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
     }
 
     if ($showgroups) {
-        if ($cgroups = get_groups($course->id)) {
+        if ($cgroups = groups_get_all_groups($course->id)) {
             foreach ($cgroups as $cgroup) {
                 $groups[$cgroup->id] = $cgroup->name;
             }
@@ -286,7 +291,7 @@ function print_log_selector_form($course, $selecteduser=0, $selecteddate='today'
         $showcourses = 1;
     }
     
-    $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+    $sitecontext = get_context_instance(CONTEXT_SYSTEM);
     $context = get_context_instance(CONTEXT_COURSE, $course->id);
    
     /// Setup for group handling.
@@ -331,7 +336,7 @@ function print_log_selector_form($course, $selecteduser=0, $selecteddate='today'
         }
     }
 
-    if (has_capability('moodle/site:viewreports', $sitecontext) && $showcourses) {
+    if (has_capability('coursereport/log:view', $sitecontext) && $showcourses) {
         if ($ccc = get_records("course", "", "", "fullname","id,fullname,category")) {
             foreach ($ccc as $cc) {
                 if ($cc->category) {
@@ -378,7 +383,7 @@ function print_log_selector_form($course, $selecteduser=0, $selecteddate='today'
         }
     }
 
-    if (has_capability('moodle/site:viewreports', $sitecontext) && ($course->id == SITEID)) {
+    if (has_capability('coursereport/log:view', $sitecontext) && ($course->id == SITEID)) {
         $activities["site_errors"] = get_string("siteerrors");
         if ($modid === "site_errors") {
             $selectedactivity = "site_errors";
@@ -432,14 +437,14 @@ function print_log_selector_form($course, $selecteduser=0, $selecteddate='today'
     echo "<input type=\"hidden\" name=\"chooselog\" value=\"1\" />\n";
     echo "<input type=\"hidden\" name=\"showusers\" value=\"$showusers\" />\n";
     echo "<input type=\"hidden\" name=\"showcourses\" value=\"$showcourses\" />\n";
-    if (has_capability('moodle/site:viewreports', $sitecontext) && $showcourses) { 
+    if (has_capability('coursereport/log:view', $sitecontext) && $showcourses) {
         choose_from_menu ($courses, "id", $course->id, "");
     } else {
         //        echo '<input type="hidden" name="id" value="'.$course->id.'" />';
         $courses = array();
         $courses[$course->id] = $course->fullname . (($course->id == SITEID) ? ' ('.get_string('site').') ' : '');
         choose_from_menu($courses,"id",$course->id,false);
-        if (has_capability('moodle/site:viewreports', $sitecontext)) {
+        if (has_capability('coursereport/log:view', $sitecontext)) {
             $a = new object();
             $a->url = "$CFG->wwwroot/course/report/log/index.php?chooselog=0&group=$selectedgroup&user=$selecteduser"
                 ."&id=$course->id&date=$selecteddate&modid=$selectedactivity&showcourses=1&showusers=$showusers";
@@ -448,7 +453,7 @@ function print_log_selector_form($course, $selecteduser=0, $selecteddate='today'
     }
 
     if ($showgroups) {
-        if ($cgroups = get_groups($course->id)) {
+        if ($cgroups = groups_get_all_groups($course->id)) {
             foreach ($cgroups as $cgroup) {
                 $groups[$cgroup->id] = $cgroup->name;
             }

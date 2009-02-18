@@ -1,4 +1,4 @@
-<?php  // $Id: health.php,v 1.16 2006/09/25 20:22:56 skodak Exp $
+<?php  // $Id: health.php,v 1.17.4.5 2008/11/27 05:57:04 tjhunt Exp $
 
     ob_start(); //for whitespace test
     require_once('../config.php');
@@ -13,8 +13,8 @@
     }
 
     require_once($CFG->libdir.'/adminlib.php');
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('healthcenter', $adminroot);
+
+    admin_externalpage_setup('healthcenter');
 
     define('SEVERITY_NOTICE',      'notice');
     define('SEVERITY_ANNOYANCE',   'annoyance');
@@ -24,11 +24,11 @@
     $solution = optional_param('solution', 0, PARAM_SAFEDIR); //in fact it is class name alhanumeric and _
 
     require_login();
-    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
 
     $site = get_site();
 
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
 
 echo <<<STYLES
 <style type="text/css">
@@ -100,7 +100,7 @@ STYLES;
     }
 
 
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 
 
 function health_find_problems() {
@@ -525,11 +525,300 @@ class problem_000011 extends problem_base {
             }
             return 'Error counter was cleared.';
         } else {
-            return '<p>Session errors can be caused by:<ul><li>unresolved problem in server software (aka random switching of users),</li><li>blocked or modified cookies,</li><li>deleting of active session files.</li></ul></p><p><a href="'.me().'&resetsesserrorcounter=1">Reset counter.</a></p>';
+            return '<p>Session errors can be caused by:</p><ul>' .
+            '<li>unresolved problem in server software (aka random switching of users),</li>' .
+            '<li>blocked or modified cookies,</li>' .
+            '<li>deleting of active session files.</li>' .
+            '</ul><p><a href="'.me().'&amp;resetsesserrorcounter=1">Reset counter</a></p>';
         }
     }
 }
 
+class problem_000012 extends problem_base {
+    function title() {
+        return 'Random questions data consistency';
+    }
+    function exists() {
+        return record_exists_select('question', "qtype = 'random' AND parent <> id");
+    }
+    function severity() {
+        return SEVERITY_ANNOYANCE;
+    }
+    function description() {
+        return '<p>For random questions, question.parent should equal question.id. ' .
+        'There are some questions in your database for which this is not true. ' .
+        'One way that this could have happened is for random questions restored from backup before ' .
+        '<a href="http://tracker.moodle.org/browse/MDL-5482">MDL-5482</a> was fixed.</p>';
+    }
+    function solution() {
+        global $CFG;
+        return '<p>Upgrade to Moodle 1.9.1 or later, or manually execute the SQL</p>' .
+        '<pre>UPDATE ' . $CFG->prefix . 'question SET parent = id WHERE qtype = \'random\' and parent &lt;> id;</pre>';
+    }
+}
+
+class problem_000013 extends problem_base {
+    function title() {
+        return 'Multi-answer questions data consistency';
+    }
+    function exists() {
+        global $CFG;
+        $positionexpr = sql_position(sql_concat("','", "q.id", "','"), 
+                sql_concat("','", "qma.sequence", "','"));
+        return record_exists_sql("
+                SELECT * FROM {$CFG->prefix}question q
+                    JOIN {$CFG->prefix}question_multianswer qma ON $positionexpr > 0
+                WHERE qma.question <> q.parent") ||
+            record_exists_sql("
+                SELECT * FROM {$CFG->prefix}question q
+                    JOIN {$CFG->prefix}question parent_q ON parent_q.id = q.parent
+                WHERE q.category <> parent_q.category");
+    }
+    function severity() {
+        return SEVERITY_ANNOYANCE;
+    }
+    function description() {
+        return '<p>For each sub-question whose id is listed in ' .
+        'question_multianswer.sequence, its question.parent field should equal ' .
+        'question_multianswer.question; and each sub-question should be in the same ' .
+        'category as its parent. There are questions in your database for ' .
+        'which this is not the case. One way that this could have happened is ' .
+        'for multi-answer questions restored from backup before ' .
+        '<a href="http://tracker.moodle.org/browse/MDL-14750">MDL-14750</a> was fixed.</p>';
+    }
+    function solution() {
+        return '<p>Upgrade to Moodle 1.9.1 or later, or manually execute the ' .
+        'code in question_multianswer_fix_subquestion_parents_and_categories in ' .
+        '<a href="http://cvs.moodle.org/moodle/question/type/multianswer/db/upgrade.php?revision=1.1.10.2&amp;view=markup">/question/type/multianswer/db/upgrade.php' .
+        'from the 1.9 stable branch</a>.</p>';
+    }
+}
+
+class problem_000014 extends problem_base {
+    function title() {
+        return 'Only multianswer and random questions should be the parent of another question';
+    }
+    function exists() {
+        global $CFG;
+        return record_exists_sql("
+                SELECT * FROM {$CFG->prefix}question q
+                    JOIN {$CFG->prefix}question parent_q ON parent_q.id = q.parent
+                WHERE parent_q.qtype NOT IN ('random', 'multianswer')");
+    }
+    function severity() {
+        return SEVERITY_ANNOYANCE;
+    }
+    function description() {
+        return '<p>You have questions that violate this in your databse. ' .
+        'You will need to investigate to determine how this happened.</p>';
+    }
+    function solution() {
+        return '<p>It is impossible to give a solution without knowing more about ' .
+        ' how the problem was caused. You may be able to get help from the ' .
+        '<a href="http://moodle.org/mod/forum/view.php?f=121">Quiz forum</a>.</p>';
+    }
+}
+
+class problem_000015 extends problem_base {
+    function title() {
+        return 'Question categories should belong to a valid context';
+    }
+    function exists() {
+        global $CFG;
+        return record_exists_sql("
+            SELECT qc.*, (SELECT COUNT(1) FROM {$CFG->prefix}question q WHERE q.category = qc.id) AS numquestions
+            FROM {$CFG->prefix}question_categories qc
+                LEFT JOIN {$CFG->prefix}context con ON qc.contextid = con.id
+            WHERE con.id IS NULL");
+    }
+    function severity() {
+        return SEVERITY_ANNOYANCE;
+    }
+    function description() {
+        global $CFG;
+        $problemcategories = get_records_sql("
+            SELECT qc.id, qc.name, qc.contextid, (SELECT COUNT(1) FROM {$CFG->prefix}question q WHERE q.category = qc.id) AS numquestions
+            FROM {$CFG->prefix}question_categories qc
+                LEFT JOIN {$CFG->prefix}context con ON qc.contextid = con.id
+            WHERE con.id IS NULL
+            ORDER BY numquestions DESC, qc.name");
+        $table = '<table><thead><tr><th>Cat id</th><th>Category name</th>' .
+        "<th>Context id</th><th>Num Questions</th></tr></thead><tbody>\n";
+        if ($problemcategories) {
+            foreach ($problemcategories as $cat) {
+                $table .= "<tr><td>$cat->id</td><td>" . s($cat->name) . "</td><td>" .
+                $cat->contextid ."</td><td>$cat->numquestions</td></tr>\n";
+            }
+        }
+        $table .= '</tbody></table>';
+        return '<p>All question categories are linked to a context id, and, ' .
+        'the context they are linked to must exist. The following categories ' .
+        'belong to a non-existant category:</p>' . $table . '<p>Any of these ' .
+        'categories that contain no questions can just be deleted form the database. ' .
+        'Other categories will require more thought.</p>';
+    }
+    function solution() {
+        global $CFG;
+        return '<p>You can delete the empty categories by executing the following SQL:</p><pre>
+DELETE FROM ' . $CFG->prefix . 'question_categories
+WHERE
+    NOT EXISTS (SELECT * FROM ' . $CFG->prefix . 'question q WHERE q.category = ' . $CFG->prefix . 'question_categories.id)
+AND NOT EXISTS (SELECT * FROM ' . $CFG->prefix . 'context con WHERE contextid = con.id)
+        </pre><p>Any remaining categories that contain questions will require more thought. ' .
+        'People in the <a href="http://moodle.org/mod/forum/view.php?f=121">Quiz forum</a> may be able to help.</p>';
+    }
+}
+
+class problem_000016 extends problem_base {
+    function title() {
+        return 'Question categories should belong to the same context as their parent';
+    }
+    function exists() {
+        global $CFG;
+        return record_exists_sql("
+            SELECT parent_qc.id AS parent, child_qc.id AS child, child_qc.contextid
+            FROM {$CFG->prefix}question_categories child_qc
+                JOIN {$CFG->prefix}question_categories parent_qc ON child_qc.parent = parent_qc.id
+            WHERE child_qc.contextid <> parent_qc.contextid");
+    }
+    function severity() {
+        return SEVERITY_ANNOYANCE;
+    }
+    function description() {
+        global $CFG;
+        $problemcategories = get_records_sql("
+            SELECT
+                parent_qc.id AS parentid, parent_qc.name AS parentname, parent_qc.contextid AS parentcon,
+                child_qc.id AS childid, child_qc.name AS childname, child_qc.contextid AS childcon
+            FROM {$CFG->prefix}question_categories child_qc
+                JOIN {$CFG->prefix}question_categories parent_qc ON child_qc.parent = parent_qc.id
+            WHERE child_qc.contextid <> parent_qc.contextid");
+        $table = '<table><thead><tr><th colspan="3">Child category</th><th colspan="3">Parent category</th></tr><tr>' .
+        '<th>Id</th><th>Name</th><th>Context id</th>' .
+        '<th>Id</th><th>Name</th><th>Context id</th>' .
+        "</tr></thead><tbody>\n";
+        if ($problemcategories) {
+            foreach ($problemcategories as $cat) {
+                $table .= "<tr><td>$cat->childid</td><td>" . s($cat->childname) .
+                "</td><td>$cat->childcon</td><td>$cat->parentid</td><td>" . s($cat->parentname) .
+                "</td><td>$cat->parentcon</td></tr>\n";
+            }
+        }
+        $table .= '</tbody></table>';
+        return '<p>When one question category is the parent of another, then they ' .
+        'should both belong to the same context. This is not true for the following categories:</p>' .
+        $table;
+    }
+    function solution() {
+        return '<p>An automated solution is difficult. It depends whether the ' .
+        'parent or child category is in the wrong pace.' .
+        'People in the <a href="http://moodle.org/mod/forum/view.php?f=121">Quiz forum</a> may be able to help.</p>';
+    }
+}
+
+class problem_000017 extends problem_base {
+    function title() {
+        return 'Question categories tree structure';
+    }
+    function find_problems() {
+        static $answer = null;
+
+        if (is_null($answer)) {
+            $categories = get_records('question_categories', '', '', 'id');
+
+            // Look for missing parents.
+            $missingparent = array();
+            foreach ($categories as $category) {
+                if ($category->parent != 0 && !array_key_exists($category->parent, $categories)) {
+                    $missingparent[$category->id] = $category;
+                }
+            }
+
+            // Look for loops.
+            $loops = array();
+            while (!empty($categories)) {
+                $current = array_pop($categories);
+                $thisloop = array($current->id => $current);
+                while (true) {
+                    if (isset($thisloop[$current->parent])) {
+                        // Loop detected
+                        $loops[$current->id] = $thisloop;
+                        break;
+                    } else if (!isset($categories[$current->parent])) {
+                        // Got to the top level, or a category we already know is OK.
+                        break;
+                    } else {
+                        // Continue following the path.
+                        $current = $categories[$current->parent];
+                        $thisloop[$current->id] = $current;
+                        unset($categories[$current->id]);
+                    }
+                }
+            }
+
+            $answer = array($missingparent, $loops);
+        }
+
+        return $answer;
+    }
+    function exists() {
+        list($missingparent, $loops) = $this->find_problems();
+        return !empty($missingparent) || !empty($loops);
+    }
+    function severity() {
+        return SEVERITY_ANNOYANCE;
+    }
+    function description() {
+        list($missingparent, $loops) = $this->find_problems();
+
+        $description = '<p>The question categories should be arranged into tree ' .
+                ' structures by the question_categories.parent field. Sometimes ' .
+                ' this tree structure gets messed up.</p>';
+
+        if (!empty($missingparent)) {
+            $description .= '<p>The following categories are missing their parents:</p><ul>';
+            foreach ($missingparent as $cat) {
+                $description .= "<li>Category $cat->id: " . s($cat->name) . "</li>\n";
+            }
+            $description .= "</ul>\n";
+        }
+
+        if (!empty($loops)) {
+            $description .= '<p>The following categories form a loop of parents:</p><ul>';
+            foreach ($loops as $loop) {
+                $description .= "<li><ul>\n";
+                foreach ($loop as $cat) {
+                    $description .= "<li>Category $cat->id: " . s($cat->name) . " has parent $cat->parent</li>\n";
+                }
+                $description .= "</ul></li>\n";
+            }
+            $description .= "</ul>\n";
+        }
+
+        return $description;
+    }
+    function solution() {
+        global $CFG;
+        list($missingparent, $loops) = $this->find_problems();
+
+        $solution = '<p>Consider executing the following SQL queries. These fix ' .
+                'the problem by moving some categories to the top level.</p>';
+
+        if (!empty($missingparent)) {
+            $solution .= "<pre>UPDATE " . $CFG->prefix . "question_categories\n" .
+                    "        SET parent = 0\n" .
+                    "        WHERE id IN (" . implode(',', array_keys($missingparent)) . ");</pre>\n";
+        }
+
+        if (!empty($loops)) {
+            $solution .= "<pre>UPDATE " . $CFG->prefix . "question_categories\n" .
+                    "        SET parent = 0\n" .
+                    "        WHERE id IN (" . implode(',', array_keys($loops)) . ");</pre>\n";
+        }
+
+        return $solution;
+    }
+}
 
 class problem_00000x extends problem_base {
     function title() {

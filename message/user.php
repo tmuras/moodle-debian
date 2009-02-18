@@ -1,4 +1,4 @@
-<?php // $Id: user.php,v 1.28 2006/12/18 09:04:33 skodak Exp $
+<?php // $Id: user.php,v 1.29.2.3 2008/02/13 17:01:44 skodak Exp $
       
     require('../config.php');
     require('lib.php');
@@ -52,7 +52,7 @@
     print_header('','','','','',false,'','',false,'');
     echo '<table width="100%" cellpadding="0" cellspacing="0"><tr>';
     echo '<td width="100">';
-    echo print_user_picture($user->id, SITEID, $user->picture, true, true, true, 'userwindow').'</td>';
+    echo print_user_picture($user, SITEID, $user->picture, true, true, true, 'userwindow').'</td>';
     echo '<td valign="middle" align="center">';
 
     echo '<div class="name">'.fullname($user).'</div>';
@@ -87,6 +87,6 @@
 
     echo '</td></tr></table>';
 
-    echo '</div></div></body></html>'; // Close possible theme tables off
+    print_footer('empty');
 
 ?>

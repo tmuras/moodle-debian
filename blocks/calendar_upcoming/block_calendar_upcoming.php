@@ -1,9 +1,9 @@
-<?PHP //$Id: block_calendar_upcoming.php,v 1.26.6.1 2007/05/06 04:26:37 martinlanghoff Exp $
+<?PHP //$Id: block_calendar_upcoming.php,v 1.27.2.3 2008/04/17 19:19:11 skodak Exp $
 
 class block_calendar_upcoming extends block_base {
     function init() {
         $this->title = get_string('upcomingevents', 'calendar');
-        $this->version = 2004052600;
+        $this->version = 2007101509;
     }
 
     function get_content() {
@@ -16,8 +16,8 @@ class block_calendar_upcoming extends block_base {
         if ($this->content !== NULL) {
             return $this->content;
         }
-        // Initialize the session variables
-        calendar_session_vars();
+        // Reset the session variables
+        calendar_session_vars($COURSE);
         $this->content = new stdClass;
         $this->content->text = '';
 
@@ -42,10 +42,14 @@ class block_calendar_upcoming extends block_base {
             if ($courseshown == SITEID) {
                 // Being displayed at site level. This will cause the filter to fall back to auto-detecting
                 // the list of courses it will be grabbing events from.
-                $filtercourse = NULL;
+                $filtercourse    = NULL;
+                $groupeventsfrom = NULL;
+                $SESSION->cal_courses_shown = calendar_get_default_courses(true);
+                calendar_set_referring_course(0);
             } else {
                 // Forcibly filter events to include only those from the particular course we are in.
-                $filtercourse = array($courseshown => 1);
+                $filtercourse    = array($courseshown => $COURSE);
+                $groupeventsfrom = array($courseshown => 1);
             }
         }
 
@@ -55,7 +59,7 @@ class block_calendar_upcoming extends block_base {
         // Be VERY careful with the format for default courses arguments!
         // Correct formatting is [courseid] => 1 to be concise with moodlelib.php functions.
 
-        calendar_set_filters($courses, $group, $user, $filtercourse, $filtercourse, false);
+        calendar_set_filters($courses, $group, $user, $filtercourse, $groupeventsfrom, false);
         $events = calendar_get_upcoming($courses, $group, $user, 
                                         get_user_preferences('calendar_lookahead', CALENDAR_UPCOMING_DAYS), 
                                         get_user_preferences('calendar_maxevents', CALENDAR_UPCOMING_MAXEVENTS));

@@ -48,7 +48,7 @@ class auth_plugin_cas extends auth_plugin_base {
         }
     }
     /**
-     * Authenticates user againt CAS 
+     * Authenticates user againt CAS
      * Returns true if the username and password work and false if they are
      * wrong or don't exist.
      *
@@ -57,7 +57,7 @@ class auth_plugin_cas extends auth_plugin_base {
      * @return bool Authentication success or failure.
      */
     function user_login ($username, $password) {
-		$this->connectCAS();
+		$this->connectCAS();	
         return phpCAS::isAuthenticated();
     }
     /**
@@ -84,35 +84,58 @@ class auth_plugin_cas extends auth_plugin_base {
      */
     function loginpage_hook() {
       global $frm;
-      global $test;
       global $CFG;
+	  global $SESSION;
+
       $site = get_site();
       $CASform = get_string("CASform","auth");
       $username = optional_param("username");
+
       if (!empty($username)) {
-          return;
+		  if (strstr($SESSION->wantsurl,'ticket') || strstr($SESSION->wantsurl,'NOCAS'))
+			  unset($SESSION->wantsurl);
+          return;		
         }
+
+
+		
+		// Test si cas activï¿½ et paramï¿½tres non remplis
+	  if (empty($this->config->hostname)) {
+		  return;
+		  }
 
 // Connection to CAS server
 	 $this->connectCAS();
 
-	  // Gestion de la connection CAS si accès direct d'un ent ou autre	 
+	  // Gestion de la connection CAS si accï¿½s direct d'un ent ou autre	
 	 if (phpCAS::checkAuthentication()) {
 		$frm->username=phpCAS::getUser();
-		$frm->password="cas";		  
+//		if (phpCAS::getUser()=='esup9992')
+//			$frm->username='erhar0062';
+		$frm->password="passwdCas";		
 		return;
-	 }
+	 }	 	
+
+	  if ($_GET["loginguest"]== true) {
+			$frm->username="guest";
+			$frm->password="guest";
+			return;
+	  }		
 	 
      if ($this->config->multiauth) {
           $authCAS = optional_param("authCAS");
-          if ($authCAS=="NOCAS") 
+          if ($authCAS=="NOCAS")
             return;
-            
+
 // choice authentication form for multi-authentication
 // test pgtIou parameter for proxy mode (https connection
 // in background from CAS server to the php server)
       if ($authCAS!="CAS" && !isset($_GET["pgtIou"])) {
-            print_header("$site->fullname: $CASform", $site->fullname, $CASform);
+            $navlinks = array();
+            $navlinks[] = array('name' => $CASform, 'link' => null, 'type' => 'misc');
+            $navigation = build_navigation($navlinks);
+
+            print_header("$site->fullname: $CASform", $site->fullname, $navigation);
             include($CFG->dirroot."/auth/cas/cas_form.html");
             print_footer();
             exit();
@@ -123,7 +146,7 @@ class auth_plugin_cas extends auth_plugin_base {
         {phpCAS::forceAuthentication();}
 }
     /**
-     * logout from the cas 
+     * logout from the cas
      *
      * This function is called from admin/auth.php
      *
@@ -133,11 +156,11 @@ class auth_plugin_cas extends auth_plugin_base {
 	  if ($this->config->logoutcas ) {
 	        $backurl = $CFG->wwwroot;
 		  $this->connectCAS();
-	        phpCAS::logout($backurl);        
+	        phpCAS::logout($backurl);
 	     }
     }
     /**
-     * Connect to the cas (clientcas connection or proxycas connection 
+     * Connect to the cas (clientcas connection or proxycas connection
      *
      * This function is called from admin/auth.php
      *
@@ -198,21 +221,19 @@ if ( !is_object($PHPCAS_CLIENT) ) {
     function process_config($config) {
         // set to defaults if undefined
         // CAS settings
-        if (!isset ($config->hostname)) 
+        if (!isset ($config->hostname))
             $config->hostname = '';
-        if (!isset ($config->port)) 
+        if (!isset ($config->port))
             $config->port = '';
-        if (!isset ($config->casversion)) 
+        if (!isset ($config->casversion))
             $config->casversion = '';
-        if (!isset ($config->baseuri)) 
+        if (!isset ($config->baseuri))
             $config->baseuri = '';
-        if (!isset ($config->language)) 
+        if (!isset ($config->language))
             $config->language = '';
-        if (!isset ($config->use_cas)) 
-            $config->use_cas = '';
-        if (!isset ($config->proxycas)) 
+        if (!isset ($config->proxycas))
             $config->proxycas = '';
-        if (!isset ($config->logoutcas)) 
+        if (!isset ($config->logoutcas))
             $config->logoutcas = '';
         if (!isset ($config->multiauth))
             $config->multiauth = '';
@@ -255,7 +276,6 @@ if ( !is_object($PHPCAS_CLIENT) ) {
         set_config('casversion',     $config->casversion,     'auth/cas');
         set_config('baseuri',     $config->baseuri,     'auth/cas');
         set_config('language',    $config->language,    'auth/cas');
-        set_config('use_cas',     $config->use_cas,     'auth/cas');
         set_config('proxycas',     $config->proxycas,     'auth/cas');
         set_config('logoutcas',     $config->logoutcas,     'auth/cas');
         set_config('multiauth',     $config->multiauth,     'auth/cas');
@@ -467,11 +487,8 @@ if ( !is_object($PHPCAS_CLIENT) ) {
      * @return array
      */
     function ldap_attributes () {
-        $fields = array("firstname", "lastname", "email", "phone1", "phone2",
-                        "department", "address", "city", "country", "description",
-                        "idnumber", "lang" );
         $moodleattributes = array();
-        foreach ($fields as $field) {
+        foreach ($this->userfields as $field) {
             if (!empty($this->config->{"field_map_$field"})) {
                 $moodleattributes[$field] = $this->config->{"field_map_$field"};
                 if (preg_match('/,/',$moodleattributes[$field])) {
@@ -678,7 +695,7 @@ if ( !is_object($PHPCAS_CLIENT) ) {
         // find users in DB that aren't in ldap -- to be removed!
         // this is still not as scalable (but how often do we mass delete?)
         if (!empty($this->config->removeuser)) {
-            $sql = "SELECT u.id, u.username, u.email
+            $sql = "SELECT u.id, u.username, u.email, u.auth
                     FROM {$CFG->prefix}user u
                         LEFT JOIN $temptable e ON u.username = e.username
                     WHERE u.auth='cas'
@@ -687,21 +704,9 @@ if ( !is_object($PHPCAS_CLIENT) ) {
             $remove_users = get_records_sql($sql);
             if (!empty($remove_users)) {
                 print "User entries to remove: ". count($remove_users) . "\n";
-                begin_sql();
                 foreach ($remove_users as $user) {
                     if ($this->config->removeuser == 2) {
-                        //following is copy pasted from admin/user.php
-                        //maybe this should moved to function in lib/datalib.php
-                        $updateuser = new object();
-                        $updateuser->id           = $user->id;
-                        $updateuser->deleted      = 1;
-                        $updateuser->username     = addslashes("$user->email.".time());  // Remember it just in case
-                        $updateuser->email        = '';               // Clear this field to free it up
-                        $updateuser->idnumber     = '';               // Clear this field to free it up
-                        $updateuser->timemodified = time();
-                        if (update_record('user', $updateuser)) {
-                            delete_records('role_assignments', 'userid', $user->id); // unassign all roles
-                        //copy pasted part ends
+                        if (delete_user($user)) {
                             echo "\t"; print_string('auth_dbdeleteuser', 'auth', array($user->username, $user->id)); echo "\n";
                         } else {
                             echo "\t"; print_string('auth_dbdeleteusererror', 'auth', $user->username); echo "\n";
@@ -717,7 +722,6 @@ if ( !is_object($PHPCAS_CLIENT) ) {
                         }
                     }
                 }
-                commit_sql();
             } else {
                 print "No user entries to be removed\n";
             }

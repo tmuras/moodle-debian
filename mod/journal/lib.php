@@ -1,4 +1,4 @@
-<?php // $Id: lib.php,v 1.79.2.1 2007/05/15 18:26:53 skodak Exp $
+<?php // $Id: lib.php,v 1.82.2.2 2008/07/24 21:58:06 skodak Exp $
 
 
 if (!isset($CFG->journal_showrecentactivity)) {
@@ -192,6 +192,8 @@ function journal_print_recent_activity($course, $isteacher, $timestart) {
     $content = false;
     $journals = NULL;
 
+    // log table should not be used here
+
     if (!$logs = get_records_select('log', 'time > \''.$timestart.'\' AND '.
                                            'course = \''.$course->id.'\' AND '.
                                            'module = \'journal\' AND '.
@@ -203,19 +205,15 @@ function journal_print_recent_activity($course, $isteacher, $timestart) {
         ///Get journal info.  I'll need it later
         $j_log_info = journal_log_info($log);
 
-        //Create a temp valid module structure (course,id)
-        $tempmod->course = $log->course;
-        $tempmod->id = $j_log_info->id;
-        //Obtain the visible property from the instance
-        $modvisible = instance_is_visible($log->module,$tempmod);
+        $cm = $modinfo->instances['journal'][$j_log_info->id];
+        if (!$cm->uservisible) {
+            continue;
+        }
 
-        //Only if the mod is visible
-        if ($modvisible) {
-            if (!isset($journals[$log->info])) {
-                $journals[$log->info] = $j_log_info;
-                $journals[$log->info]->time = $log->time;
-                $journals[$log->info]->url = str_replace('&', '&amp;', $log->url);
-            }
+        if (!isset($journals[$log->info])) {
+            $journals[$log->info] = $j_log_info;
+            $journals[$log->info]->time = $log->time;
+            $journals[$log->info]->url = str_replace('&', '&amp;', $log->url);
         }
     }
 
@@ -307,6 +305,21 @@ function journal_scale_used ($journalid,$scaleid) {
     return $return;
 }
 
+/**
+ * Checks if scale is being used by any instance of journal
+ *
+ * This is used to find out if scale used anywhere
+ * @param $scaleid int
+ * @return boolean True if the scale is used by any journal
+ */
+function journal_scale_used_anywhere($scaleid) {
+    if ($scaleid and record_exists('journal', 'assessed', -$scaleid)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 // SQL FUNCTIONS ///////////////////////////////////////////////////////////////////
 
 function journal_get_users_done($journal) {
@@ -340,9 +353,10 @@ function journal_count_entries($journal, $groupid=0) {
     if ($groupid) {     /// How many in a particular group?
         return count_records_sql("SELECT COUNT(*) 
                                      FROM {$CFG->prefix}journal_entries j,
-                                          ".groups_members_from_sql()."
+                                          {$CFG->prefix}groups_members g
                                     WHERE j.journal = $journal->id 
-                                      AND ".groups_members_where_sql($groupid, 'j.userid'));
+                                      AND g.groupid = '$groupid' 
+                                      AND j.userid = g.userid");
 
     } else { /// Count all the entries from the whole course
     
@@ -407,7 +421,8 @@ function journal_print_user_entry($course, $user, $entry, $teachers, $grades) {
     if ($entry) {
         echo "&nbsp;&nbsp;<font size=\"1\">".get_string("lastedited").": ".userdate($entry->modified)."</font>";
     }
-    echo "</td></tr>";
+    echo "</td>";
+    echo "</tr>";
 
     echo "\n<tr><td width=\"100%\">";
     if ($entry) {
@@ -424,6 +439,7 @@ function journal_print_user_entry($course, $user, $entry, $teachers, $grades) {
             $entry->teacher = $USER->id;
         }
         print_user_picture($entry->teacher, $course->id, $teachers[$entry->teacher]->picture);
+        echo "</td>";
         echo "<td>".get_string("feedback").":";
         choose_from_menu($grades, "r$entry->id", $entry->rating, get_string("nograde")."...");
         if ($entry->timemarked) {
@@ -502,6 +518,7 @@ function journal_print_feedback($course, $entry, $grades) {
     echo '<td class="entryheader">';
     echo '<span class="author">'.fullname($teacher).'</span>';
     echo '&nbsp;&nbsp;<span class="time">'.userdate($entry->timemarked).'</span>';
+    echo '</td>';
     echo '</tr>';
 
     echo '<tr>';
@@ -528,6 +545,13 @@ function journal_get_view_actions() {
 
 function journal_get_post_actions() {
     return array('add entry','update entry','update feedback');
+}
+
+/**
+ * Returns all other caps used in module
+ */
+function journal_get_extra_capabilities() {
+    return array('moodle/site:accessallgroups');
 }
 
 ?>

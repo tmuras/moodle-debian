@@ -1,4 +1,4 @@
-<?php  // $Id: report.php,v 1.31.2.1 2007/05/15 18:27:13 skodak Exp $
+<?php  // $Id: report.php,v 1.37.2.4 2008/10/08 01:18:23 dongsheng Exp $
 
 /// This page prints reports and info about chats
 
@@ -24,7 +24,7 @@
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_login($course->id, false, $cm);
 
-    require_capability('mod/chat:readlog', $context); 
+    require_capability('mod/chat:readlog', $context);
 
     add_to_log($course->id, 'chat', 'report', "report.php?id=$cm->id", $chat->id, $cm->id);
 
@@ -34,23 +34,23 @@
     $strseesession    = get_string('seesession', 'chat');
     $strdeletesession = get_string('deletesession', 'chat');
 
+    $navlinks = array();
 
 /// Print a session if one has been specified
 
     if ($start and $end and !$confirmdelete) {   // Show a full transcript
-
-        print_header_simple(format_string($chat->name).": $strchatreport", '',
-                     "<a href=\"index.php?id=$course->id\">$strchats</a> ->
-                     <a href=\"view.php?id=$cm->id\">".format_string($chat->name,true)."</a> ->
-                     <a href=\"report.php?id=$cm->id\">$strchatreport</a>",
+        $navigation = build_navigation($strchatreport, $cm);
+        print_header_simple(format_string($chat->name).": $strchatreport", '', $navigation,
                       '', '', true, '', navmenu($course, $cm));
 
     /// Check to see if groups are being used here
-        $groupmode = groupmode($course, $cm);
-        $currentgroup = setup_and_print_groups($course, $groupmode, "report.php?id=$cm->id");
+        $groupmode = groups_get_activity_groupmode($cm);
+        $currentgroup = groups_get_activity_group($cm, true);
+        groups_print_activity_menu($cm, "report.php?id=$cm->id");
+
 
         if ($currentgroup) {
-            $groupselect = " AND groupid = '$currentgroup'";
+            $groupselect = " AND (groupid = $currentgroup OR groupid = 0)";
         } else {
             $groupselect = "";
         }
@@ -89,24 +89,23 @@
 
 
 /// Print the Sessions display
-
-    print_header_simple(format_string($chat->name).": $strchatreport", '',
-                 "<a href=\"index.php?id=$course->id\">$strchats</a> ->
-                 <a href=\"view.php?id=$cm->id\">".format_string($chat->name,true)."</a> -> $strchatreport",
+    $navigation = build_navigation($strchatreport, $cm);
+    print_header_simple(format_string($chat->name).": $strchatreport", '', $navigation,
                   '', '', true, '', navmenu($course, $cm));
 
     print_heading(format_string($chat->name).': '.get_string('sessions', 'chat'));
 
 
 /// Check to see if groups are being used here
-    if ($groupmode = groupmode($course, $cm)) {   // Groups are being used
-        $currentgroup = setup_and_print_groups($course, $groupmode, "report.php?id=$cm->id");
+    if ($groupmode = groups_get_activity_groupmode($cm)) {   // Groups are being used
+        $currentgroup = groups_get_activity_group($cm, true);
+        groups_print_activity_menu($cm, "report.php?id=$cm->id");
     } else {
         $currentgroup = false;
     }
 
     if (!empty($currentgroup)) {
-        $groupselect = " AND groupid = '$currentgroup'";
+        $groupselect = " AND (groupid = $currentgroup OR groupid = 0)";
     } else {
         $groupselect = "";
     }
@@ -173,7 +172,7 @@
                 arsort($sessionusers);
                 foreach ($sessionusers as $sessionuser => $usermessagecount) {
                     if ($user = get_record('user', 'id', $sessionuser)) {
-                        print_user_picture($user->id, $course->id, $user->picture);
+                        print_user_picture($user, $course->id, $user->picture);
                         echo '&nbsp;'.fullname($user, true); // XXX TODO  use capability instead of true
                         echo "&nbsp;($usermessagecount)<br />";
                     }

@@ -1,11 +1,11 @@
-<?PHP //$Id: block_course_list.php,v 1.40.2.5 2007/03/07 02:01:27 moodler Exp $
+<?PHP //$Id: block_course_list.php,v 1.46.2.6 2008/08/29 04:23:38 peterbulmer Exp $
 
 include_once($CFG->dirroot . '/course/lib.php');
 
 class block_course_list extends block_list {
     function init() {
         $this->title = get_string('courses');
-        $this->version = 2004111600;
+        $this->version = 2007101509;
     }
     
     function has_config() {
@@ -25,7 +25,7 @@ class block_course_list extends block_list {
         $this->content->footer = '';
 
         $icon  = "<img src=\"$CFG->pixpath/i/course.gif\"".
-                 " class=\"icon\" alt=\"".get_string("course")."\" />";
+                 " class=\"icon\" alt=\"".get_string("coursecategory")."\" />";
        
         $adminseesall = true;
         if (isset($CFG->block_course_list_adminview)) {
@@ -38,7 +38,7 @@ class block_course_list extends block_list {
             !empty($USER->id) and 
             !(has_capability('moodle/course:update', get_context_instance(CONTEXT_SYSTEM)) and $adminseesall) and
             !isguest()) {    // Just print My Courses
-            if ($courses = get_my_courses($USER->id)) {
+            if ($courses = get_my_courses($USER->id, 'visible DESC, fullname ASC')) {
                 foreach ($courses as $course) {
                     if ($course->id == SITEID) {
                         continue;
@@ -53,10 +53,10 @@ class block_course_list extends block_list {
                 if (has_capability('moodle/course:update', get_context_instance(CONTEXT_SYSTEM)) || empty($CFG->block_course_list_hideallcourseslink)) {
                     $this->content->footer = "<a href=\"$CFG->wwwroot/course/index.php\">".get_string("fulllistofcourses")."</a> ...";
                 }
-                $this->get_remote_courses();
-                if ($this->content->items) { // make sure we don't return an empty list
-                    return $this->content;
-                }
+            }
+            $this->get_remote_courses();
+            if ($this->content->items) { // make sure we don't return an empty list
+                return $this->content;
             }
         }
 
@@ -68,7 +68,6 @@ class block_course_list extends block_list {
                     $this->content->items[]="<a $linkcss href=\"$CFG->wwwroot/course/category.php?id=$category->id\">" . format_string($category->name) . "</a>";
                     $this->content->icons[]=$icon;
                 }
-                $this->content->footer .= "<a href=\"$CFG->wwwroot/course/index.php\">".get_string('searchcourses').'</a> ...<br />';
             /// If we can update any course of the view all isn't hidden, show the view all courses link
                 if (has_capability('moodle/course:update', get_context_instance(CONTEXT_SYSTEM)) || empty($CFG->block_course_list_hideallcourseslink)) {
                     $this->content->footer .= "<a href=\"$CFG->wwwroot/course/index.php\">".get_string('fulllistofcourses').'</a> ...';
@@ -111,6 +110,12 @@ class block_course_list extends block_list {
 
     function get_remote_courses() {
         global $THEME, $CFG, $USER;
+
+        if (!is_enabled_auth('mnet')) {
+            // no need to query anything remote related
+            return;
+        }
+
         $icon  = '<img src="'.$CFG->pixpath.'/i/mnethost.gif" class="icon" alt="'.get_string('course').'" />';
 
         // only for logged in users!

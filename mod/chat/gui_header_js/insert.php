@@ -1,4 +1,4 @@
-<?php  // $Id: insert.php,v 1.9 2007/01/03 14:44:46 moodler Exp $
+<?php  // $Id: insert.php,v 1.10 2007/08/17 12:49:40 skodak Exp $
 
     include('../../../config.php');
     include('../lib.php');
@@ -18,7 +18,11 @@
         error('Could not find the course this belongs to!');
     }
 
-    require_login($course->id);
+    if (!$cm = get_coursemodule_from_instance('chat', $chat->id, $course->id)) {
+        error('Course Module ID was incorrect');
+    }
+    
+    require_login($course->id, false, $cm);
 
     if (isguest()) {
         error('Guest does not have access to chat rooms');

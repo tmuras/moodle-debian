@@ -1,20 +1,16 @@
-<?php /// $Id: multilangupgrade.php,v 1.2.2.2 2007/06/19 17:26:45 skodak Exp $
+<?php /// $Id: multilangupgrade.php,v 1.6 2007/10/10 12:19:40 skodak Exp $
       /// Search and replace strings throughout all texts in the whole database
 
 require_once('../config.php');
 require_once($CFG->dirroot.'/course/lib.php');
 require_once($CFG->libdir.'/adminlib.php');
-$adminroot = admin_get_root();
-admin_externalpage_setup('multilangupgrade', $adminroot);
+
+admin_externalpage_setup('multilangupgrade');
 
 $go = optional_param('go', 0, PARAM_BOOL);
 
-require_login();
-
-require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
-
 ###################################################################
-admin_externalpage_print_header($adminroot);
+admin_externalpage_print_header();
 
 print_heading(get_string('multilangupgrade', 'admin'));
 
@@ -23,7 +19,7 @@ $strmultilangupgrade = get_String('multilangupgradeinfo', 'admin');
 if (!$go or !data_submitted() or !confirm_sesskey()) {   /// Print a form
     $optionsyes = array('go'=>1, 'sesskey'=>sesskey());
     notice_yesno($strmultilangupgrade, 'multilangupgrade.php', 'index.php', $optionsyes, null, 'post', 'get');
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
     die;
 }
 
@@ -60,7 +56,7 @@ foreach ($tables as $table) {
             if (in_array($data->type, array('text','mediumtext','longtext','varchar'))) {  // Text stuff only
                 // first find candidate records
                 $rs = get_recordset_sql("SELECT id, $column FROM $table WHERE $column LIKE '%</lang>%' OR $column LIKE '%<span lang=%'");
-                if ($rs and $rs->RecordCount() > 0) {
+                if ($rs) {
                     while (!$rs->EOF) {
                         $text = $rs->fields[$column];
                         $id   = $rs->fields['id'];
@@ -90,6 +86,7 @@ foreach ($tables as $table) {
                             execute_sql("UPDATE $table SET $column='$newtext' WHERE id=$id", false);
                         }
                     }
+                    rs_close($rs);
                 }
             }
         }
@@ -108,7 +105,7 @@ notify('...finished', 'notifysuccess');
 
 print_continue('index.php');
 
-admin_externalpage_print_footer($adminroot);
+admin_externalpage_print_footer();
 die;
 
 

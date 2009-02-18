@@ -1,4 +1,4 @@
-<?php // $Id: mod.php,v 1.119 2007/02/07 07:09:31 vyshane Exp $
+<?php // $Id: mod.php,v 1.127.2.2 2008/03/10 19:01:32 garethmorgan Exp $
 
 //  Moves, adds, updates, duplicates or deletes modules in a course
 
@@ -135,6 +135,14 @@
                 if (isset($mod->groupmode)) {
                     set_coursemodule_groupmode($mod->coursemodule, $mod->groupmode);
                 }
+                
+                if (isset($mod->groupingid)) {
+                    set_coursemodule_groupingid($mod->coursemodule, $mod->groupingid);
+                }
+                
+                if (isset($mod->groupmembersonly)) {
+                    set_coursemodule_groupmembersonly($mod->coursemodule, $mod->groupmembersonly);
+                }
 
                 if (isset($mod->redirect)) {
                     $SESSION->returnpage = $mod->redirecturl;
@@ -176,7 +184,14 @@
                 if (!isset($mod->groupmode)) { // to deal with pre-1.5 modules
                     $mod->groupmode = $course->groupmode;  /// Default groupmode the same as course
                 }
-
+                
+                if (isset($mod->groupingid)) {
+                    set_coursemodule_groupingid($mod->coursemodule, $mod->groupingid);
+                }
+                
+                if (isset($mod->groupmembersonly)) {
+                    set_coursemodule_groupmembersonly($mod->coursemodule, $mod->groupmembersonly);
+                }
                 $mod->instance = $return;
 
                 // course_modules and course_sections each contain a reference
@@ -214,6 +229,10 @@
                 break;
 
             case "delete":
+                if ($cm and $cw = get_record("course_sections", "id", $cm->section)) {
+                    $sectionreturn = $cw->section;
+                }
+
                 if (! $deleteinstancefunction($mod->instance)) {
                     notify("Could not delete the $mod->modulename (instance)");
                 }
@@ -326,7 +345,7 @@
         }
 
         require_login($cm->course); // needed to setup proper $COURSE
-        $context = get_context_instance(CONTEXT_COURSE, $cm->course);
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
         require_capability('moodle/course:activityvisibility', $context);
 
         set_coursemodule_visible($cm->id, 0);
@@ -379,7 +398,7 @@
         }
 
         require_login($cm->course); // needed to setup proper $COURSE
-        $context = get_context_instance(CONTEXT_COURSE, $cm->course);
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
         require_capability('moodle/course:manageactivities', $context);
 
         set_coursemodule_groupmode($cm->id, $groupmode);
@@ -477,7 +496,7 @@
 
         $CFG->pagepath = 'mod/'.$module->name.'/delete';
 
-        print_header_simple($strdeletecheck, '', $strdeletecheck);
+        print_header_simple($strdeletecheck, '', build_navigation(array(array('name'=>$strdeletecheck,'link'=>'','type'=>'misc'))));
 
         print_simple_box_start('center', '60%', '#FFAAAA', 20, 'noticebox');
         print_heading($strdeletecheckfull);
@@ -646,7 +665,6 @@
         } else {
             $pageheading = get_string("addinganew", "moodle", $fullmodulename);
         }
-        $strnav = '';
 
         $CFG->pagepath = 'mod/'.$module->name;
         if (!empty($type)) {
@@ -657,7 +675,7 @@
         }
 
     } else {
-        error("No action was specfied");
+        error("No action was specified");
     }
 
     require_login($course->id); // needed to setup proper $COURSE
@@ -673,13 +691,18 @@
         $focuscursor = "form.name";
     }
 
-    print_header_simple($streditinga, '',
-     "<a href=\"$CFG->wwwroot/mod/$module->name/index.php?id=$course->id\">$strmodulenameplural</a> ->
-     $strnav $streditinga", $focuscursor, "", false);
+    $navlinks = array();
+    $navlinks[] = array('name' => $strmodulenameplural, 'link' => "$CFG->wwwroot/mod/$module->name/index.php?id=$course->id", 'type' => 'activity');
+    $navlinks[] = array('name' => $streditinga, 'link' => '', 'type' => 'action');
+    $navigation = build_navigation($navlinks);
+
+    print_header_simple($streditinga, '', $navigation, $focuscursor, "", false);
 
     if (!empty($cm->id)) {
         $context = get_context_instance(CONTEXT_MODULE, $cm->id);
         $currenttab = 'update';
+        $overridableroles = get_overridable_roles($context);
+        $assignableroles  = get_assignable_roles($context);
         include_once($CFG->dirroot.'/'.$CFG->admin.'/roles/tabs.php');
     }
 

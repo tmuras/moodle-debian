@@ -1,4 +1,4 @@
-<?php // $Id: resource.class.php,v 1.31.2.2 2007/05/16 21:26:18 skodak Exp $
+<?php // $Id: resource.class.php,v 1.37.2.1 2007/10/12 16:09:47 tjhunt Exp $
 
 class resource_text extends resource_base {
 
@@ -82,8 +82,9 @@ function display() {
                         "center", "", "", "20");
                 print_footer($course);
             } else {                           /// Make a page and a pop-up window
+                $navigation = build_navigation($this->navlinks, $cm);
 
-                print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name),
+                print_header($pagetitle, $course->fullname, $navigation,
                         "", "", true, update_module_button($cm->id, $course->id, $this->strresource),
                         navmenu($course, $cm));
 
@@ -110,7 +111,9 @@ function display() {
         } else {    /// not a popup at all
 
             add_to_log($course->id, "resource", "view", "view.php?id={$cm->id}", $resource->id, $cm->id);
-            print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name),
+            $navigation = build_navigation($this->navlinks, $cm);
+
+            print_header($pagetitle, $course->fullname, $navigation,
                     "", "", true, update_module_button($cm->id, $course->id, $this->strresource),
                     navmenu($course, $cm));
 

@@ -1,4 +1,4 @@
-<?php // $Id: live.php,v 1.7 2006/08/25 08:51:50 vyshane Exp $
+<?php // $Id: live.php,v 1.8.2.2 2008/11/29 16:16:21 skodak Exp $
       //  Displays live view of recent logs
 
     require_once("../../../config.php");
@@ -7,16 +7,14 @@
     $id   = required_param('id', PARAM_INT);
     $page = optional_param('page', 0, PARAM_INT);     // which page to show
 
-    require_login();
-
     if (! $course = get_record("course", "id", $id) ) {
         error("That's an invalid course id");
     }
 
+    require_login($course);
+
     $context = get_context_instance(CONTEXT_COURSE, $course->id);
-    if (!has_capability('moodle/site:viewreports', $context)) {
-        error('You need do not have the required permission to view this report');
-    }
+    require_capability('coursereport/log:viewlive', $context);
 
     add_to_log($course->id, "course", "report live", "report/log/live.php?id=$course->id", $course->id); 
 

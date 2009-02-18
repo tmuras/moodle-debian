@@ -1,4 +1,4 @@
-<?php // $Id: dmllib.php,v 1.91.2.3 2007/04/15 11:10:42 stronk7 Exp $
+<?php // $Id: dmllib.php,v 1.116.2.31 2008/08/20 08:51:11 tjhunt Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas     http://dougiamas.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
 // it under the terms of the GNU General Public License as published by  //
@@ -38,7 +38,7 @@
 /// GLOBAL CONSTANTS /////////////////////////////////////////////////////////
 
 $empty_rs_cache = array();   // Keeps copies of the recordsets used in one invocation
-$metadata_cache = array();   // Keeps copies of the MetaColumns() for each table used in one invocations
+$metadata_cache = array();   // Kereeps copies of the MetaColumns() for each table used in one invocations
 
 $rcache = new StdClass;      // Cache simple get_record results
 $rcache->data   = array();
@@ -55,7 +55,7 @@ $rcache->misses = 0;
  * @uses $db
  * @param string $command The sql string you wish to be executed.
  * @param bool $feedback Set this argument to true if the results generated should be printed. Default is true.
- * @return string
+ * @return bool success
  */
 function execute_sql($command, $feedback=true) {
 /// Completely general function - it just runs some SQL and reports success.
@@ -86,11 +86,11 @@ function execute_sql($command, $feedback=true) {
 
     if (defined('MDL_PERFDB')) { global $PERF ; $PERF->dbqueries++; };
 
-    $result = $db->Execute($command);
+    $rs = $db->Execute($command);
 
     $db->debug = $olddebug;
 
-    if ($result) {
+    if ($rs) {
         if ($feedback) {
             notify(get_string('success'), 'notifysuccess');
         }
@@ -99,6 +99,8 @@ function execute_sql($command, $feedback=true) {
         if ($feedback) {
             notify('<strong>' . get_string('error') . '</strong>');
         }
+        // these two may go to difference places
+        debugging($db->ErrorMsg() .'<br /><br />'. s($command));
         if (!empty($CFG->dblogerror)) {
             $debug=array_shift(debug_backtrace());
             error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $command");
@@ -304,13 +306,18 @@ function record_exists_sql($sql) {
     $limitfrom = 0; /// Number of records to skip
     $limitnum  = 1; /// Number of records to retrieve
 
-    $rs = get_recordset_sql($sql, $limitfrom, $limitnum);
-
-    if ($rs && $rs->RecordCount() > 0) {
-        return true;
-    } else {
+    if (!$rs = get_recordset_sql($sql, $limitfrom, $limitnum)) {
         return false;
     }
+
+    if (rs_EOF($rs)) {
+        $result = false;
+    } else {
+        $result = true;
+    }
+
+    rs_close($rs);
+    return $result;
 }
 
 /**
@@ -371,7 +378,7 @@ function count_records_select($table, $select='', $countitem='COUNT(*)') {
 function count_records_sql($sql) {
     $rs = get_recordset_sql($sql);
 
-    if ($rs) {
+    if (is_object($rs) and is_array($rs->fields)) {
         return reset($rs->fields);
     } else {
         return 0;
@@ -395,9 +402,9 @@ function count_records_sql($sql) {
  * @return mixed a fieldset object containing the first mathcing record, or false if none found.
  */
 function get_record($table, $field1, $value1, $field2='', $value2='', $field3='', $value3='', $fields='*') {
-    
+
     global $CFG;
-    
+
     // Check to see whether this record is eligible for caching (fields=*, only condition is id)
     $docache = false;
     if (!empty($CFG->rcache) && $CFG->rcache === true && $field1=='id' && !$field2 && !$field3 && $fields=='*') {
@@ -408,15 +415,15 @@ function get_record($table, $field1, $value1, $field2='', $value2='', $field3=''
             return $cached;
         }
     }
-    
+
     $select = where_clause($field1, $value1, $field2, $value2, $field3, $value3);
 
     $record = get_record_sql('SELECT '.$fields.' FROM '. $CFG->prefix . $table .' '. $select);
-    
-    // If we're caching records, store this one 
+
+    // If we're caching records, store this one
     // (supposing we got something - we don't cache failures)
     if ($docache) {
-        if (isset($record)) {
+        if ($record !== false) {
             rcache_set($table, $value1, $record);
         } else {
             rcache_releaseforfill($table, $value1);
@@ -436,7 +443,7 @@ function get_record($table, $field1, $value1, $field2='', $value2='', $field3=''
  * @uses $CFG
  * @uses $db
  * @param string $sql The SQL string you wish to be executed, should normally only return one record.
- * @param bool $expectmultiple If the SQL cannot be written to conviniently return just one record,
+ * @param bool $expectmultiple If the SQL cannot be written to conveniently return just one record,
  *      set this to true to hide the debug message.
  * @param bool $nolimit sometimes appending ' LIMIT 1' to the SQL causes an error. Set this to true
  *      to stop your SQL being modified. This argument should probably be deprecated.
@@ -463,7 +470,7 @@ function get_record_sql($sql, $expectmultiple=false, $nolimit=false) {
     } else if ($expectmultiple) {
         $limitfrom = 0;
         $limitnum  = 1;
-    } else if (debugging()) {
+    } else if (debugging('', DEBUG_DEVELOPER)) {
         // Debugging mode - don't use a limit of 1, but do change the SQL, because sometimes that
         // causes errors, and in non-debug mode you don't see the error message and it is
         // impossible to know what's wrong.
@@ -483,11 +490,11 @@ function get_record_sql($sql, $expectmultiple=false, $nolimit=false) {
     } else if ($recordcount == 1) {    // Found one record
     /// DIRTY HACK to retrieve all the ' ' (1 space) fields converted back
     /// to '' (empty string) for Oracle. It's the only way to work with
-    /// all those NOT NULL DEFAULT '' fields until we definetively delete them
+    /// all those NOT NULL DEFAULT '' fields until we definitively delete them
         if ($CFG->dbfamily == 'oracle') {
             array_walk($rs->fields, 'onespace2empty');
         }
-    /// End od DIRTY HACK
+    /// End of DIRTY HACK
         return (object)$rs->fields;
 
     } else {                          // Error: found more than one record
@@ -537,8 +544,9 @@ function get_record_select($table, $select='', $fields='*') {
  *
  * If $fields is specified, only those fields are returned.
  *
- * This function is internal to datalib, and should NEVER should be called directly
- * from general Moodle scripts.  Use get_record, get_records etc.
+ * Since this method is a little less readable, use of it should be restricted to 
+ * code where it's possible there might be large datasets being returned.  For known 
+ * small datasets use get_records - it leads to simpler code.
  *
  * If you only want some of the records, specify $limitfrom and $limitnum.
  * The query will skip the first $limitfrom records (according to the sort
@@ -632,8 +640,9 @@ function get_recordset_list($table, $field='', $values='', $sort='', $fields='*'
 
 /**
  * Get a number of records as an ADODB RecordSet.  $sql must be a complete SQL query.
- * This function is internal to datalib, and should NEVER should be called directly
- * from general Moodle scripts.  Use get_record, get_records etc.
+ * Since this method is a little less readable, use of it should be restricted to 
+ * code where it's possible there might be large datasets being returned.  For known 
+ * small datasets use get_records_sql - it leads to simpler code.
  *
  * The return type is as for @see function get_recordset.
  *
@@ -653,7 +662,7 @@ function get_recordset_sql($sql, $limitfrom=null, $limitnum=null) {
 
 /// Temporary hack as part of phasing out all access to obsolete user tables  XXX
     if (!empty($CFG->rolesactive)) {
-        if (strpos($sql, ' '.$CFG->prefix.'user_students ') || 
+        if (strpos($sql, ' '.$CFG->prefix.'user_students ') ||
             strpos($sql, ' '.$CFG->prefix.'user_teachers ') ||
             strpos($sql, ' '.$CFG->prefix.'user_coursecreators ') ||
             strpos($sql, ' '.$CFG->prefix.'user_admins ')) {
@@ -674,7 +683,7 @@ function get_recordset_sql($sql, $limitfrom=null, $limitnum=null) {
         $rs = $db->Execute($sql);
     }
     if (!$rs) {
-        debugging($db->ErrorMsg() .'<br /><br />'. $sql);
+        debugging($db->ErrorMsg() .'<br /><br />'. s($sql));
         if (!empty($CFG->dblogerror)) {
             $debug=array_shift(debug_backtrace());
             error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $sql with limits ($limitfrom, $limitnum)");
@@ -693,10 +702,12 @@ function get_recordset_sql($sql, $limitfrom=null, $limitnum=null) {
  * @return mixed mixed an array of objects, or false if an error occured or the RecordSet was empty.
  */
 function recordset_to_array($rs) {
-
     global $CFG;
 
-    if ($rs && $rs->RecordCount() > 0) {
+    $debugging = debugging('', DEBUG_DEVELOPER);
+
+    if ($rs && !rs_EOF($rs)) {
+        $objects = array();
     /// First of all, we are going to get the name of the first column
     /// to introduce it back after transforming the recordset to assoc array
     /// See http://docs.moodle.org/en/XMLDB_Problems, fetch mode problem.
@@ -711,6 +722,9 @@ function recordset_to_array($rs) {
                 }
             /// End of DIRTY HACK
                 $record[$firstcolumn->name] = $key;/// Re-add the assoc field
+                if ($debugging && array_key_exists($key, $objects)) {
+                    debugging("Did you remember to make the first column something unique in your call to get_records? Duplicate value '$key' found in column '".$firstcolumn->name."'.", DEBUG_DEVELOPER);
+                }
                 $objects[$key] = (object) $record; /// To object
             }
             return $objects;
@@ -723,6 +737,9 @@ function recordset_to_array($rs) {
                     array_walk($record, 'onespace2empty');
                 }
             /// End of DIRTY HACK
+                if ($debugging && array_key_exists($record[$firstcolumn->name], $objects)) {
+                    debugging("Did you remember to make the first column something unique in your call to get_records? Duplicate value '".$record[$firstcolumn->name]."' found in column '".$firstcolumn->name."'.", DEBUG_DEVELOPER);
+                }
                 $objects[$record[$firstcolumn->name]] = (object) $record; /// The key is the first column value (like Assoc)
             }
             return $objects;
@@ -736,14 +753,18 @@ function recordset_to_array($rs) {
 
 /**
  * This function is used to get the current record from the recordset. It
- * doesn't advance the recordset position. You'll need to do that by 
+ * doesn't advance the recordset position. You'll need to do that by
  * using the rs_next_record($recordset) function.
  * @param ADORecordSet the recordset to fetch current record from
  * @return ADOFetchObj the object containing the fetched information
  */
 function rs_fetch_record(&$rs) {
-
     global $CFG;
+
+    if (!$rs) {
+        debugging('Incorrect $rs used!', DEBUG_DEVELOPER);
+        return false;
+    }
 
     $rec = $rs->FetchObj(); //Retrieve record as object without advance the pointer
 
@@ -771,6 +792,10 @@ function rs_fetch_record(&$rs) {
  * @return boolean true if the movement was successful and false if not (end of recordset)
  */
 function rs_next_record(&$rs) {
+    if (!$rs) {
+        debugging('Incorrect $rs used!', DEBUG_DEVELOPER);
+        return false;
+    }
 
     return $rs->MoveNext(); //Move the pointer to the next record
 }
@@ -793,6 +818,11 @@ function rs_fetch_next_record(&$rs) {
 
     global $CFG;
 
+    if (!$rs) {
+        debugging('Incorrect $rs used!', DEBUG_DEVELOPER);
+        return false;
+    }
+
     $rec = false;
     $recarr = $rs->FetchRow(); //Retrieve record as object without advance the pointer. It's quicker that FetchNextObj()
 
@@ -812,12 +842,30 @@ function rs_fetch_next_record(&$rs) {
 }
 
 /**
+ * Returns true if no more records found
+ * @param ADORecordSet the recordset
+ * @return bool
+ */
+function rs_EOF($rs) {
+    if (!$rs) {
+        debugging('Incorrect $rs used!', DEBUG_DEVELOPER);
+        return true;
+    }
+    return $rs->EOF;
+}
+
+/**
  * This function closes the recordset, freeing all the memory and associated resources.
  * Note that, once closed, the recordset must not be used anymore along the request.
  * Saves memory (optional but recommended).
  * @param ADORecordSet the recordset to be closed
+ * @return void
  */
 function rs_close(&$rs) {
+    if (!$rs) {
+        debugging('Incorrect $rs used!', DEBUG_DEVELOPER);
+        return;
+    }
 
     $rs->Close();
 }
@@ -851,7 +899,7 @@ function onespace2empty(&$item, $key=null) {
  * @param string $field a field to check (optional).
  * @param string $value the value the field must have (requred if field1 is given, else optional).
  * @param string $sort an order to sort the results in (optional, a valid SQL ORDER BY parameter).
- * @param string $fields a comma separated list of fields to return (optional, by default 
+ * @param string $fields a comma separated list of fields to return (optional, by default
  *   all fields are returned). The first field will be used as key for the
  *   array so must be a unique field such as 'id'.
  * @param int $limitfrom return a subset of records, starting at this point (optional, required if $limitnum is set).
@@ -871,7 +919,7 @@ function get_records($table, $field='', $value='', $sort='', $fields='*', $limit
  * @param string $table the table to query.
  * @param string $select A fragment of SQL to be used in a where clause in the SQL call.
  * @param string $sort an order to sort the results in (optional, a valid SQL ORDER BY parameter).
- * @param string $fields a comma separated list of fields to return 
+ * @param string $fields a comma separated list of fields to return
  *   (optional, by default all fields are returned). The first field will be used as key for the
  *   array so must be a unique field such as 'id'.
  * @param int $limitfrom return a subset of records, starting at this point (optional, required if $limitnum is set).
@@ -907,8 +955,8 @@ function get_records_list($table, $field='', $values='', $sort='', $fields='*', 
  *
  * Return value as for @see function get_records.
  *
- * @param string $sql the SQL select query to execute. The first column of this SELECT statement 
- *   must be a unique value (usually the 'id' field), as it will be used as the key of the 
+ * @param string $sql the SQL select query to execute. The first column of this SELECT statement
+ *   must be a unique value (usually the 'id' field), as it will be used as the key of the
  *   returned array.
  * @param int $limitfrom return a subset of records, starting at this point (optional, required if $limitnum is set).
  * @param int $limitnum return a subset comprising this many records (optional, required if $limitfrom is set).
@@ -927,8 +975,8 @@ function get_records_sql($sql, $limitfrom='', $limitnum='') {
  */
 function recordset_to_menu($rs) {
     global $CFG;
-
-    if ($rs && $rs->RecordCount() > 0) {
+    $menu = array();
+    if ($rs && !rs_EOF($rs)) {
         $keys = array_keys($rs->fields);
         $key0=$keys[0];
         $key1=$keys[1];
@@ -945,6 +993,30 @@ function recordset_to_menu($rs) {
         return $menu;
     } else {
         return false;
+    }
+}
+
+/**
+ * Utility function 
+ * Similar to recordset_to_menu 
+ *
+ * field1, field2 is needed because the order from get_records_sql is not reliable
+ * @param records - records from get_records_sql() or get_records()
+ * @param field1 - field to be used as menu index
+ * @param field2 - feild to be used as coresponding menu value
+ * @return mixed an associative array, or false if an error occured or the RecordSet was empty.
+ */
+function records_to_menu($records, $field1, $field2) {
+
+    $menu = array();
+    foreach ($records as $record) {
+        $menu[$record->$field1] = $record->$field2;
+    }
+
+    if (!empty($menu)) {
+        return $menu;
+    } else {
+        return false; 
     }
 }
 
@@ -1055,7 +1127,7 @@ function get_field_sql($sql) {
 /// Strip potential LIMIT uses arriving here, debugging them (MDL-7173)
     $newsql = preg_replace('/ LIMIT [0-9, ]+$/is', '', $sql);
     if ($newsql != $sql) {
-        debugging('Incorrect use of LIMIT clause (not cross-db) in call to get_field_sql(): ' . $sql, DEBUG_DEVELOPER);
+        debugging('Incorrect use of LIMIT clause (not cross-db) in call to get_field_sql(): ' . s($sql), DEBUG_DEVELOPER);
         $sql = $newsql;
     }
 
@@ -1078,6 +1150,23 @@ function get_field_sql($sql) {
 }
 
 /**
+ * Get a single value from a table row where a particular select clause is true.
+ *
+ * @uses $CFG
+ * @param string $table the table to query.
+ * @param string $return the field to return the value of.
+ * @param string $select A fragment of SQL to be used in a where clause in the SQL call.
+ * @return mixed|false Returns the value return from the SQL statment or false if an error occured.
+ */
+function get_fieldset_select($table, $return, $select) {
+    global $CFG;
+    if ($select) {
+        $select = ' WHERE '. $select;
+    }
+    return get_fieldset_sql('SELECT ' . $return . ' FROM ' . $CFG->prefix . $table . $select);
+}
+
+/**
  * Get an array of data from one or more fields from a database
  * use to get a column, or a series of distinct values
  *
@@ -1095,7 +1184,7 @@ function get_fieldset_sql($sql) {
 
     $rs = $db->Execute($sql);
     if (!$rs) {
-        debugging($db->ErrorMsg() .'<br /><br />'. $sql);
+        debugging($db->ErrorMsg() .'<br /><br />'. s($sql));
         if (!empty($CFG->dblogerror)) {
             $debug=array_shift(debug_backtrace());
             error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $sql");
@@ -1103,7 +1192,7 @@ function get_fieldset_sql($sql) {
         return false;
     }
 
-    if ( $rs->RecordCount() > 0 ) {
+    if ( !rs_EOF($rs) ) {
         $keys = array_keys($rs->fields);
         $key0 = $keys[0];
         $results = array();
@@ -1118,8 +1207,10 @@ function get_fieldset_sql($sql) {
             array_walk($results, 'onespace2empty');
         }
         /// End of DIRTY HACK
+        rs_close($rs);
         return $results;
     } else {
+        rs_close($rs);
         return false;
     }
 }
@@ -1150,9 +1241,9 @@ function set_field($table, $newfield, $newvalue, $field1, $value1, $field2='', $
         if ($field1 == 'id') {
             rcache_unset($table, $value1);
         } else if ($field2 == 'id') {
-            rcache_unset($table, $value1);
+            rcache_unset($table, $value2);
         } else if ($field3 == 'id') {
-            rcache_unset($table, $value1);
+            rcache_unset($table, $value3);
         } else {
             rcache_unset_table($table);
         }
@@ -1185,7 +1276,7 @@ function set_field_select($table, $newfield, $newvalue, $select, $localcall = fa
         if ($select) {
             $select = 'WHERE ' . $select;
         }
-    
+
         // Clear record_cache based on the parameters passed
         // (individual record or whole table)
         if ($CFG->rcache === true) {
@@ -1195,26 +1286,26 @@ function set_field_select($table, $newfield, $newvalue, $select, $localcall = fa
 
     $dataobject = new StdClass;
     $dataobject->{$newfield} = $newvalue;
-    // Oracle DIRTY HACK - 
+    // Oracle DIRTY HACK -
     if ($CFG->dbfamily == 'oracle') {
         oracle_dirty_hack($table, $dataobject); // Convert object to the correct "empty" values for Oracle DB
         $newvalue = $dataobject->{$newfield};
     }
     // End DIRTY HACK
 
-/// Under Oracle and MSSQL we have our own set field process
+/// Under Oracle, MSSQL and PostgreSQL we have our own set field process
 /// If the field being updated is clob/blob, we use our alternate update here
 /// They will be updated later
-    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql') && !empty($select)) {
+    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql' || $CFG->dbfamily == 'postgres') && !empty($select)) {
     /// Detect lobs
         $foundclobs = array();
         $foundblobs = array();
         db_detect_lobs($table, $dataobject, $foundclobs, $foundblobs);
     }
 
-/// Under Oracle and MSSQL, finally, Update all the Clobs and Blobs present in the record
+/// Under Oracle, MSSQL and PostgreSQL, finally, update all the Clobs and Blobs present in the record
 /// if we know we have some of them in the query
-    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql') && !empty($select) &&
+    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql' || $CFG->dbfamily == 'postgres') && !empty($select) &&
       (!empty($foundclobs) || !empty($foundblobs))) {
         if (!db_update_lobs($table, $select, $foundclobs, $foundblobs)) {
             return false; //Some error happened while updating LOBs
@@ -1223,8 +1314,25 @@ function set_field_select($table, $newfield, $newvalue, $select, $localcall = fa
         }
     }
 
-/// Arriving here, standard update 
-    return $db->Execute('UPDATE '. $CFG->prefix . $table .' SET '. $newfield  .' = \''. $newvalue .'\' '. $select);
+/// NULL inserts - introduced in 1.9
+    if (is_null($newvalue)) {
+        $update = "$newfield = NULL";
+    } else {
+        $update = "$newfield = '$newvalue'";
+    }
+
+/// Arriving here, standard update
+    $sql = 'UPDATE '. $CFG->prefix . $table .' SET '.$update.' '.$select;
+    $rs = $db->Execute($sql);
+    if (!$rs) {
+        debugging($db->ErrorMsg() .'<br /><br />'. s($sql));
+        if (!empty($CFG->dblogerror)) {
+            $debug=array_shift(debug_backtrace());
+            error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $sql");
+        }
+        return false;
+    }
+    return $rs;
 }
 
 /**
@@ -1263,7 +1371,17 @@ function delete_records($table, $field1='', $value1='', $field2='', $value2='', 
 
     $select = where_clause($field1, $value1, $field2, $value2, $field3, $value3);
 
-    return $db->Execute('DELETE FROM '. $CFG->prefix . $table .' '. $select);
+    $sql = 'DELETE FROM '. $CFG->prefix . $table .' '. $select;
+    $rs = $db->Execute($sql);
+    if (!$rs) {
+        debugging($db->ErrorMsg() .'<br /><br />'. s($sql));
+        if (!empty($CFG->dblogerror)) {
+            $debug=array_shift(debug_backtrace());
+            error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $sql");
+        }
+        return false;
+    }
+    return $rs;
 }
 
 /**
@@ -1291,7 +1409,17 @@ function delete_records_select($table, $select='') {
         $select = 'WHERE '.$select;
     }
 
-    return $db->Execute('DELETE FROM '. $CFG->prefix . $table .' '. $select);
+    $sql = 'DELETE FROM '. $CFG->prefix . $table .' '. $select;
+    $rs = $db->Execute($sql);
+    if (!$rs) {
+        debugging($db->ErrorMsg() .'<br /><br />'. s($sql));
+        if (!empty($CFG->dblogerror)) {
+            $debug=array_shift(debug_backtrace());
+            error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $sql");
+        }
+        return false;
+    }
+    return $rs;
 }
 
 /**
@@ -1303,9 +1431,9 @@ function delete_records_select($table, $select='') {
  * @uses $db
  * @uses $CFG
  * @param string $table The database table to be checked against.
- * @param array $dataobject A data object with values for one or more fields in the record
+ * @param object $dataobject A data object with values for one or more fields in the record
  * @param bool $returnid Should the id of the newly created record entry be returned? If this option is not requested then true/false is returned.
- * @param string $primarykey The primary key of the table we are inserting into (almost always "id")
+ * @param string $primarykey (obsolete) This is now forced to be 'id'. 
  */
 function insert_record($table, $dataobject, $returnid=true, $primarykey='id') {
 
@@ -1313,6 +1441,12 @@ function insert_record($table, $dataobject, $returnid=true, $primarykey='id') {
 
     if (empty($db)) {
         return false;
+    }
+
+/// Check we are handling a proper $dataobject
+    if (is_array($dataobject)) {
+        debugging('Warning. Wrong call to insert_record(). $dataobject must be an object. array found instead', DEBUG_DEVELOPER);
+        $dataobject = (object)$dataobject;
     }
 
 /// Temporary hack as part of phasing out all access to obsolete user tables  XXX
@@ -1356,11 +1490,11 @@ function insert_record($table, $dataobject, $returnid=true, $primarykey='id') {
     }
 /// End DIRTY HACK
 
-/// Under Oracle and MSSQL we have our own insert record process
+/// Under Oracle, MSSQL and PostgreSQL we have our own insert record process
 /// detect all the clob/blob fields and change their contents to @#CLOB#@ and @#BLOB#@
 /// saving them into $foundclobs and $foundblobs [$fieldname]->contents
 /// Same for mssql (only processing blobs - image fields)
-    if ($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql') {
+    if ($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql' || $CFG->dbfamily == 'postgres') {
         $foundclobs = array();
         $foundblobs = array();
         db_detect_lobs($table, $dataobject, $foundclobs, $foundblobs);
@@ -1395,9 +1529,9 @@ function insert_record($table, $dataobject, $returnid=true, $primarykey='id') {
         return false;
     }
 
-/// Under Oracle and MSSQL, replace all the '@#CLOB#@' and '@#BLOB#@' ocurrences to proper default values
+/// Under Oracle, MSSQL and PostgreSQL, replace all the '@#CLOB#@' and '@#BLOB#@' ocurrences to proper default values
 /// if we know we have some of them in the query
-    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql') &&
+    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql' || $CFG->dbfamily == 'postgres') &&
       (!empty($foundclobs) || !empty($foundblobs))) {
     /// Initial configuration, based on DB
         switch ($CFG->dbfamily) {
@@ -1406,9 +1540,10 @@ function insert_record($table, $dataobject, $returnid=true, $primarykey='id') {
                 $blobdefault = 'empty_blob()'; //Value of empty default blobs for this DB
                 break;
             case 'mssql':
+            case 'postgres':
                 $clobdefault = 'null'; //Value of empty default clobs for this DB (under mssql this won't be executed
                 $blobdefault = 'null'; //Value of empty default blobs for this DB
-                break;  
+                break;
         }
         $insertSQL = str_replace("'@#CLOB#@'", $clobdefault, $insertSQL);
         $insertSQL = str_replace("'@#BLOB#@'", $blobdefault, $insertSQL);
@@ -1416,7 +1551,7 @@ function insert_record($table, $dataobject, $returnid=true, $primarykey='id') {
 
 /// Run the SQL statement
     if (!$rs = $db->Execute($insertSQL)) {
-        debugging($db->ErrorMsg() .'<br /><br />'.$insertSQL);
+        debugging($db->ErrorMsg() .'<br /><br />'.s($insertSQL));
         if (!empty($CFG->dblogerror)) {
             $debug=array_shift(debug_backtrace());
             error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $insertSQL");
@@ -1424,10 +1559,10 @@ function insert_record($table, $dataobject, $returnid=true, $primarykey='id') {
         return false;
     }
 
-/// Under Oracle, finally, Update all the Clobs and Blobs present in the record
+/// Under Oracle and PostgreSQL, finally, update all the Clobs and Blobs present in the record
 /// if we know we have some of them in the query
-    if ($CFG->dbfamily == 'oracle' &&
-      !empty($dataobject->{$primarykey}) && 
+    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'postgres') &&
+      !empty($dataobject->{$primarykey}) &&
       (!empty($foundclobs) || !empty($foundblobs))) {
         if (!db_update_lobs($table, $dataobject->{$primarykey}, $foundclobs, $foundblobs)) {
             return false; //Some error happened while updating LOBs
@@ -1453,7 +1588,7 @@ function insert_record($table, $dataobject, $returnid=true, $primarykey='id') {
 /// Under MSSQL all the Clobs and Blobs (IMAGE) present in the record
 /// if we know we have some of them in the query
     if (($CFG->dbfamily == 'mssql') &&
-      !empty($id) && 
+      !empty($id) &&
       (!empty($foundclobs) || !empty($foundblobs))) {
         if (!db_update_lobs($table, $id, $foundclobs, $foundblobs)) {
             return false; //Some error happened while updating LOBs
@@ -1485,7 +1620,7 @@ function insert_record($table, $dataobject, $returnid=true, $primarykey='id') {
  * @uses $CFG
  * @uses $db
  * @param string $table The database table to be checked against.
- * @param array $dataobject An object with contents equal to fieldname=>fieldvalue. Must have an entry for 'id' to map to the table specified.
+ * @param object $dataobject An object with contents equal to fieldname=>fieldvalue. Must have an entry for 'id' to map to the table specified.
  * @return bool
  */
 function update_record($table, $dataobject) {
@@ -1496,11 +1631,17 @@ function update_record($table, $dataobject) {
         return false;
     }
 
+/// Check we are handling a proper $dataobject
+    if (is_array($dataobject)) {
+        debugging('Warning. Wrong call to update_record(). $dataobject must be an object. array found instead', DEBUG_DEVELOPER);
+        $dataobject = (object)$dataobject;
+    }
+
     // Remove this record from record cache since it will change
-    if ($CFG->rcache === true) {
+    if (!empty($CFG->rcache)) { // no === here! breaks upgrade
         rcache_unset($table, $dataobject->id);
     }
-    
+
 /// Temporary hack as part of phasing out all access to obsolete user tables  XXX
     if (!empty($CFG->rolesactive)) {
         if (in_array($table, array('user_students', 'user_teachers', 'user_coursecreators', 'user_admins'))) {
@@ -1515,11 +1656,11 @@ function update_record($table, $dataobject) {
     }
 /// End DIRTY HACK
 
-/// Under Oracle and MSSQL we have our own update record process
+/// Under Oracle, MSSQL and PostgreSQL we have our own update record process
 /// detect all the clob/blob fields and delete them from the record being updated
 /// saving them into $foundclobs and $foundblobs [$fieldname]->contents
 /// They will be updated later
-    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql')
+    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql' || $CFG->dbfamily == 'postgres')
       && !empty($dataobject->id)) {
     /// Detect lobs
         $foundclobs = array();
@@ -1536,47 +1677,43 @@ function update_record($table, $dataobject) {
     if (defined('MDL_PERFDB')) { global $PERF ; $PERF->dbqueries++; };
 
     // Pull out data matching these fields
-    $ddd = array();
+    $update = array();
     foreach ($columns as $column) {
-        if ($column->name <> 'id' and isset($data[$column->name]) ) {
-            $ddd[$column->name] = $data[$column->name];
-            // PostgreSQL bytea support
-            if ($CFG->dbfamily == 'postgres' && $column->type == 'bytea') {
-                $ddd[$column->name] = $db->BlobEncode($ddd[$column->name]);
+        if ($column->name == 'id') {
+            continue;
+        }
+        if (array_key_exists($column->name, $data)) {
+            $key   = $column->name;
+            $value = $data[$key];
+            if (is_null($value)) {
+                $update[] = "$key = NULL"; // previously NULLs were not updated
+            } else if (is_bool($value)) {
+                $value = (int)$value;
+                $update[] = "$key = $value";   // lets keep pg happy, '' is not correct smallint MDL-13038
+            } else {
+                $update[] = "$key = '$value'"; // All incoming data is already quoted
             }
         }
     }
 
-    // Construct SQL queries
-    $numddd = count($ddd);
-    $count = 0;
-    $update = '';
-
-/// Only if we have fields to be updated (this will prevent both wrong updates + 
+/// Only if we have fields to be updated (this will prevent both wrong updates +
 /// updates of only LOBs in Oracle
-    if ($numddd) {
-        foreach ($ddd as $key => $value) {
-            $count++;
-            $update .= $key .' = \''. $value .'\'';   // All incoming data is already quoted
-            if ($count < $numddd) {
-                $update .= ', ';
-            }
-        }
-
-        if (!$rs = $db->Execute('UPDATE '. $CFG->prefix . $table .' SET '. $update .' WHERE id = \''. $dataobject->id .'\'')) {
-            debugging($db->ErrorMsg() .'<br /><br />UPDATE '. $CFG->prefix . $table .' SET '. $update .' WHERE id = \''. $dataobject->id .'\'');
+    if ($update) {
+        $query = "UPDATE {$CFG->prefix}{$table} SET ".implode(',', $update)." WHERE id = {$dataobject->id}";
+        if (!$rs = $db->Execute($query)) {
+            debugging($db->ErrorMsg() .'<br /><br />'.s($query));
             if (!empty($CFG->dblogerror)) {
                 $debug=array_shift(debug_backtrace());
-                error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  UPDATE $CFG->prefix$table SET $update WHERE id = '$dataobject->id'");
+                error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $query");
             }
             return false;
         }
     }
 
-/// Under Oracle AND MSSQL, finally, Update all the Clobs and Blobs present in the record
+/// Under Oracle, MSSQL and PostgreSQL, finally, update all the Clobs and Blobs present in the record
 /// if we know we have some of them in the query
-    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql') &&
-        !empty($dataobject->id) && 
+    if (($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql' || $CFG->dbfamily == 'postgres') &&
+        !empty($dataobject->id) &&
         (!empty($foundclobs) || !empty($foundblobs))) {
         if (!db_update_lobs($table, $dataobject->id, $foundclobs, $foundblobs)) {
             return false; //Some error happened while updating LOBs
@@ -1614,10 +1751,10 @@ function sql_paging_limit($page, $recordsperpage) {
 /**
  * Returns the proper SQL to do LIKE in a case-insensitive way
  *
- * Note the LIKE are case sensitive for Oracle. Oracle 10g is required to use 
+ * Note the LIKE are case sensitive for Oracle. Oracle 10g is required to use
  * the caseinsensitive search using regexp_like() or NLS_COMP=LINGUISTIC :-(
  * See http://docs.moodle.org/en/XMLDB_Problems#Case-insensitive_searches
- * 
+ *
  * @uses $CFG
  * @return string
  */
@@ -1632,6 +1769,22 @@ function sql_ilike() {
     }
 }
 
+
+/**
+ * Returns the proper SQL to do MAX
+ *
+ * @uses $CFG
+ * @param string $field
+ * @return string
+ */
+function sql_max($field) {
+    global $CFG;
+
+    switch ($CFG->dbfamily) {
+        default:
+             return "MAX($field)";
+    }
+}
 
 /**
  * Returns the proper SQL (for the dbms in use) to concatenate $firstname and $lastname
@@ -1654,9 +1807,14 @@ function sql_fullname($firstname='firstname', $lastname='lastname') {
  * @return string
  */
 function sql_concat() {
-    global $db;
+    global $db, $CFG;
 
     $args = func_get_args();
+/// PostgreSQL requires at least one char element in the concat, let's add it
+/// here (at the beginning of the array) until ADOdb fixes it
+    if ($CFG->dbfamily == 'postgres' && is_array($args)) {
+        array_unshift($args , "''");
+    }
     return call_user_func_array(array($db, 'Concat'), $args);
 }
 
@@ -1671,7 +1829,7 @@ function sql_concat() {
  */
 function sql_concat_join($separator="' '", $elements=array()) {
     global $db;
- 
+
     // copy to ensure pass by value
     $elem = $elements;
 
@@ -1686,20 +1844,91 @@ function sql_concat_join($separator="' '", $elements=array()) {
 }
 
 /**
- * Returns the proper SQL to do IS NULL
- * @uses $CFG
- * @param string $fieldname The field to add IS NULL to
- * @return string
+ * Returns the proper SQL to know if one field is empty.
+ *
+ * Note that the function behavior strongly relies on the
+ * parameters passed describing the field so, please,  be accurate
+ * when speciffying them.
+ *
+ * Also, note that this function is not suitable to look for
+ * fields having NULL contents at all. It's all for empty values!
+ *
+ * This function should be applied in all the places where conditins of
+ * the type:
+ *
+ *     ... AND fieldname = '';
+ *
+ * are being used. Final result should be:
+ *
+ *     ... AND ' . sql_isempty('tablename', 'fieldname', true/false, true/false);
+ *
+ * (see parameters description below)
+ *
+ * @param string $tablename name of the table (without prefix). Not used for now but can be
+ *                          necessary in the future if we want to use some introspection using
+ *                          meta information against the DB. /// TODO ///
+ * @param string $fieldname name of the field we are going to check
+ * @param boolean $nullablefield to specify if the field us nullable (true) or no (false) in the DB
+ * @param boolean $textfield to specify if it is a text (also called clob) field (true) or a varchar one (false)
+ * @return string the sql code to be added to check for empty values
  */
-function sql_isnull($fieldname) {
+function sql_isempty($tablename, $fieldname, $nullablefield, $textfield) {
+
     global $CFG;
 
+    $sql = $fieldname . " = ''";
+
     switch ($CFG->dbfamily) {
-        case 'mysql':
-             return $fieldname.' IS NULL';
-        default:
-             return $fieldname.' IS NULL';
+        case 'mssql':
+            if ($textfield) {
+                $sql = sql_compare_text($fieldname) . " = ''";
+            }
+            break;
+        case 'oracle':
+            if ($nullablefield) {
+                $sql = $fieldname . " IS NULL";                     /// empties in nullable fields are stored as
+            } else {                                                /// NULLs
+                if ($textfield) {
+                    $sql = sql_compare_text($fieldname) . " = ' '"; /// oracle_dirty_hack inserts 1-whitespace
+                } else {                                            /// in NOT NULL varchar and text columns so
+                    $sql =  $fieldname . " = ' '";                  /// we need to look for that in any situation
+                }
+            }
+            break;
     }
+
+    return ' ' . $sql . ' '; /// Adding spaces to avoid wrong SQLs due to concatenation
+}
+
+/**
+ * Returns the proper SQL to know if one field is not empty.
+ *
+ * Note that the function behavior strongly relies on the
+ * parameters passed describing the field so, please,  be accurate
+ * when speciffying them.
+ *
+ * This function should be applied in all the places where conditions of
+ * the type:
+ *
+ *     ... AND fieldname != '';
+ *
+ * are being used. Final result should be:
+ *
+ *     ... AND ' . sql_isnotempty('tablename', 'fieldname', true/false, true/false);
+ *
+ * (see parameters description below)
+ *
+ * @param string $tablename name of the table (without prefix). Not used for now but can be
+ *                          necessary in the future if we want to use some introspection using
+ *                          meta information against the DB. /// TODO ///
+ * @param string $fieldname name of the field we are going to check
+ * @param boolean $nullablefield to specify if the field us nullable (true) or no (false) in the DB
+ * @param boolean $textfield to specify if it is a text (also called clob) field (true) or a varchar one (false)
+ * @return string the sql code to be added to check for non empty values
+ */
+function sql_isnotempty($tablename, $fieldname, $nullablefield, $textfield) {
+
+    return ' ( NOT ' . sql_isempty($tablename, $fieldname, $nullablefield, $textfield) . ') ';
 }
 
 /**
@@ -1789,41 +2018,184 @@ function sql_order_by_text($fieldname, $numchars=32) {
     }
 }
 
+    /**
+     * Returns the SQL for returning searching one string for the location of another.
+     * @param string $needle the SQL expression that will be searched for.
+     * @param string $haystack the SQL expression that will be searched in.
+     * @return string the required SQL
+     */
+function sql_position($needle, $haystack) {
+    global $CFG;
+
+    switch ($CFG->dbfamily) {
+        case 'mssql':
+            return "CHARINDEX(($needle), ($haystack))";
+            break;
+        case 'oracle':
+            return "INSTR(($haystack), ($needle))";
+            break;
+        default:
+            return "POSITION(($needle) IN ($haystack))";
+    }
+}
 
 /**
- * Returns SQL to be used as a subselect to find the primary role of users.  
- * Geoff Cant <geoff@catalyst.net.nz> (the author) is very keen for this to
- * be implemented as a view in future versions. 
+ * Returns the SQL to be used in order to CAST one CHAR column to INTEGER.
  *
- * eg if this function returns a string called $primaryroles, then you could:
- * $sql = 'SELECT COUNT(DISTINCT prs.userid) FROM ('.$primary_roles.') prs 
- *          WHERE prs.primary_roleid='.$role->id.' AND prs.courseid='.$course->id.
- *          ' AND prs.contextlevel = '.CONTEXT_COURSE;
+ * Be aware that the CHAR column you're trying to cast contains really
+ * int values or the RDBMS will throw an error!
  *
- * @return string the piece of SQL code to be used in your FROM( ) statement.
+ * @param string fieldname the name of the field to be casted
+ * @param boolean text to specify if the original column is one TEXT (CLOB) column (true). Defaults to false.
+ * @return string the piece of SQL code to be used in your statement.
  */
-function sql_primary_role_subselect() {
+function sql_cast_char2int($fieldname, $text=false) {
+
     global $CFG;
-    return 'SELECT ra.userid,
-                ra.roleid AS primary_roleid,
-                ra.contextid,
-                r.sortorder,
-                r.name,
-                r.description,
-                r.shortname,
-                c.instanceid AS courseid,
-                c.contextlevel
-            FROM '.$CFG->prefix.'role_assignments ra
-            INNER JOIN '.$CFG->prefix.'role r ON ra.roleid = r.id
-            INNER JOIN '.$CFG->prefix.'context c ON ra.contextid = c.id
-            WHERE NOT EXISTS ( 
-                              SELECT 1
-                              FROM '.$CFG->prefix.'role_assignments i_ra
-                              INNER JOIN '.$CFG->prefix.'role i_r ON i_ra.roleid = i_r.id
-                              WHERE ra.userid = i_ra.userid AND 
-                                     ra.contextid = i_ra.contextid AND 
-                                     i_r.sortorder < r.sortorder
-                              ) ';
+
+    $sql = '';
+
+    switch ($CFG->dbfamily) {
+        case 'mysql':
+            $sql = ' CAST(' . $fieldname . ' AS SIGNED) ';
+            break;
+        case 'postgres':
+            $sql = ' CAST(' . $fieldname . ' AS INT) ';
+            break;
+        case 'mssql':
+            if (!$text) {
+                $sql = ' CAST(' . $fieldname . ' AS INT) ';
+            } else {
+                $sql = ' CAST(' . sql_compare_text($fieldname) . ' AS INT) ';
+            }
+            break;
+        case 'oracle':
+            if (!$text) {
+                $sql = ' CAST(' . $fieldname . ' AS INT) ';
+            } else {
+                $sql = ' CAST(' . sql_compare_text($fieldname) . ' AS INT) ';
+            }
+            break;
+        default:
+            $sql = ' ' . $fieldname . ' ';
+    }
+
+    return $sql;
+}
+
+/**
+ * Returns the SQL text to be used in order to perform one bitwise AND operation
+ * between 2 integers.
+ * @param integer int1 first integer in the operation
+ * @param integer int2 second integer in the operation
+ * @return string the piece of SQL code to be used in your statement.
+ */
+function sql_bitand($int1, $int2) {
+
+    global $CFG;
+
+    switch ($CFG->dbfamily) {
+        case 'oracle':
+            return 'bitand((' . $int1 . '), (' . $int2 . '))';
+            break;
+        default:
+            return '((' . $int1 . ') & (' . $int2 . '))';
+    }
+}
+
+/**
+ * Returns the SQL text to be used in order to perform one bitwise OR operation
+ * between 2 integers.
+ * @param integer int1 first integer in the operation
+ * @param integer int2 second integer in the operation
+ * @return string the piece of SQL code to be used in your statement.
+ */
+function sql_bitor($int1, $int2) {
+
+    global $CFG;
+
+    switch ($CFG->dbfamily) {
+        case 'oracle':
+            return '((' . $int1 . ') + (' . $int2 . ') - ' . sql_bitand($int1, $int2) . ')';
+            break;
+        default:
+            return '((' . $int1 . ') | (' . $int2 . '))';
+    }
+}
+
+/**
+ * Returns the SQL text to be used in order to perform one bitwise XOR operation
+ * between 2 integers.
+ * @param integer int1 first integer in the operation
+ * @param integer int2 second integer in the operation
+ * @return string the piece of SQL code to be used in your statement.
+ */
+function sql_bitxor($int1, $int2) {
+
+    global $CFG;
+
+    switch ($CFG->dbfamily) {
+        case 'oracle':
+            return '(' . sql_bitor($int1, $int2) . ' - ' . sql_bitand($int1, $int2) . ')';
+            break;
+        case 'postgres':
+            return '((' . $int1 . ') # (' . $int2 . '))';
+            break;
+        default:
+            return '((' . $int1 . ') ^ (' . $int2 . '))';
+    }
+}
+
+/**
+ * Returns the SQL text to be used in order to perform one bitwise NOT operation
+ * with 1 integer.
+ * @param integer int1 integer in the operation
+ * @return string the piece of SQL code to be used in your statement.
+ */
+function sql_bitnot($int1) {
+
+    global $CFG;
+
+    switch ($CFG->dbfamily) {
+        case 'oracle':
+            return '((0 - (' . $int1 . ')) - 1)';
+            break;
+        default:
+            return '(~(' . $int1 . '))';
+    }
+}
+
+/**
+ * Returns the FROM clause required by some DBs in all SELECT statements
+ * To be used in queries not having FROM clause to provide cross_db
+ */
+function sql_null_from_clause() {
+    global $CFG;
+
+    switch ($CFG->dbfamily) {
+        case 'oracle':
+            return ' FROM dual';
+            break;
+        default:
+            return '';
+    }
+}
+
+/**
+ * Returns the correct CEIL expression applied to fieldname
+ * @param string fieldname the field (or expression) we are going to ceil
+ * @return string the piece of SQL code to be used in your ceiling statement
+ */
+function sql_ceil($fieldname) {
+    global $CFG;
+
+    switch ($CFG->dbfamily) {
+        case 'mssql':
+            return ' CEILING(' . $fieldname . ')';
+            break;
+        default:
+            return ' CEIL(' . $fieldname . ')';
+    }
 }
 
 /**
@@ -1842,11 +2214,11 @@ function sql_primary_role_subselect() {
  */
 function where_clause($field1='', $value1='', $field2='', $value2='', $field3='', $value3='') {
     if ($field1) {
-        $select = "WHERE $field1 = '$value1'";
+        $select = is_null($value1) ? "WHERE $field1 IS NULL" : "WHERE $field1 = '$value1'";
         if ($field2) {
-            $select .= " AND $field2 = '$value2'";
+            $select .= is_null($value2) ? " AND $field2 IS NULL" : " AND $field2 = '$value2'";
             if ($field3) {
-                $select .= " AND $field3 = '$value3'";
+                $select .= is_null($value3) ? " AND $field3 IS NULL" : " AND $field3 = '$value3'";
             }
         }
     } else {
@@ -1870,7 +2242,13 @@ function column_type($table, $column) {
 
     if (defined('MDL_PERFDB')) { global $PERF ; $PERF->dbqueries++; };
 
-    if(!$rs = $db->Execute('SELECT '.$column.' FROM '.$CFG->prefix.$table.' WHERE 1=2')) {
+    $sql = 'SELECT '.$column.' FROM '.$CFG->prefix.$table.' WHERE 1=2';
+    if(!$rs = $db->Execute($sql)) {
+        debugging($db->ErrorMsg() .'<br /><br />'. s($sql));
+        if (!empty($CFG->dblogerror)) {
+            $debug=array_shift(debug_backtrace());
+            error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $sql");
+        }
         return false;
     }
 
@@ -1909,8 +2287,7 @@ function execute_sql_arr($sqlarr, $continue=true, $feedback=true) {
 /**
  * This internal function, called from setup.php, sets all the configuration
  * needed to work properly against any DB. It setups connection encoding
- * and some other variables. Also, ir defines the $CFG->dbfamily variable
- * to handle conditional code better than using $CFG->dbtype directly.
+ * and some other variables.
  *
  * This function must contain the init code needed for each dbtype supported.
  */
@@ -1948,10 +2325,12 @@ function configure_dbconnection() {
         /// NOTE: Not 100% useful because GPC has been addslashed with the setting off
         ///       so IT'S MANDATORY TO ENABLE THIS UNDER php.ini or .htaccess for this DB
         ///       or to turn off magic_quotes to allow Moodle to do it properly
+        /// Now set the decimal separator to DOT, Moodle & PHP will always send floats to
+        /// DB using DOTS. Manually introduced floats (if using other characters) must be
+        /// converted back to DOTs (like gradebook does)
+            $db->Execute("ALTER SESSION SET NLS_NUMERIC_CHARACTERS='.,'");
             break;
     }
-/// Finally define dbfamily
-    set_dbfamily();
 }
 
 /**
@@ -2022,13 +2401,20 @@ function oracle_dirty_hack ($table, &$dataobject, $usecache = true) {
         }
     /// Now, we have one empty value, going to be inserted to one NOT NULL, VARCHAR2 or CLOB field
     /// Try to get the best value to be inserted
+
+    /// The '0' string doesn't need any transformation, skip
+        if ($fieldvalue === '0') {
+            continue;
+        }
+
+    /// Transformations start
         if (gettype($fieldvalue) == 'boolean') {
             $dataobject->$fieldname = '0'; /// Transform false to '0' that evaluates the same for PHP
         } else if (gettype($fieldvalue) == 'integer') {
             $dataobject->$fieldname = '0'; /// Transform 0 to '0' that evaluates the same for PHP
         } else if (gettype($fieldvalue) == 'NULL') {
             $dataobject->$fieldname = '0'; /// Transform NULL to '0' that evaluates the same for PHP
-        } else {
+        } else if ($fieldvalue === '') {
             $dataobject->$fieldname = ' '; /// Transform '' to ' ' that DONT'T EVALUATE THE SAME
                                            /// (we'll transform back again on get_records_XXX functions and others)!!
         }
@@ -2070,6 +2456,10 @@ function db_detect_lobs ($table, &$dataobject, &$clobs, &$blobs, $unset = false,
             $clobdbtype = 'NOTPROCESSES'; //Name of clobs for this DB (under mssql flavours we don't process CLOBS)
             $blobdbtype = 'IMAGE'; //Name of blobs for this DB
             break;
+        case 'postgres':
+            $clobdbtype = 'NOTPROCESSES'; //Name of clobs for this DB (under postgres flavours we don't process CLOBS)
+            $blobdbtype = 'BYTEA'; //Name of blobs for this DB
+            break;
         default:
             return; //Other DB doesn't need this two step to happen, prevent continue
     }
@@ -2091,7 +2481,7 @@ function db_detect_lobs ($table, &$dataobject, &$clobs, &$blobs, $unset = false,
             continue;
         }
     /// If the field is CLOB, update its value to '@#CLOB#@' and store it in the $clobs array
-        if (strtoupper($columns[strtolower($fieldname)]->type) == $clobdbtype) { 
+        if (strtoupper($columns[strtolower($fieldname)]->type) == $clobdbtype) {
         /// Oracle optimization. CLOBs under 4000cc can be directly inserted (no need to apply 2-phases to them)
             if ($CFG->dbfamily == 'oracle' && strlen($dataobject->$fieldname) < 4000) {
                 continue;
@@ -2105,7 +2495,7 @@ function db_detect_lobs ($table, &$dataobject, &$clobs, &$blobs, $unset = false,
             continue;
         }
 
-    /// If the field is BLOB OR IMAGE, update its value to '@#BLOB#@' and store it in the $blobs array
+    /// If the field is BLOB OR IMAGE OR BYTEA, update its value to '@#BLOB#@' and store it in the $blobs array
         if (strtoupper($columns[strtolower($fieldname)]->type) == $blobdbtype) {
             $blobs[$fieldname] = $dataobject->$fieldname;
             if ($unset) {
@@ -2149,6 +2539,10 @@ function db_update_lobs ($table, $sqlcondition, &$clobs, &$blobs) {
             $clobdbtype = 'NOTPROCESSES'; //Name of clobs for this DB (under mssql flavours we don't process CLOBS)
             $blobdbtype = 'IMAGE'; //Name of blobs for this DB
             break;
+        case 'postgres':
+            $clobdbtype = 'NOTPROCESSES'; //Name of clobs for this DB (under postgres flavours we don't process CLOBS)
+            $blobdbtype = 'BYTEA'; //Name of blobs for this DB
+            break;
         default:
             return; //Other DB doesn't need this two step to happen, prevent continue
     }
@@ -2163,13 +2557,18 @@ function db_update_lobs ($table, $sqlcondition, &$clobs, &$blobs) {
 /// Update all the clobs
     if ($clobs) {
         foreach ($clobs as $key => $value) {
-        
+
             if (defined('MDL_PERFDB')) { global $PERF ; $PERF->dbqueries++; }; /// Count the extra updates in PERF
+
+        /// Oracle CLOBs doesn't like quoted strings (are inserted via prepared statemets)
+            if ($CFG->dbfamily == 'oracle') {
+                $value = stripslashes_safe($value);
+            }
 
             if (!$db->UpdateClob($CFG->prefix.$table, $key, $value, $sqlcondition)) {
                 $status = false;
                 $statement = "UpdateClob('$CFG->prefix$table', '$key', '" . substr($value, 0, 100) . "...', '$sqlcondition')";
-                debugging($db->ErrorMsg() ."<br /><br />$statement");
+                debugging($db->ErrorMsg() ."<br /><br />".s($statement));
                 if (!empty($CFG->dblogerror)) {
                     $debug=array_shift(debug_backtrace());
                     error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $statement");
@@ -2180,13 +2579,18 @@ function db_update_lobs ($table, $sqlcondition, &$clobs, &$blobs) {
 /// Update all the blobs
     if ($blobs) {
         foreach ($blobs as $key => $value) {
-        
+
             if (defined('MDL_PERFDB')) { global $PERF ; $PERF->dbqueries++; }; /// Count the extra updates in PERF
+
+        /// Oracle, MSSQL and PostgreSQL BLOBs doesn't like quoted strings (are inserted via prepared statemets)
+            if ($CFG->dbfamily == 'oracle' || $CFG->dbfamily == 'mssql' || $CFG->dbfamily == 'postgres') {
+                $value = stripslashes_safe($value);
+            }
 
             if(!$db->UpdateBlob($CFG->prefix.$table, $key, $value, $sqlcondition)) {
                 $status = false;
                 $statement = "UpdateBlob('$CFG->prefix$table', '$key', '" . substr($value, 0, 100) . "...', '$sqlcondition')";
-                debugging($db->ErrorMsg() ."<br /><br />$statement");
+                debugging($db->ErrorMsg() ."<br /><br />".s($statement));
                 if (!empty($CFG->dblogerror)) {
                     $debug=array_shift(debug_backtrace());
                     error_log("SQL ".$db->ErrorMsg()." in {$debug['file']} on line {$debug['line']}. STATEMENT:  $statement");
@@ -2214,14 +2618,23 @@ function rcache_set($table, $id, $rec) {
     global $CFG, $MCACHE, $rcache;
 
     if ($CFG->cachetype === 'internal') {
-        $rcache->data[$table][$id] = $rec;
+        if (!isset($rcache->data[$table])) {
+            $rcache->data[$table] = array();
+        }
+        if (!isset($rcache->data[$table][$id]) and count($rcache->data[$table]) > $CFG->intcachemax) {
+            // release oldes record 
+            reset($rcache->data[$table]);
+            $key = key($rcache->data[$table]);
+            unset($rcache->data[$table][$key]);
+        }
+        $rcache->data[$table][$id] = clone($rec);
     } else {
         $key   = $table . '|' . $id;
-        
+
         if (isset($MCACHE)) {
             // $table is a flag used to mark
-            // a table as dirty & uncacheable 
-            // when an UPDATE or DELETE not bound by ID 
+            // a table as dirty & uncacheable
+            // when an UPDATE or DELETE not bound by ID
             // is taking place
             if (!$MCACHE->get($table)) {
                 // this will also release the _forfill lock
@@ -2230,7 +2643,7 @@ function rcache_set($table, $id, $rec) {
         }
     }
     return true;
-   
+
 }
 
 /**
@@ -2261,9 +2674,9 @@ function rcache_unset($table, $id) {
 /**
  * Get cached record if available. ONLY use if you
  * are trying to get the cached record and will NOT
- * fetch it yourself if not cached. 
- * 
- * Use rcache_getforfill() if you are going to fetch 
+ * fetch it yourself if not cached.
+ *
+ * Use rcache_getforfill() if you are going to fetch
  * the record if not cached...
  *
  * This function is private and must not be used outside dmllib at all
@@ -2278,18 +2691,18 @@ function rcache_get($table, $id) {
     if ($CFG->cachetype === 'internal') {
         if (isset($rcache->data[$table][$id])) {
             $rcache->hits++;
-            return $rcache->data[$table][$id];
+            return clone($rcache->data[$table][$id]);
         } else {
             $rcache->misses++;
             return false;
-        } 
+        }
     }
 
     if (isset($MCACHE)) {
         $key   = $table . '|' . $id;
         // we set $table as a flag used to mark
-        // a table as dirty & uncacheable 
-        // when an UPDATE or DELETE not bound by ID 
+        // a table as dirty & uncacheable
+        // when an UPDATE or DELETE not bound by ID
         // is taking place
         if ($MCACHE->get($table)) {
             $rcache->misses++;
@@ -2302,7 +2715,7 @@ function rcache_get($table, $id) {
             } else {
                 $rcache->misses++;
                 return false;
-            } 
+            }
         }
     }
     return false;
@@ -2310,12 +2723,12 @@ function rcache_get($table, $id) {
 
 /**
  * Get cached record if available. In most cases you want
- * to use this function -- namely if you are trying to get 
+ * to use this function -- namely if you are trying to get
  * the cached record and will fetch it yourself if not cached.
  * (and set the cache ;-)
  *
  * Uses the getforfill caching mechanism. See lib/eaccelerator.class.php
- * for a detailed description of the technique. 
+ * for a detailed description of the technique.
  *
  * Note: if you call rcache_getforfill() you are making an implicit promise
  * that if the cache is empty, you will later populate it, or cancel the promise
@@ -2346,7 +2759,7 @@ function rcache_getforfill($table, $id) {
         if (!empty($rec)) {
             $rcache->hits++;
             return $rec;
-        } 
+        }
         $rcache->misses++;
         return false;
     }
@@ -2354,7 +2767,7 @@ function rcache_getforfill($table, $id) {
 }
 
 /**
- * Release the exclusive lock obtained by 
+ * Release the exclusive lock obtained by
  * rcache_getforfill(). See rcache_getforfill()
  * for more details.
  *
@@ -2366,7 +2779,7 @@ function rcache_getforfill($table, $id) {
  */
 function rcache_releaseforfill($table, $id) {
     global $CFG, $MCACHE;
-    
+
     if (isset($MCACHE)) {
         $key   = $table . '|' . $id;
         return $MCACHE->releaseforfill($key);
@@ -2396,7 +2809,7 @@ function rcache_unset_table ($table) {
 
     if (isset($MCACHE)) {
         // at least as long as content keys to ensure they expire
-        // before the dirty flag 
+        // before the dirty flag
         $MCACHE->set($table, true, $CFG->rcachettl);
     }
     return true;

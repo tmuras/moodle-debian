@@ -1,4 +1,4 @@
-<?php // $Id: format.php,v 1.19.2.1 2007/04/15 07:24:37 moodler Exp $
+<?php // $Id: format.php,v 1.24.2.5 2008/12/10 06:05:27 dongsheng Exp $
       // Display the whole course as "weeks" made of of modules
       // Included from "view.php"
 /**
@@ -85,7 +85,7 @@
     }
 
 /// Start main column
-    echo '<div id="middle-column"><a name="startofcontent"></a>';
+    echo '<div id="middle-column">'. skip_main_destination();
 
     print_heading_block(get_string('weeklyoutline'), 'outline');
 
@@ -118,7 +118,7 @@
         $summaryformatoptions->noclean = true;
         echo format_text($thissection->summary, FORMAT_HTML, $summaryformatoptions);
 
-        if (isediting($course->id)) {
+        if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
             echo '<p><a title="'.$streditsummary.'" '.
                  ' href="editsection.php?id='.$thissection->id.'"><img src="'.$CFG->pixpath.'/t/edit.gif" '.
                  ' class="icon edit" alt="'.$streditsummary.'" /></a></p>';
@@ -184,10 +184,12 @@
 
             $currentweek = (($weekdate <= $timenow) && ($timenow < $nextweekdate));
 
+            $currenttext = '';
             if (!$thissection->visible) {
                 $sectionstyle = ' hidden';
             } else if ($currentweek) {
                 $sectionstyle = ' current';
+                $currenttext = get_accesshide(get_string('currentweek','access'));
             } else {
                 $sectionstyle = '';
             }
@@ -206,7 +208,7 @@
                      '<img src="'.$CFG->pixpath.'/i/one.gif" class="icon wkone" alt="'.$strshowonlyweek.'" /></a><br />';
             }
 
-            if (isediting($course->id)) {
+            if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
                 if ($thissection->visible) {        // Show the hide/show eye
                     echo '<a href="view.php?id='.$course->id.'&amp;hide='.$section.'&amp;sesskey='.$USER->sesskey.'#section-'.$section.'" title="'.$strweekhide.'">'.
                          '<img src="'.$CFG->pixpath.'/i/hide.gif" class="icon hide" alt="'.$strweekhide.'" /></a><br />';
@@ -226,18 +228,20 @@
             }
             echo '</div>';
 
+            $weekperiod = $weekday.' - '.$endweekday;
+
             echo '<div class="content">';
             if (!has_capability('moodle/course:viewhiddensections', $context) and !$thissection->visible) {   // Hidden for students
-                echo '<div class="weekdates">'.$weekday.' - '.$endweekday.' ('.get_string('notavailable').')</div>';
+                print_heading($currenttext.$weekperiod.' ('.get_string('notavailable').')', null, 3, 'weekdates');
 
             } else {
-                echo '<div class="weekdates">'.$weekday.' - '.$endweekday.'</div>';
+                print_heading($currenttext.$weekperiod, null, 3, 'weekdates');
 
                 echo '<div class="summary">';
                 $summaryformatoptions->noclean = true;
                 echo format_text($thissection->summary, FORMAT_HTML, $summaryformatoptions);
 
-                if (isediting($course->id)) {
+                if (isediting($course->id) && has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, $course->id))) {
                     echo ' <a title="'.$streditsummary.'" href="editsection.php?id='.$thissection->id.'">'.
                          '<img src="'.$CFG->pixpath.'/t/edit.gif" class="icon edit" alt="'.$streditsummary.'" /></a><br /><br />';
                 }
@@ -260,7 +264,7 @@
     echo "</ul>\n";
 
     if (!empty($sectionmenu)) {
-        echo '<div align="center" class="jumpmenu">';
+        echo '<div class="jumpmenu">';
         echo popup_form($CFG->wwwroot.'/course/view.php?id='.$course->id.'&amp;', $sectionmenu,
                    'sectionmenu', '', get_string('jumpto'), '', '', true);
         echo '</div>';

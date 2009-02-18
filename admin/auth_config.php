@@ -6,19 +6,19 @@
 require_once '../config.php';
 require_once $CFG->libdir.'/adminlib.php';
 
-$adminroot = admin_get_root();
-admin_externalpage_setup('userauthentication', $adminroot);
 $auth = required_param('auth', PARAM_SAFEDIR);
+
+$CFG->pagepath = 'auth/' . $auth;
+
+admin_externalpage_setup('authsetting'.$auth);
+
 $authplugin = get_auth_plugin($auth);
 $err = array();
 
+$returnurl = "$CFG->wwwroot/$CFG->admin/settings.php?section=manageauths";
+
 // save configuration changes
-if ($frm = data_submitted()) {
-
-    if (!confirm_sesskey()) {
-        error(get_string('confirmsesskeybad', 'error'));
-    }
-
+if ($frm = data_submitted() and confirm_sesskey()) {
     $frm = stripslashes_recursive($frm);
 
     $authplugin->validate_form($frm, $err);
@@ -38,7 +38,7 @@ if ($frm = data_submitted()) {
                     }
                 }
             }
-            redirect("auth.php");
+            redirect($returnurl);
             exit;
         }
     } else {
@@ -50,16 +50,16 @@ if ($frm = data_submitted()) {
     $frm = get_config("auth/$auth");
 }
 
-$user_fields = array("firstname", "lastname", "email", "phone1", "phone2", "department", "address", "city", "country", "description", "idnumber", "lang");
+$user_fields = $authplugin->userfields;
+//$user_fields = array("firstname", "lastname", "email", "phone1", "phone2", "institution", "department", "address", "city", "country", "description", "idnumber", "lang");
 
-$modules = get_list_of_plugins('auth');
-foreach ($modules as $module) {
-    $options[$module] = get_string("auth_{$module}title", 'auth');
-}
-asort($options);
+/// Get the auth title (from core or own auth lang files)
+    $authtitle = $authplugin->get_title();
+/// Get the auth descriptions (from core or own auth lang files)
+    $authdescription = $authplugin->get_description();
 
 // output configuration form
-admin_externalpage_print_header($adminroot);
+admin_externalpage_print_header();
 
 // choose an authentication method
 echo "<form $CFG->frametarget id=\"authmenu\" method=\"post\" action=\"auth_config.php\">\n";
@@ -69,9 +69,9 @@ echo "<input type=\"hidden\" name=\"auth\" value=\"".$auth."\" />\n";
 
 // auth plugin description
 print_simple_box_start('center', '80%');
-print_heading($options[$auth]);
-print_simple_box_start('center', '60%', '', 5, 'informationbox');
-print_string("auth_{$auth}description", 'auth');
+print_heading($authtitle);
+print_simple_box_start('center', '80%', '', 5, 'informationbox');
+echo $authdescription;
 print_simple_box_end();
 echo "<hr />\n";
 $authplugin->config_form($frm, $err, $user_fields);
@@ -80,7 +80,7 @@ echo '<p style="text-align: center"><input type="submit" value="' . get_string("
 echo "</div>\n";
 echo "</form>\n";
 
-admin_externalpage_print_footer($adminroot);
+admin_externalpage_print_footer();
 exit;
 
 /// Functions /////////////////////////////////////////////////////////////////
@@ -136,10 +136,11 @@ function print_auth_lock_options ($auth, $user_fields, $helptext, $retrieveopts,
             $fieldname = get_string('language');
         } elseif (preg_match('/^(.+?)(\d+)$/', $fieldname, $matches)) {
             $fieldname =  get_string($matches[1]) . ' ' . $matches[2];
+        } elseif ($fieldname == 'url') {
+            $fieldname = get_string('webpage');
         } else {
             $fieldname = get_string($fieldname);
-        }
-
+        } 
         if ($retrieveopts) {
             $varname = 'field_map_' . $field;
 

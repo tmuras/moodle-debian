@@ -1,4 +1,4 @@
-<?PHP // $Id: hotpot.php,v 1.9.4.1 2007/03/30 05:21:02 nicolasconnault Exp $ 
+<?PHP // $Id: hotpot.php,v 1.10.4.2 2009/01/27 05:34:31 gbateson Exp $ 
       // hotpot.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -22,6 +22,7 @@ $string['copytoclipboard'] = 'Copy to Clipboard';
 $string['correct'] = 'Correct';
 $string['deleteabandoned'] = 'Delete abandoned';
 $string['deleteabandonedcheck'] = 'Do you really want to delete all $a abandoned attempts?';
+$string['deleteallattempts'] = 'Delete all attempts';
 $string['displaycoursenext'] = 'Display Course page next';
 $string['displayhotpotnext'] = 'Display Hot Potatoes quiz next';
 $string['displayindexnext'] = 'Display HotPot index next';
@@ -36,6 +37,7 @@ $string['error_nofeedbackurlwebpage'] = 'Please enter a URL for the webpage';
 $string['error_nofilename'] = 'Please enter a file name';
 $string['error_noquizzesfound'] = 'No Hot Potatoes quizzes found';
 $string['error_notfileorfolder'] = '&quot;$a&quot; is not file or folder';
+$string['excelencodings'] = 'Excel encodings';
 $string['feedbackformmail'] = 'Feedback form';
 $string['feedbackmoodleforum'] = 'Moodle forum';
 $string['feedbackmoodlemessaging'] = 'Moodle messaging';
@@ -139,6 +141,7 @@ $string['resultssaved'] = 'Quiz results were saved';
 $string['score'] = 'Score';
 $string['showhtmlsource'] = 'Show HTML source';
 $string['shownextquiz'] = 'Show next quiz';
+$string['showtimes'] = 'Show processing times';
 $string['showxmlsource'] = 'Show XML source';
 $string['showxmltree'] = 'Show XML tree';
 $string['specifictime'] = 'Specific time';

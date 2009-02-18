@@ -1,4 +1,4 @@
-<?php  // $Id: preferences.php,v 1.17 2006/10/06 10:11:52 skodak Exp $
+<?php  // $Id: preferences.php,v 1.18.2.1 2008/04/30 04:45:22 dongsheng Exp $
        // preferences.php - user prefs for blog modeled on calendar
 
     require_once('../config.php');
@@ -8,7 +8,7 @@
 
     if ($courseid == SITEID) {
         require_login();
-        $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
+        $context = get_context_instance(CONTEXT_SYSTEM);
     } else {
         require_login($courseid);
         $context = get_context_instance(CONTEXT_COURSE, $courseid);
@@ -42,8 +42,9 @@
 
     $strpreferences = get_string('preferences');
     $strblogs       = get_string('blogs', 'blog');
-
-    $navigation = "<a href='".$CFG->wwwroot."/blog/'>$strblogs</a> -> $strpreferences";
+    $navlinks = array(array('name' => $strblogs, 'link' => "$CFG->wwwroot/blog/", 'type' => 'misc'));
+    $navlinks[] = array('name' => $strpreferences, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
 
     print_header("$site->shortname: $strblogs : $strpreferences", $strblogs, $navigation);
     print_heading($strpreferences);

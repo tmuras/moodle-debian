@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.7 2007/01/11 08:06:17 moodler Exp $
+<?php  // $Id: view.php,v 1.9.2.1 2007/10/12 16:09:41 tjhunt Exp $
 
 /// This page prints a particular instance of lams
 /// (Replace lams with the name of your module)
@@ -21,18 +21,14 @@ if (! $lams = get_record("lams", "id", $cm->instance)) {
     error("Course module is incorrect");
 }
 
-require_login($course->id);
+require_login($course, true, $cm);
 $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
 add_to_log($course->id, "lams", "view", "view.php?id=$cm->id", "$lams->id");
 
 /// Print the page header
-
-//if ($course->id != SITEID) {
-//    $navigation = "<A HREF=\"../../course/view.php?id=$course->id\">$course->shortname</A> ->";
-//}
-print_header_simple(format_string($lams->name), "",
-        "<a href=\"index.php?id=$course->id\">$strchoices</a> -> ".format_string($lams->name), "", "", true,
+$navigation = build_navigation('', $cm);
+print_header_simple(format_string($lams->name), "", $navigation, "", "", true,
         update_module_button($cm->id, $course->id, get_string("lesson","lams")), navmenu($course, $cm));
 
 echo '<table id="layout-table"><tr>';
@@ -63,7 +59,7 @@ if(has_capability('mod/lams:manage', $context)){
     print_simple_box_start('center');
     echo '<a target="LAMS Monitor" title="LAMS Monitor" href="'.$url.'">'.get_string("openmonitor", "lams").'</a>';
     print_simple_box_end();
-    
+
     $plaintext = trim($datetime).trim($USER->username).trim($LAMSCONSTANTS->learner_method).trim($CFG->lams_serverid).trim($CFG->lams_serverkey);
     $hash = sha1(strtolower($plaintext));
     $url = $CFG->lams_serverurl.$LAMSCONSTANTS->login_request.

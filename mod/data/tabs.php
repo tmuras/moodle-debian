@@ -1,4 +1,4 @@
-<?php  // $Id: tabs.php,v 1.24.2.4 2007/03/05 07:27:10 moodler Exp $
+<?php  // $Id: tabs.php,v 1.28.2.3 2008/06/12 13:49:40 robertall Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -21,8 +21,9 @@
 //          http://www.gnu.org/copyleft/gpl.html                         //
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
-/// This file to be included so we can assume config.php has already been included.
-/// We also assume that $user, $course, $currenttab have been set
+
+// This file to be included so we can assume config.php has already been included.
+// We also assume that $user, $course, $currenttab have been set
 
 
     if (empty($currenttab) or empty($data) or empty($course)) {
@@ -32,26 +33,39 @@
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
     $inactive = NULL;
+    $activetwo = NULL;
+    $tabs = array();
     $row = array();
 
-    $row[] = new tabobject('list', $CFG->wwwroot.'/mod/data/view.php?d='.$data->id, get_string('list','data'), '', true);
+    $row[] = new tabobject('list', $CFG->wwwroot.'/mod/data/view.php?d='.$data->id, get_string('list','data'));
     
     if (isset($record)) {
-        $row[] = new tabobject('single', $CFG->wwwroot.'/mod/data/view.php?d='.$data->id.'&amp;rid='.$record->id, get_string('single','data'), '', true);
+        $row[] = new tabobject('single', $CFG->wwwroot.'/mod/data/view.php?d='.$data->id.'&amp;rid='.$record->id, get_string('single','data'));
     } else {
-        $row[] = new tabobject('single', $CFG->wwwroot.'/mod/data/view.php?d='.$data->id.'&amp;mode=single', get_string('single','data'), '', true);
+        $row[] = new tabobject('single', $CFG->wwwroot.'/mod/data/view.php?d='.$data->id.'&amp;mode=single', get_string('single','data'));
     }
+
+    // Add an advanced search tab.
+    $row[] = new tabobject('asearch', $CFG->wwwroot.'/mod/data/view.php?d='.$data->id.'&amp;mode=asearch', get_string('search', 'data'));
 
     if (isloggedin()) {
         if (data_user_can_add_entry($data, $currentgroup, $groupmode)) { // took out participation list here!
             $addstring = empty($editentry) ? get_string('add', 'data') : get_string('editentry', 'data');
-            $row[] = new tabobject('add', $CFG->wwwroot.'/mod/data/edit.php?d='.$data->id, $addstring, '', true);
+            $row[] = new tabobject('add', $CFG->wwwroot.'/mod/data/edit.php?d='.$data->id, $addstring);
+        }
+        if (has_capability(DATA_CAP_EXPORT, $context)) {
+            // The capability required to Export database records is centrally defined in 'lib.php'
+            // and should be weaker than those required to edit Templates, Fields and Presets. 
+            $row[] = new tabobject('export', $CFG->wwwroot.'/mod/data/export.php?d='.$data->id,
+                         get_string('export', 'data'));
         }
         if (has_capability('mod/data:managetemplates', $context)) {
             if ($currenttab == 'list') {
                 $defaultemplate = 'listtemplate';
             } else if ($currenttab == 'add') {
                 $defaultemplate = 'addtemplate';
+            } else if ($currenttab == 'asearch') {
+                $defaultemplate = 'asearchtemplate';
             } else {
                 $defaultemplate = 'singletemplate';
             }
@@ -59,9 +73,9 @@
             $row[] = new tabobject('templates', $CFG->wwwroot.'/mod/data/templates.php?d='.$data->id.'&amp;mode='.$defaultemplate,
                          get_string('templates','data'));
             $row[] = new tabobject('fields', $CFG->wwwroot.'/mod/data/field.php?d='.$data->id,
-                         get_string('fields','data'), '', true);
+                         get_string('fields','data'));
             $row[] = new tabobject('presets', $CFG->wwwroot.'/mod/data/preset.php?d='.$data->id,
-                         get_string('presets', 'data'), '', true);
+                         get_string('presets', 'data'));
         }
     }
 
@@ -69,8 +83,9 @@
 
     if ($currenttab == 'templates' and isset($mode)) {
 
+        $inactive = array();
         $inactive[] = 'templates';
-        $templatelist = array ('listtemplate', 'singletemplate', 'addtemplate', 'rsstemplate', 'csstemplate', 'jstemplate');
+        $templatelist = array ('listtemplate', 'singletemplate', 'asearchtemplate', 'addtemplate', 'rsstemplate', 'csstemplate', 'jstemplate');
 
         $row  = array();
         $currenttab ='';
@@ -85,12 +100,9 @@
         }
         $tabs[] = $row;
         $activetwo = array('templates');
-    } else {
-        $activetwo = array();
     }
 
-/// Print out the tabs and continue!
-
+// Print out the tabs and continue!
     print_tabs($tabs, $currenttab, $inactive, $activetwo);
 
 ?>

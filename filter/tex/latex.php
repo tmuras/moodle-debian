@@ -1,4 +1,4 @@
-<?php
+<?php // $Id: latex.php,v 1.9 2007/09/11 13:55:33 thepurpleblob Exp $
     // latex.php
     // render TeX stuff using latex - this will not work on all platforms
     // or configurations. Only works on Linux and Mac with appropriate 

@@ -1,4 +1,4 @@
-<?php // $Id: view.php,v 1.102.2.2 2007/04/17 09:24:26 moodler Exp $
+<?php // $Id: view.php,v 1.106.2.5 2008/12/17 12:40:09 sam_marshall Exp $
 
 //  Display the course home page.
 
@@ -39,19 +39,37 @@
         }
     }
 
+    preload_course_contexts($course->id);
     if (!$context = get_context_instance(CONTEXT_COURSE, $course->id)) {
         print_error('nocontext');
     }
 
-    if ($switchrole == 0) {  // Remove any switched roles before checking login
+    // Remove any switched roles before checking login
+    if ($switchrole == 0 && confirm_sesskey()) {
         role_switch($switchrole, $context);
     }
 
-    require_login($course->id);
+    require_login($course);
 
-    if ($switchrole > 0) {
-        role_switch($switchrole, $context);
-        require_login($course->id);   // Double check that this role is allowed here
+    // Switchrole - sanity check in cost-order...
+    $reset_user_allowed_editing = false;
+    if ($switchrole > 0 && confirm_sesskey() &&
+        has_capability('moodle/role:switchroles', $context)) {
+        // is this role assignable in this context?
+        // inquiring minds want to know...
+        $aroles = get_assignable_roles($context);
+        if (is_array($aroles) && isset($aroles[$switchrole])) {
+            role_switch($switchrole, $context);
+            // Double check that this role is allowed here
+            require_login($course->id);
+        }
+        // reset course page state - this prevents some weird problems ;-)
+        $USER->activitycopy = false;
+        $USER->activitycopycourse = NULL;
+        unset($USER->activitycopyname);
+        unset($SESSION->modform);
+        $USER->editing = 0;
+        $reset_user_allowed_editing = true;
     }
 
     //If course is hosted on an external server, redirect to corresponding
@@ -78,6 +96,10 @@
     $PAGE = page_create_object(PAGE_COURSE_VIEW, $course->id);
     $pageblocks = blocks_setup($PAGE, BLOCKS_PINNED_BOTH);
 
+    if ($reset_user_allowed_editing) {
+        // ugly hack
+        unset($PAGE->_user_allowed_editing);
+    }
 
     if (!isset($USER->editing)) {
         $USER->editing = 0;
@@ -122,20 +144,22 @@
 
 
     // AJAX-capable course format?
-    $CFG->useajax = false; 
+    $useajax = false; 
     $ajaxformatfile = $CFG->dirroot.'/course/format/'.$course->format.'/ajax.php';
     $bodytags = '';
 
-    if (file_exists($ajaxformatfile)) {      // Needs to exist otherwise no AJAX by default
+    if (empty($CFG->disablecourseajax) and file_exists($ajaxformatfile)) {      // Needs to exist otherwise no AJAX by default
 
+        // TODO: stop abusing CFG global here
         $CFG->ajaxcapable = false;           // May be overridden later by ajaxformatfile
         $CFG->ajaxtestedbrowsers = array();  // May be overridden later by ajaxformatfile
 
         require_once($ajaxformatfile);
 
-        if (!empty($USER->editing) && $CFG->ajaxcapable) {   // Course-based switches
+        if (!empty($USER->editing) && $CFG->ajaxcapable && has_capability('moodle/course:manageactivities', $context)) {
+                                                             // Course-based switches
 
-            if (ajaxenabled($CFG->ajaxtestedbrowsers)) {     // rowser, user and site-based switches
+            if (ajaxenabled($CFG->ajaxtestedbrowsers)) {     // Browser, user and site-based switches
                 
                 require_js(array('yui_yahoo',
                                  'yui_dom',
@@ -163,20 +187,28 @@
                 // function is called, since that function needs to set some
                 // stuff in the javascriptportal object.
                 $COURSE->javascriptportal = new jsportal();
-                $CFG->useajax = true;
+                $useajax = true;
             }
         }
     }
 
-    $CFG->blocksdrag = $CFG->useajax;   // this will add a new class to the header so we can style differently
+    $CFG->blocksdrag = $useajax;   // this will add a new class to the header so we can style differently
 
 
     $PAGE->print_header(get_string('course').': %fullname%', NULL, '', $bodytags);
     // Course wrapper start.
     echo '<div class="course-content">';
 
-
+    $modinfo =& get_fast_modinfo($COURSE);
     get_all_mods($course->id, $mods, $modnames, $modnamesplural, $modnamesused);
+    foreach($mods as $modid=>$unused) {
+        if (!isset($modinfo->cms[$modid])) {
+            rebuild_course_cache($course->id);
+            $modinfo =& get_fast_modinfo($COURSE);
+            debugging('Rebuilding course cache', DEBUG_DEVELOPER);
+            break;
+        }
+    }
 
     if (! $sections = get_all_sections($course->id)) {   // No sections found
         // Double-check to be extra sure
@@ -191,16 +223,6 @@
         }
     }
 
-
-    if (empty($course->modinfo)) {
-        // Course cache was never made.
-        rebuild_course_cache($course->id);
-        if (! $course = get_record('course', 'id', $course->id) ) {
-            error("That's an invalid course id");
-        }
-    }
-
-
     // Include the actual course format.
     require($CFG->dirroot .'/course/format/'. $course->format .'/format.php');
     // Content wrapper end.
@@ -208,7 +230,7 @@
 
 
     // Use AJAX?
-    if ($CFG->useajax) {
+    if ($useajax && has_capability('moodle/course:manageactivities', $context)) {
         // At the bottom because we want to process sections and activities
         // after the relevant html has been generated. We're forced to do this
         // because of the way in which lib/ajax/ajaxcourse.js is written.

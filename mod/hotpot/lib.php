@@ -1,4 +1,4 @@
-<?PHP  // $Id: lib.php,v 1.66.2.7 2007/06/26 12:04:00 gbateson Exp $
+<?PHP  // $Id: lib.php,v 1.79.2.17 2009/01/27 05:33:57 gbateson Exp $
 
 //////////////////////////////////
 /// CONFIGURATION settings
@@ -199,6 +199,7 @@ function hotpot_add_instance(&$hotpot) {
         if ($result = insert_record('hotpot', $hotpot)) {
             $hotpot->id = $result;
             hotpot_update_events($hotpot);
+            hotpot_grade_item_update(stripslashes_recursive($hotpot));
         }
     } else {
         $result=  false;
@@ -211,6 +212,7 @@ function hotpot_update_instance(&$hotpot) {
         $hotpot->id = $hotpot->instance;
         if ($result = update_record('hotpot', $hotpot)) {
             hotpot_update_events($hotpot);
+            hotpot_grade_item_update(stripslashes_recursive($hotpot));
         }
     } else {
         $result=  false;
@@ -242,11 +244,11 @@ function hotpot_update_events($hotpot) {
         $event->timeduration = ($hotpot->timeclose - $hotpot->timeopen);
 
         if ($event->timeduration > HOTPOT_MAX_EVENT_LENGTH) {  /// Long durations create two events
-    
+
             $event->name          = addslashes($hotpot->name).' ('.get_string('hotpotopens', 'hotpot').')';
             $event->timeduration  = 0;
             add_event($event);
-    
+
             $event->timestart    = $hotpot->timeclose;
             $event->eventtype    = 'close';
             $event->name         = addslashes($hotpot->name).' ('.get_string('hotpotcloses', 'hotpot').')';
@@ -279,11 +281,8 @@ function hotpot_set_form_values(&$hotpot) {
         $hotpot->errors['reference']= get_string('error_nofilename', 'hotpot');
     }
 
-    if ($hotpot->studentfeedbackurl=='http://') {
+    if (empty($hotpot->studentfeedbackurl) || $hotpot->studentfeedbackurl=='http://') {
         $hotpot->studentfeedbackurl = '';
-    }
-
-    if (empty($hotpot->studentfeedbackurl)) {
         switch ($hotpot->studentfeedback) {
             case HOTPOT_FEEDBACK_WEBPAGE:
                 $ok = false;
@@ -300,24 +299,16 @@ function hotpot_set_form_values(&$hotpot) {
     $hotpot->timecreated = $time;
     $hotpot->timemodified = $time;
 
-    if (empty($hotpot->enabletimeopen)) {
-        $hotpot->timeopen = 0;
-    } else {
-        $hotpot->timeopen = make_timestamp(
-            $hotpot->openyear, $hotpot->openmonth, $hotpot->openday,
-            $hotpot->openhour, $hotpot->openminute, 0
-        );
+    if (empty($hotpot->mode)) {
+        // moodle 1.9 (from mod_form.lib)
+        if ($hotpot->add) {
+            $hotpot->mode = 'add';
+        } else if ($hotpot->update) {
+            $hotpot->mode = 'update';
+        } else {
+            $hotpot->mode = '';
+        }
     }
-
-    if (empty($hotpot->enabletimeclose)) {
-        $hotpot->timeclose = 0;
-    } else {
-        $hotpot->timeclose = make_timestamp(
-            $hotpot->closeyear, $hotpot->closemonth, $hotpot->closeday,
-            $hotpot->closehour, $hotpot->closeminute, 0
-        );
-    }
-
     if ($hotpot->quizchain==HOTPOT_YES) {
         switch ($hotpot->mode) {
             case 'add':
@@ -331,18 +322,22 @@ function hotpot_set_form_values(&$hotpot) {
         hotpot_set_name_summary_reference($hotpot);
     }
 
-    switch ($hotpot->displaynext) {
-        // N.B. redirection only works for Moodle 1.5+
-        case HOTPOT_DISPLAYNEXT_COURSE:
-            $hotpot->redirect = true;
-            $hotpot->redirecturl = "view.php?id=$hotpot->course";
-            break;
-        case HOTPOT_DISPLAYNEXT_INDEX:
-            $hotpot->redirect = true;
-            $hotpot->redirecturl = "../mod/hotpot/index.php?id=$hotpot->course";
-            break;
-        default:
-            // use Moodle default action (i.e. go on to display the hotpot quiz)
+    if (isset($hotpot->displaynext)) {
+        switch ($hotpot->displaynext) {
+            // N.B. redirection only works for Moodle 1.5+
+            case HOTPOT_DISPLAYNEXT_COURSE:
+                $hotpot->redirect = true;
+                $hotpot->redirecturl = "view.php?id=$hotpot->course";
+                break;
+            case HOTPOT_DISPLAYNEXT_INDEX:
+                $hotpot->redirect = true;
+                $hotpot->redirecturl = "../mod/hotpot/index.php?id=$hotpot->course";
+                break;
+            default:
+                // use Moodle default action (i.e. go on to display the hotpot quiz)
+        }
+    } else {
+        $hotpot->displaynext = HOTPOT_DISPLAYNEXT_QUIZ;
     }
 
     // if ($ok && $hotpot->setdefaults) {
@@ -435,14 +430,35 @@ function hotpot_get_chain(&$cm) {
     return $found ? $chain : false;
 }
 function hotpot_is_visible(&$cm) {
-    if (!isset($cm->sectionvisible)) {
-        if ($section = get_record('course_sections', 'id', $cm->section)) {
-            $cm->sectionvisible = $section->visible;
-        } else {
-            error('Course module record contains invalid section');
-        }
+    global $CFG, $COURSE;
+
+    // check grouping
+    $modulecontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    if (empty($CFG->enablegroupings) || empty($cm->groupmembersonly) || has_capability('moodle/site:accessallgroups', $modulecontext)) {
+        // groupings not applicable
+    } else if (!isguestuser() && groups_has_membership($cm)) {
+        // user is in one of the groups in the allowed grouping
+    } else {
+        // user is not in the required grouping and does not have sufficiently privileges to view this hotpot activity
+        return false;
     }
 
+    // check if user can view hidden activities
+    if (isset($COURSE->context)) {
+        $coursecontext = &$COURSE->context;
+    } else {
+        $coursecontext = get_context_instance(CONTEXT_COURSE, $cm->course);
+    }
+    if (has_capability('moodle/course:viewhiddenactivities', $coursecontext)) {
+        return true; // user can view hidden activities
+    }
+
+    if (!isset($cm->sectionvisible)) {
+        if (! $section = get_record('course_sections', 'id', $cm->section)) {
+            error('Course module record contains invalid section');
+        }
+        $cm->sectionvisible = $section->visible;
+    }
     if (empty($cm->sectionvisible)) {
         $visible = HOTPOT_NO;
     } else {
@@ -476,7 +492,7 @@ function hotpot_add_chain(&$hotpot) {
 
         // get list of hotpot files in this folder
         if ($dh = @opendir($xml_quiz->filepath)) {
-            while ($file = @readdir($dh)) {
+            while (false !== ($file = @readdir($dh))) {
                 if (preg_match('/\.(jbc|jcl|jcw|jmt|jmx|jqz|htm|html)$/', $file)) {
                     $hotpot->references[] = "$xml_quiz->reference/$file";
                 }
@@ -774,8 +790,8 @@ function hotpot_get_all_instances_in_course($modulename, $course) {
     if ($rawmods = get_records_sql($query)) {
 
         // cache $isteacher setting
-        
-        $isteacher = has_capability('mod/hotpot:viewreport', get_context_instance(CONTEXT_MODULE, $course->id));
+
+        $isteacher = has_capability('mod/hotpot:viewreport', get_context_instance(CONTEXT_COURSE, $course->id));
 
         $explodesection = array();
         $order = array();
@@ -863,20 +879,29 @@ function hotpot_delete_instance($id) {
 /// this function will permanently delete the instance
 /// and any data that depends on it.
 
-    $result = false;
-    if (delete_records("hotpot", "id", "$id")) {
-        $result = true;
-        delete_records("hotpot_questions", "hotpot", "$id");
-        if ($attempts = get_records_select("hotpot_attempts", "hotpot='$id'")) {
-            $ids = implode(',', array_keys($attempts));
-            delete_records_select("hotpot_attempts",  "id IN ($ids)");
-            delete_records_select("hotpot_details",   "attempt IN ($ids)");
-            delete_records_select("hotpot_responses", "attempt IN ($ids)");
-        }
-         // remove calendar events for this hotpot
-        delete_records('event', 'modulename', 'hotpot', 'instance', $id);
-   }
-    return $result;
+    if (! $hotpot = get_record("hotpot", "id", $id)) {
+        return false;
+    }
+
+    if (! delete_records("hotpot", "id", "$id")) {
+        return false;
+    }
+
+    delete_records("hotpot_questions", "hotpot", "$id");
+    if ($attempts = get_records_select("hotpot_attempts", "hotpot='$id'")) {
+        $ids = implode(',', array_keys($attempts));
+        delete_records_select("hotpot_attempts",  "id IN ($ids)");
+        delete_records_select("hotpot_details",   "attempt IN ($ids)");
+        delete_records_select("hotpot_responses", "attempt IN ($ids)");
+    }
+
+     // remove calendar events for this hotpot
+    delete_records('event', 'modulename', 'hotpot', 'instance', $id);
+
+     // remove grade item for this hotpot
+    hotpot_grade_item_delete($hotpot);
+
+    return true;
 }
 function hotpot_delete_and_notify($table, $select, $strtable) {
     $count = max(0, count_records_select($table, $select));
@@ -981,7 +1006,7 @@ function hotpot_print_recent_activity($course, $isteacher, $timestart) {
         foreach ($records as $id => $record){
             if ($cm = get_coursemodule_from_instance('hotpot', $record->id, $course->id)) {
                 $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-                
+
                 if (has_capability('mod/hotpot:viewreport', $context)) {
                     $href = "$CFG->wwwroot/mod/hotpot/view.php?hp=$id";
                     $name = '&nbsp;<a href="'.$href.'">'.$record->name.'</a>';
@@ -1040,7 +1065,7 @@ function hotpot_get_recent_mod_activity(&$activities, &$index, $sincetime, $cour
 
     if (!empty($records)) {
         foreach ($records as $record) {
-            if (empty($groupid) || ismember($groupid, $record->userid)) {
+            if (empty($groupid) || groups_is_member($groupid, $record->userid)) {
 
                 unset($activity);
 
@@ -1076,9 +1101,15 @@ function hotpot_print_recent_mod_activity($activity, $course, $detail=false) {
 
     global $CFG, $THEME, $USER;
 
+    if (isset($THEME->cellcontent2)) {
+        $bgcolor =  ' bgcolor="'.$THEME->cellcontent2.'"';
+    } else {
+        $bgcolor = '';
+    }
+
     print '<table border="0" cellpadding="3" cellspacing="0">';
 
-    print '<tr><td bgcolor="'.$THEME->cellcontent2.'" class="forumpostpicture" width="35" valign="top">';
+    print '<tr><td'.$bgcolor.' class="forumpostpicture" width="35" valign="top">';
     print_user_picture($activity->user->userid, $course, $activity->user->picture);
     print '</td><td width="100%"><font size="2">';
 
@@ -1189,6 +1220,118 @@ function hotpot_get_precision(&$hotpot) {
     return ($hotpot->grademethod==HOTPOT_GRADEMETHOD_AVERAGE || $hotpot->grade<100) ? 1 : 0;
 }
 
+/**
+ * Return grade for given user or all users.
+ *
+ * @param object $hotpot
+ * @param int $userid optional user id, 0 means all users
+ * @return array array of grades, false if none
+ */
+function hotpot_get_user_grades($hotpot, $userid=0) {
+    $grades = array();
+    if ($hotpotgrades = hotpot_get_grades($hotpot, $userid)) {
+        foreach ($hotpotgrades as $hotpotuserid => $hotpotgrade) {
+            $grades[$hotpotuserid] = new stdClass();
+            $grades[$hotpotuserid]->id        = $hotpotuserid;
+            $grades[$hotpotuserid]->userid    = $hotpotuserid;
+            $grades[$hotpotuserid]->rawgrade  = $hotpotgrade;
+        }
+    }
+    if (count($grades)) {
+        return $grades;
+    } else {
+        return false;
+    }
+}
+
+/**
+ * Update grades in central gradebook
+ * this function is called from db/upgrade.php
+ *     it is initially called with no arguments, which forces it to get a list of all hotpots
+ *     it then iterates through the hotpots, calling itself to create a grade record for each hotpot
+ *
+ * @param object $hotpot null means all hotpots
+ * @param int $userid specific user only, 0 means all users
+ */
+function hotpot_update_grades($hotpot=null, $userid=0, $nullifnone=true) {
+    global $CFG;
+    if (! function_exists('grade_update')) {
+        require_once($CFG->libdir.'/gradelib.php');
+    }
+    if (is_null($hotpot)) {
+        // update (=create) grades for all hotpots
+        $sql = "
+            SELECT h.*, cm.idnumber as cmidnumber
+            FROM {$CFG->prefix}hotpot h, {$CFG->prefix}course_modules cm, {$CFG->prefix}modules m
+            WHERE m.name='hotpot' AND m.id=cm.module AND cm.instance=h.id"
+        ;
+        if ($rs = get_recordset_sql($sql)) {
+            while ($hotpot = rs_fetch_next_record($rs)) {
+                hotpot_update_grades($hotpot, 0, false);
+            }
+            rs_close($rs);
+        }
+    } else {
+        // update (=create) grade for a single hotpot
+        if ($grades = hotpot_get_user_grades($hotpot, $userid)) {
+            hotpot_grade_item_update($hotpot, $grades);
+
+        } else if ($userid && $nullifnone) {
+            // no grades for this user, but we must force the creation of a "null" grade record
+            $grade = new object();
+            $grade->userid   = $userid;
+            $grade->rawgrade = null;
+            hotpot_grade_item_update($hotpot, $grade);
+
+        } else {
+            // no grades and no userid
+            hotpot_grade_item_update($hotpot);
+        }
+    }
+}
+
+/**
+ * Update/create grade item for given hotpot
+ *
+ * @param object $hotpot object with extra cmidnumber
+ * @param mixed optional array/object of grade(s); 'reset' means reset grades in gradebook
+ * @return object grade_item
+ */
+function hotpot_grade_item_update($hotpot, $grades=null) {
+    global $CFG;
+    if (! function_exists('grade_update')) {
+        require_once($CFG->libdir.'/gradelib.php');
+    }
+    $params = array('itemname' => $hotpot->name);
+    if (array_key_exists('cmidnumber', $hotpot)) {
+        //cmidnumber may not be always present
+        $params['idnumber'] = $hotpot->cmidnumber;
+    }
+    if ($hotpot->grade > 0) {
+        $params['gradetype'] = GRADE_TYPE_VALUE;
+        $params['grademax']  = $hotpot->grade;
+        $params['grademin']  = 0;
+
+    } else {
+        $params['gradetype'] = GRADE_TYPE_NONE;
+    }
+    return grade_update('mod/hotpot', $hotpot->course, 'mod', 'hotpot', $hotpot->id, 0, $grades, $params);
+}
+
+/**
+ * Delete grade item for given hotpot
+ *
+ * @param object $hotpot object
+ * @return object grade_item
+ */
+function hotpot_grade_item_delete($hotpot) {
+    global $CFG;
+    if (! function_exists('grade_update')) {
+        require_once($CFG->libdir.'/gradelib.php');
+    }
+    return grade_update('mod/hotpot', $hotpot->course, 'mod', 'hotpot', $hotpot->id, 0, null, array('deleted'=>1));
+}
+
 function hotpot_get_participants($hotpotid) {
 //Must return an array of user ids who are participants
 //for a given instance of hotpot. Must include every user involved
@@ -1225,6 +1368,17 @@ function hotpot_scale_used ($hotpotid, $scaleid) {
     return $report;
 }
 
+/**
+ * Checks if scale is being used by any instance of hotpot
+ *
+ * This is used to find out if scale used anywhere
+ * @param $scaleid int
+ * @return boolean True if the scale is used by any hotpot
+ */
+function hotpot_scale_used_anywhere($scaleid) {
+ return false;
+}
+
 //////////////////////////////////////////////////////////
 /// Any other hotpot functions go here.
 /// Each of them must have a name that starts with hotpot
@@ -1248,7 +1402,7 @@ function hotpot_add_attempt($hotpotid) {
             $attempt->status = HOTPOT_STATUS_ABANDONED;
             update_record('hotpot_attempts', $attempt);
         }
-    }    
+    }
 
     // create and add new attempt record
     $attempt = new stdClass();
@@ -1517,7 +1671,7 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
 
                 // relative URLs in stylesheets
                 $search = '|'.'(<style[^>]*>)'.'(.*?)'.'(</style>)'.'|ise';
-                $replace = "stripslashes('\\1').hotpot_convert_stylesheets_urls('".$this->get_baseurl()."','".$this->reference."','\\2'.'\\3')";
+                $replace = "hotpot_stripslashes('\\1').hotpot_convert_stylesheets_urls('".$this->get_baseurl()."','".$this->reference."','\\2'.'\\3')";
                 $this->source = preg_replace($search, $replace, $this->source);
 
                 // relative URLs in "PreloadImages(...);"
@@ -1644,11 +1798,8 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
         // set the url base (first time only)
         if (!isset($this->baseurl)) {
             global $CFG;
-            if ($CFG->slasharguments) {
-                $this->baseurl = "$CFG->wwwroot/file.php/$this->filedir/";
-            } else {
-                $this->baseurl = "$CFG->wwwroot/file.php?file=/$this->filedir/";
-            }
+            require_once($CFG->libdir.'/filelib.php');
+            $this->baseurl = get_file_url($this->filedir).'/';
         }
         return $this->baseurl;
     }
@@ -1664,7 +1815,7 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
         $script = '<script src="'.$src.'" type="text/javascript"></script>'."\n";
         $this->html = preg_replace('|</head>|i', $script.'</head>', $this->html, 1);
     }
-    function insert_submission_form($attemptid, $startblock, $endblock, $keep_contents=false) {
+    function insert_submission_form($attemptid, $startblock, $endblock, $keep_contents=false, $targetframe='') {
         $form_name = 'store';
         $form_fields = ''
         .   '<input type="hidden" name="attemptid" value="'.$attemptid.'" />'
@@ -1674,7 +1825,7 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
         .   '<input type="hidden" name="detail" value="" />'
         .   '<input type="hidden" name="status" value="" />'
         ;
-        $this->insert_form($startblock, $endblock, $form_name, $form_fields, $keep_contents);
+        $this->insert_form($startblock, $endblock, $form_name, $form_fields, $keep_contents, false, $targetframe);
     }
     function insert_giveup_form($attemptid, $startblock, $endblock, $keep_contents=false) {
         $form_name = ''; // no <form> tag will be generated
@@ -1687,15 +1838,20 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
         ;
         $this->insert_form($startblock, $endblock, $form_name, $form_fields, $keep_contents, true);
     }
-    function insert_form($startblock, $endblock, $form_name, $form_fields, $keep_contents, $center=false) {
+    function insert_form($startblock, $endblock, $form_name, $form_fields, $keep_contents, $center=false, $targetframe='') {
         global $CFG;
         $search = '#('.preg_quote($startblock).')(.*?)('.preg_quote($endblock).')#s';
         $replace = $form_fields;
         if ($keep_contents) {
             $replace .= '\\2';
         }
+        if ($targetframe) {
+            $frametarget = ' target="'.$targetframe.'"';
+        } else {
+            $frametarget = $CFG->frametarget;
+        }
         if ($form_name) {
-            $replace = '<form action="'.$CFG->wwwroot.'/mod/hotpot/attempt.php" method="post" name="'.$form_name.'"'.$CFG->frametarget.'>'.$replace.'</form>';
+            $replace = '<form action="'.$CFG->wwwroot.'/mod/hotpot/attempt.php" method="post" name="'.$form_name.'"'.$frametarget.'>'.$replace.'</form>';
         }
         if ($center) {
             $replace = '<div style="margin-left:auto; margin-right:auto; text-align: center;">'.$replace.'</div>';
@@ -1714,16 +1870,14 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
 
             // make sure the Moodle media plugin is available
             global $CFG;
-            include_once "$CFG->dirroot/filter/mediaplugin/filter.php";
-
-            // exclude swf files from the filter
-            //$CFG->filter_mediaplugin_ignore_swf = true;
+            //include_once "$CFG->dirroot/filter/mediaplugin/filter.php";
+            include_once "$CFG->dirroot/mod/hotpot/mediaplayers/moodle/filter.php";
 
             $space = '\s(?:.+\s)?';
             $quote = '["'."']?"; // single, double, or no quote
 
             // patterns to media files types and paths
-            $filetype = "avi|mpeg|mpg|mp3|mov|wmv";
+            $filetype = "avi|mpeg|mpg|mp3|mov|wmv|swf|flv";
             $filepath = ".*?\.($filetype)";
 
             $tagopen = '(?:(<)|(\\\\u003C))'; // left angle-bracket (uses two parenthese)
@@ -1741,12 +1895,12 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
             $link_url = "/{$tagopen}a{$space}href=$quote($filepath)$quote.*?$tagclose.*?$tagreopen\/A$tagclose/is";
 
             // extract <object> tags
-            preg_match_all("/{$tagopen}object\s.*?{$tagclose}(.*?){$tagreopen}\/object{$tagclose}/is", $this->html, $objects);
+            preg_match_all("/{$tagopen}object\s.*?{$tagclose}(.*?)(?:{$tagreopen}\/object{$tagclose})+/is", $this->html, $objects);
 
             $i_max = count($objects[0]);
             for ($i=0; $i<$i_max; $i++) {
 
-                // extract URL from <PARAM> or <A> 
+                // extract URL from <PARAM> or <A>
                 $url = '';
                 if (preg_match($param_url, $objects[3][$i], $matches) || preg_match($link_url, $objects[3][$i], $matches)) {
                     $url = $matches[3];
@@ -1760,7 +1914,7 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
                     $url = preg_replace('/^[^?]*\?([^=]+=[^&]*&)*[^=]+=([^&]*)$/', '$2', $url, 1);
                     $link = '<a href="'.$url.'">'.$txt.'</a>';
 
-                    $new_object = mediaplugin_filter($this->filedir, $link);
+                    $new_object = hotpot_mediaplayer_moodle($this, $link);
                     $new_object = str_replace($link, '', $new_object);
                     $new_object = str_replace('&amp;', '&', $new_object);
 
@@ -1772,9 +1926,16 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
 
 } // end class
 
+function hotpot_stripslashes($str) {
+    // strip slashes from  double quotes, single quotes and  back slashes
+    // the slashes were added by preg_replace() when using the "e" modifier
+    static $escapedchars = array('\\\\', '\\"', "\\'");
+    static $unescapedchars = array('\\', '"', "'");
+    return str_replace($escapedchars, $unescapedchars, $str);
+}
 function hotpot_convert_stylesheets_urls($baseurl, $reference, $css, $stripslashes=true) {
     if ($stripslashes) {
-        $css = stripslashes($css);
+        $css = hotpot_stripslashes($css);
     }
     $search = '|'.'(?<='.'url'.'\('.')'."(.+?)".'(?='.'\)'.')'.'|ise';
     $replace = "hotpot_convert_url('".$baseurl."','".$reference."','\\1')";
@@ -1782,7 +1943,7 @@ function hotpot_convert_stylesheets_urls($baseurl, $reference, $css, $stripslash
 }
 function hotpot_convert_preloadimages_urls($baseurl, $reference, $urls, $stripslashes=true) {
     if ($stripslashes) {
-        $urls = stripslashes($urls);
+        $urls = hotpot_stripslashes($urls);
     }
     $search = '|(?<=["'."'])([^,'".'"]*?)(?=["'."'])|ise";
     $replace = "hotpot_convert_url('".$baseurl."','".$reference."','\\1')";
@@ -1792,12 +1953,12 @@ function hotpot_convert_navbutton_url($baseurl, $reference, $url, $course, $stri
     global $CFG;
 
     if ($stripslashes) {
-        $url = stripslashes($url);
+        $url = hotpot_stripslashes($url);
     }
     $url = hotpot_convert_url($baseurl, $reference, $url, false);
 
     // is this a $url for another hotpot in this course ?
-    if (preg_match("|^$baseurl(.*)$|", $url, $matches)) {
+    if (preg_match("|^".preg_quote($baseurl)."(.*)$|", $url, $matches)) {
         if ($records = get_records_select('hotpot', "course='$course' AND reference='".$matches[1]."'")) {
             $ids = array_keys($records);
             $url = "$CFG->wwwroot/mod/hotpot/view.php?hp=".$ids[0];
@@ -1809,9 +1970,9 @@ function hotpot_convert_navbutton_url($baseurl, $reference, $url, $course, $stri
 
 function hotpot_convert_relative_url($baseurl, $reference, $opentag, $url, $closetag, $stripslashes=true) {
     if ($stripslashes) {
-        $opentag = stripslashes($opentag);
-        $url = stripslashes($url);
-        $closetag = stripslashes($closetag);
+        $opentag = hotpot_stripslashes($opentag);
+        $url = hotpot_stripslashes($url);
+        $closetag = hotpot_stripslashes($closetag);
     }
 
     // catch <PARAM name="FlashVars" value="TheSound=soundfile.mp3">
@@ -1841,7 +2002,7 @@ function hotpot_convert_relative_url($baseurl, $reference, $opentag, $url, $clos
     }
 
     if ($query) {
-        $search = '#'.'(file|src|thesound)='."([^&]+)".'#ise';
+        $search = '#'.'(file|src|thesound|mp3)='."([^&]+)".'#ise';
         $replace = "'\\1='.hotpot_convert_url('".$baseurl."','".$reference."','\\2')";
         $query = preg_replace($search, $replace, $query);
     }
@@ -1856,7 +2017,7 @@ function hotpot_convert_url($baseurl, $reference, $url, $stripslashes=true) {
     static $HOTPOT_RELATIVE_URLS = array();
 
     if ($stripslashes) {
-        $url = stripslashes($url);
+        $url = hotpot_stripslashes($url);
     }
 
     // is this an absolute url? (or javascript pseudo url)
@@ -2280,13 +2441,13 @@ if (!function_exists('get_coursemodule_from_id')) {
     function get_coursemodule_from_id($modulename, $cmid, $courseid=0) {
         global $CFG;
         return get_record_sql("
-            SELECT 
+            SELECT
                 cm.*, m.name, md.name as modname
-            FROM 
+            FROM
                 {$CFG->prefix}course_modules cm,
                 {$CFG->prefix}modules md,
                 {$CFG->prefix}$modulename m
-            WHERE 
+            WHERE
                 ".($courseid ? "cm.course = '$courseid' AND " : '')."
                 cm.id = '$cmid' AND
                 cm.instance = m.id AND
@@ -2300,13 +2461,13 @@ if (!function_exists('get_coursemodule_from_instance')) {
     function get_coursemodule_from_instance($modulename, $instance, $courseid=0) {
         global $CFG;
         return get_record_sql("
-            SELECT 
+            SELECT
                 cm.*, m.name, md.name as modname
-            FROM 
+            FROM
                 {$CFG->prefix}course_modules cm,
                 {$CFG->prefix}modules md,
                 {$CFG->prefix}$modulename m
-            WHERE 
+            WHERE
                 ".($courseid ? "cm.course = '$courseid' AND" : '')."
                 cm.instance = m.id AND
                 md.name = '$modulename' AND
@@ -2342,7 +2503,7 @@ function hotpot_utf8_to_html_entity($char) {
     return '&#x'.sprintf('%04X', $dec).';';
 }
 
-function hotpot_print_show_links($course, $location, $reference, $actions='', $spacer=' &nbsp; ', $new_window=false) {
+function hotpot_print_show_links($course, $location, $reference, $actions='', $spacer=' &nbsp; ', $new_window=false, $return=false) {
     global $CFG;
     if (is_string($actions)) {
         if (empty($actions)) {
@@ -2355,7 +2516,12 @@ function hotpot_print_show_links($course, $location, $reference, $actions='', $s
 <script type="text/javascript">
 //<![CDATA[
     function setLink(lnk) {
-        var form = document.forms['form'];
+        var form = null;
+        if (document.forms['mform1']) {
+            var form = document.forms['mform1'];
+        } else if (document.forms['form']) {
+            var form = document.forms['form'];
+        }
         return setLinkAttribute(lnk, 'reference', form) && setLinkAttribute(lnk, 'location', form);
     }
     function setLinkAttribute(lnk, name, form) {
@@ -2419,14 +2585,70 @@ END_OF_SCRIPT;
         $html .= $spacer
         .   '<a href="'
         .           $CFG->wwwroot.'/mod/hotpot/show.php'
-        .           '?course='.$course.'&location='.$location.'&reference='.urlencode($reference).'&action='.$action
+        .           '?course='.$course.'&amp;location='.$location.'&amp;reference='.urlencode($reference).'&amp;action='.$action
         .       '"'
         .       ' onclick="return setLink(this);"'
         .       ($new_window ? ' target="_blank"' : '')
         .   '>'.get_string($action, 'hotpot').'</a>'
         ;
     }
-    print '<span class="helplink">'.$html.'</span>';
+    $html = '<span class="helplink">'.$html.'</span>';
+    if ($return) {
+        return $html;
+    } else {
+        print $html;
+    }
 }
 
+/**
+ * Returns all other caps used in module
+ */
+function hotpot_get_extra_capabilities() {
+    return array('moodle/site:accessallgroups');
+}
+
+/**
+ * This function is used by the reset_course_userdata function in moodlelib.
+ * This function will remove all attempts from hotpot quizzes in the specified course.
+ * @param $data the data submitted from the reset course.
+ * @return array status array
+ */
+function hotpot_reset_userdata($data) {
+    global $CFG;
+    require_once($CFG->libdir.'/filelib.php');
+
+    $status = array();
+
+    if (!empty($data->reset_hotpot_deleteallattempts)) {
+
+        $hotpotids = "SELECT h.id FROM {$CFG->prefix}hotpot h WHERE h.course={$data->courseid}";
+        $attemptids = "SELECT a.id FROM {$CFG->prefix}hotpot_attempts a WHERE a.hotpot in ($hotpotids)";
+
+        delete_records_select('hotpot_responses', "attempt in ($attemptids)");
+        delete_records_select('hotpot_details', "attempt in ($attemptids)");
+        delete_records_select('hotpot_attempts', "hotpot IN ($hotpotids)");
+
+        $status[] = array('component' => get_string('modulenameplural', 'hotpot'),
+                          'item' => get_string('deleteallattempts', 'hotpot'),
+                          'error' => false);
+    }
+
+    return $status;
+}
+
+/**
+ * Called by course/reset.php
+ * @param $mform form passed by reference
+ */
+function hotpot_reset_course_form_definition(&$mform) {
+    $mform->addElement('header', 'hotpotheader', get_string('modulenameplural', 'hotpot'));
+    $mform->addElement('checkbox', 'reset_hotpot_deleteallattempts', get_string('deleteallattempts', 'hotpot'));
+}
+
+/**
+ * Course reset form defaults.
+ */
+function hotpot_reset_course_form_defaults($course) {
+    return array('reset_hotpot_deleteallattempts' => 1);
+}
 ?>

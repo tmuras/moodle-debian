@@ -1,15 +1,15 @@
-<?php
-{
+<?php // $Id: messageselect.php,v 1.15.2.5 2008/02/20 02:32:03 moodler Exp $
+
     require_once('../config.php');
     require_once($CFG->dirroot.'/message/lib.php');
 
     $id = required_param('id',PARAM_INT);
     $messagebody = optional_param('messagebody','',PARAM_CLEANHTML);
-    $send = optional_param('send','',PARAM_ALPHA);
+    $send = optional_param('send','',PARAM_RAW);   // Content is actually treated as boolean
+    $preview = optional_param('preview','',PARAM_RAW);   // Content is actually treated as boolean
+    $edit = optional_param('edit','',PARAM_RAW);   // Content is actually treated as boolean
     $returnto = optional_param('returnto','',PARAM_LOCALURL);
-    $preview = optional_param('preview','',PARAM_ALPHA);
     $format = optional_param('format',FORMAT_MOODLE,PARAM_INT);
-    $edit = optional_param('edit','',PARAM_ALPHA);
     $deluser = optional_param('deluser',0,PARAM_INT);
 
     if (!$course = get_record('course','id',$id)) {
@@ -17,12 +17,10 @@
     }
 
     require_login();
-    require_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_COURSE, $id));
-    
-    // fix for MDL-10112
-    if (empty($CFG->messaging)) {
-        error("Messaging is disabled on this site");  
-    }
+
+    $coursecontext = get_context_instance(CONTEXT_COURSE, $id);   // Course context
+    $systemcontext = get_context_instance(CONTEXT_SYSTEM);   // SYSTEM context
+    require_capability('moodle/course:bulkmessaging', $coursecontext);
 
     if (empty($SESSION->emailto)) {
         $SESSION->emailto = array();
@@ -65,8 +63,19 @@
         $formstart = "";
     }
 
-    print_header($strtitle,$strtitle,"<a href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</A> -> <a href=\"index.php?id=$course->id\">".get_string("participants")."</a> -> ".$strtitle,$formstart);
+    $navlinks = array();
+    if (has_capability('moodle/course:viewparticipants', $coursecontext) || has_capability('moodle/site:viewparticipants', $systemcontext)) {
+        $navlinks[] = array('name' => get_string('participants'), 'link' => "index.php?id=$course->id", 'type' => 'misc');
+    }
+    $navlinks[] = array('name' => $strtitle, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
 
+    print_header($strtitle,$strtitle,$navigation,$formstart);
+
+    // if messaging is disabled on site, we can still allow users with capabilities to send emails instead
+    if (empty($CFG->messaging)) {
+        notify(get_string('messagingdisabled','message'));  
+    }
 
     if ($count) {
         if ($count == 1) {
@@ -79,15 +88,17 @@
 
     if (!empty($messagebody) && !$edit && !$deluser && ($preview || $send)) {
         if (count($SESSION->emailto[$id])) {
-            if ($preview) {
+            if (!empty($preview)) {
                 echo '<form method="post" action="messageselect.php" style="margin: 0 20px;">
-<input type="hidden" name="returnto" value="'.stripslashes($returnto).'" />
+<input type="hidden" name="returnto" value="'.s($returnto).'" />
 <input type="hidden" name="id" value="'.$id.'" />
 <input type="hidden" name="format" value="'.$format.'" />
 ';
-                echo "<h3>".get_string('previewhtml')."</h3><div class=\"messagepreview\">\n".format_text(stripslashes($messagebody),$format)."\n</div>";
-                echo "\n<p align=\"center\"><input type=\"submit\" name=\"send\" value=\"Send\" /> <input type=\"submit\" name=\"edit\" value=\"Edit\" /></p>\n</form>";
-            } elseif ($send) {
+                echo "<h3>".get_string('previewhtml')."</h3><div class=\"messagepreview\">\n".format_text(stripslashes($messagebody),$format)."\n</div>\n";
+                echo '<p align="center"><input type="submit" name="send" value="'.get_string('sendmessage', 'message').'" />'."\n";
+                echo '<input type="submit" name="edit" value="'.get_string('update').'" /></p>';
+                echo "\n</form>";
+            } else if (!empty($send)) {
                 $good = 1;
                 $teachers = array();
                 foreach ($SESSION->emailto[$id] as $user) {
@@ -96,7 +107,7 @@
                         $teachers[] = $user->id;
                     }
                 }
-                if ($good) {
+                if (!empty($good)) {
                     print_heading(get_string('messagedselectedusers'));
                     unset($SESSION->emailto[$id]);
                     unset($SESSION->emailselect[$id]);
@@ -128,5 +139,5 @@
 
     print_footer();
 
-}
+
 ?>

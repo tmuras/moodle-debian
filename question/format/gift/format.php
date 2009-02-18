@@ -1,4 +1,4 @@
-<?php // $Id: format.php,v 1.15.2.3 2007/03/14 14:10:51 thepurpleblob Exp $
+<?php // $Id: format.php,v 1.24.2.5 2008/05/01 12:10:13 thepurpleblob Exp $
 //
 ///////////////////////////////////////////////////////////////
 // The GIFT import filter was designed as an easy to use method 
@@ -31,7 +31,10 @@
 // and others. Paul Tsuchido Shew wrote this filter in December 2003.
 //////////////////////////////////////////////////////////////////////////
 // Based on default.php, included by ../import.php
-
+/**
+ * @package questionbank
+ * @subpackage importexport
+ */
 class qformat_gift extends qformat_default {
 
     function provide_import() {
@@ -165,25 +168,30 @@ class qformat_gift extends qformat_default {
 
 
         // FIND ANSWER section
+        // no answer means its a description
         $answerstart = strpos($text, "{");
-        if ($answerstart === false) {
-            $giftleftbraceerror = get_string( 'giftleftbraceerror', 'quiz' );
-            $this->error( $giftleftbraceerror, $text );
-            return false;
-        }
-
         $answerfinish = strpos($text, "}");
-        if ($answerfinish === false) {
-            $giftrightbraceerror = get_string( 'giftrightbraceerror', 'quiz' );
-            $this->error( $giftrightbraceerror, $text );
+
+        $description = false;
+        if (($answerstart === false) and ($answerfinish === false)) {
+            $description = true;
+            $answertext = '';
+            $answerlength = 0;
+        }
+        elseif (!(($answerstart !== false) and ($answerfinish !== false))) {
+            $this->error( get_string( 'braceerror', 'quiz' ), $text );
             return false;
         }
-
-        $answerlength = $answerfinish - $answerstart;
-        $answertext = trim(substr($text, $answerstart + 1, $answerlength - 1));
+        else {
+            $answerlength = $answerfinish - $answerstart;
+            $answertext = trim(substr($text, $answerstart + 1, $answerlength - 1));
+        }
 
         // Format QUESTION TEXT without answer, inserting "_____" as necessary
-        if (substr($text, -1) == "}") {
+        if ($description) {
+            $questiontext = $text;
+        }
+        elseif (substr($text, -1) == "}") {
             // no blank line if answers follow question, outside of closing punctuation
             $questiontext = substr_replace($text, "", $answerstart, $answerlength+1);
         } else {
@@ -212,12 +220,26 @@ class qformat_gift extends qformat_default {
             }
 
         // ensure name is not longer than 250 characters
-        $question->name = shorten_text( $question->name, 250 );
+        $question->name = shorten_text( $question->name, 200 );
+        $question->name = strip_tags(substr( $question->name, 0, 250 ));
 
         // determine QUESTION TYPE
         $question->qtype = NULL;
 
-        if ($answertext{0} == "#"){
+        // give plugins first try
+        // plugins must promise not to intercept standard qtypes
+        // MDL-12346, this could be called from lesson mod which has its own base class =(
+        if (method_exists($this, 'try_importing_using_qtypes') && ($try_question = $this->try_importing_using_qtypes( $lines, $question, $answertext ))) {
+            return $try_question;
+        }
+
+        if ($description) {
+            $question->qtype = DESCRIPTION;
+        }
+        elseif ($answertext == '') {
+            $question->qtype = ESSAY;
+        }
+        elseif ($answertext{0} == "#"){
             $question->qtype = NUMERICAL;
 
         } elseif (strpos($answertext, "~") !== false)  {
@@ -254,6 +276,16 @@ class qformat_gift extends qformat_default {
         }
 
         switch ($question->qtype) {
+            case DESCRIPTION:
+                $question->defaultgrade = 0;
+                $question->length = 0;
+                return $question;
+                break;
+            case ESSAY:
+                $question->feedback = '';
+                $question->fraction = 0;
+                return $question;
+                break;
             case MULTICHOICE:
                 if (strpos($answertext,"=") === false) {
                     $question->single = 0;   // multiple answers are enabled if no single answer is 100% correct                        
@@ -351,6 +383,7 @@ class qformat_gift extends qformat_default {
                     $question->feedbacktrue = $feedback['wrong'];
                 }
 
+                $question->penalty = 1;
                 $question->correctanswer = $question->answer;
 
                 return $question;
@@ -518,6 +551,17 @@ function writequestion( $question ) {
         // not a real question, used to insert category switch
         $expout .= "\$CATEGORY: $question->category\n";    
         break;
+    case DESCRIPTION:
+        $expout .= '::'.$this->repchar($question->name).'::';
+        $expout .= $tfname;
+        $expout .= $this->repchar( $question->questiontext, $textformat);
+        break;
+    case ESSAY:
+        $expout .= '::'.$this->repchar($question->name).'::';
+        $expout .= $tfname;
+        $expout .= $this->repchar( $question->questiontext, $textformat);
+        $expout .= "{}\n";
+        break;
     case TRUEFALSE:
         $trueanswer = $question->options->answers[$question->options->trueanswer];
         $falseanswer = $question->options->answers[$question->options->falseanswer];
@@ -577,7 +621,12 @@ function writequestion( $question ) {
         $expout .= "::".$this->repchar($question->name)."::".$tfname.$this->repchar( $question->questiontext, $textformat )."{#\n";
         foreach ($question->options->answers as $answer) {
             if ($answer->answer != '') {
-                $expout .= "\t=".$answer->answer.":".(float)$answer->tolerance."#".$this->repchar( $answer->feedback )."\n";
+                $percentage = '';
+                if ($answer->fraction < 1) {
+                    $pval = $answer->fraction * 100;
+                    $percentage = "%$pval%";
+                }
+                $expout .= "\t=$percentage".$answer->answer.":".(float)$answer->tolerance."#".$this->repchar( $answer->feedback )."\n";
             } else {
                 $expout .= "\t~#".$this->repchar( $answer->feedback )."\n";
             }
@@ -598,7 +647,13 @@ function writequestion( $question ) {
         $expout .= "// CLOZE type is not supported\n";
         break;
     default:
-        notify("No handler for qtype $question->qtype for GIFT export" );
+        // check for plugins
+        if ($out = $this->try_exporting_using_qtypes( $question->qtype, $question )) {
+            $expout .= $out;
+        }
+        else {
+            notify("No handler for qtype '$question->qtype' for GIFT export" );
+        }
     }
     // add empty line to delimit questions
     $expout .= "\n";

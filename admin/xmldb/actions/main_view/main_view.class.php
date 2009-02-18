@@ -1,4 +1,4 @@
-<?php // $Id: main_view.class.php,v 1.5.2.2 2007/04/02 21:50:03 stronk7 Exp $
+<?php // $Id: main_view.class.php,v 1.10.2.2 2008/05/15 16:19:06 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -47,7 +47,9 @@ class main_view extends XMLDBAction {
             'delete' => 'xmldb',
             'reservedwords' => 'xmldb',
             'test' => 'xmldb',
-            'gotolastused' => 'xmldb'
+            'gotolastused' => 'xmldb',
+            'checkindexes' => 'xmldb',
+            'checkbigints' => 'xmldb'
         ));
     }
 
@@ -84,6 +86,12 @@ class main_view extends XMLDBAction {
         $b .= '&nbsp;<a href="index.php?action=view_reserved_words">[' . $this->str['reservedwords'] . ']</a>';
     /// The test button
         $b .= '&nbsp;<a href="index.php?action=test">[' . $this->str['test'] . ']</a>';
+    /// The check indexes button
+        $b .= '&nbsp;<a href="index.php?action=check_indexes">[' . $this->str['checkindexes'] . ']</a>';
+    /// The check bigints button (only for MySQL and PostgreSQL) MDL-11038a
+        if ($CFG->dbfamily == 'mysql' || $CFG->dbfamily == 'postgres') {
+            $b .= '&nbsp;<a href="index.php?action=check_bigints">[' . $this->str['checkbigints'] . ']</a>';
+        }
         $b .= '</p>';
     /// Send buttons to output
         $o .= $b;

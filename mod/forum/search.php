@@ -1,4 +1,4 @@
-<?php // $Id: search.php,v 1.72.2.5 2007/05/15 18:26:58 skodak Exp $
+<?php // $Id: search.php,v 1.86.2.6 2008/04/14 08:50:58 skodak Exp $
 
     require_once('../../config.php');
     require_once('lib.php');
@@ -98,8 +98,13 @@
     $strpage = get_string("page");
 
     if (!$search || $showform) {
-        print_header_simple("$strsearch", "",
-                 "<a href=\"index.php?id=$course->id\">$strforums</a> -> $strsearch", 'search.words',
+
+        $navlinks = array();
+        $navlinks[] = array('name' => $strforums, 'link' => "index.php?id=$course->id", 'type' => 'activity');
+        $navlinks[] = array('name' => $strsearch, 'link' => '', 'type' => 'title');
+        $navigation = build_navigation($navlinks);
+
+        print_header_simple("$strsearch", "", $navigation, 'search.words',
                   "", "", "&nbsp;", navmenu($course));
 
         forum_print_big_search_form($course);
@@ -114,13 +119,14 @@
 
     $searchform = forum_search_form($course, $search);
 
+    $navlinks = array();
+    $navlinks[] = array('name' => $strsearch, 'link' => "search.php?id=$course->id", 'type' => 'activityinstance');
+    $navlinks[] = array('name' => s($search, true), 'link' => '', 'type' => 'link');
+    $navigation = build_navigation($navlinks);
+
 
     if (!$posts = forum_search_posts($searchterms, $course->id, $page*$perpage, $perpage, $totalcount)) {
-
-        print_header_simple("$strsearchresults", "",
-                "<a href=\"index.php?id=$course->id\">$strforums</a> ->
-                <a href=\"search.php?id=$course->id\">$strsearch</a> -> ".s($search, true), 'search.words',
-                "", "", "&nbsp;", navmenu($course));
+        print_header_simple("$strsearchresults", "", $navigation, 'search.words', "", "", "&nbsp;", navmenu($course));
         print_heading(get_string("nopostscontaining", "forum", $search));
 
         if (!$individualparams) {
@@ -133,10 +139,8 @@
         exit;
     }
 
-    print_header_simple("$strsearchresults", "",
-            "<a href=\"index.php?id=$course->id\">$strforums</a> ->
-            <a href=\"search.php?id=$course->id\">$strsearch</a> -> ".s($search, true), '',
-            "", "",  $searchform, navmenu($course));
+
+    print_header_simple("$strsearchresults", "", $navigation, '', "", "",  $searchform, navmenu($course));
 
     echo '<div class="reportlink">';
     echo '<a href="search.php?id='.$course->id.
@@ -175,11 +179,17 @@
 
     foreach ($posts as $post) {
 
+        // Replace the simple subject with the three items forum name -> thread name -> subject
+        // (if all three are appropriate) each as a link.
         if (! $discussion = get_record('forum_discussions', 'id', $post->discussion)) {
             error('Discussion ID was incorrect');
         }
         if (! $forum = get_record('forum', 'id', "$discussion->forum")) {
             error("Could not find forum $discussion->forum");
+        }
+
+        if (!$cm = get_coursemodule_from_instance('forum', $forum->id)) {
+            error('Course Module ID was incorrect');
         }
 
         $post->subject = highlight($strippedsearch, $post->subject);
@@ -194,30 +204,15 @@
         }
 
         $post->subject = $fullsubject;
+        $post->subjectnoformat = true;
 
-        //Indicate search terms only found in HTML markup
-        //Use highlight() with nonsense tags to spot search terms in the
-        //actual text content first.          fiedorow - 9/2/2005
+        // Identify search terms only found in HTML markup, and add a warning about them to
+        // the start of the message text. However, do not do the highlighting here. forum_print_post
+        // will do it for us later.
         $missing_terms = "";
-
-        // Hack for posts of format FORMAT_PLAIN. Otherwise html tags added by
-        // the highlight() call bellow get stripped out by forum_print_post().
-        if ($post->format == FORMAT_PLAIN) {
-            $post->message = stripslashes_safe($post->message); 
-            $post->message = rebuildnolinktag($post->message); 
-            $post->message = str_replace(' ', '&nbsp; ', $post->message); 
-            $post->message = nl2br($post->message); 
-            $post->format = FORMAT_HTML;
-        }
 
         $options = new object();
         $options->trusttext = true;
-        // detect TRUSTTEXT marker before first call to format_text
-        if (trusttext_present($post->message)) {
-            $ttpresent = true;
-        } else {
-            $ttpresent = false;
-        }
         $message = highlight($strippedsearch,
                         format_text($post->message, $post->format, $options, $course->id),
                         0, '<fgw9sdpq4>', '</fgw9sdpq4>');
@@ -227,34 +222,18 @@
                 $missing_terms .= " $searchterm";
             }
         }
-        // now is the right time to strip the TRUSTTEXT marker, we will add it later if needed
-        $post->message = trusttext_strip($post->message);
-
-        $message = str_replace('<fgw9sdpq4>','<span class="highlight">',$message);
-        $message = str_replace('</fgw9sdpq4>','</span>',$message);
 
         if ($missing_terms) {
             $strmissingsearchterms = get_string('missingsearchterms','forum');
-            $post->message = '<p class="highlight2">'.$strmissingsearchterms.' '.$missing_terms.'</p>'.$message;
-            $ttpresent = false;
-        } else {
-            $post->message = $message;
+            $post->message = '<p class="highlight2">'.$strmissingsearchterms.' '.$missing_terms.'</p>'.$post->message;
         }
 
-        $fulllink = "<a href=\"discuss.php?d=$post->discussion#$post->id\">".get_string("postincontext", "forum")."</a>";
-        //search terms already highlighted - fiedorow - 9/2/2005
-        $SESSION->forum_search = true;
+        // Prepare a link to the post in context, to be displayed after the forum post.
+        $fulllink = "<a href=\"discuss.php?d=$post->discussion#p$post->id\">".get_string("postincontext", "forum")."</a>";
 
-        // reconstruct the TRUSTTEXT properly after processing
-        if ($ttpresent) {
-            $post->message = trusttext_mark($post->message);
-        } else {
-            $post->message = trusttext_strip($post->message); //make 100% sure TRUSTTEXT marker was not created during processing
-        }
-        forum_print_post($post, $course->id, false, false, false, false, $fulllink);
-        unset($SESSION->forum_search);
-
-        echo "<br />";
+        // Now pring the post.
+        forum_print_post($post, $discussion, $forum, $cm, $course, false, false, false, false,
+                $fulllink, $strippedsearch, -99, false);
     }
 
     print_paging_bar($totalcount, $page, $perpage, "search.php?search=".urlencode(stripslashes($search))."&amp;id=$course->id&amp;perpage=$perpage&amp;");
@@ -282,30 +261,30 @@ function forum_print_big_search_form($course) {
     echo '<table cellpadding="10" class="searchbox" id="form">';
 
     echo '<tr>';
-    echo '<td class="c0">'.get_string('searchwords', 'forum').':';
+    echo '<td class="c0"><label for="words">'.get_string('searchwords', 'forum').'</label>';
     echo '<input type="hidden" value="'.$course->id.'" name="id" alt="" /></td>';
-    echo '<td class="c1"><input type="text" size="35" name="words" value="'.s($words, true).'" alt="" /></td>';
+    echo '<td class="c1"><input type="text" size="35" name="words" id="words"value="'.s($words, true).'" alt="" /></td>';
     echo '</tr>';
 
     echo '<tr>';
-    echo '<td class="c0">'.get_string('searchphrase', 'forum').':</td>';
-    echo '<td class="c1"><input type="text" size="35" name="phrase" value="'.s($phrase, true).'" alt="" /></td>';
+    echo '<td class="c0"><label for="phrase">'.get_string('searchphrase', 'forum').'</label></td>';
+    echo '<td class="c1"><input type="text" size="35" name="phrase" id="phrase" value="'.s($phrase, true).'" alt="" /></td>';
     echo '</tr>';
 
     echo '<tr>';
-    echo '<td class="c0">'.get_string('searchnotwords', 'forum').':</td>';
-    echo '<td class="c1"><input type="text" size="35" name="notwords" value="'.s($notwords, true).'" alt="" /></td>';
+    echo '<td class="c0"><label for="notwords">'.get_string('searchnotwords', 'forum').'</label></td>';
+    echo '<td class="c1"><input type="text" size="35" name="notwords" id="notwords" value="'.s($notwords, true).'" alt="" /></td>';
     echo '</tr>';
 
     if ($CFG->dbfamily == 'mysql' || $CFG->dbfamily == 'postgres') {
         echo '<tr>';
-        echo '<td class="c0">'.get_string('searchfullwords', 'forum').':</td>';
-        echo '<td class="c1"><input type="text" size="35" name="fullwords" value="'.s($fullwords, true).'" alt="" /></td>';
+        echo '<td class="c0"><label for="fullwords">'.get_string('searchfullwords', 'forum').'</label></td>';
+        echo '<td class="c1"><input type="text" size="35" name="fullwords" id="fullwords" value="'.s($fullwords, true).'" alt="" /></td>';
         echo '</tr>';
     }
 
     echo '<tr>';
-    echo '<td class="c0">'.get_string('searchdatefrom', 'forum').':</td>';
+    echo '<td class="c0">'.get_string('searchdatefrom', 'forum').'</td>';
     echo '<td class="c1">';
     if (empty($datefrom)) {
         $datefromchecked = '';
@@ -328,7 +307,7 @@ function forum_print_big_search_form($course) {
     echo '</tr>';
 
     echo '<tr>';
-    echo '<td class="c0">'.get_string('searchdateto', 'forum').':</td>';
+    echo '<td class="c0">'.get_string('searchdateto', 'forum').'</td>';
     echo '<td class="c1">';
     if (empty($dateto)) {
         $datetochecked = '';
@@ -351,20 +330,20 @@ function forum_print_big_search_form($course) {
     echo '</tr>';
 
     echo '<tr>';
-    echo '<td class="c0">'.get_string('searchwhichforums', 'forum').':</td>';
+    echo '<td class="c0"><label for="menuforumid">'.get_string('searchwhichforums', 'forum').'</label></td>';
     echo '<td class="c1">';
     choose_from_menu(forum_menu_list($course), 'forumid', '', get_string('allforums', 'forum'), '');
     echo '</td>';
     echo '</tr>';
 
     echo '<tr>';
-    echo '<td class="c0">'.get_string('searchsubject', 'forum').':</td>';
-    echo '<td class="c1"><input type="text" size="35" name="subject" value="'.s($subject, true).'" alt="" /></td>';
+    echo '<td class="c0"><label for="subject">'.get_string('searchsubject', 'forum').'</label></td>';
+    echo '<td class="c1"><input type="text" size="35" name="subject" id="subject" value="'.s($subject, true).'" alt="" /></td>';
     echo '</tr>';
 
     echo '<tr>';
-    echo '<td class="c0">'.get_string('searchuser', 'forum').':</td>';
-    echo '<td class="c1"><input type="text" size="35" name="user" value="'.s($user, true).'" alt="" /></td>';
+    echo '<td class="c0"><label for="user">'.get_string('searchuser', 'forum').'</label></td>';
+    echo '<td class="c1"><input type="text" size="35" name="user" id="user" value="'.s($user, true).'" alt="" /></td>';
     echo '</tr>';
 
     echo '<tr>';
@@ -384,7 +363,13 @@ function forum_print_big_search_form($course) {
 }
 
 /**
- * @todo Document this function
+ * This function takes each word out of the search string, makes sure they are at least
+ * two characters long and returns an array containing every good word.
+ *
+ * @param string $words String containing space-separated strings to search for
+ * @param string $prefix String to prepend to the each token taken out of $words
+ * @returns array
+ * @todo Take the hardcoded limit out of this function and put it into a user-specified parameter
  */
 function forum_clean_search_terms($words, $prefix='') {
     $searchterms = explode(' ', $words);
@@ -404,32 +389,22 @@ function forum_clean_search_terms($words, $prefix='') {
 function forum_menu_list($course)  {
 
     $menu = array();
-    $currentgroup = get_and_set_current_group($course, groupmode($course));
 
-    if ($forums = get_all_instances_in_course("forum", $course)) {
-        if ($course->format == 'weeks') {
-            $strsection = get_string('week');
-        } else {
-            $strsection = get_string('topic');
-        }
+    $modinfo = get_fast_modinfo($course);
 
-        foreach ($forums as $forum) {
-            if ($cm = get_coursemodule_from_instance('forum', $forum->id, $course->id)) {
-                $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-                if (!isset($forum->visible)) {
-                    if (!instance_is_visible("forum", $forum) &&
-                            !has_capability('moodle/course:viewhiddenactivities', $context)) {
-                        continue;
-                    }
-                }
-                $groupmode = groupmode($course, $cm);   // Groups are being used
-                if ($groupmode == SEPARATEGROUPS && ($currentgroup === false) &&
-                                  !has_capability('moodle/site:accessallgroups', $context)) {
-                    continue;
-                }
-            }
-            $menu[$forum->id] = format_string($forum->name,true);
+    if (empty($modinfo->instances['forum'])) {
+        return $menu;
+    }
+
+    foreach ($modinfo->instances['forum'] as $cm) {
+        if (!$cm->uservisible) {
+            continue;
         }
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        if (!has_capability('mod/forum:viewdiscussion', $context)) {
+            continue;
+        }
+        $menu[$cm->instance] = format_string($cm->name);
     }
 
     return $menu;

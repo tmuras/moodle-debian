@@ -1,7 +1,18 @@
-<?php  // $Id: signup.php,v 1.52.2.3 2007/03/22 12:40:24 skodak Exp $
+<?php  // $Id: signup.php,v 1.56.2.2 2008/09/25 07:40:54 skodak Exp $
 
     require_once('../config.php');
+    
+    /**
+     * Returns whether or not the captcha element is enabled, and the admin settings fulfil its requirements.
+     * @return bool
+     */
+    function signup_captcha_enabled() {
+        global $CFG;
+        return !empty($CFG->recaptchapublickey) && !empty($CFG->recaptchaprivatekey) && get_config('auth/email', 'recaptcha');
+    }
+    
     require_once('signup_form.php');
+    
 
     if (empty($CFG->registerauth)) {
         error("Sorry, you may not use this page.");
@@ -42,8 +53,13 @@
         $langs    = get_list_of_languages();
         $langmenu = popup_form ("$CFG->wwwroot/login/signup.php?lang=", $langs, "chooselang", $currlang, "", "", "", true);
     }
-    print_header($newaccount, $newaccount, "<a href=\"index.php\">$login</a> -> $newaccount", $mform_signup->focus(), "", true, "<div class=\"langmenu\">$langmenu</div>");
 
+    $navlinks = array();
+    $navlinks[] = array('name' => $login, 'link' => "index.php", 'type' => 'misc');
+    $navlinks[] = array('name' => $newaccount, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+    print_header($newaccount, $newaccount, $navigation, $mform_signup->focus(), "", true, "<div class=\"langmenu\">$langmenu</div>");
+    
     $mform_signup->display();
     print_footer();
 

@@ -1,8 +1,8 @@
-<?php //$Id: restorelib.php,v 1.35.2.1 2007/05/28 18:50:58 mark-nielsen Exp $
+<?php //$Id: restorelib.php,v 1.36 2007/05/28 18:55:15 mark-nielsen Exp $
 /**
  * This php script contains all the stuff to restore lesson mods
  *
- * @version $Id: restorelib.php,v 1.35.2.1 2007/05/28 18:50:58 mark-nielsen Exp $
+ * @version $Id: restorelib.php,v 1.36 2007/05/28 18:55:15 mark-nielsen Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/

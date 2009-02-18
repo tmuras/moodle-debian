@@ -1,4 +1,4 @@
-<?php
+<?php //Id:$
 
 //This php script contains all the stuff to backup/restore data mod
 
@@ -98,6 +98,10 @@ function data_backup_one_mod($bf,$preferences,$data) {
     fwrite ($bf,full_tag("APPROVAL",4,false,$data->approval));
     fwrite ($bf,full_tag("SCALE",4,false,$data->scale));
     fwrite ($bf,full_tag("ASSESSED",4,false,$data->assessed));
+    fwrite ($bf,full_tag("DEFAULTSORT",4,false,$data->defaultsort));
+    fwrite ($bf,full_tag("DEFAULTSORTDIR",4,false,$data->defaultsortdir));
+    fwrite ($bf,full_tag("EDITANY",4,false,$data->editany));
+    fwrite ($bf,full_tag("NOTIFICATION",4,false,$data->notification));
 
     // if we've selected to backup users info, then call any other functions we need
     // including backing up individual files
@@ -381,6 +385,39 @@ function data_check_backup_mods($course,$user_data=false,$backup_unique_code,$in
     }
     return $info;
 
+}
+
+/**
+ * Returns a content encoded to support interactivities linking. Every module
+ * should have its own. They are called automatically from the backup procedure.
+ *
+ * @param string $content content to be encoded
+ * @param object $preferences backup preferences in use
+ * @return string the content encoded
+ */
+function data_encode_content_links ($content,$preferences) {
+
+    global $CFG;
+
+    $base = preg_quote($CFG->wwwroot,"/");
+
+/// Link to one "record" of the database
+    $search="/(".$base."\/mod\/data\/view.php\?d\=)([0-9]+)\&rid\=([0-9]+)/";
+    $result= preg_replace($search,'$@DATAVIEWRECORD*$2*$3@$',$content);
+
+/// Link to the list of databases
+    $search="/(".$base."\/mod\/data\/index.php\?id\=)([0-9]+)/";
+    $result= preg_replace($search,'$@DATAINDEX*$2@$',$result);
+
+/// Link to database view by moduleid
+    $search="/(".$base."\/mod\/data\/view.php\?id\=)([0-9]+)/";
+    $result= preg_replace($search,'$@DATAVIEWBYID*$2@$',$result);
+
+/// Link to database view by databaseid
+    $search="/(".$base."\/mod\/data\/view.php\?d\=)([0-9]+)/";
+    $result= preg_replace($search,'$@DATAVIEWBYD*$2@$',$result);
+
+    return $result;
 }
 
 function data_ids($course) {

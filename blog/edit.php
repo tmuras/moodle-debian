@@ -1,24 +1,25 @@
-<?php //$Id: edit.php,v 1.43.2.1 2007/03/19 07:51:13 toyomoyo Exp $
+<?php //$Id: edit.php,v 1.49.2.12 2008/07/07 07:40:35 scyrma Exp $
 
 require_once('../config.php');
 include_once('lib.php');
+include_once($CFG->dirroot.'/tag/lib.php');
 
 $action   = required_param('action', PARAM_ALPHA);
 $id       = optional_param('id', 0, PARAM_INT);
 $confirm  = optional_param('confirm', 0, PARAM_BOOL);
 $courseid = optional_param('courseid', 0, PARAM_INT); // needed for user tab - does nothing here
 
-require_login();
+require_login($courseid);
 
 if (empty($CFG->bloglevel)) {
     error('Blogging is disabled!');
 }
 
 if (isguest()) {
-    error(get_string('noguestpost', 'blog'));
+    print_error('noguestpost', 'blog');
 }
 
-$sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+$sitecontext = get_context_instance(CONTEXT_SYSTEM);
 if (!has_capability('moodle/blog:create', $sitecontext) and !has_capability('moodle/blog:manageentries', $sitecontext)) {
     error('You can not post or edit blogs.');
 }
@@ -30,13 +31,13 @@ if ($id) {
     }
 
     if (!blog_user_can_edit_post($existing)) {
-        error(get_string('notallowedtoedit', 'blog'));
+        print_error('notallowedtoedit', 'blog');
     }
     $userid    = $existing->userid;
     $returnurl = $CFG->wwwroot.'/blog/index.php?userid='.$existing->userid;
 } else {
     if (!has_capability('moodle/blog:create', $sitecontext)) {
-        error(get_string('nopost', 'blog')); // manageentries is not enough for adding
+        print_error('nopost', 'blog'); // manageentries is not enough for adding
     }
     $existing  = false;
     $userid    = $USER->id;
@@ -73,10 +74,6 @@ $blogeditform = new blog_edit_form(null, compact('existing', 'sitecontext'));
 
 if ($blogeditform->is_cancelled()){
     redirect($returnurl);
-} else if ($blogeditform->no_submit_button_pressed()) {
-    no_submit_button_actions($blogeditform, $sitecontext);
-
-
 } else if ($fromform = $blogeditform->get_data()){
     //save stuff in db
     switch ($action) {
@@ -101,7 +98,7 @@ if ($blogeditform->is_cancelled()){
 switch ($action) {
     case 'add':
         // prepare new empty form
-        $post->publishstate = 'draft';
+        $post->publishstate = 'site';
         $strformheading = get_string('addnewentry', 'blog');
         $post->action       = $action;
     break;
@@ -118,26 +115,12 @@ switch ($action) {
         $post->action       = $action;
         $strformheading = get_string('updateentrywithid', 'blog');
 
-        if ($ptags = get_records_sql_menu("SELECT t.id, t.text FROM
-                                     {$CFG->prefix}tags t,
-                                     {$CFG->prefix}blog_tag_instance bti
-                                     WHERE t.id = bti.tagid
-                                     AND t.type = 'personal'
-                                     AND bti.entryid = {$post->id}")) {
-
-            $post->ptags = implode(', ', $ptags);
-        } else {
-            //$idsql = " AND bti.entryid = 0";
-            //was used but seems redundant.
-            $post->ptags = '';
+        if ($itemptags = tag_get_tags_csv('post', $post->id, TAG_RETURN_TEXT, 'default')) {
+            $post->ptags = $itemptags;
         }
-        if ($otags = get_records_sql_menu("SELECT t.id, t.text FROM
-                                     {$CFG->prefix}tags t,
-                                     {$CFG->prefix}blog_tag_instance bti
-                                     WHERE t.id = bti.tagid
-                                     AND t.type = 'official'
-                                     AND bti.entryid = {$post->id}")){
-            $post->otags = array_keys($otags);
+        
+        if ($itemotags = tag_get_tags_array('post', $post->id, 'official')) {
+            $post->otags = array_keys($itemotags);
         }
     break;
     default :
@@ -148,10 +131,13 @@ switch ($action) {
 if (!$user = get_record('user', 'id', $userid)) {
     error('Incorrect user id');
 }
+$navlinks = array();
+$navlinks[] = array('name' => fullname($user), 'link' => "$CFG->wwwroot/user/view.php?id=$userid", 'type' => 'misc');
+$navlinks[] = array('name' => $strblogs, 'link' => "$CFG->wwwroot/blog/index.php?userid=$userid", 'type' => 'misc');
+$navlinks[] = array('name' => $strformheading, 'link' => null, 'type' => 'misc');
+$navigation = build_navigation($navlinks);
 
-print_header("$SITE->shortname: $strblogs", $SITE->fullname,
-                '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$userid.'">'.fullname($user).'</a> ->
-                <a href="'.$CFG->wwwroot.'/blog/index.php?userid='.$userid.'">'.$strblogs.'</a> -> '.$strformheading,'','',true);
+print_header("$SITE->shortname: $strblogs", $SITE->fullname, $navigation,'','',true);
 $blogeditform->set_data($post);
 $blogeditform->display();
 
@@ -162,79 +148,6 @@ print_footer();
 die;
 
 /*****************************   edit.php functions  ***************************/
-function no_submit_button_actions(&$blogeditform, $sitecontext){
-    $mform =& $blogeditform->_form;
-    $data = $mform->exportValues();
-    //sesskey has been checked already no need to check that
-    //check for official tags to add
-    if (!empty($data['addotags']) && !empty($data['otagsadd'])){ // adding official tag
-        $error = add_otag($data['otagsadd']);
-    }
-    if (!empty($error)){
-        $mform->setElementError('otagsgrp', $error);
-    }
-    if (!empty($data['deleteotags']) && !empty($data['otags'])){ // adding official tag
-        delete_otags($data['otags'], $sitecontext);
-    }
-    $blogeditform->otags_select_setup();
-}
-
-function delete_otags($tagids, $sitecontext){
-    foreach ($tagids as $tagid) {
-
-        if (!$tag = get_record('tags', 'id', $tagid)) {
-            error('Can not delete tag, tag doesn\'t exist');
-        }
-
-        if ($tag->type == 'official' and !has_capability('moodle/blog:manageofficialtags', $sitecontext)) {
-            //can not delete
-            error('Can not delete tag, you don\'t have permission to delete an official tag');
-        }
-
-        if ($tag->type == 'personal' and !has_capability('moodle/blog:managepersonaltags', $sitecontext)) {
-            //can not delete
-            error('Can not delete tag, you don\'t have permission to delete a personal tag');
-        }
-
-        // Delete the tag itself
-        if (!delete_records('tags', 'id', $tagid)) {
-            error('Can not delete tag');
-        }
-
-        // Deleteing all references to this tag
-        if (!delete_records('blog_tag_instance', 'tagid', $tagid)) {
-            error('Can not delete blog tag instances');
-        }
-
-
-    }
-}
-
-function add_otag($otag){
-    global $USER;
-    $error = '';
-    if ($tag = get_record('tags', 'text', $otag)) {
-        if ($tag->type == 'official') {
-            // official tag already exist
-            $error = get_string('tagalready');
-        } else {
-            $tag->type = 'official';
-            update_record('tags', $tag);
-            $tagid = $tag->id;
-        }
-    } else { // Brand new offical tag
-
-        $tag = new object();
-        $tag->userid = $USER->id;
-        $tag->text   = $otag;
-        $tag->type   = 'official';
-
-        if (!$tagid = insert_record('tags', $tag)) {
-            error('Can not create tag!');
-        }
-    }
-    return $error;
-}
 
 /*
 * Delete blog post from database
@@ -243,10 +156,11 @@ function do_delete($post) {
     global $returnurl;
 
     $status = delete_records('post', 'id', $post->id);
-    $status = delete_records('blog_tag_instance', 'entryid', $post->id) and $status;
+    //$status = delete_records('blog_tag_instance', 'entryid', $post->id) and $status;
+    tag_set('post', $post->id, array());
     
     blog_delete_old_attachments($post);
-    
+
     add_to_log(SITEID, 'blog', 'delete', 'index.php?userid='. $post->userid, 'deleted blog entry with entry id# '. $post->id);
 
     if (!$status) {
@@ -302,12 +216,14 @@ function do_edit($post, $blogeditform) {
     // update record
     if (update_record('post', $post)) {
         // delete all tags associated with this entry
-        delete_records('blog_tag_instance', 'entryid', $post->id);
+        
+        //delete_records('blog_tag_instance', 'entryid', $post->id);
+        //delete_records('tag_instance', 'itemid', $post->id, 'itemtype', 'blog');
+        //untag_an_item('post', $post->id);
         // add them back
         add_tags_info($post->id);
 
-
-        add_to_log(SITEID, 'blog', 'update', 'index.php?userid='.$post->userid.'&postid='.$post->id, $post->subject);
+        add_to_log(SITEID, 'blog', 'update', 'index.php?userid='.$USER->id.'&postid='.$post->id, $post->subject);
 
     } else {
         error('There was an error updating this post in the database', $returnurl);
@@ -319,46 +235,20 @@ function do_edit($post, $blogeditform) {
  * @param int postid - id of the blog
  */
 function add_tags_info($postid) {
-
-    global $USER;
-
-    $post = get_record('post', 'id', $postid);
-
-    $tag = new object();
-    $tag->entryid = $post->id;
-    $tag->userid = $post->userid;
-    $tag->timemodified = time();
-
-    /// Attach official tags
+    
+    $tags = array();
     if ($otags = optional_param('otags', '', PARAM_INT)) {
-        foreach ($otags as $otag) {
-            $tag->tagid = $otag;
-            insert_record('blog_tag_instance', $tag);
-        }
-    }
-
-    /// Attach Personal Tags
-    if ($ptags = optional_param('ptags', '', PARAM_NOTAGS)) {
-        $ptags = explode(',', $ptags);
-        foreach ($ptags as $ptag) {
-            $ptag = trim($ptag);
-            // check for existance
-            // it does not matter whether it is an offical tag or personal tag
-            // we do not want to have 1 copy of offical tag and 1 copy of personal tag (for the same tag)
-            if ($ctag = get_record('tags', 'text', $ptag)) {
-                $tag->tagid = $ctag->id;
-                insert_record('blog_tag_instance', $tag);
-            } else { // create a personal tag
-                $ctag = new object;
-                $ctag->userid = $USER->id;
-                $ctag->text = $ptag;
-                $ctag->type = 'personal';
-                if ($tagid = insert_record('tags', $ctag)) {
-                    $tag->tagid = $tagid;
-                    insert_record('blog_tag_instance', $tag);
-                }
+        foreach ($otags as $tagid) {
+            // TODO : make this use the tag name in the form
+            if ($tag = tag_get('id', $tagid)) {
+                $tags[] = $tag->name;
             }
         }
     }
+
+    $manual_tags = optional_param('ptags', '', PARAM_NOTAGS);
+    $tags = array_merge($tags, explode(',', $manual_tags));
+    
+    tag_set('post', $postid, $tags);
 }
 ?>

@@ -1,4 +1,4 @@
-<?php  // $Id: format.php,v 1.6.4.4 2007/05/15 02:57:05 pichetp Exp $
+<?php  // $Id: format.php,v 1.16.2.1 2007/11/02 16:20:52 tjhunt Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // WebCT FORMAT                                                          //
@@ -166,8 +166,8 @@ class qformat_webct extends qformat_default {
     }
 
     function readquestions ($lines) {
-   global $QTYPES ;
-      //  $qtypecalculated = new qformat_webct_modified_calculated_qtype();
+        global $QTYPES ;
+        //  $qtypecalculated = new qformat_webct_modified_calculated_qtype();
         $webctnumberregex =
                 '[+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+)((e|E|\\*10\\*\\*)([+-]?[0-9]+|\\([+-]?[0-9]+\\)))?';
 
@@ -292,9 +292,9 @@ class qformat_webct extends qformat_default {
                             } else {  
                                 foreach ($question->answer as $key => $dataanswer) {
                                     if ($question->tempgeneralfeedback !=''){
-                                    $question->feedback[$key] = $question->tempgeneralfeedback.'<br/>'.$question->feedback[$key];
+                                        $question->feedback[$key] = $question->tempgeneralfeedback.'<br/>'.$question->feedback[$key];
+                                    }
                                 }
-                            }
                             }
                             unset($question->tempgeneralfeedback);   
                         }   
@@ -348,6 +348,13 @@ class qformat_webct extends qformat_default {
                                 unset($question->answer); //not used in calculated question
                                 break;
                             case MATCH:
+                                // MDL-10680:
+                                // switch subquestions and subanswers
+                                foreach ($question->subquestions as $id=>$subquestion) {
+                                    $temp = $question->subquestions[$id];
+                                    $question->subquestions[$id] = $question->subanswers[$id];
+                                    $question->subanswers[$id] = $temp; 
+                                }
                                 if (count($question->answer) < 3){
                                     // add a dummy missing question
                                     $question->name = 'Dummy question added '.$question->name ;
@@ -357,8 +364,7 @@ class qformat_webct extends qformat_default {
                                     $question->fraction[] = '0.0';
                                     $question->feedback[] = '';
                                  }   
-                                break;
-
+                                 break;   
                             default:
                                 // No problemo
                         }
@@ -412,7 +418,7 @@ class qformat_webct extends qformat_default {
                 unset($question);
                 $ignore_rest_of_question = TRUE;         // Question Type not handled by Moodle
              */
-                 $question = $this->defaultquestion();
+                $question = $this->defaultquestion();
                 $question->qtype = CALCULATED;
                 $question->answers = array(); // No problem as they go as :FORMULA: from webct
                 $question->units = array();
@@ -533,16 +539,16 @@ class qformat_webct extends qformat_default {
                         qformat_webct_convert_formula($webct_options[1]);
 
                 // Default settings:
- 								$question->fraction[$currentchoice] = 1.0;
-								$question->tolerance[$currentchoice] = 0.0;
-								$question->tolerancetype[$currentchoice] = 2; // nominal (units in webct)
-								$question->feedback[$currentchoice] = '';
-								$question->correctanswerlength[$currentchoice] = 4;
+                $question->fraction[$currentchoice] = 1.0;
+                $question->tolerance[$currentchoice] = 0.0;
+                $question->tolerancetype[$currentchoice] = 2; // nominal (units in webct)
+                $question->feedback[$currentchoice] = '';
+                $question->correctanswerlength[$currentchoice] = 4;
 
                 $datasetnames = $QTYPES[CALCULATED]->find_dataset_names($webct_options[1]);
                 foreach ($datasetnames as $datasetname) {
                     $question->dataset[$datasetname] = new stdClass();
-                    $question->dataset[$datasetname]->datesetitem = array();
+                    $question->dataset[$datasetname]->datasetitem = array();
                     $question->dataset[$datasetname]->name = $datasetname ; 
                     $question->dataset[$datasetname]->distribution = 'uniform'; 
                     $question->dataset[$datasetname]->status ='private';
