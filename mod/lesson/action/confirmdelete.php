@@ -1,8 +1,8 @@
-<?php // $Id: confirmdelete.php,v 1.5 2006/09/30 19:49:41 mark-nielsen Exp $
+<?php // $Id: confirmdelete.php,v 1.6 2007/10/09 21:43:30 iarenaza Exp $
 /**
  * Action for confirming the deletion of a page
  *
- * @version $Id: confirmdelete.php,v 1.5 2006/09/30 19:49:41 mark-nielsen Exp $
+ * @version $Id: confirmdelete.php,v 1.6 2007/10/09 21:43:30 iarenaza Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -28,4 +28,3 @@
          "lesson.php?action=delete&amp;id=$cm->id&amp;pageid=$pageid&amp;sesskey=".$USER->sesskey, 
          "view.php?id=$cm->id");
 ?>
-    

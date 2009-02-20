@@ -1,9 +1,9 @@
-<?php  // $Id: format.php,v 1.7 2006/09/30 19:49:40 mark-nielsen Exp $ 
+<?php  // $Id: format.php,v 1.7.8.1 2008/11/26 13:08:32 thepurpleblob Exp $ 
 /**
  * format.php  - Default format class for file imports/exports. Doesn't do 
  * everything on it's own -- it needs to be extended.
  *
- * @version $Id: format.php,v 1.7 2006/09/30 19:49:40 mark-nielsen Exp $
+ * @version $Id: format.php,v 1.7.8.1 2008/11/26 13:08:32 thepurpleblob Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -220,7 +220,21 @@ class qformat_default {
     // Somewhere to specify question parameters that are not handled
     // by import but are required db fields.
     // This should not be overridden. 
+        global $CFG;
+
         $question = new stdClass();
+        $question->shuffleanswers = $CFG->quiz_shuffleanswers;
+        $question->defaultgrade = 1;
+        $question->image = "";
+        $question->usecase = 0;
+        $question->multiplier = array();
+        $question->generalfeedback = '';
+        $question->correctfeedback = '';
+        $question->partiallycorrectfeedback = '';
+        $question->incorrectfeedback = '';
+        $question->answernumbering = 'abc';
+        $question->penalty = 0.1;
+        $question->length = 1;
         $question->qoption = 0;
         $question->layout = 1;
         

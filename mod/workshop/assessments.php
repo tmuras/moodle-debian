@@ -1,4 +1,4 @@
-<?php  // $Id: assessments.php,v 1.57 2007/01/10 08:29:42 toyomoyo Exp $
+<?php  // $Id: assessments.php,v 1.62.2.1 2007/10/12 16:09:46 tjhunt Exp $
 
 /*************************************************
     ACTIONS handled are:
@@ -65,19 +65,13 @@
     require_login($course->id, false, $cm);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
-    $navigation = "";
-    if ($course->id != SITEID) {
-        $navigation = "<a href=\"../../course/view.php?id=$course->id\">$course->shortname</a> ->";
-    }
-
     $strworkshops = get_string("modulenameplural", "workshop");
     $strworkshop  = get_string("modulename", "workshop");
     $strassessments = get_string("assessments", "workshop");
 
     // ... print the header and...
-    print_header_simple(format_string($workshop->name), "",
-                 "<a href=\"index.php?id=$course->id\">$strworkshops</a> ->
-                  <a href=\"view.php?id=$cm->id\">".format_string($workshop->name,true)."</a> -> $strassessments",
+    $navigation = build_navigation($strassessments, $cm);
+    print_header_simple(format_string($workshop->name), "", $navigation,
                   "", "", true);
 
     /*************** add comment to assessment (by author, assessor or teacher) ***************************/
@@ -1364,4 +1358,3 @@
     print_footer($course);
 
 ?>
-

@@ -1,4 +1,4 @@
-<?php // $Id: XMLDBGenerator.class.php,v 1.60.2.2 2007/05/24 15:18:28 sam_marshall Exp $
+<?php // $Id: XMLDBGenerator.class.php,v 1.66 2007/10/10 05:25:25 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -888,11 +888,11 @@ class XMLDBgenerator {
     }
 
     /**
-     * Given three strings (table name, list of fields (comma separated) and suffix), 
+     * Given three strings (table name, list of fields (comma separated) and suffix),
      * create the proper object name quoting it if necessary.
-     * 
-     * IMPORTANT: This function must be used to calculate names of objects to be created, 
-     *            never to guess names of existing objects!
+     *
+     * IMPORTANT: This function must be used to CALCULATE NAMES of objects TO BE CREATED,
+     *            NEVER TO GUESS NAMES of EXISTING objects!!!
      */
     function getNameForObject($tablename, $fields, $suffix='') {
 
@@ -1177,6 +1177,15 @@ class XMLDBgenerator {
      */
     function getDropDefaultSQL($xmldb_table, $xmldb_field) {
         return array('Code to drop one default goes to getDropDefaultSQL()');
+    }
+
+    /**
+     * Given one XMLDBTable and one optional XMLDBField, return one array with all the check
+     * constrainst found for that table (or field). Must exist for each DB supported.
+     * (usually invoked from find_check_constraint_name)
+     */
+    function getCheckConstraintsFromDB($xmldb_table, $xmldb_field=null) {
+        return array('Code to fetch check constraints goes to getCheckConstraintsFromDB()');
     }
 
     /**

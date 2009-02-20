@@ -1,4 +1,4 @@
-<?php // $Id: mysql.php,v 1.8 2006/10/26 22:39:13 stronk7 Exp $
+<?php // $Id: mysql.php,v 1.8.6.1 2008/07/11 02:54:54 moodler Exp $
 
 // THIS FILE IS DEPRECATED!  PLEASE DO NOT MAKE CHANGES TO IT!
 //
@@ -17,8 +17,8 @@ function label_upgrade($oldversion) {
     }
 
     if ($oldversion < 2004021900) {
-        modify_database("", "INSERT INTO prefix_log_display (module, action, mtable, field) VALUES ('label', 'add', 'quiz', 'name');");
-        modify_database("", "INSERT INTO prefix_log_display (module, action, mtable, field) VALUES ('label', 'update', 'quiz', 'name');");
+        modify_database("", "INSERT INTO prefix_log_display (module, action, mtable, field) VALUES ('label', 'add', 'label', 'name');");
+        modify_database("", "INSERT INTO prefix_log_display (module, action, mtable, field) VALUES ('label', 'update', 'label', 'name');");
     }
 
     if ($oldversion < 2004111200) { //DROP first

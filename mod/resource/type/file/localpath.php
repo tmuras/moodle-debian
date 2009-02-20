@@ -1,4 +1,4 @@
-<?php    // $Id: localpath.php,v 1.5 2007/01/09 10:42:24 vyshane Exp $
+<?php    // $Id: localpath.php,v 1.5.4.4 2008/12/10 06:30:25 dongsheng Exp $
 
     require('../../../../config.php');
     require('../../lib.php');
@@ -39,7 +39,7 @@
     </script>
     
     <br />
-    <div align="center" class="form">
+    <div class="form mdl-align">
     <form id="myform" action="localpath.php" method="post">
     <fieldset class="invisiblefieldset">
     <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
@@ -49,9 +49,9 @@
            onClick="return set_value(getElementById('myform').myfile.value)">
     <input type="button" value="<?php print_string('cancel') ?>" 
            onClick="window.close()">
-    </form>
     </fieldset>
+    </form>
     </div>
-
-    </body>
-    </html>
+<?php
+    print_footer('empty');
+?>

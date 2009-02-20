@@ -1,4 +1,4 @@
-<?php // $Id: tablelib.php,v 1.19.2.2 2007/02/22 18:25:21 stronk7 Exp $
+<?php // $Id: tablelib.php,v 1.24.2.5 2008/05/22 02:33:56 jerome Exp $
 
 define('TABLE_VAR_SORT',   1);
 define('TABLE_VAR_HIDE',   2);
@@ -16,6 +16,7 @@ class flexible_table {
     var $column_style    = array();
     var $column_class    = array();
     var $column_suppress = array();
+    var $column_nosort   = array('userpic');
     var $setup           = false;
     var $sess            = NULL;
     var $baseurl         = NULL;
@@ -32,7 +33,12 @@ class flexible_table {
     var $totalrows   = 0;
     var $sort_default_column = NULL;
     var $sort_default_order  = SORT_ASC;
-
+    
+    /**
+     * Constructor
+     * @param int $uniqueid
+     * @todo Document properly
+     */
     function flexible_table($uniqueid) {
         $this->uniqueid = $uniqueid;
         $this->request  = array(
@@ -44,31 +50,90 @@ class flexible_table {
             TABLE_VAR_PAGE    => 'page'
         );
     }
-
+    
+    /**
+     * Sets the is_sortable variable to the given boolean, sort_default_column to 
+     * the given string, and the sort_default_order to the given integer.
+     * @param bool $bool
+     * @param string $defaultcolumn
+     * @param int $defaultorder
+     * @return void
+     */
     function sortable($bool, $defaultcolumn = NULL, $defaultorder = SORT_ASC) {
         $this->is_sortable = $bool;
         $this->sort_default_column = $defaultcolumn;
         $this->sort_default_order  = $defaultorder;
     }
 
+    /**
+     * Do not sort using this column
+     * @param string column name
+     */
+    function no_sorting($column) {
+        $this->column_nosort[] = $column;
+    }
+
+    /**
+     * Is the column sortable?
+     * @param string column name, null means table
+     * @return bool
+     */
+    function is_sortable($column=null) {
+        if (empty($column)) {
+            return $this->is_sortable;
+        }
+        if (!$this->is_sortable) {
+            return false;
+        }
+        return !in_array($column, $this->column_nosort);
+    }
+
+    /**
+     * Sets the is_collapsible variable to the given boolean.
+     * @param bool $bool
+     * @return void
+     */
     function collapsible($bool) {
         $this->is_collapsible = $bool;
     }
 
+    /**
+     * Sets the use_pages variable to the given boolean.
+     * @param bool $bool
+     * @return void
+     */
     function pageable($bool) {
         $this->use_pages = $bool;
     }
 
+    /**
+     * Sets the use_initials variable to the given boolean.
+     * @param bool $bool
+     * @return void
+     */
     function initialbars($bool) {
         $this->use_initials = $bool;
     }
 
+    /**
+     * Sets the pagesize variable to the given integer, the totalrows variable
+     * to the given integer, and the use_pages variable to true.
+     * @param int $perpage
+     * @param int $total
+     * @return void
+     */
     function pagesize($perpage, $total) {
         $this->pagesize  = $perpage;
         $this->totalrows = $total;
         $this->use_pages = true;
     }
 
+    /**
+     * Assigns each given variable in the array to the corresponding index
+     * in the request class variable.
+     * @param array $variables
+     * @return void
+     */
     function set_control_variables($variables) {
         foreach($variables as $what => $variable) {
             if(isset($this->request[$what])) {
@@ -77,34 +142,73 @@ class flexible_table {
         }
     }
 
+    /**
+     * Gives the given $value to the $attribute index of $this->attributes.
+     * @param string $attribute
+     * @param mixed $value
+     * @return void
+     */
     function set_attribute($attribute, $value) {
         $this->attributes[$attribute] = $value;
     }
 
+    /**
+     * I think that what this method does is set the column so that if the same data appears in 
+     * consecutive rows, then it is not repeated.
+     * 
+     * For example, in the quiz overview report, the fullname column is set to be suppressed, so
+     * that when one student has made multiple attempts, their name is only printed in the row
+     * for their first attempt.
+     * @param integer $column the index of a column.
+     */
     function column_suppress($column) {
         if(isset($this->column_suppress[$column])) {
             $this->column_suppress[$column] = true;
         }
     }
 
+    /**
+     * Sets the given $column index to the given $classname in $this->column_class.
+     * @param integer $column
+     * @param string $classname
+     * @return void
+     */
     function column_class($column, $classname) {
         if(isset($this->column_class[$column])) {
             $this->column_class[$column] = ' '.$classname; // This space needed so that classnames don't run together in the HTML
         }
     }
 
+    /**
+     * Sets the given $column index and $property index to the given $value in $this->column_style.
+     * @param integer $column
+     * @param string $property
+     * @param mixed $value
+     * @return void
+     */
     function column_style($column, $property, $value) {
         if(isset($this->column_style[$column])) {
             $this->column_style[$column][$property] = $value;
         }
     }
 
+    /**
+     * Sets all columns of the given $property to the given $value in $this->column_style.
+     * @param integer $property
+     * @param string $value
+     * @return void
+     */
     function column_style_all($property, $value) {
         foreach(array_keys($this->columns) as $column) {
             $this->column_style[$column][$property] = $value;
         }
     }
 
+    /**
+     * Sets $this->reseturl to the given $url, and $this->baseurl to the given $url plus ? or &amp;
+     * @param type? $url
+     * @return type?
+     */
     function define_baseurl($url) {
         $this->reseturl = $url;
         if(!strpos($url, '?')) {
@@ -115,6 +219,10 @@ class flexible_table {
         }
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function define_columns($columns) {
         $this->columns = array();
         $this->column_style = array();
@@ -129,10 +237,18 @@ class flexible_table {
         }
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function define_headers($headers) {
         $this->headers = $headers;
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function make_styles_string(&$styles) {
         if(empty($styles)) {
             return '';
@@ -146,6 +262,10 @@ class flexible_table {
         return $string;
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function make_attributes_string(&$attributes) {
         if(empty($attributes)) {
             return '';
@@ -159,6 +279,10 @@ class flexible_table {
         return $string;
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function setup() {
         global $SESSION, $CFG;
 
@@ -201,7 +325,7 @@ class flexible_table {
         }
 
         if(
-            !empty($_GET[$this->request[TABLE_VAR_SORT]]) &&
+            !empty($_GET[$this->request[TABLE_VAR_SORT]]) && $this->is_sortable($_GET[$this->request[TABLE_VAR_SORT]]) &&
             (isset($this->columns[$_GET[$this->request[TABLE_VAR_SORT]]]) ||
                 (($_GET[$this->request[TABLE_VAR_SORT]] == 'firstname' || $_GET[$this->request[TABLE_VAR_SORT]] == 'lastname') && isset($this->columns['fullname']))
             ))
@@ -273,7 +397,7 @@ class flexible_table {
                 $querystring .= '&amp;';
             }
             else {
-                $this->reseturl =  $strippedurl.$querystring;
+                $this->reseturl =  $strippedurl;
                 $querystring = '?';
             }
 
@@ -303,6 +427,10 @@ class flexible_table {
 
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function get_sql_sort($uniqueid = NULL) {
         if($uniqueid === NULL) {
             // "Non-static" function call
@@ -333,6 +461,10 @@ class flexible_table {
         return '';
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function get_page_start() {
         if(!$this->use_pages) {
             return '';
@@ -340,6 +472,10 @@ class flexible_table {
         return $this->currpage * $this->pagesize;
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function get_page_size() {
         if(!$this->use_pages) {
             return '';
@@ -347,6 +483,10 @@ class flexible_table {
         return $this->pagesize;
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function get_sql_where() {
         if(!isset($this->columns['fullname'])) {
             return '';
@@ -366,6 +506,10 @@ class flexible_table {
         return '';
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function get_initial_first() {
         if(!$this->use_initials) {
             return NULL;
@@ -374,6 +518,10 @@ class flexible_table {
         return $this->sess->i_first;
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function get_initial_last() {
         if(!$this->use_initials) {
             return NULL;
@@ -382,6 +530,10 @@ class flexible_table {
         return $this->sess->i_last;
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function print_html() {
         global $CFG;
 
@@ -399,7 +551,7 @@ class flexible_table {
             $alpha  = explode(',', get_string('alphabet'));
 
             // Bar of first initials
-
+         
             echo '<div class="initialbar firstinitial">'.get_string('firstname').' : ';
             if(!empty($this->sess->i_first)) {
                 echo '<a href="'.$this->baseurl.$this->request[TABLE_VAR_IFIRST].'=">'.$strall.'</a>';
@@ -407,7 +559,7 @@ class flexible_table {
                 echo '<strong>'.$strall.'</strong>';
             }
             foreach ($alpha as $letter) {
-                if ($letter == $this->sess->i_first) {
+                if (isset($this->sess->i_first) && $letter == $this->sess->i_first) {
                     echo ' <strong>'.$letter.'</strong>';
                 } else {
                     echo ' <a href="'.$this->baseurl.$this->request[TABLE_VAR_IFIRST].'='.$letter.'">'.$letter.'</a>';
@@ -424,7 +576,7 @@ class flexible_table {
                 echo '<strong>'.$strall.'</strong>';
             }
             foreach ($alpha as $letter) {
-                if ($letter == $this->sess->i_last) {
+                if (isset($this->sess->i_last) && $letter == $this->sess->i_last) {
                     echo ' <strong>'.$letter.'</strong>';
                 } else {
                     echo ' <a href="'.$this->baseurl.$this->request[TABLE_VAR_ILAST].'='.$letter.'">'.$letter.'</a>';
@@ -479,7 +631,7 @@ class flexible_table {
             switch($column) {
 
                 case 'fullname':
-                if($this->is_sortable) {
+                if($this->is_sortable($column)) {
                     $icon_sort_first = $icon_sort_last = '';
                     if($primary_sort_column == 'firstname') {
                         $lsortorder = get_string('asc');
@@ -506,8 +658,8 @@ class flexible_table {
                         $fsortorder = get_string('asc');
                         $lsortorder = get_string('asc');
                     }
-                    $this->headers[$index] = '<a href="'.$this->baseurl.$this->request[TABLE_VAR_SORT].'=firstname">'.get_string('firstname').'<span class="accesshide">'.get_string('sortby').' '.get_string('firstname').' '.$fsortorder.'</span></a> '.$icon_sort_first.' / '.
-                                          '<a href="'.$this->baseurl.$this->request[TABLE_VAR_SORT].'=lastname">'.get_string('lastname').'<span class="accesshide">'.get_string('sortby').' '.get_string('lastname').' '.$lsortorder.'</span></a> '.$icon_sort_last;
+                    $this->headers[$index] = '<a href="'.$this->baseurl.$this->request[TABLE_VAR_SORT].'=firstname">'.get_string('firstname').get_accesshide(get_string('sortby').' '.get_string('firstname').' '.$fsortorder).'</a> '.$icon_sort_first.' / '.
+                                          '<a href="'.$this->baseurl.$this->request[TABLE_VAR_SORT].'=lastname">'.get_string('lastname').get_accesshide(get_string('sortby').' '.get_string('lastname').' '.$lsortorder).'</a> '.$icon_sort_last;
                 }
                 break;
 
@@ -516,7 +668,7 @@ class flexible_table {
                 break;
 
                 default:
-                if($this->is_sortable) {
+                if($this->is_sortable($column)) {
                     if($primary_sort_column == $column) {
                         if($primary_sort_order == SORT_ASC) {
                             $icon_sort = ' <img src="'.$CFG->pixpath.'/t/down.gif" alt="'.get_string('asc').'" />';
@@ -529,7 +681,7 @@ class flexible_table {
                     } else {
                         $localsortorder = get_string('asc');  
                     }
-                    $this->headers[$index] = '<a href="'.$this->baseurl.$this->request[TABLE_VAR_SORT].'='.$column.'">'.$this->headers[$index].'<span class="accesshide">'.get_string('sortby').' '.$this->headers[$index].' '.$localsortorder.'</span></a>';
+                    $this->headers[$index] = '<a href="'.$this->baseurl.$this->request[TABLE_VAR_SORT].'='.$column.'">'.$this->headers[$index].get_accesshide(get_string('sortby').' '.$this->headers[$index].' '.$localsortorder).'</a>';
                 }
             }
 
@@ -601,6 +753,10 @@ class flexible_table {
         }
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function add_data($row) {
         if(!$this->setup) {
             return false;
@@ -608,11 +764,36 @@ class flexible_table {
         $this->data[] = $row;
     }
 
+    /**
+     * @todo Document
+     * @return type?
+     */
     function add_separator() {
         if(!$this->setup) {
             return false;
         }
         $this->data[] = NULL;
+    }
+    
+    /**
+     * Add a row of data to the table. This function takes an array with 
+     * column names as keys. 
+     * It ignores any elements with keys that are not defined as columns. It
+     * puts in empty strings into the row when there is no element in the passed
+     * array corresponding to a column in the table. It puts the row elements in
+     * the proper order.
+     * @param $rowwithkeys array
+     * 
+     */
+    function add_data_keyed($rowwithkeys){
+        foreach (array_keys($this->columns) as $column){
+            if (isset($rowwithkeys[$column])){
+                $row [] = $rowwithkeys[$column];
+            } else {
+                $row[] ='';
+            }
+        }
+        $this->add_data($row);
     }
 
 }

@@ -1,4 +1,4 @@
-<?PHP // $Id: config.php,v 1.5.6.1 2007/06/25 12:19:56 urs_hunkler Exp $
+<?PHP // $Id: config.php,v 1.7.2.1 2008/02/19 07:52:38 urs_hunkler Exp $
 
 ////////////////////////////////////////////////////////////////////////////////
 /// This file contains a few configuration variables that control 
@@ -80,6 +80,35 @@ $THEME->langsheets = false;
 /// different styles.
 
 
+$THEME->courseformatsheets = true;
+
+/// When this is enabled, this theme will search for files 
+/// named "styles.php" inside all course formats and 
+/// include them.  This allows course formats to provide 
+/// their own default styles.
+
+
+$THEME->metainclude = true;
+
+/// When this is enabled (or not set!) then Moodle will try 
+/// to include a file meta.php from this theme into the 
+/// <head></head> part of the page.
+
+
+$THEME->standardmetainclude = true;
+
+/// When this is enabled (or not set!) then Moodle will try 
+/// to include a file meta.php from the standard theme into the 
+/// <head></head> part of the page.
+
+
+$THEME->parentmetainclude = false;
+
+/// When this is enabled (or not set!) then Moodle will try 
+/// to include a file meta.php from the parent theme into the 
+/// <head></head> part of the page.
+
+
 $THEME->navmenuwidth = 50;
 
 /// You can use this to control the cutoff point for strings 
@@ -96,12 +125,11 @@ $THEME->makenavmenulist = false;
 /// creating popup navigation menus and so on.
 
 
-$THEME->chameleonenabled = true;
+$THEME->chameleonenabled = false;
 
-/// By setting this to false it disables editing of the stylsheets
-/// this saves the overhead of loading chameleon on each page 
-/// viewed by a user who can edit pages. it is recommended to 
-/// set this to false once you're satisfied with your theme.
+/// By setting this to true it enables editing of the stylsheets.
+/// It is recommended to set this to false again once you're 
+/// satisfied with your theme.
 
 $THEME->chameleonteachereditenabled = false;
 

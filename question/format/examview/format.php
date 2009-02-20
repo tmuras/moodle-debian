@@ -1,6 +1,10 @@
-<?php // $Id: format.php,v 1.8.4.1 2007/04/25 09:39:37 thepurpleblob Exp $
+<?php // $Id: format.php,v 1.10.4.1 2007/11/02 16:21:08 tjhunt Exp $
 
 // Based on default.php, included by ../import.php
+/**
+ * @package questionbank
+ * @subpackage importexport
+ */
 
 require_once("$CFG->libdir/xmlize.php");
 

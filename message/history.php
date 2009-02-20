@@ -1,4 +1,4 @@
-<?php // $Id: history.php,v 1.14 2006/12/18 09:04:38 skodak Exp $
+<?php // $Id: history.php,v 1.14.4.2 2008/05/02 04:07:32 dongsheng Exp $
       // For listing message histories between any two users
       
     require('../config.php');
@@ -20,7 +20,7 @@
         error("User ID 1 was incorrect");
     }
 
-    if (has_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_SYSTEM, SITEID))) {             // Able to see any discussion
+    if (has_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_SYSTEM))) {             // Able to see any discussion
         $userid2 = optional_param('user2', $USER->id, PARAM_INT);
         if (! $user2 = get_record("user", "id", $userid2)) {  // Check
             error("User ID 2 was incorrect");
@@ -42,7 +42,7 @@
     print_simple_box_start('center');
     echo '<table align="center" cellpadding="10"><tr>';
     echo '<td align="center">';
-    echo print_user_picture($user1->id, SITEID, $user1->picture, 100, true, true, 'userwindow').'<br />';
+    echo print_user_picture($user1, SITEID, $user1->picture, 100, true, true, 'userwindow').'<br />';
     echo fullname($user1);
     echo '</td>';
     echo '<td align="center">';
@@ -50,7 +50,7 @@
     echo '<img src="'.$CFG->wwwroot.'/pix/t/right.gif" alt="'.get_string('to').'" />';
     echo '</td>';
     echo '<td align="center">';
-    echo print_user_picture($user2->id, SITEID, $user2->picture, 100, true, true, 'userwindow').'<br />';
+    echo print_user_picture($user2, SITEID, $user2->picture, 100, true, true, 'userwindow').'<br />';
     echo fullname($user2);
     echo '</td>';
     echo '</tr></table>';

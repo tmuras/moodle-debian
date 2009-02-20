@@ -1,4 +1,4 @@
-<?php  // $Id: restore_precheck.html,v 1.18 2006/09/07 08:57:57 toyomoyo Exp $
+<?php  // $Id: restore_precheck.html,v 1.18.10.2 2008/05/02 04:07:30 dongsheng Exp $
     //This page copies th zip to the temp directory,
     //unzip it, check that it is a valid backup file
     //inform about its contents and fill all the necesary
@@ -18,13 +18,14 @@
             if (empty($to)) {
                 error("You need to be a teacher or admin user to use this page.", "$CFG->wwwroot/login/index.php");
             } else {
-                if (!has_capability('moodle/site:restore', get_context_instance(CONTEXT_COURSE, $to))) {
+                if (!has_capability('moodle/site:restore', get_context_instance(CONTEXT_COURSE, $to))
+                    && !has_capability('moodle/site:import',  get_context_instance(CONTEXT_COURSE, $to))) {
                     error("You need to be a teacher or admin user to use this page.", "$CFG->wwwroot/login/index.php");
                 }
             }
         }
     } else {
-        if (!has_capability('moodle/site:restore', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+        if (!has_capability('moodle/site:restore', get_context_instance(CONTEXT_SYSTEM))) {
             error("You need to be an admin user to use this page.", "$CFG->wwwroot/login/index.php");   
         }
     }

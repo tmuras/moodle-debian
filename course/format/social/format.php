@@ -1,7 +1,7 @@
-<?php // $Id: format.php,v 1.37.2.1 2007/04/17 09:25:51 moodler Exp $
+<?php // $Id: format.php,v 1.41.2.2 2007/11/23 16:41:19 skodak Exp $
       // format.php - course format featuring social forum
       //              included from view.php
-
+    
     // Bounds for block widths
     // more flexible for theme designers taken from theme config.php
     $lmin = (empty($THEME->block_l_min_width)) ? 100 : $THEME->block_l_min_width;
@@ -28,32 +28,35 @@
 
     if (blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $editing) {
         echo '<td style="width:'.$preferred_width_left.'px" id="left-column">';
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
+        print_container_end();
         echo '</td>';
     }
 
-    echo '<td id="middle-column"><a name="startofcontent"></a>';
+    echo '<td id="middle-column">';
+    print_container_start();
+    echo skip_main_destination();
     if ($forum = forum_get_course_forum($course->id, 'social')) {
         print_heading_block(get_string('socialheadline'));
-        if (forum_is_forcesubscribed($forum->id)) {
-            echo '<div class="subscribelink">'.get_string('everyoneissubscribed', 'forum').'</div>';
-        } else if (forum_is_subscribed($USER->id, $forum->id)) {
-            echo '<div class="subscribelink"><a href="../mod/forum/subscribe.php?id='.$forum->id.'">'.get_string('unsubscribe', 'forum').'</a></div>';
-        } else {
-            echo '<div class="subscribelink"><a href="../mod/forum/subscribe.php?id='.$forum->id.'">'.get_string('subscribe', 'forum').'</a></div>';
-        }
-
+        
+        $cm = get_coursemodule_from_instance('forum', $forum->id);
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        echo '<div class="subscribelink">', forum_get_subscribe_link($forum, $context), '</div>';
         forum_print_latest_discussions($course, $forum, 10, 'plain', '', false);
 
     } else {
         notify('Could not find or create a social forum here');
     }
+    print_container_end();
     echo '</td>';
 
     // The right column
     if (blocks_have_content($pageblocks, BLOCK_POS_RIGHT) || $editing) {
         echo '<td style="width:'.$preferred_width_right.'px" id="right-column">';
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_RIGHT);
+        print_container_end();
         echo '</td>';
     }
 

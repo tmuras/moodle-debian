@@ -59,20 +59,23 @@ class auth_plugin_db extends auth_plugin_base {
             // don't track passwords
             $rs = $authdb->Execute("SELECT * FROM {$this->config->table}
                                      WHERE {$this->config->fielduser} = '".$this->ext_addslashes($extusername)."' ");
-            $authdb->Close();
-
             if (!$rs) {
+                $authdb->Close();
                 print_error('auth_dbcantconnect','auth');
                 return false;
             }
 
-            if ( $rs->RecordCount() ) {
+            if ( !$rs->EOF ) {
+                $rs->Close();
+                $authdb->Close();
                 // user exists exterally
                 // check username/password internally
                 if ($user = get_record('user', 'username', $username, 'mnethostid', $CFG->mnet_localhost_id)) {
                     return validate_internal_user_password($user, $password);
                 }
             } else {
+                $rs->Close();
+                $authdb->Close();
                 // user does not exist externally
                 return false;
             }
@@ -89,16 +92,19 @@ class auth_plugin_db extends auth_plugin_base {
             $rs = $authdb->Execute("SELECT * FROM {$this->config->table}
                                 WHERE {$this->config->fielduser} = '".$this->ext_addslashes($extusername)."'
                                   AND {$this->config->fieldpass} = '".$this->ext_addslashes($extpassword)."' ");
-            $authdb->Close();
-
             if (!$rs) {
+                $authdb->Close();
                 print_error('auth_dbcantconnect','auth');
                 return false;
             }
 
-            if ($rs->RecordCount()) {
+            if (!$rs->EOF) {
+                $rs->Close();
+                $authdb->Close();
                 return true;
             } else {
+                $rs->Close();
+                $authdb->Close();
                 return false;
             }
 
@@ -126,11 +132,8 @@ class auth_plugin_db extends auth_plugin_base {
      * @return array
      */
     function db_attributes() {
-        $fields = array("firstname", "lastname", "email", "phone1", "phone2",
-                        "department", "address", "city", "country", "description",
-                        "idnumber", "lang" );
         $moodleattributes = array();
-        foreach ($fields as $field) {
+        foreach ($this->userfields as $field) {
             if (!empty($this->config->{"field_map_$field"})) {
                 $moodleattributes[$field] = $this->config->{"field_map_$field"};
             }
@@ -171,8 +174,9 @@ class auth_plugin_db extends auth_plugin_base {
                 " FROM {$this->config->table}" .
                 " WHERE {$this->config->fielduser} = '".$this->ext_addslashes($extusername)."'";
             if ($rs = $authdb->Execute($sql)) {
-                if ( $rs->RecordCount() == 1 ) {
+                if ( !$rs->EOF ) {
                     $fields_obj = rs_fetch_record($rs);
+                    $fields_obj = (object)array_change_key_case((array)$fields_obj , CASE_LOWER);                 
                     foreach ($selectfields as $localname=>$externalname) {
                         $result[$localname] = $textlib->convert($fields_obj->{$localname}, $this->config->extencoding, 'utf-8');
                      }
@@ -235,11 +239,11 @@ class auth_plugin_db extends auth_plugin_base {
 
             // find obsolete users
             if (count($userlist)) {
-                $sql = "SELECT u.id, u.username, u.email
+                $sql = "SELECT u.id, u.username, u.email, u.auth
                         FROM {$CFG->prefix}user u
                         WHERE u.auth='db' AND u.deleted=0 AND u.username NOT IN ($quoteduserlist)";
             } else {
-                $sql = "SELECT u.id, u.username, u.email
+                $sql = "SELECT u.id, u.username, u.email, u.auth
                         FROM {$CFG->prefix}user u
                         WHERE u.auth='db' AND u.deleted=0";
             }
@@ -248,21 +252,9 @@ class auth_plugin_db extends auth_plugin_base {
             if (!empty($remove_users)) {
                 print_string('auth_dbuserstoremove','auth', count($remove_users)); echo "\n";
 
-                begin_sql();
                 foreach ($remove_users as $user) {
                     if ($this->config->removeuser == 2) {
-                        //following is copy pasted from admin/user.php
-                        //maybe this should moved to function in lib/datalib.php
-                        $updateuser = new object();
-                        $updateuser->id           = $user->id;
-                        $updateuser->deleted      = 1;
-                        $updateuser->username     = addslashes("$user->email.".time());  // Remember it just in case
-                        $updateuser->email        = '';               // Clear this field to free it up
-                        $updateuser->idnumber     = '';               // Clear this field to free it up
-                        $updateuser->timemodified = time();
-                        if (update_record('user', $updateuser)) {
-                            delete_records('role_assignments', 'userid', $user->id); // unassign all roles
-                        //copy pasted part ends
+                        if (delete_user($user)) {
                             echo "\t"; print_string('auth_dbdeleteuser', 'auth', array($user->username, $user->id)); echo "\n";
                         } else {
                             echo "\t"; print_string('auth_dbdeleteusererror', 'auth', $user->username); echo "\n";
@@ -278,7 +270,6 @@ class auth_plugin_db extends auth_plugin_base {
                         }
                     }
                 }
-                commit_sql();
             }
             unset($remove_users); // free mem!
         }
@@ -341,10 +332,12 @@ class auth_plugin_db extends auth_plugin_base {
 
         // simplify down to usernames
         $usernames = array();
-        foreach ($users as $user) {
-            array_push($usernames, $user->username);
+        if (!empty($users)) {
+            foreach ($users as $user) {
+                array_push($usernames, $user->username);
+            }
+            unset($users);
         }
-        unset($users);
 
         $add_users = array_diff($userlist, $usernames);
         unset($usernames);
@@ -404,9 +397,9 @@ class auth_plugin_db extends auth_plugin_base {
 
         if (!$rs) {
             print_error('auth_dbcantconnect','auth');
-        } else if ( $rs->RecordCount() ) {
+        } else if ( !$rs->EOF ) {
             // user exists exterally
-            $result = $rs->RecordCount();
+            $result = true;
         }
 
         $authdb->Close();
@@ -427,8 +420,9 @@ class auth_plugin_db extends auth_plugin_base {
 
         if (!$rs) {
             print_error('auth_dbcantconnect','auth');
-        } else if ( $rs->RecordCount() ) {
+        } else if ( !$rs->EOF ) {
             while ($rec = rs_fetch_next_record($rs)) {
+                $rec = (object)array_change_key_case((array)$rec , CASE_LOWER);
                 array_push($result, $rec->username);
             }
         }

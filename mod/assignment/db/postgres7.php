@@ -1,4 +1,4 @@
-<?php // $Id: postgres7.php,v 1.23 2006/10/26 22:46:06 stronk7 Exp $
+<?php // $Id: postgres7.php,v 1.24.2.1 2007/10/15 05:42:23 nicolasconnault Exp $
 
 // THIS FILE IS DEPRECATED!  PLEASE DO NOT MAKE CHANGES TO IT!
 //
@@ -60,7 +60,7 @@ function assignment_upgrade($oldversion) {
         notify("Moving location of assignment files...");
 
         $basedir = opendir("$CFG->dataroot");
-        while ($dir = readdir($basedir)) {
+        while (false !== ($dir = readdir($basedir))) {
             if ($dir == "." || $dir == ".." || $dir == "users") {
                 continue;
             }
@@ -174,11 +174,7 @@ function assignment_upgrade($oldversion) {
 
     if ($oldversion < 2006092100) {
         table_column('assignment_submissions', 'comment', 'submissioncomment', 'text', '', '', '');
-    } 
-
-/// These lines ALWAYS need to be here at the end of this file.  Don't mess with them. :-)
-    include_once("$CFG->dirroot/mod/assignment/lib.php");
-    assignment_upgrade_submodules();
+    }
 
     //////  DO NOT ADD NEW THINGS HERE!!  USE upgrade.php and the lib/ddllib.php functions.
 

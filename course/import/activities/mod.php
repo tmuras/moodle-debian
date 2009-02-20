@@ -1,4 +1,4 @@
-<?php  // $Id: mod.php,v 1.8.2.1 2007/02/28 16:15:36 poltawski Exp $
+<?php  // $Id: mod.php,v 1.9.2.2 2008/12/03 16:31:01 samulik Exp $
 
     if (!defined('MOODLE_INTERNAL')) {
         die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
@@ -7,7 +7,7 @@
     require_once($CFG->dirroot.'/course/lib.php');
     require_once($CFG->dirroot.'/backup/restorelib.php');
 
-    $syscontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+    $syscontext = get_context_instance(CONTEXT_SYSTEM);
 
     // if we're not a course creator , we can only import from our own courses.
     if (has_capability('moodle/course:create', $syscontext)) {
@@ -33,7 +33,7 @@
     }
 
     if (!empty($creator)) {
-        $cat_courses = get_courses($course->category);
+        $cat_courses = get_courses($course->category, $sort="c.sortorder ASC", $fields="c.id, c.fullname");
     } else {
         $cat_courses = array();
     }

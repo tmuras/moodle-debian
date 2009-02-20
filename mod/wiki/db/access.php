@@ -1,4 +1,4 @@
-<?php // $Id: access.php,v 1.8.4.1 2007/02/16 08:43:21 vyshane Exp $
+<?php // $Id: access.php,v 1.9 2007/02/16 08:47:00 vyshane Exp $
 /**
  * Capability definitions for the wiki module.
  *

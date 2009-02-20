@@ -1,4 +1,4 @@
-<?php   // $Id: print.php,v 1.39.4.2 2007/03/30 07:02:58 toyomoyo Exp $
+<?php   // $Id: print.php,v 1.41.2.2 2009/01/16 04:55:38 dongsheng Exp $
 
     global $CFG;
 
@@ -173,7 +173,7 @@
                         $pivottoshow = fullname($user);
                     }
 
-                    echo "<p align=\"center\"><strong>".clean_text($pivottoshow)."</strong></p>" ;
+                    echo "<p class='mdl-align'><strong>".clean_text($pivottoshow)."</strong></p>" ;
                 }
             }
 
@@ -181,5 +181,5 @@
         }
     }
 
-    echo '</div></div></body></html>';
+    print_footer('empty');
 ?>

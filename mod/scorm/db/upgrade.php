@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.8.2.3 2007/07/03 07:54:32 bobopinna Exp $
+<?php  //$Id: upgrade.php,v 1.13.2.3 2008/08/01 04:30:45 piers Exp $
 
 // This file keeps track of upgrades to 
 // the scorm module
@@ -204,7 +204,7 @@ function xmldb_scorm_upgrade($oldversion=0) {
         $result = $result && create_table($table);
     }
     
-	//Adding new field to table scorm
+    //Adding new field to table scorm
     if ($result && $oldversion < 2007011800) {
 
     /// Define field format to be added to data_comments
@@ -273,6 +273,38 @@ function xmldb_scorm_upgrade($oldversion=0) {
             }
         }
     }
+
+    if ($result && $oldversion < 2007081001) {
+        require_once($CFG->dirroot.'/mod/scorm/lib.php');
+        // too much debug output
+        $db->debug = false;
+        scorm_update_grades();
+        $db->debug = true;
+    }  
+
+	// Adding missing 'version' field to table scorm
+    if ($result && $oldversion < 2007110500) {
+        $table = new XMLDBTable('scorm');
+        $field = new XMLDBField('version');
+        $field->setAttributes(XMLDB_TYPE_CHAR, '9', null, XMLDB_NOTNULL, null, null, null, 'scorm_12', 'summary');
+
+        $result = $result && add_field($table, $field);
+    }
+
+   // Adding missing 'whatgrade' field to table scorm
+    if ($result && $oldversion < 2007110501) {
+        $table = new XMLDBTable('scorm');
+        $field = new XMLDBField('whatgrade');
+        
+        /// Launch add field whatgrade
+        if (!field_exists($table, $field)) {
+            $field->setAttributes(XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null, null, '0', 'grademethod');
+            $result = $result && add_field($table, $field);
+        }
+    }
+    
+    
+//===== 1.9.0 upgrade line ======//
 
     return $result;
 }

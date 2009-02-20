@@ -1,8 +1,8 @@
-<?php  // $Id: edit.php,v 1.12.2.1 2007/02/23 20:17:36 mark-nielsen Exp $
+<?php  // $Id: edit.php,v 1.13.2.1 2007/12/29 20:40:18 mark-nielsen Exp $
 /**
  * Provides the interface for overall authoring of lessons
  *
- * @version $Id: edit.php,v 1.12.2.1 2007/02/23 20:17:36 mark-nielsen Exp $
+ * @version $Id: edit.php,v 1.13.2.1 2007/12/29 20:40:18 mark-nielsen Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -73,10 +73,17 @@
                 
                 while ($pageid != 0) {
                     $page = $pages[$pageid];
-                        
+
+                    if ($page->qtype == LESSON_MATCHING) {
+                        // The jumps for matching question type is stored
+                        // in the 3rd and 4rth answer record.
+                        $limitfrom = $limitnum = 2;
+                    } else {
+                        $limitfrom = $limitnum = '';
+                    }
+
                     $jumps = array();
-                    if($answers = get_records_select("lesson_answers", "lessonid = $lesson->id and pageid = $pageid")) {
-                        
+                    if($answers = get_records_select("lesson_answers", "lessonid = $lesson->id and pageid = $pageid", 'id', '*', $limitfrom, $limitnum)) {
                         foreach ($answers as $answer) {
                             $jumps[] = lesson_get_jump_name($answer->jumpto);
                         }
@@ -213,7 +220,7 @@
                                         echo "</td><td style=\"width:80%;\">\n";
                                         echo format_text($answer->answer, FORMAT_MOODLE, $options);
                                         echo "</td></tr>\n";
-                                        echo "<tr><td align=\"right\" valign=\"top\">'<span class=\"label\">'.".get_string("matchesanswer", "lesson")." $i</span>: \n";
+                                        echo "<tr><td align=\"right\" valign=\"top\"><span class=\"label\">".get_string("matchesanswer", "lesson")." $i</span>: \n";
                                         echo "</td><td>\n";
                                         echo format_text($answer->response, FORMAT_MOODLE, $options); 
                                         echo "</td></tr>\n";

@@ -1,4 +1,4 @@
-<?php // $Id: graph.php,v 1.28 2006/08/30 08:43:19 toyomoyo Exp $
+<?php // $Id: graph.php,v 1.30 2007/08/28 00:12:02 mattc-catalyst Exp $
 
     require_once("../../config.php");
     require_once("$CFG->libdir/graphlib.php");
@@ -20,13 +20,13 @@
 
     require_login($course->id, false, $cm);
 
-    $groupmode = groupmode($course, $cm);   // Groups are being used
+    $groupmode = groups_get_activity_groupmode($cm);   // Groups are being used
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
     if (!has_capability('mod/survey:readresponses', $context)) {
         if ($type != "student.png" or $sid != $USER->id ) {
             error("Sorry, you aren't allowed to see this.");
-        } else if ($groupmode and !ismember($group)) {
+        } else if ($groupmode and !groups_is_member($group)) {
             error("Sorry, you aren't allowed to see this.");
         }
     }
@@ -36,8 +36,10 @@
     }
 
 /// Check to see if groups are being used in this survey
-    if ($groupmode and $group) {
-        $users = get_group_users($group);
+    if ($group) {
+        $users = groups_get_members($group);
+    } else if (!empty($CFG->enablegroupings) && !empty($cm->groupingid)) { 
+        $users = groups_get_grouping_members($cm->groupingid);
     } else {
         $users = get_course_users($course->id);
         $group = false;

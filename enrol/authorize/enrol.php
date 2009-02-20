@@ -1,4 +1,4 @@
-<?php // $Id: enrol.php,v 1.132.2.2 2007/06/15 17:45:28 ethem Exp $
+<?php // $Id: enrol.php,v 1.135.2.7 2008/12/10 06:30:23 dongsheng Exp $
 
 require_once($CFG->dirroot.'/enrol/enrol.class.php');
 require_once($CFG->dirroot.'/enrol/authorize/const.php');
@@ -43,7 +43,7 @@ class enrolment_plugin_authorize
 
         if (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] != 443) { // MDL-9836
             if (empty($CFG->loginhttps)) {
-                error(get_string('httpsrequired', 'enrol_authorize'));
+                print_error('httpsrequired', 'enrol_authorize');
             } else {
                 $wwwsroot = str_replace('http:','https:', $CFG->wwwroot);
                 redirect("$wwwsroot/course/enrol.php?id=$course->id");
@@ -54,9 +54,12 @@ class enrolment_plugin_authorize
         $strcourses = get_string('courses');
         $strloginto = get_string('loginto', '', $course->shortname);
 
-        print_header($strloginto,
-                     $course->fullname,
-                     "<a href=\"$CFG->wwwroot/course/\">$strcourses</a> -> $strloginto");
+        $navlinks = array();
+        $navlinks[] = array('name' => $strcourses, 'link' => "$CFG->wwwroot/course/", 'type' => 'misc');
+        $navlinks[] = array('name' => $strloginto, 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
+
+        print_header($strloginto, $course->fullname, $navigation);
         print_course($course, '80%');
 
         if ($course->password) {
@@ -66,7 +69,7 @@ class enrolment_plugin_authorize
         print_simple_box_start('center', '80%');
         if ($USER->username == 'guest') { // only real guest user, not for users with guest role
             $curcost = get_course_cost($course);
-            echo '<div align="center">';
+            echo '<div class="mdl-align">';
             echo '<p>'.get_string('paymentrequired').'</p>';
             echo '<p><b>'.get_string('cost').": $curcost[currency] $curcost[cost]".'</b></p>';
             echo '<p><a href="'.$CFG->httpswwwroot.'/login/">'.get_string('loginsite').'</a></p>';
@@ -96,11 +99,17 @@ class enrolment_plugin_authorize
 
         if ($course->password) {
             $password = '';
-            $teacher = get_teacher($course->id);
             include($CFG->dirroot.'/enrol/manual/enrol.html');
         }
 
         print_footer();
+    }
+
+
+    function print_enrolmentkeyfrom($course)
+    {
+        $manual = enrolment_factory::factory('manual');
+        $manual->print_enrolmentkeyfrom($course);
     }
 
 
@@ -188,16 +197,15 @@ class enrolment_plugin_authorize
         $extra->x_phone = '';
         $extra->x_fax = '';
 
-        $revieworder = false;
-        $action = AN_ACTION_AUTH_CAPTURE;
-
         if (!empty($CFG->an_authcode) && !empty($form->ccauthcode)) {
             $action = AN_ACTION_CAPTURE_ONLY;
             $extra->x_auth_code = $form->ccauthcode;
         }
         elseif (!empty($CFG->an_review)) {
-            $revieworder = true;
             $action = AN_ACTION_AUTH_ONLY;
+        }
+        else {
+            $action = AN_ACTION_AUTH_CAPTURE;
         }
 
         $message = '';
@@ -207,18 +215,8 @@ class enrolment_plugin_authorize
         }
 
         $SESSION->ccpaid = 1; // security check: don't duplicate payment
-        if ($order->transid == 0) { // TEST MODE
-            if ($revieworder) {
-                redirect($CFG->wwwroot, get_string("reviewnotify", "enrol_authorize"), '30');
-            }
-            else {
-                enrol_into_course($course, $USER, 'manual');
-                redirect("$CFG->wwwroot/course/view.php?id=$course->id");
-            }
-            return;
-        }
 
-        if ($revieworder) { // review enabled, inform payment managers and redirect the user who have paid to main page.
+        if (AN_ACTION_AUTH_ONLY == $action) { // review enabled, inform payment managers and redirect the user who have paid to main page.
             $a = new stdClass;
             $a->url = "$CFG->wwwroot/enrol/authorize/index.php?order=$order->id";
             $a->orderid = $order->id;
@@ -235,7 +233,7 @@ class enrolment_plugin_authorize
             $a->orderid = $order->id;
             $emailsubject = get_string('adminnewordersubject', 'enrol_authorize', $a);
             $context = get_context_instance(CONTEXT_COURSE, $course->id);
-            if ($paymentmanagers = get_users_by_capability($context, 'enrol/authorize:managepayments')) {
+            if (($paymentmanagers = get_users_by_capability($context, 'enrol/authorize:managepayments'))) {
                 foreach ($paymentmanagers as $paymentmanager) {
                     email_to_user($paymentmanager, $USER, $emailsubject, $emailmessage);
                 }
@@ -245,7 +243,7 @@ class enrolment_plugin_authorize
         }
 
         // Credit card captured, ENROL student now...
-        if (enrol_into_course($course, $USER, 'manual')) {
+        if (enrol_into_course($course, $USER, 'authorize')) {
             if (!empty($CFG->enrol_mailstudents)) {
                 send_welcome_messages($order->id);
             }
@@ -407,7 +405,7 @@ class enrolment_plugin_authorize
         global $CFG;
         $mconfig = get_config('enrol/authorize');
 
-        if (! check_openssl_loaded()) {
+        if (!check_openssl_loaded()) {
             notify('PHP must be compiled with SSL support (--with-openssl)');
         }
 
@@ -430,13 +428,14 @@ class enrolment_plugin_authorize
             $captureday = intval($frm->an_capture_day);
             $emailexpired = intval($frm->an_emailexpired);
             if ($captureday > 0 || $emailexpired > 0) {
-                if ((time() - intval($mconfig->an_lastcron) > 3600 * 24)) {
+                $lastcron = get_field_sql('SELECT max(lastcron) FROM ' . $CFG->prefix . 'modules');
+                if ((time() - intval($lastcron) > 3600 * 24)) {
                     notify(get_string('admincronsetup', 'enrol_authorize'));
                 }
             }
         }
 
-        if ($count = count_records('enrol_authorize', 'status', AN_STATUS_AUTH)) {
+        if (($count = count_records('enrol_authorize', 'status', AN_STATUS_AUTH))) {
             $a = new stdClass;
             $a->count = $count;
             $a->url = $CFG->wwwroot."/enrol/authorize/index.php?status=".AN_STATUS_AUTH;
@@ -505,7 +504,8 @@ class enrolment_plugin_authorize
         $emailexpired = ($emailexpired > 5) ? 5 : (($emailexpired < 0) ? 0 : $emailexpired);
 
         if (!empty($reviewval) && ($captureday > 0 || $emailexpired > 0)) {
-            if (time() - intval($mconfig->an_lastcron) > 3600 * 24) {
+            $lastcron = get_field_sql('SELECT max(lastcron) FROM ' . $CFG->prefix . 'modules');
+            if (time() - intval($lastcron) > 3600 * 24) {
                 return false;
             }
         }
@@ -517,8 +517,7 @@ class enrolment_plugin_authorize
         set_config('an_sorttype', $sorttype);
 
         // https and openssl library is required
-        if ((substr($CFG->wwwroot, 0, 5) !== 'https' and empty($CFG->loginhttps)) or
-            !check_openssl_loaded()) {
+        if ((substr($CFG->wwwroot, 0, 5) !== 'https' and empty($CFG->loginhttps)) or !check_openssl_loaded()) {
             return false;
         }
 
@@ -574,7 +573,6 @@ class enrolment_plugin_authorize
         $settlementtime = authorize_getsettletime($timenow);
         $timediff30 = $settlementtime - (30 * $oneday);
         $mconfig = get_config('enrol/authorize');
-        set_config('an_lastcron', $timenow, 'enrol/authorize');
 
         mtrace("Processing authorize cron...");
 
@@ -586,35 +584,25 @@ class enrolment_plugin_authorize
         }
 
         mtrace("    scheduled capture", ": ");
-        if (empty($CFG->an_review) or
-           (!empty($CFG->an_test)) or
-           (intval($CFG->an_capture_day) < 1) or
-           (!check_openssl_loaded())) {
+        if (empty($CFG->an_review) or (!empty($CFG->an_test)) or (intval($CFG->an_capture_day) < 1) or (!check_openssl_loaded())) {
             mtrace("disabled");
             return; // order review disabled or test mode or manual capture or openssl wasn't loaded.
         }
 
         $timediffcnf = $settlementtime - (intval($CFG->an_capture_day) * $oneday);
-        $sql = "SELECT * FROM {$CFG->prefix}enrol_authorize
-                WHERE (status = '" .AN_STATUS_AUTH. "')
-                  AND (timecreated < '$timediffcnf')
-                  AND (timecreated > '$timediff30')
-                ORDER BY courseid";
-
-        if (!$orders = get_records_sql($sql)) {
+        $select = "(status = '" .AN_STATUS_AUTH. "') AND (timecreated < '$timediffcnf') AND (timecreated > '$timediff30')";
+        if (!($ordercount = count_records_select('enrol_authorize', $select))) {
             mtrace("no pending orders");
             return;
         }
 
         $eachconn = intval($mconfig->an_eachconnsecs);
-        if (empty($eachconn)) $eachconn = 3;
-        elseif ($eachconn > 60) $eachconn = 60;
-
-        $ordercount = count((array)$orders);
+        $eachconn = (($eachconn > 60) ? 60 : (($eachconn <= 0) ? 3 : $eachconn));
         if (($ordercount * $eachconn) + intval($mconfig->an_lastcron) > $timenow) {
             mtrace("blocked");
             return;
         }
+        set_config('an_lastcron', $timenow, 'enrol/authorize');
 
         mtrace("    $ordercount orders are being processed now", ": ");
 
@@ -625,7 +613,8 @@ class enrolment_plugin_authorize
         $this->log = "AUTHORIZE.NET AUTOCAPTURE CRON: " . userdate($timenow) . "\n";
 
         $lastcourseid = 0;
-        foreach ($orders as $order) {
+        for ($rs = get_recordset_select('enrol_authorize', $select, 'courseid'); ($order = rs_fetch_next_record($rs)); )
+        {
             $message = '';
             $extra = NULL;
             if (AN_APPROVED == authorize_action($order, $message, $extra, AN_ACTION_PRIOR_AUTH_CAPTURE)) {
@@ -641,7 +630,7 @@ class enrolment_plugin_authorize
                     $timeend = $order->settletime + $course->enrolperiod;
                 }
                 $user = get_record('user', 'id', $order->userid);
-                if (role_assign($role->id, $user->id, 0, $context->id, $timestart, $timeend, 0, 'manual')) {
+                if (role_assign($role->id, $user->id, 0, $context->id, $timestart, $timeend, 0, 'authorize')) {
                     $this->log .= "User($user->id) has been enrolled to course($course->id).\n";
                     if (!empty($CFG->enrol_mailstudents)) {
                         $sendem[] = $order->id;
@@ -658,7 +647,7 @@ class enrolment_plugin_authorize
                 $this->log .= "Error, Order# $order->id: " . $message . "\n";
             }
         }
-
+        rs_close($rs);
         mtrace("processed");
 
         $timenow = time();
@@ -717,8 +706,7 @@ class enrolment_plugin_authorize
         // get_users_by_capability() does not handling user level resolving
         // After user resolving, get_admin() to get_users_by_capability()
         $adminuser = get_admin();
-        $select = "status IN(".AN_STATUS_UNDERREVIEW.",".AN_STATUS_APPROVEDREVIEW.") " .
-                  "AND (timecreated<'$onepass') AND (timecreated>'$timediff60')";
+        $select = "status IN(".AN_STATUS_UNDERREVIEW.",".AN_STATUS_APPROVEDREVIEW.") AND (timecreated<'$onepass') AND (timecreated>'$timediff60')";
         $count = count_records_select('enrol_authorize', $select);
         if ($count) {
             $a = new stdClass;
@@ -776,11 +764,11 @@ class enrolment_plugin_authorize
                 GROUP BY e.courseid
                 ORDER BY $sorttype DESC";
 
-        $courseinfos = get_records_sql($sql);
-        foreach($courseinfos as $courseinfo) {
+        for ($rs = get_recordset_sql($sql); ($courseinfo = rs_fetch_next_record($rs)); )
+        {
             $lastcourse = $courseinfo->courseid;
             $context = get_context_instance(CONTEXT_COURSE, $lastcourse);
-            if ($paymentmanagers = get_users_by_capability($context, 'enrol/authorize:managepayments')) {
+            if (($paymentmanagers = get_users_by_capability($context, 'enrol/authorize:managepayments'))) {
                 $a = new stdClass;
                 $a->course = $courseinfo->shortname;
                 $a->pending = $courseinfo->cnt;
@@ -799,6 +787,7 @@ class enrolment_plugin_authorize
                 }
             }
         }
+        rs_close($rs);
     }
 }
 ?>

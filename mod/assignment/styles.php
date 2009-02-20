@@ -8,14 +8,27 @@
   border-color:#DDDDDD;
 }
 
+#mod-assignment-submissions form#options div {
+  text-align:right;
+  margin-left:auto;
+  margin-right:20px;
+}
+
 .mod-assignment .feedback .files {
   float: right;
   background-color: #EFEFEF;
   padding:5px;
 }
 
-.mod-assignment .feedback .grade {
+.mod-assignment .feedback .grade,
+.mod-assignment .feedback .outcome,
+.mod-assignment .feedback .finalgrade {
   float: right;
+}
+
+.mod-assignment .feedback .disabledfeedback {
+  width: 500px;
+  height: 250px;
 }
 
 .mod-assignment .feedback .from {
@@ -85,6 +98,11 @@
   text-align: center;
 }
 
+#mod-assignment-submissions .submissions .outcome,
+#mod-assignment-submissions .submissions .finalgrade {
+  text-align: right;
+}
+
 #mod-assignment-view #online .singlebutton {
   text-align: center;
 }
@@ -141,3 +159,18 @@
   text-align: center;
   vertical-align: top;
 }
+
+#mod-assignment-submissions .qgprefs #optiontable {
+  text-align:right;
+  margin-left:auto;
+}
+
+#mod-assignment-submissions .fgcontrols {
+  margin-top: 1em;
+  text-align:center;
+}
+
+#mod-assignment-submissions .fgcontrols .fastgbutton{
+  margin-top: 0.5em;
+}
+

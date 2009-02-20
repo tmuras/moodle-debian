@@ -124,8 +124,7 @@ class mnet_xmlrpc_client {
     function send($mnet_peer) {
         global $CFG, $MNET;
 
-        $this->uri = $mnet_peer->wwwroot.
-               '/mnet/xmlrpc/server.php';
+        $this->uri = $mnet_peer->wwwroot.$mnet_peer->application->xmlrpc_server_url;
 
         // Initialize with the target URL
         $ch = curl_init($this->uri);
@@ -193,7 +192,7 @@ class mnet_xmlrpc_client {
         $this->rawresponse = curl_exec($ch);
         $timestamp_receive = time();
 
-        if ($this->rawresponse == false) {
+        if ($this->rawresponse === false) {
             $this->error[] = curl_errno($ch) .':'. curl_error($ch);
             return false;
         }
@@ -250,7 +249,23 @@ class mnet_xmlrpc_client {
             }
 
         } else {
-            $this->error[] = '1:Payload not encrypted ';
+            if (! empty($crypt_parser->remoteerror)) {
+                $this->error[] = '4: remote server error: ' . $crypt_parser->remoteerror;
+            } else if (! empty($crypt_parser->error)) {
+                $crypt_parser_error = $crypt_parser->error[0];
+
+                $message = '3:XML Parse error in payload: '.$crypt_parser_error['string']."\n";
+                if (array_key_exists('lineno', $crypt_parser_error)) {
+                    $message .= 'At line number: '.$crypt_parser_error['lineno']."\n";
+                }
+                if (array_key_exists('line', $crypt_parser_error)) {
+                    $message .= 'Which reads: '.$crypt_parser_error['line']."\n";
+                }
+                $this->error[] = $message;
+            } else {
+                $this->error[] = '1:Payload not encrypted ';
+            }
+
             $crypt_parser->free_resource();
             return false;
         }
@@ -308,6 +323,11 @@ class mnet_xmlrpc_client {
                     $this->error[] = $this->response['faultCode'] . " : " . $this->response['faultString'];
                 }
             } else {
+                if (!empty($CFG->mnet_rpcdebug)) {
+                    $guidance = get_string('error'.$this->response['faultCode'], 'mnet');
+                } else {
+                    $guidance = '';
+                }
                 $this->error[] = $this->response['faultCode'] . " : " . $this->response['faultString'];
             }
         }

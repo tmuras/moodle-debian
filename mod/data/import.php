@@ -1,4 +1,4 @@
-<?php  // $Id: import.php,v 1.12.2.2 2007/05/15 18:27:10 skodak Exp $
+<?php  // $Id: import.php,v 1.21.2.7 2008/05/28 13:08:11 robertall Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -57,30 +57,21 @@
         }
     }
 
+    require_login($course, false, $cm);
+
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-    require_capability('mod/data:uploadentries', $context);
-
-    if (has_capability('mod/data:managetemplates', $context)) {
-        if (!count_records('data_fields','dataid',$data->id)) {      // Brand new database!
-            redirect($CFG->wwwroot.'/mod/data/field.php?d='.$data->id);  // Redirect to field entry
-        }
-    }
-
-    if ($rid){    //editting a record, do you have access to edit this?
-        if (!has_capability('mod/data:manageentries', $context) or !data_isowner($rid) or !confirm_sesskey()){
-            error (get_string('noaccess','data'));
-        }
-    }
-
+    require_capability('mod/data:manageentries', $context);
 
 /// Print the page header
     $strdata = get_string('modulenameplural','data');
-    print_header_simple($data->name, "", "<a href='index.php?id=$course->id'>$strdata</a> -> $data->name", "", "", true, "", navmenu($course));
+    
+    $navigation = build_navigation('', $cm);
+    print_header_simple($data->name, "", $navigation, "", "", true, "", navmenu($course));
     print_heading(format_string($data->name));
 
 /// Groups needed for Add entry tab
-    $groupmode = groupmode($course, $cm);
-    $currentgroup = get_and_set_current_group($course, $groupmode);
+    $currentgroup = groups_get_activity_group($cm);
+    $groupmode = groups_get_activity_groupmode($cm);
 
 /// Print the tabs
     $currenttab = 'add';
@@ -120,27 +111,56 @@
                 if ($recordid = data_add_record($data, 0)) {  // add instance to data_record
                     $fields = get_records('data_fields', 'dataid', $data->id, '', 'name, id, type');
 
-                    // do a manual round of inserting, to make sure even empty contents get stored
+                    // Insert new data_content fields with NULL contents:
                     foreach ($fields as $field) {
+                        $content = new object();
                         $content->recordid = $recordid;
                         $content->fieldid = $field->id;
-                        insert_record('data_content', $content);
+                        if (! insert_record('data_content', $content)) {
+                            print_error('cannotinsertrecord', '', '', $recordid);
+                        }
                     }
-                    // for each field in the add form, add it to the data_content.
+                    // Fill data_content with the values imported from the CSV file:
                     foreach ($record as $key => $value) {
                         $name = $fieldnames[$key];
                         $field = $fields[$name];
-                        require_once($CFG->dirroot.'/mod/data/field/'.$field->type.'/field.class.php');
-                        $newfield = 'data_field_'.$field->type;
-                        $currentfield = new $newfield($field->id);
-
-                        $currentfield->update_content($recordid, $value, $name);
+                        $content = new object();
+                        $content->fieldid = $field->id;
+                        $content->recordid = $recordid;
+                        if ($field->type == 'textarea') {
+                            // the only field type where HTML is possible
+                            $value = clean_param($value, PARAM_CLEANHTML);
+                        } else {
+                            // remove potential HTML:
+                            $patterns[] = '/</';
+                            $replacements[] = '&lt;';
+                            $patterns[] = '/>/';
+                            $replacements[] = '&gt;';
+                            $value = preg_replace($patterns, $replacements, $value);
+                        }
+                        $value = addslashes($value);
+                        // for now, only for "latlong" and "url" fields, but that should better be looked up from
+                        // $CFG->dirroot . '/mod/data/field/' . $field->type . '/field.class.php'
+                        // once there is stored how many contents the field can have. 
+                        if (preg_match("/^(latlong|url)$/", $field->type)) {
+                            $values = explode(" ", $value, 2);
+                            $content->content  = $values[0];
+                            $content->content1 = $values[1];
+                        } else {
+                            $content->content = $value;
+                        }
+                        $oldcontent = get_record('data_content', 'fieldid', $field->id, 'recordid', $recordid);
+                        $content->id = $oldcontent->id;
+                        if (! update_record('data_content', $content)) {
+                            print_error('cannotupdaterecord', '', '', $recordid);
+                        }
                     }
                     $recordsadded++;
+                    print get_string('added', 'moodle', $recordsadded) . ". " . get_string('entry', 'data') . " (ID $recordid)<br />\n";
                 }
-            } // End foreach
-        } // End else
-    }//sun without love motivo atillas
+            }
+        }
+    }
 
     if ($recordsadded > 0) {
         notify($recordsadded. ' '. get_string('recordssaved', 'data'));

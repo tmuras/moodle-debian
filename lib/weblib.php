@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-2003  Martin Dougiamas  http://dougiamas.com       //
+// Copyright (C) 1999 onwards Martin Dougiamas  http://dougiamas.com     //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
 // it under the terms of the GNU General Public License as published by  //
@@ -81,19 +81,27 @@ define('TRUSTTEXT', '#####TRUSTTEXT#####');
 
 
 /**
+ * Javascript related defines
+ */
+define('REQUIREJS_BEFOREHEADER', 0);
+define('REQUIREJS_INHEADER',     1);
+define('REQUIREJS_AFTERHEADER',  2);
+
+/**
  * Allowed tags - string of html tags that can be tested against for safe html tags
  * @global string $ALLOWED_TAGS
  */
+global $ALLOWED_TAGS;
 $ALLOWED_TAGS =
-'<p><br><b><i><u><font><table><tbody><span><div><tr><td><th><ol><ul><dl><li><dt><dd><h1><h2><h3><h4><h5><h6><hr><img><a><strong><emphasis><em><sup><sub><address><cite><blockquote><pre><strike><param><acronym><nolink><lang><tex><algebra><math><mi><mn><mo><mtext><mspace><ms><mrow><mfrac><msqrt><mroot><mstyle><merror><mpadded><mphantom><mfenced><msub><msup><msubsup><munder><mover><munderover><mmultiscripts><mtable><mtr><mtd><maligngroup><malignmark><maction><cn><ci><apply><reln><fn><interval><inverse><sep><condition><declare><lambda><compose><ident><quotient><exp><factorial><divide><max><min><minus><plus><power><rem><times><root><gcd><and><or><xor><not><implies><forall><exists><abs><conjugate><eq><neq><gt><lt><geq><leq><ln><log><int><diff><partialdiff><lowlimit><uplimit><bvar><degree><set><list><union><intersect><in><notin><subset><prsubset><notsubset><notprsubset><setdiff><sum><product><limit><tendsto><mean><sdev><variance><median><mode><moment><vector><matrix><matrixrow><determinant><transpose><selector><annotation><semantics><annotation-xml><tt><code>';
+'<p><br><b><i><u><font><table><tbody><thead><tfoot><span><div><tr><td><th><ol><ul><dl><li><dt><dd><h1><h2><h3><h4><h5><h6><hr><img><a><strong><emphasis><em><sup><sub><address><cite><blockquote><pre><strike><param><acronym><nolink><lang><tex><algebra><math><mi><mn><mo><mtext><mspace><ms><mrow><mfrac><msqrt><mroot><mstyle><merror><mpadded><mphantom><mfenced><msub><msup><msubsup><munder><mover><munderover><mmultiscripts><mtable><mtr><mtd><maligngroup><malignmark><maction><cn><ci><apply><reln><fn><interval><inverse><sep><condition><declare><lambda><compose><ident><quotient><exp><factorial><divide><max><min><minus><plus><power><rem><times><root><gcd><and><or><xor><not><implies><forall><exists><abs><conjugate><eq><neq><gt><lt><geq><leq><ln><log><int><diff><partialdiff><lowlimit><uplimit><bvar><degree><set><list><union><intersect><in><notin><subset><prsubset><notsubset><notprsubset><setdiff><sum><product><limit><tendsto><mean><sdev><variance><median><mode><moment><vector><matrix><matrixrow><determinant><transpose><selector><annotation><semantics><annotation-xml><tt><code>';
 
 /**
  * Allowed protocols - array of protocols that are safe to use in links and so on
  * @global string $ALLOWED_PROTOCOLS
  */
 $ALLOWED_PROTOCOLS = array('http', 'https', 'ftp', 'news', 'mailto', 'rtsp', 'teamspeak', 'gopher', 'mms',
-                           'color', 'callto', 'cursor', 'text-align', 'font-size', 'font-weight', 'font-style',
-                           'border', 'margin', 'padding', 'background');   // CSS as well to get through kses
+                           'color', 'callto', 'cursor', 'text-align', 'font-size', 'font-weight', 'font-style', 'font-family',
+                           'border', 'margin', 'padding', 'background', 'background-color', 'text-decoration');   // CSS as well to get through kses
 
 
 /// Functions
@@ -181,6 +189,7 @@ function addslashes_js($var) {
 
 /**
  * Returns the URL of the HTTP_REFERER, less the querystring portion if required
+ * @param boolean $stripquery if true, also removes the query part of the url.
  * @return string
  */
 function get_referer($stripquery=true) {
@@ -270,6 +279,9 @@ function qualified_me() {
         }
     }
 
+    // TODO, this does not work in the situation described in MDL-11061, but
+    // I don't know how to fix it. Possibly believe $CFG->wwwroot ahead of what
+    // the server reports.
     if (isset($_SERVER['HTTPS'])) {
         $protocol = ($_SERVER['HTTPS'] == 'on') ? 'https://' : 'http://';
     } else if (isset($_SERVER['SERVER_PORT'])) { # Apache2 does not export $_SERVER['HTTPS']
@@ -280,6 +292,151 @@ function qualified_me() {
 
     $url_prefix = $protocol.$hostname;
     return $url_prefix . me();
+}
+
+
+/**
+ * Class for creating and manipulating urls.
+ *
+ * See short write up here http://docs.moodle.org/en/Development:lib/weblib.php_moodle_url
+ */
+class moodle_url {
+    var $scheme = '';// e.g. http
+    var $host = '';
+    var $port = '';
+    var $user = '';
+    var $pass = '';
+    var $path = '';
+    var $fragment = '';
+    var $params = array(); //associative array of query string params
+
+    /**
+     * Pass no arguments to create a url that refers to this page. Use empty string to create empty url.
+     *
+     * @param string $url url default null means use this page url with no query string
+     *                      empty string means empty url.
+     *                      if you pass any other type of url it will be parsed into it's bits, including query string
+     * @param array $params these params override anything in the query string where params have the same name.
+     */
+    function moodle_url($url = null, $params = array()){
+        global $FULLME;
+        if ($url !== ''){
+            if ($url === null){
+                $url = strip_querystring($FULLME);
+            }
+            $parts = parse_url($url);
+            if ($parts === FALSE){
+                error('invalidurl');
+            }
+            if (isset($parts['query'])){
+                parse_str(str_replace('&amp;', '&', $parts['query']), $this->params);
+            }
+            unset($parts['query']);
+            foreach ($parts as $key => $value){
+                $this->$key = $value;
+            }
+            $this->params($params);
+        }
+    }
+    /**
+     * Add an array of params to the params for this page. The added params override existing ones if they
+     * have the same name.
+     *
+     * @param array $params
+     */
+    function params($params){
+        $this->params = $params + $this->params;
+    }
+
+    /**
+     * Remove all params if no arguments passed. Or else remove param $arg1, $arg2, etc.
+     *
+     * @param string $arg1
+     * @param string $arg2
+     * @param string $arg3
+     */
+    function remove_params(){
+        if ($thisargs = func_get_args()){
+            foreach ($thisargs as $arg){
+                if (isset($this->params[$arg])){
+                    unset($this->params[$arg]);
+                }
+            }
+        } else { // no args
+            $this->params = array();
+        }
+    }
+
+    /**
+     * Add a param to the params for this page. The added param overrides existing one if they
+     * have the same name.
+     *
+     * @param string $paramname name
+     * @param string $param value
+     */
+    function param($paramname, $param){
+        $this->params = array($paramname => $param) + $this->params;
+    }
+
+
+    function get_query_string($overrideparams = array()){
+        $arr = array();
+        $params = $overrideparams + $this->params;
+        foreach ($params as $key => $val){
+           $arr[] = urlencode($key)."=".urlencode($val);
+        }
+        return implode($arr, "&amp;");
+    }
+    /**
+     * Outputs params as hidden form elements.
+     *
+     * @param  array $exclude params to ignore
+     * @param integer $indent indentation
+     * @param array $overrideparams params to add to the output params, these
+     * override existing ones with the same name.
+     * @return string html for form elements.
+     */
+    function hidden_params_out($exclude = array(), $indent = 0, $overrideparams=array()){
+        $tabindent = str_repeat("\t", $indent);
+        $str = '';
+        $params = $overrideparams + $this->params;
+        foreach ($params as $key => $val){
+            if (FALSE === array_search($key, $exclude)) {
+                $val = s($val);
+                $str.= "$tabindent<input type=\"hidden\" name=\"$key\" value=\"$val\" />\n";
+            }
+        }
+        return $str;
+    }
+    /**
+     * Output url
+     *
+     * @param boolean $noquerystring whether to output page params as a query string in the url.
+     * @param array $overrideparams params to add to the output url, these override existing ones with the same name.
+     * @return string url
+     */
+    function out($noquerystring = false, $overrideparams = array()) {
+        $uri = $this->scheme ? $this->scheme.':'.((strtolower($this->scheme) == 'mailto') ? '':'//'): '';
+        $uri .= $this->user ? $this->user.($this->pass? ':'.$this->pass:'').'@':'';
+        $uri .= $this->host ? $this->host : '';
+        $uri .= $this->port ? ':'.$this->port : '';
+        $uri .= $this->path ? $this->path : '';
+        if (!$noquerystring){
+            $uri .= (count($this->params)||count($overrideparams)) ? '?'.$this->get_query_string($overrideparams) : '';
+        }
+        $uri .= $this->fragment ? '#'.$this->fragment : '';
+        return $uri;
+    }
+    /**
+     * Output action url with sesskey
+     *
+     * @param boolean $noquerystring whether to output page params as a query string in the url.
+     * @return string url
+     */
+    function out_action($overrideparams = array()) {
+        $overrideparams = array('sesskey'=> sesskey()) + $overrideparams;
+        return $this->out(false, $overrideparams);
+    }
 }
 
 /**
@@ -354,21 +511,27 @@ function stripslashes_safe($mixed) {
  * @return mixed
  */
 function stripslashes_recursive($var) {
-    if(is_object($var)) {
+    if (is_object($var)) {
+        $new_var = new object();
         $properties = get_object_vars($var);
         foreach($properties as $property => $value) {
-            $var->$property = stripslashes_recursive($value);
+            $new_var->$property = stripslashes_recursive($value);
         }
-    }
-    else if(is_array($var)) {
+
+    } else if(is_array($var)) {
+        $new_var = array();
         foreach($var as $property => $value) {
-            $var[$property] = stripslashes_recursive($value);
+            $new_var[$property] = stripslashes_recursive($value);
         }
+
+    } else if(is_string($var)) {
+        $new_var = stripslashes($var);
+
+    } else {
+        $new_var = $var;
     }
-    else if(is_string($var)) {
-        $var = stripslashes($var);
-    }
-    return $var;
+
+    return $new_var;
 }
 
 /**
@@ -383,21 +546,27 @@ function stripslashes_recursive($var) {
  * @return mixed
  */
 function addslashes_recursive($var) {
-    if(is_object($var)) {
+    if (is_object($var)) {
+        $new_var = new object();
         $properties = get_object_vars($var);
         foreach($properties as $property => $value) {
-            $var->$property = addslashes_recursive($value);
+            $new_var->$property = addslashes_recursive($value);
         }
-    }
-    else if(is_array($var)) {
+
+    } else if (is_array($var)) {
+        $new_var = array();
         foreach($var as $property => $value) {
-            $var[$property] = addslashes_recursive($value);
+            $new_var[$property] = addslashes_recursive($value);
         }
+
+    } else if (is_string($var)) {
+        $new_var = addslashes($var);
+
+    } else { // nulls, integers, etc.
+        $new_var = $var;
     }
-    else if(is_string($var)) {
-        $var = addslashes($var);
-    }
-    return $var;
+
+    return $new_var;
 }
 
 /**
@@ -511,94 +680,134 @@ if (!function_exists('stripos')) {    /// Only exists in PHP 5
 }
 
 /**
- * This function will create a HTML link that will work on both
- * Javascript and non-javascript browsers.
- * Relies on the Javascript function openpopup in javascript.php
- *
- * $url must be relative to home page  eg /mod/survey/stuff.php
- * @param string $url Web link relative to home page
- * @param string $name Name to be assigned to the popup window
- * @param string $linkname Text to be displayed as web link
- * @param int $height Height to assign to popup window
- * @param int $width Height to assign to popup window
- * @param string $title Text to be displayed as popup page title
- * @param string $options List of additional options for popup window
- * @todo Add code examples and list of some options that might be used.
- * @param boolean $return Should the link to the popup window be returned as a string (true) or printed immediately (false)?
- * @return string
- * @uses $CFG
- */
-function link_to_popup_window ($url, $name='popup', $linkname='click here',
-                               $height=400, $width=500, $title='Popup window',
-                               $options='none', $return=false) {
-
-    global $CFG;
-
-    if ($options == 'none') {
-        $options = 'menubar=0,location=0,scrollbars,resizable,width='. $width .',height='. $height;
-    }
-    $fullscreen = 0;
-
-    if (!(strpos($url,$CFG->wwwroot) === false)) { // some log url entries contain _SERVER[HTTP_REFERRER] in which case wwwroot is already there.
-        $url = substr($url, strlen($CFG->wwwroot));
-    }
-
-    $link = '<a title="'. s(strip_tags($title)) .'" href="'. $CFG->wwwroot . $url .'" '.
-           "onclick=\"this.target='$name'; return openpopup('$url', '$name', '$options', $fullscreen);\">$linkname</a>";
-    if ($return) {
-        return $link;
-    } else {
-        echo $link;
-    }
-}
-
-/**
- * This function will print a button submit form element
+ * This function will print a button/link/etc. form element
  * that will work on both Javascript and non-javascript browsers.
  * Relies on the Javascript function openpopup in javascript.php
  *
+ * All parameters default to null, only $type and $url are mandatory.
+ *
  * $url must be relative to home page  eg /mod/survey/stuff.php
  * @param string $url Web link relative to home page
- * @param string $name Name to be assigned to the popup window
+ * @param string $name Name to be assigned to the popup window (this is used by
+ *   client-side scripts to "talk" to the popup window)
  * @param string $linkname Text to be displayed as web link
  * @param int $height Height to assign to popup window
  * @param int $width Height to assign to popup window
  * @param string $title Text to be displayed as popup page title
  * @param string $options List of additional options for popup window
  * @param string $return If true, return as a string, otherwise print
+ * @param string $id id added to the element
+ * @param string $class class added to the element
  * @return string
  * @uses $CFG
  */
-function button_to_popup_window ($url, $name='popup', $linkname='click here',
-                                 $height=400, $width=500, $title='Popup window', $options='none', $return=false,
-                                 $id='', $class='') {
+function element_to_popup_window ($type=null, $url=null, $name=null, $linkname=null,
+                                  $height=400, $width=500, $title=null,
+                                  $options=null, $return=false, $id=null, $class=null) {
+
+    if (is_null($url)) {
+        debugging('You must give the url to display in the popup. URL is missing - can\'t create popup window.', DEBUG_DEVELOPER);
+    }
 
     global $CFG;
 
-    if ($options == 'none') {
-        $options = 'menubar=0,location=0,scrollbars,resizable,width='. $width .',height='. $height;
+    if ($options == 'none') { // 'none' is legacy, should be removed in v2.0
+        $options = null;
     }
 
+    // add some sane default options for popup windows
+    if (!$options) {
+        $options = 'menubar=0,location=0,scrollbars,resizable';
+    }
+    if ($width) {
+        $options .= ',width='. $width;
+    }
+    if ($height) {
+        $options .= ',height='. $height;
+    }
     if ($id) {
         $id = ' id="'.$id.'" ';
     }
     if ($class) {
         $class = ' class="'.$class.'" ';
     }
-    $fullscreen = 0;
-
-    $button = '<input type="button" name="'.$name.'" title="'. $title .'" value="'. $linkname .' ..." '.$id.$class.
-              "onclick=\"return openpopup('$url', '$name', '$options', $fullscreen);\" />\n";
-    if ($return) {
-        return $button;
+    if ($name) {
+        $_name = $name;
+        if (($name = preg_replace("/\s/", '_', $name)) != $_name) {
+            debugging('The $name of a popup window shouldn\'t contain spaces - string modified. '. $_name .' changed to '. $name, DEBUG_DEVELOPER);
+        }
     } else {
-        echo $button;
+        $name = 'popup';
     }
+
+    // get some default string, using the localized version of legacy defaults
+    if (is_null($linkname) || $linkname === '') {
+        $linkname = get_string('clickhere');
+    }
+    if (!$title) {
+        $title = get_string('popupwindowname');
+    }
+
+    $fullscreen = 0; // must be passed to openpopup
+    $element = '';
+
+    switch ($type) {
+        case 'button' :
+            $element = '<input type="button" name="'. $name .'" title="'. $title .'" value="'. $linkname .'" '. $id . $class .
+                       "onclick=\"return openpopup('$url', '$name', '$options', $fullscreen);\" />\n";
+            break;
+        case 'link' :
+            // some log url entries contain _SERVER[HTTP_REFERRER] in which case wwwroot is already there.
+            if (!(strpos($url,$CFG->wwwroot) === false)) {
+                $url = substr($url, strlen($CFG->wwwroot));
+            }
+            $element = '<a title="'. s(strip_tags($title)) .'" href="'. $CFG->wwwroot . $url .'" '.
+                       "onclick=\"this.target='$name'; return openpopup('$url', '$name', '$options', $fullscreen);\">$linkname</a>";
+            break;
+        default :
+            error('Undefined element - can\'t create popup window.');
+            break;
+    }
+
+    if ($return) {
+        return $element;
+    } else {
+        echo $element;
+    }
+}
+
+/**
+ * Creates and displays (or returns) a link to a popup window, using element_to_popup_window function.
+ *
+ * @return string html code to display a link to a popup window.
+ * @see element_to_popup_window()
+ */
+function link_to_popup_window ($url, $name=null, $linkname=null,
+                               $height=400, $width=500, $title=null,
+                               $options=null, $return=false) {
+
+    return element_to_popup_window('link', $url, $name, $linkname, $height, $width, $title, $options, $return, null, null);
+}
+
+/**
+ * Creates and displays (or returns) a buttons to a popup window, using element_to_popup_window function.
+ *
+ * @return string html code to display a button to a popup window.
+ * @see element_to_popup_window()
+ */
+function button_to_popup_window ($url, $name=null, $linkname=null,
+                                 $height=400, $width=500, $title=null, $options=null, $return=false,
+                                 $id=null, $class=null) {
+
+    return element_to_popup_window('button', $url, $name, $linkname, $height, $width, $title, $options, $return, $id, $class);
 }
 
 
 /**
  * Prints a simple button to close a window
+ * @param string $name name of the window to close
+ * @param boolean $return whether this function should return a string or output it
+ * @return string if $return is true, nothing otherwise
  */
 function close_window_button($name='closewindow', $return=false) {
     global $CFG;
@@ -606,7 +815,7 @@ function close_window_button($name='closewindow', $return=false) {
     $output = '';
 
     $output .= '<div class="closewindow">' . "\n";
-    $output .= '<form action="'.$CFG->wwwroot.'"><div>';   // We don't use this
+    $output .= '<form action="#"><div>';
     $output .= '<input type="button" onclick="self.close();" value="'.get_string($name).'" />';
     $output .= '</div></form>';
     $output .= '</div>' . "\n";
@@ -620,6 +829,7 @@ function close_window_button($name='closewindow', $return=false) {
 
 /*
  * Try and close the current window immediately using Javascript
+ * @param int $delay the delay in seconds before closing the window
  */
 function close_window($delay=0) {
 ?>
@@ -638,16 +848,35 @@ function close_window($delay=0) {
     die;
 }
 
-
 /**
- * Given an array of value, creates a popup menu to be part of a form
- * $options["value"]["label"]
+ * Given an array of values, output the HTML for a select element with those options.
+ * Normally, you only need to use the first few parameters.
  *
- * @param    type description
- * @todo Finish documenting this function
+ * @param array $options The options to offer. An array of the form
+ *      $options[{value}] = {text displayed for that option};
+ * @param string $name the name of this form control, as in &lt;select name="..." ...
+ * @param string $selected the option to select initially, default none.
+ * @param string $nothing The label for the 'nothing is selected' option. Defaults to get_string('choose').
+ *      Set this to '' if you don't want a 'nothing is selected' option.
+ * @param string $script in not '', then this is added to the &lt;select> element as an onchange handler.
+ * @param string $nothingvalue The value corresponding to the $nothing option. Defaults to 0.
+ * @param boolean $return if false (the default) the the output is printed directly, If true, the
+ *      generated HTML is returned as a string.
+ * @param boolean $disabled if true, the select is generated in a disabled state. Default, false.
+ * @param int $tabindex if give, sets the tabindex attribute on the &lt;select> element. Default none.
+ * @param string $id value to use for the id attribute of the &lt;select> element. If none is given,
+ *      then a suitable one is constructed.
+ * @param mixed $listbox if false, display as a dropdown menu. If true, display as a list box.
+ *      By default, the list box will have a number of rows equal to min(10, count($options)), but if
+ *      $listbox is an integer, that number is used for size instead.
+ * @param boolean $multiple if true, enable multiple selections, else only 1 item can be selected. Used
+ *      when $listbox display is enabled
+ * @param string $class value to use for the class attribute of the &lt;select> element. If none is given,
+ *      then a suitable one is constructed.
  */
 function choose_from_menu ($options, $name, $selected='', $nothing='choose', $script='',
-                           $nothingvalue='0', $return=false, $disabled=false, $tabindex=0, $id='') {
+                           $nothingvalue='0', $return=false, $disabled=false, $tabindex=0,
+                           $id='', $listbox=false, $multiple=false, $class='') {
 
     if ($nothing == 'choose') {
         $nothing = get_string('choose') .'...';
@@ -664,12 +893,36 @@ function choose_from_menu ($options, $name, $selected='', $nothing='choose', $sc
 
     if ($id ==='') {
         $id = 'menu'.$name;
-         // name may contaion [], which would make an invalid id. e.g. numeric question type editing form, assignment quickgrading
+        // name may contaion [], which would make an invalid id. e.g. numeric question type editing form, assignment quickgrading
         $id = str_replace('[', '', $id);
         $id = str_replace(']', '', $id);
     }
 
-    $output = '<select id="'.$id.'" name="'. $name .'" '. $attributes .'>' . "\n";
+    if ($class ==='') {
+        $class = 'menu'.$name;
+        // name may contaion [], which would make an invalid class. e.g. numeric question type editing form, assignment quickgrading
+        $class = str_replace('[', '', $class);
+        $class = str_replace(']', '', $class);
+    }
+    $class = 'select ' . $class; /// Add 'select' selector always
+
+    if ($listbox) {
+        if (is_integer($listbox)) {
+            $size = $listbox;
+        } else {
+            $numchoices = count($options);
+            if ($nothing) {
+                $numchoices += 1;
+            }
+            $size = min(10, $numchoices);
+        }
+        $attributes .= ' size="' . $size . '"';
+        if ($multiple) {
+            $attributes .= ' multiple="multiple"';
+        }
+    }
+
+    $output = '<select id="'. $id .'" class="'. $class .'" name="'. $name .'" '. $attributes .'>' . "\n";
     if ($nothing) {
         $output .= '   <option value="'. s($nothingvalue) .'"'. "\n";
         if ($nothingvalue === $selected) {
@@ -677,10 +930,12 @@ function choose_from_menu ($options, $name, $selected='', $nothing='choose', $sc
         }
         $output .= '>'. $nothing .'</option>' . "\n";
     }
+
     if (!empty($options)) {
         foreach ($options as $value => $label) {
             $output .= '   <option value="'. s($value) .'"';
-            if ((string)$value == (string)$selected) {
+            if ((string)$value == (string)$selected ||
+                    (is_array($selected) && in_array($value, $selected))) {
                 $output .= ' selected="selected"';
             }
             if ($label === '') {
@@ -702,6 +957,12 @@ function choose_from_menu ($options, $name, $selected='', $nothing='choose', $sc
 /**
  * Choose value 0 or 1 from a menu with options 'No' and 'Yes'.
  * Other options like choose_from_menu.
+ * @param string $name
+ * @param string $selected
+ * @param string $string (defaults to '')
+ * @param boolean $return whether this function should return a string or output it (defaults to false)
+ * @param boolean $disabled (defaults to false)
+ * @param int $tabindex
  */
 function choose_from_menu_yesno($name, $selected, $script = '',
         $return = false, $disabled = false, $tabindex = 0) {
@@ -905,6 +1166,8 @@ function print_textfield ($name, $value, $alt = '',$size=50,$maxlength=0, $retur
  * @param boolean $return Indicates whether the function should return the text
  *         as a string or echo it directly to the page being rendered
  * @param string $targetwindow The name of the target page to open the linked page in.
+ * @param string $selectlabel Text to place in a [label] element - preferred for accessibility.
+ * @param array $optionsextra TODO, an array?
  * @return string If $return is true then the entire form is returned as a string.
  * @todo Finish documenting this function<br>
  */
@@ -946,7 +1209,17 @@ $targetwindow='self', $selectlabel='', $optionsextra=NULL) {
         $selectlabel = '<label for="'.$formid.'_jump">'.$selectlabel.'</label>';
     }
 
-    $output .= '<div>'.$selectlabel.$button.'<select id="'.$formid.'_jump" name="jump" onchange="'.$targetwindow.'.location=document.getElementById(\''.$formid.'\').jump.options[document.getElementById(\''.$formid.'\').jump.selectedIndex].value;">'."\n";
+    //IE and Opera fire the onchange when ever you move into a dropdwown list with the keyboard.
+    //onfocus will call a function inside dropdown.js. It fixes this IE/Opera behavior.
+    //Note: There is a bug on Opera+Linux with the javascript code (first mouse selection is inactive),
+    //so we do not fix the Opera behavior on Linux
+    if (check_browser_version('MSIE') || (check_browser_version('Opera') && !check_browser_operating_system("Linux"))) {
+        $output .= '<div>'.$selectlabel.$button.'<select id="'.$formid.'_jump" onfocus="initSelect(\''.$formid.'\','.$targetwindow.')" name="jump">'."\n";
+    }
+    //Other browser
+    else {
+        $output .= '<div>'.$selectlabel.$button.'<select id="'.$formid.'_jump" name="jump" onchange="'.$targetwindow.'.location=document.getElementById(\''.$formid.'\').jump.options[document.getElementById(\''.$formid.'\').jump.selectedIndex].value;">'."\n";
+    }
 
     if ($nothing != '') {
         $output .= "   <option value=\"javascript:void(0)\">$nothing</option>\n";
@@ -1184,6 +1457,9 @@ function format_text_menu() {
  * Given text in a variety of format codings, this function returns
  * the text as safe HTML.
  *
+ * This function should mainly be used for long strings like posts,
+ * answers, glossary items etc. For short strings @see format_string().
+ *
  * @uses $CFG
  * @uses FORMAT_MOODLE
  * @uses FORMAT_HTML
@@ -1201,6 +1477,8 @@ function format_text_menu() {
 function format_text($text, $format=FORMAT_MOODLE, $options=NULL, $courseid=NULL) {
 
     global $CFG, $COURSE;
+
+    static $croncache = array();
 
     if ($text === '') {
         return ''; // no need to do any filters and cleaning
@@ -1236,8 +1514,23 @@ function format_text($text, $format=FORMAT_MOODLE, $options=NULL, $courseid=NULL
     if (!empty($CFG->cachetext) and empty($options->nocache)) {
         $time = time() - $CFG->cachetext;
         $md5key = md5($text.'-'.(int)$courseid.'-'.current_language().'-'.(int)$format.(int)$options->trusttext.(int)$options->noclean.(int)$options->smiley.(int)$options->filter.(int)$options->para.(int)$options->newlines);
+
+        if (defined('FULLME') and FULLME == 'cron') {
+            if (isset($croncache[$md5key])) {
+                return $croncache[$md5key];
+            }
+        }
+
         if ($oldcacheitem = get_record_sql('SELECT * FROM '.$CFG->prefix.'cache_text WHERE md5key = \''.$md5key.'\'', true)) {
             if ($oldcacheitem->timemodified >= $time) {
+                if (defined('FULLME') and FULLME == 'cron') {
+                    if (count($croncache) > 150) {
+                        reset($croncache);
+                        $key = key($croncache);
+                        unset($croncache[$key]);
+                    }
+                    $croncache[$md5key] = $oldcacheitem->formattedtext;
+                }
                 return $oldcacheitem->formattedtext;
             }
         }
@@ -1318,6 +1611,17 @@ function format_text($text, $format=FORMAT_MOODLE, $options=NULL, $courseid=NULL
     }
 
     if (empty($options->nocache) and !empty($CFG->cachetext) and $CFG->currenttextiscacheable) {
+        if (defined('FULLME') and FULLME == 'cron') {
+            // special static cron cache - no need to store it in db if its not already there
+            if (count($croncache) > 150) {
+                reset($croncache);
+                $key = key($croncache);
+                unset($croncache[$key]);
+            }
+            $croncache[$md5key] = $text;
+            return $text;
+        }
+
         $newcacheitem = new object();
         $newcacheitem->md5key = $md5key;
         $newcacheitem->formattedtext = addslashes($text);
@@ -1367,9 +1671,24 @@ function text_format_name( $key ) {
   return $value;
 }
 
+/**
+ * Resets all data related to filters, called during upgrade or when filter settings change.
+ * @return void
+ */
+function reset_text_filters_cache() {
+    global $CFG;
+
+    delete_records('cache_text');
+    $purifdir = $CFG->dataroot.'/cache/htmlpurifier';
+    remove_dir($purifdir, true);
+}
 
 /** Given a simple string, this function returns the string
- *  processed by enabled filters if $CFG->filterall is enabled
+ *  processed by enabled string filters if $CFG->filterall is enabled
+ *
+ *  This function should be used to print short strings (non html) that
+ *  need filter processing e.g. activity titles, post subjects,
+ *  glossary concepts.
  *
  *  @param string  $string     The string to be filtered.
  *  @param boolean $striplinks To strip any link in the result text (Moodle 1.8 default changed from false to true! MDL-8713)
@@ -1666,7 +1985,11 @@ function trusttext_prepare_edit(&$text, &$format, $usehtmleditor, $context) {
  */
 function clean_text($text, $format=FORMAT_MOODLE) {
 
-    global $ALLOWED_TAGS;
+    global $ALLOWED_TAGS, $CFG;
+
+    if (empty($text) or is_numeric($text)) {
+       return (string)$text;
+    }
 
     switch ($format) {
         case FORMAT_PLAIN:
@@ -1675,25 +1998,55 @@ function clean_text($text, $format=FORMAT_MOODLE) {
 
         default:
 
-        /// Fix non standard entity notations
-            $text = preg_replace('/(&#[0-9]+)(;?)/', "\\1;", $text);
-            $text = preg_replace('/(&#x[0-9a-fA-F]+)(;?)/', "\\1;", $text);
+            if (!empty($CFG->enablehtmlpurifier)) {
+                $text = purify_html($text);
+            } else {
+            /// Fix non standard entity notations
+                $text = preg_replace('/(&#[0-9]+)(;?)/', "\\1;", $text);
+                $text = preg_replace('/(&#x[0-9a-fA-F]+)(;?)/', "\\1;", $text);
 
-        /// Remove tags that are not allowed
-            $text = strip_tags($text, $ALLOWED_TAGS);
+            /// Remove tags that are not allowed
+                $text = strip_tags($text, $ALLOWED_TAGS);
 
-        /// Clean up embedded scripts and , using kses
-            $text = cleanAttributes($text);
+            /// Clean up embedded scripts and , using kses
+                $text = cleanAttributes($text);
 
-        /// Again remove tags that are not allowed
-            $text = strip_tags($text, $ALLOWED_TAGS);
+            /// Again remove tags that are not allowed
+                $text = strip_tags($text, $ALLOWED_TAGS);
 
-        /// Remove script events
+            }
+
+        /// Remove potential script events - some extra protection for undiscovered bugs in our code
             $text = eregi_replace("([^a-z])language([[:space:]]*)=", "\\1Xlanguage=", $text);
             $text = eregi_replace("([^a-z])on([a-z]+)([[:space:]]*)=", "\\1Xon\\2=", $text);
 
             return $text;
     }
+}
+
+/**
+ * KSES replacement cleaning function - uses HTML Purifier.
+ */
+function purify_html($text) {
+    global $CFG;
+
+    // this can not be done only once because we sometimes need to reset the cache
+    $cachedir = $CFG->dataroot.'/cache/htmlpurifier/';
+    $status = check_dir_exists($cachedir, true, true);
+
+    static $purifier = false;
+    if ($purifier === false) {
+        require_once $CFG->libdir.'/htmlpurifier/HTMLPurifier.auto.php';
+        $config = HTMLPurifier_Config::createDefault();
+        $config->set('Core', 'AcceptFullDocuments', false);
+        $config->set('Core', 'Encoding', 'UTF-8');
+        $config->set('HTML', 'Doctype', 'XHTML 1.0 Transitional');
+        $config->set('Cache', 'SerializerPath', $cachedir);
+        $config->set('URI', 'AllowedSchemes', array('http'=>1, 'https'=>1, 'ftp'=>1, 'irc'=>1, 'nntp'=>1, 'news'=>1, 'rtsp'=>1, 'teamspeak'=>1, 'gopher'=>1, 'mms'=>1));
+        $config->set('Attr', 'AllowedFrameTargets', array('_blank'));
+        $purifier = new HTMLPurifier($config);
+    }
+    return $purifier->purify($text);
 }
 
 /**
@@ -1761,9 +2114,10 @@ function cleanAttributes2($htmlArray){
             }
             $arreach['value'] = preg_replace("/j\s*a\s*v\s*a\s*s\s*c\s*r\s*i\s*p\s*t/i", "Xjavascript", $arreach['value']);
             $arreach['value'] = preg_replace("/e\s*x\s*p\s*r\s*e\s*s\s*s\s*i\s*o\s*n/i", "Xexpression", $arreach['value']);
+            $arreach['value'] = preg_replace("/b\s*i\s*n\s*d\s*i\s*n\s*g/i", "Xbinding", $arreach['value']);
         } else if ($arreach['name'] == 'href') {
             //Adobe Acrobat Reader XSS protection
-            $arreach['value'] = preg_replace('/(\.(pdf|fdf|xfdf|xdp|xfd))[^a-z0-9_\.\-].*$/i', '$1', $arreach['value']);
+            $arreach['value'] = preg_replace('/(\.(pdf|fdf|xfdf|xdp|xfd)[^#]*)#.*$/i', '$1', $arreach['value']);
         }
         $attStr .=  ' '.$arreach['name'].'="'.$arreach['value'].'"';
     }
@@ -1783,51 +2137,37 @@ function cleanAttributes2($htmlArray){
  * @return string
  */
 function replace_smilies(&$text) {
-///
+
     global $CFG;
 
-    $lang = current_language();
+    if (empty($CFG->emoticons)) { /// No emoticons defined, nothing to process here
+        return;
+    }
 
-/// this builds the mapping array only once
+    $lang = current_language();
+    $emoticonstring = $CFG->emoticons;
     static $e = array();
     static $img = array();
-    static $emoticons = array(
-        ':-)'  => 'smiley',
-        ':)'   => 'smiley',
-        ':-D'  => 'biggrin',
-        ';-)'  => 'wink',
-        ':-/'  => 'mixed',
-        'V-.'  => 'thoughtful',
-        ':-P'  => 'tongueout',
-        'B-)'  => 'cool',
-        '^-)'  => 'approve',
-        '8-)'  => 'wideeyes',
-        ':o)'  => 'clown',
-        ':-('  => 'sad',
-        ':('   => 'sad',
-        '8-.'  => 'shy',
-        ':-I'  => 'blush',
-        ':-X'  => 'kiss',
-        '8-o'  => 'surprise',
-        'P-|'  => 'blackeye',
-        '8-['  => 'angry',
-        'xx-P' => 'dead',
-        '|-.'  => 'sleepy',
-        '}-]'  => 'evil',
-        '(h)'  => 'heart',
-        '(heart)'  => 'heart',
-        '(y)'  => 'yes',
-        '(n)'  => 'no',
-        '(martin)'  => 'martin',
-        '( )'  => 'egg'
-        );
+    static $emoticons = null;
+
+    if (is_null($emoticons)) {
+        $emoticons = array();
+        if ($emoticonstring) {
+            $items = explode('{;}', $CFG->emoticons);
+            foreach ($items as $item) {
+               $item = explode('{:}', $item);
+              $emoticons[$item[0]] = $item[1];
+            }
+        }
+    }
+
 
     if (empty($img[$lang])) {  /// After the first time this is not run again
         $e[$lang] = array();
         $img[$lang] = array();
         foreach ($emoticons as $emoticon => $image){
             $alttext = get_string($image, 'pix');
-
+            $alttext = preg_replace('/^\[\[(.*)\]\]$/', '$1', $alttext); /// Clean alttext in case there isn't lang string for it.
             $e[$lang][] = $emoticon;
             $img[$lang][] = '<img alt="'. $alttext .'" width="15" height="15" src="'. $CFG->pixpath .'/s/'. $image .'.gif" />';
         }
@@ -1931,11 +2271,11 @@ function html_to_text($html) {
 
     require_once($CFG->libdir .'/html2text.php');
 
-    $h2t = new html2text($html);
-    $result = $h2t->get_text();
+    $result = html2text($html);
 
-    // html2text does not fix HTML entities so handle those here.
-    $result = html_entity_decode($result, ENT_NOQUOTES, 'UTF-8');
+    // html2text does not fix numerical entities so handle those here.
+    $tl=textlib_get_instance();
+    $result = $tl->entities_to_utf8($result,false);
 
     return $result;
 }
@@ -1959,60 +2299,59 @@ function convert_urls_into_links(&$text) {
  * This function will highlight search words in a given string
  * It cares about HTML and will not ruin links.  It's best to use
  * this function after performing any conversions to HTML.
- * Function found here: http://forums.devshed.com/t67822/scdaa2d1c3d4bacb4671d075ad41f0854.html
  *
- * @param string $needle The string to search for
- * @param string $haystack The string to search for $needle in
- * @param int $case ?
- * @return string
- * @todo Finish documenting this function
+ * @param string $needle The search string. Syntax like "word1 +word2 -word3" is dealt with correctly.
+ * @param string $haystack The string (HTML) within which to highlight the search terms.
+ * @param boolean $matchcase whether to do case-sensitive. Default case-insensitive.
+ * @param string $prefix the string to put before each search term found.
+ * @param string $suffix the string to put after each search term found.
+ * @return string The highlighted HTML.
  */
-function highlight($needle, $haystack, $case=0,
-                    $left_string='<span class="highlight">', $right_string='</span>') {
-    if (empty($needle)) {
+function highlight($needle, $haystack, $matchcase = false,
+        $prefix = '<span class="highlight">', $suffix = '</span>') {
+
+/// Quick bail-out in trivial cases.
+    if (empty($needle) or empty($haystack)) {
         return $haystack;
     }
 
-    //$list_of_words = eregi_replace("[^-a-zA-Z0-9&.']", " ", $needle);  // bug 3101
-    $list_of_words = $needle;
-    $list_array = explode(' ', $list_of_words);
-    for ($i=0; $i<sizeof($list_array); $i++) {
-        if (strlen($list_array[$i]) == 1) {
-            $list_array[$i] = '';
+/// Break up the search term into words, discard any -words and build a regexp.
+    $words = preg_split('/ +/', trim($needle));
+    foreach ($words as $index => $word) {
+        if (strpos($word, '-') === 0) {
+            unset($words[$index]);
+        } else if (strpos($word, '+') === 0) {
+            $words[$index] = '\b' . preg_quote(ltrim($word, '+'), '/') . '\b'; // Match only as a complete word.
+        } else {
+            $words[$index] = preg_quote($word, '/');
         }
     }
-    $list_of_words = implode(' ', $list_array);
-    $list_of_words_cp = $list_of_words;
-    $final = array();
-    preg_match_all('/<(.+?)>/is',$haystack,$list_of_words);
-
-    foreach (array_unique($list_of_words[0]) as $key=>$value) {
-        $final['<|'.$key.'|>'] = $value;
+    $regexp = '/(' . implode('|', $words) . ')/u'; // u is do UTF-8 matching.
+    if (!$matchcase) {
+        $regexp .= 'i';
     }
 
-    $haystack = str_replace($final,array_keys($final),$haystack);
-    $list_of_words_cp = eregi_replace(' +', '|', $list_of_words_cp);
-
-    if ($list_of_words_cp{0}=='|') {
-        $list_of_words_cp{0} = '';
-    }
-    if ($list_of_words_cp{strlen($list_of_words_cp)-1}=='|') {
-        $list_of_words_cp{strlen($list_of_words_cp)-1}='';
+/// Another chance to bail-out if $search was only -words
+    if (empty($words)) {
+        return $haystack;
     }
 
-    $list_of_words_cp = trim($list_of_words_cp);
-
-    if ($list_of_words_cp) {
-
-      $list_of_words_cp = "(". $list_of_words_cp .")";
-
-      if (!$case){
-        $haystack = eregi_replace("$list_of_words_cp", "$left_string"."\\1"."$right_string", $haystack);
-      } else {
-        $haystack = ereg_replace("$list_of_words_cp", "$left_string"."\\1"."$right_string", $haystack);
-      }
+/// Find all the HTML tags in the input, and store them in a placeholders array.
+    $placeholders = array();
+    $matches = array();
+    preg_match_all('/<[^>]*>/', $haystack, $matches);
+    foreach (array_unique($matches[0]) as $key => $htmltag) {
+        $placeholders['<|' . $key . '|>'] = $htmltag;
     }
-    $haystack = str_replace(array_keys($final),$final,$haystack);
+
+/// In $hastack, replace each HTML tag with the corresponding placeholder.
+    $haystack = str_replace($placeholders, array_keys($placeholders), $haystack);
+
+/// In the resulting string, Do the highlighting.
+    $haystack = preg_replace($regexp, $prefix . '$1' . $suffix, $haystack);
+
+/// Turn the placeholders back into HTML tags.
+    $haystack = str_replace(array_keys($placeholders), $placeholders, $haystack);
 
     return $haystack;
 }
@@ -2028,7 +2367,15 @@ function highlight($needle, $haystack, $case=0,
  */
 function highlightfast($needle, $haystack) {
 
+    if (empty($needle) or empty($haystack)) {
+        return $haystack;
+    }
+
     $parts = explode(moodle_strtolower($needle), moodle_strtolower($haystack));
+
+    if (count($parts) === 1) {
+        return $haystack;
+    }
 
     $pos = 0;
 
@@ -2040,7 +2387,7 @@ function highlightfast($needle, $haystack) {
         $pos += strlen($needle);
     }
 
-    return (join('', $parts));
+    return str_replace('<span class="highlight"></span>', '', join('', $parts));
 }
 
 /**
@@ -2064,6 +2411,16 @@ function get_html_lang($dir = false) {
     return ($direction.' lang="'.$language.'" xml:lang="'.$language.'"');
 }
 
+/**
+ * Return the markup for the destination of the 'Skip to main content' links.
+ *   Accessibility improvement for keyboard-only users.
+ *   Used in course formats, /index.php and /course/index.php
+ * @return string HTML element.
+ */
+function skip_main_destination() {
+    return '<span id="maincontent"></span>';
+}
+
 
 /// STANDARD WEB PAGE PARTS ///////////////////////////////////////////////////
 
@@ -2073,23 +2430,28 @@ function get_html_lang($dir = false) {
  * @uses $USER
  * @uses $CFG
  * @uses $SESSION
- * @param string $title Appears at the top of the window
- * @param string $heading Appears at the top of the page
- * @param string $navigation Premade navigation string (for use as breadcrumbs links)
- * @param string $focus Indicates form element to get cursor focus on load eg  inputform.password
- * @param string $meta Meta tags to be added to the header
+ * @param string  $title Appears at the top of the window
+ * @param string  $heading Appears at the top of the page
+ * @param array   $navigation Array of $navlinks arrays (keys: name, link, type) for use as breadcrumbs links
+ * @param string  $focus Indicates form element to get cursor focus on load eg  inputform.password
+ * @param string  $meta Meta tags to be added to the header
  * @param boolean $cache Should this page be cacheable?
- * @param string $button HTML code for a button (usually for module editing)
- * @param string $menu HTML code for a popup menu
+ * @param string  $button HTML code for a button (usually for module editing)
+ * @param string  $menu HTML code for a popup menu
  * @param boolean $usexml use XML for this page
- * @param string $bodytags This text will be included verbatim in the <body> tag (useful for onload() etc)
- * @param bool   $return If true, return the visible elements of the header instead of echoing them.
+ * @param string  $bodytags This text will be included verbatim in the <body> tag (useful for onload() etc)
+ * @param bool    $return If true, return the visible elements of the header instead of echoing them.
  */
 function print_header ($title='', $heading='', $navigation='', $focus='',
                        $meta='', $cache=true, $button='&nbsp;', $menu='',
                        $usexml=false, $bodytags='', $return=false) {
 
     global $USER, $CFG, $THEME, $SESSION, $ME, $SITE, $COURSE;
+
+    if (gettype($navigation) == 'string' && strlen($navigation) != 0 && $navigation != 'home') {
+        debugging("print_header() was sent a string as 3rd ($navigation) parameter. "
+                . "This is deprecated in favour of an array built by build_navigation(). Please upgrade your code.", DEBUG_DEVELOPER);
+    }
 
     $heading = format_string($heading); // Fix for MDL-8582
 
@@ -2140,16 +2502,19 @@ function print_header ($title='', $heading='', $navigation='', $focus='',
 
     $meta = $meta."\n".$metapage;
 
+    $meta .= "\n".require_js('',1);
 
-/// Add the required JavaScript Libraries
-    $meta .= "\n".require_js();
+/// Set up some navigation variables
 
-
-    if ($navigation == 'home') {
-        $home = true;
-        $navigation = '';
-    } else {
+    if (is_newnav($navigation)){
         $home = false;
+    } else {
+        if ($navigation == 'home') {
+            $home = true;
+            $navigation = '';
+        } else {
+            $home = false;
+        }
     }
 
 /// This is another ugly hack to make navigation elements available to print_footer later
@@ -2164,10 +2529,19 @@ function print_header ($title='', $heading='', $navigation='', $focus='',
         $button = '&nbsp;';
     }
 
+    if (file_exists($CFG->dataroot.'/'.SITEID.'/maintenance.html')) {
+        $button = '<a href="'.$CFG->wwwroot.'/'.$CFG->admin.'/maintenance.php">'.get_string('maintenancemode', 'admin').'</a> '.$button;
+        if(!empty($title)) {
+            $title .= ' - ';
+        }
+        $title .= get_string('maintenancemode', 'admin');
+    }
+
     if (!$menu and $navigation) {
         if (empty($CFG->loginhttps)) {
             $wwwroot = $CFG->wwwroot;
         } else {
+
             $wwwroot = str_replace('http:','https:',$CFG->wwwroot);
         }
         $menu = user_login_string($COURSE);
@@ -2184,7 +2558,7 @@ function print_header ($title='', $heading='', $navigation='', $focus='',
                     } else {
                         $menu .= get_string('failedloginattemptsall', '', $count);
                     }
-                    if (has_capability('moodle/site:viewreports', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+                    if (has_capability('coursereport/log:view', get_context_instance(CONTEXT_SYSTEM))) {
                         $menu .= ' (<a href="'.$CFG->wwwroot.'/course/report/log/index.php'.
                                              '?chooselog=1&amp;id=1&amp;modid=site_errors">'.get_string('logs').'</a>)';
                     }
@@ -2195,10 +2569,13 @@ function print_header ($title='', $heading='', $navigation='', $focus='',
     }
 
 
-    $meta = '<meta http-equiv="content-type" content="text/html; charset=utf-8" />'. "\n". $meta ."\n";
+    $meta = '<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />' .
+            "\n" . $meta . "\n";
     if (!$usexml) {
-        @header('Content-type: text/html; charset=utf-8');
+        @header('Content-Type: text/html; charset=utf-8');
     }
+    @header('Content-Script-Type: text/javascript');
+    @header('Content-Style-Type: text/css');
 
     //Accessibility: added the 'lang' attribute to $direction, used in theme <html> tag.
     $direction = get_html_lang($dir=true);
@@ -2263,11 +2640,6 @@ function print_header ($title='', $heading='', $navigation='', $focus='',
 
     $pageclass .= ' course-'.$COURSE->id;
 
-    if (($pageid != 'site-index') && ($pageid != 'course-view') &&
-        (strstr($pageid, 'admin') === FALSE)) {
-        $pageclass .= ' nocoursepage';
-    }
-
     if (!isloggedin()) {
         $pageclass .= ' notloggedin';
     }
@@ -2280,6 +2652,8 @@ function print_header ($title='', $heading='', $navigation='', $focus='',
         $pageclass .= ' drag';
     }
 
+    $pageclass .= ' dir-'.get_string('thisdirection');
+
     $pageclass .= ' lang-'.$currentlanguage;
 
     $bodytags .= ' class="'.$pageclass.'" id="'.$pageid.'"';
@@ -2289,11 +2663,26 @@ function print_header ($title='', $heading='', $navigation='', $focus='',
     $output = ob_get_contents();
     ob_end_clean();
 
+    // container debugging info
+    $THEME->open_header_containers = open_containers();
+
+    // Skip to main content, see skip_main_destination().
+    if ($pageid=='course-view' or $pageid=='site-index' or $pageid=='course-index') {
+        $skiplink = '<a class="skip" href="#maincontent">'.get_string('tocontent', 'access').'</a>';
+        if (! preg_match('/(.*<div[^>]+id="page"[^>]*>)(.*)/s', $output, $matches)) {
+            preg_match('/(.*<body.*?>)(.*)/s', $output, $matches);
+        }
+        $output = $matches[1]."\n". $skiplink .$matches[2];
+    }
+
     $output = force_strict_header($output);
 
     if (!empty($CFG->messaging)) {
         $output .= message_popup_window();
     }
+
+    // Add in any extra JavaScript libraries that occurred during the header
+    $output .= require_js('', 2);
 
     if ($return) {
         return $output;
@@ -2301,6 +2690,112 @@ function print_header ($title='', $heading='', $navigation='', $focus='',
         echo $output;
     }
 }
+
+/**
+ * Used to include JavaScript libraries.
+ *
+ * When the $lib parameter is given, the function will ensure that the
+ * named library is loaded onto the page - either in the HTML <head>,
+ * just after the header, or at an arbitrary later point in the page,
+ * depending on where this function is called.
+ *
+ * Libraries will not be included more than once, so this works like
+ * require_once in PHP.
+ *
+ * There are two special-case calls to this function which are both used only
+ * by weblib print_header:
+ * $extracthtml = 1: this is used before printing the header.
+ *    It returns the script tag code that should go inside the <head>.
+ * $extracthtml = 2: this is used after printing the header and handles any
+ *    require_js calls that occurred within the header itself.
+ *
+ * @param mixed $lib - string or array of strings
+ *                     string(s) should be the shortname for the library or the
+ *                     full path to the library file.
+ * @param int $extracthtml Do not set this parameter usually (leave 0), only
+ *                     weblib should set this to 1 or 2 in print_header function.
+ * @return mixed No return value, except when using $extracthtml it returns the html code.
+ */
+function require_js($lib,$extracthtml=0) {
+    global $CFG;
+    static $loadlibs = array();
+
+    static $state = REQUIREJS_BEFOREHEADER;
+    static $latecode = '';
+
+    if (!empty($lib)) {
+        // Add the lib to the list of libs to be loaded, if it isn't already
+        // in the list.
+        if (is_array($lib)) {
+            foreach($lib as $singlelib) {
+                require_js($singlelib);
+            }
+        } else {
+            $libpath = ajax_get_lib($lib);
+            if (array_search($libpath, $loadlibs) === false) {
+                $loadlibs[] = $libpath;
+
+                // For state other than 0 we need to take action as well as just
+                // adding it to loadlibs
+                if($state != REQUIREJS_BEFOREHEADER) {
+                    // Get the script statement for this library
+                    $scriptstatement=get_require_js_code(array($libpath));
+
+                    if($state == REQUIREJS_AFTERHEADER) {
+                        // After the header, print it immediately
+                        print $scriptstatement;
+                    } else {
+                        // Haven't finished the header yet. Add it after the
+                        // header
+                        $latecode .= $scriptstatement;
+                    }
+                }
+            }
+        }
+    } else if($extracthtml==1) {
+        if($state !== REQUIREJS_BEFOREHEADER) {
+            debugging('Incorrect state in require_js (expected BEFOREHEADER): be careful not to call with empty $lib (except in print_header)');
+        } else {
+            $state = REQUIREJS_INHEADER;
+        }
+
+        return get_require_js_code($loadlibs);
+    } else if($extracthtml==2) {
+        if($state !== REQUIREJS_INHEADER) {
+            debugging('Incorrect state in require_js (expected INHEADER): be careful not to call with empty $lib (except in print_header)');
+            return '';
+        } else {
+            $state = REQUIREJS_AFTERHEADER;
+            return $latecode;
+        }
+    } else {
+        debugging('Unexpected value for $extracthtml');
+    }
+}
+
+/**
+ * Should not be called directly - use require_js. This function obtains the code
+ * (script tags) needed to include JavaScript libraries.
+ * @param array $loadlibs Array of library files to include
+ * @return string HTML code to include them
+ */
+function get_require_js_code($loadlibs) {
+    global $CFG;
+    // Return the html needed to load the JavaScript files defined in
+    // our list of libs to be loaded.
+    $output = '';
+    foreach ($loadlibs as $loadlib) {
+        $output .= '<script type="text/javascript" ';
+        $output .= " src=\"$loadlib\"></script>\n";
+        if ($loadlib == $CFG->wwwroot.'/lib/yui/logger/logger-min.js') {
+            // Special case, we need the CSS too.
+            $output .= '<link type="text/css" rel="stylesheet" ';
+            $output .= " href=\"{$CFG->wwwroot}/lib/yui/logger/assets/logger.css\" />\n";
+        }
+    }
+    return $output;
+}
+
 
 /**
  * Debugging aid: serve page as 'application/xhtml+xml' where possible,
@@ -2314,7 +2809,7 @@ function force_strict_header($output) {
     $strict = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">';
     $xsl = '/lib/xhtml.xsl';
 
-    if (!headers_sent() && debugging(NULL, DEBUG_DEVELOPER)) {   // In developer debugging, the browser will barf
+    if (!headers_sent() && !empty($CFG->xmlstrictheaders)) {   // With xml strict headers, the browser will barf
         $ctype = 'Content-Type: ';
         $prolog= "<?xml version='1.0' encoding='utf-8'?>\n";
 
@@ -2377,12 +2872,20 @@ function print_header_simple($title='', $heading='', $navigation='', $focus='', 
 
     global $COURSE, $CFG;
 
-    $shortname ='';
-    if ($COURSE->id != SITEID) {
-        $shortname = '<a href="'.$CFG->wwwroot.'/course/view.php?id='. $COURSE->id .'">'. $COURSE->shortname .'</a> ->';
+    // if we have no navigation specified, build it
+    if( empty($navigation) ){
+       $navigation = build_navigation('');
     }
 
-    $output = print_header($COURSE->shortname .': '. $title, $COURSE->fullname .' '. $heading, $shortname.' '. $navigation, $focus, $meta,
+    // If old style nav prepend course short name otherwise leave $navigation object alone
+    if (!is_newnav($navigation)) {
+        if ($COURSE->id != SITEID) {
+            $shortname = '<a href="'.$CFG->wwwroot.'/course/view.php?id='. $COURSE->id .'">'. $COURSE->shortname .'</a> ->';
+            $navigation = $shortname.' '.$navigation;
+        }
+    }
+
+    $output = print_header($COURSE->shortname .': '. $title, $COURSE->fullname .' '. $heading, $navigation, $focus, $meta,
                            $cache, $button, $menu, $usexml, $bodytags, true);
 
     if ($return) {
@@ -2396,33 +2899,62 @@ function print_header_simple($title='', $heading='', $navigation='', $focus='', 
 /**
  * Can provide a course object to make the footer contain a link to
  * to the course home page, otherwise the link will go to the site home
- *
- * @uses $CFG
  * @uses $USER
- * @param course $course {@link $COURSE} object containing course information
- * @param ? $usercourse ?
- * @todo Finish documenting this function
+ * @param mixed $course course object, used for course link button or
+ *                      'none' means no user link, only docs link
+ *                      'empty' means nothing printed in footer
+ *                      'home' special frontpage footer
+ * @param object $usercourse course used in user link
+ * @param boolean $return output as string
+ * @return mixed string or void
  */
 function print_footer($course=NULL, $usercourse=NULL, $return=false) {
     global $USER, $CFG, $THEME, $COURSE;
 
-/// Course links
+    if (defined('ADMIN_EXT_HEADER_PRINTED') and !defined('ADMIN_EXT_FOOTER_PRINTED')) {
+        admin_externalpage_print_footer();
+        return;
+    }
+
+/// Course links or special footer
     if ($course) {
-        if (is_string($course) && $course == 'none') {          // Don't print any links etc
+        if ($course === 'empty') {
+            // special hack - sometimes we do not want even the docs link in footer
+            $output = '';
+            if (!empty($THEME->open_header_containers)) {
+                for ($i=0; $i<$THEME->open_header_containers; $i++) {
+                    $output .= print_container_end_all(); // containers opened from header
+                }
+            } else {
+                //1.8 theme compatibility
+                $output .= "\n</div>"; // content div
+            }
+            $output .= "\n</div>\n</body>\n</html>"; // close page div started in header
+            if ($return) {
+                return $output;
+            } else {
+                echo $output;
+                return;
+            }
+
+        } else if ($course === 'none') {          // Don't print any links etc
             $homelink = '';
             $loggedinas = '';
             $home  = false;
-        } else if (is_string($course) && $course == 'home') {   // special case for site home page - please do not remove
+
+        } else if ($course === 'home') {   // special case for site home page - please do not remove
             $course = get_site();
             $homelink  = '<div class="sitelink">'.
-               '<a title="moodle '. $CFG->release .' ('. $CFG->version .')" href="http://moodle.org/">'.
-               '<br /><img style="width:100px;height:30px" src="pix/moodlelogo.gif" alt="moodlelogo" /></a></div>';
+               '<a title="Moodle '. $CFG->release .'" href="http://moodle.org/">'.
+               '<img style="width:100px;height:30px" src="pix/moodlelogo.gif" alt="moodlelogo" /></a></div>';
             $home  = true;
+
         } else {
             $homelink = '<div class="homelink"><a '.$CFG->frametarget.' href="'.$CFG->wwwroot.
                         '/course/view.php?id='.$course->id.'">'.format_string($course->shortname).'</a></div>';
             $home  = false;
         }
+
     } else {
         $course = get_site();  // Set course as site course by default
         $homelink = '<div class="homelink"><a '.$CFG->frametarget.' href="'.$CFG->wwwroot.'/">'.get_string('home').'</a></div>';
@@ -2451,18 +2983,22 @@ function print_footer($course=NULL, $usercourse=NULL, $return=false) {
         $menu = '';
     }
 
+/// there should be exactly the same number of open containers as after the header
+    if ($THEME->open_header_containers != open_containers()) {
+        debugging('Unexpected number of open containers: '.open_containers().', expecting '.$THEME->open_header_containers, DEBUG_DEVELOPER);
+    }
+
 /// Provide some performance info if required
     $performanceinfo = '';
     if (defined('MDL_PERF') || (!empty($CFG->perfdebug) and $CFG->perfdebug > 7)) {
         $perf = get_performance_info();
-        if (defined('MDL_PERFTOLOG')) {
+        if (defined('MDL_PERFTOLOG') && !function_exists('register_shutdown_function')) {
             error_log("PERF: " . $perf['txt']);
         }
         if (defined('MDL_PERFTOFOOT') || debugging() || $CFG->perfdebug > 7) {
             $performanceinfo = $perf['html'];
         }
     }
-
 
 /// Include the actual footer file
 
@@ -2482,30 +3018,128 @@ function print_footer($course=NULL, $usercourse=NULL, $return=false) {
  * Returns the name of the current theme
  *
  * @uses $CFG
- * @param $USER
- * @param $SESSION
+ * @uses $USER
+ * @uses $SESSION
+ * @uses $COURSE
+ * @uses $FULLME
  * @return string
  */
 function current_theme() {
-    global $CFG, $USER, $SESSION, $COURSE;
+    global $CFG, $USER, $SESSION, $COURSE, $FULLME;
 
-    if (!empty($CFG->pagetheme)) {  // Page theme is for special page-only themes set by code
-        return $CFG->pagetheme;
-
-    } else if (!empty($CFG->allowcoursethemes) and !empty($COURSE->theme)) {  // Course themes override others
-        return $COURSE->theme;
-
-    } else if (!empty($SESSION->theme)) {    // Session theme can override other settings
-        return $SESSION->theme;
-
-    } else if (!empty($CFG->allowuserthemes) and !empty($USER->theme)) {    // User theme can override site theme
-        return $USER->theme;
-
+    if (empty($CFG->themeorder)) {
+        $themeorder = array('page', 'course', 'category', 'session', 'user', 'site');
     } else {
-        return $CFG->theme;
+        $themeorder = $CFG->themeorder;
     }
+
+    if (isloggedin() and isset($CFG->mnet_localhost_id) and $USER->mnethostid != $CFG->mnet_localhost_id) {
+        require_once($CFG->dirroot.'/mnet/peer.php');
+        $mnet_peer = new mnet_peer();
+        $mnet_peer->set_id($USER->mnethostid);
+    }
+
+    $theme = '';
+    foreach ($themeorder as $themetype) {
+
+        if (!empty($theme)) continue;
+
+        switch ($themetype) {
+            case 'page': // Page theme is for special page-only themes set by code
+                if (!empty($CFG->pagetheme)) {
+                    $theme = $CFG->pagetheme;
+                }
+                break;
+            case 'course':
+                if (!empty($CFG->allowcoursethemes) and !empty($COURSE->theme)) {
+                    $theme = $COURSE->theme;
+                }
+                break;
+            case 'category':
+                if (!empty($CFG->allowcategorythemes)) {
+                /// Nasty hack to check if we're in a category page
+                    if (stripos($FULLME, 'course/category.php') !== false) {
+                        global $id;
+                        if (!empty($id)) {
+                            $theme = current_category_theme($id);
+                        }
+                /// Otherwise check if we're in a course that has a category theme set
+                    } else if (!empty($COURSE->category)) {
+                        $theme = current_category_theme($COURSE->category);
+                    }
+                }
+                break;
+            case 'session':
+                if (!empty($SESSION->theme)) {
+                    $theme = $SESSION->theme;
+                }
+                break;
+            case 'user':
+                if (!empty($CFG->allowuserthemes) and !empty($USER->theme)) {
+                    if (isloggedin() and $USER->mnethostid != $CFG->mnet_localhost_id && $mnet_peer->force_theme == 1 && $mnet_peer->theme != '') {
+                        $theme = $mnet_peer->theme;
+                    } else {
+                        $theme = $USER->theme;
+                    }
+                }
+                break;
+            case 'site':
+                if (isloggedin() and isset($CFG->mnet_localhost_id) and $USER->mnethostid != $CFG->mnet_localhost_id && $mnet_peer->force_theme == 1 && $mnet_peer->theme != '') {
+                    $theme = $mnet_peer->theme;
+                } else {
+                    $theme = $CFG->theme;
+                }
+                break;
+            default:
+                /// do nothing
+        }
+    }
+
+/// A final check in case 'site' was not included in $CFG->themeorder
+    if (empty($theme)) {
+        $theme = $CFG->theme;
+    }
+
+    return $theme;
 }
 
+/**
+ * Retrieves the category theme if one exists, otherwise checks the parent categories.
+ * Recursive function.
+ *
+ * @uses $COURSE
+ * @param   integer   $categoryid   id of the category to check
+ * @return  string    theme name
+ */
+function current_category_theme($categoryid=0) {
+    global $COURSE;
+
+/// Use the COURSE global if the categoryid not set
+    if (empty($categoryid)) {
+        if (!empty($COURSE->category)) {
+            $categoryid = $COURSE->category;
+        } else {
+            return false;
+        }
+    }
+
+/// Retrieve the current category
+    if ($category = get_record('course_categories', 'id', $categoryid)) {
+
+    /// Return the category theme if it exists
+        if (!empty($category->theme)) {
+            return $category->theme;
+
+    /// Otherwise try the parent category if one exists
+        } else if (!empty($category->parent)) {
+            return current_category_theme($category->parent);
+        }
+
+/// Return false if we can't find the category record
+    } else {
+        return false;
+    }
+}
 
 /**
  * This function is called by stylesheets to set up the header
@@ -2617,13 +3251,22 @@ function style_sheet_setup($lastmodified=0, $lifetime=300, $themename='', $force
             }
         }
 
+        if (!isset($THEME->gradereportsheets) || $THEME->gradereportsheets) { // Search for styles.php in grade reports
+            if ($reports = get_list_of_plugins('grade/report')) {
+                foreach ($reports as $report) {
+                    if (file_exists($CFG->dirroot.'/grade/report/'.$report.'/styles.php')) {
+                        $files[] = array($CFG->dirroot, '/grade/report/'.$report.'/styles.php');
+                    }
+                }
+            }
+        }
+
         if (!empty($THEME->langsheets)) {     // Search for styles.php within the current language
             if (file_exists($CFG->dirroot.'/lang/'.$lang.'/styles.php')) {
                 $files[] = array($CFG->dirroot, '/lang/'.$lang.'/styles.php');
             }
         }
     }
-
 
     if ($files) {
     /// Produce a list of all the files first
@@ -2679,6 +3322,11 @@ function theme_setup($theme = '', $params=NULL) {
 
     global $CFG, $THEME, $SESSION, $USER, $HTTPSPAGEREQUIRED;
 
+/// Do not mess with THEME if header already printed - this would break all the extra stuff in global $THEME from print_header()!!
+    if (defined('HEADER_PRINTED')) {
+        return;
+    }
+
     if (empty($theme)) {
         $theme = current_theme();
     }
@@ -2696,6 +3344,7 @@ function theme_setup($theme = '', $params=NULL) {
     if (!$params) {
         $params = array();
     }
+
     if ($theme != $CFG->theme) {
         $params[] = 'forceconfig='.$theme;
     }
@@ -2704,6 +3353,7 @@ function theme_setup($theme = '', $params=NULL) {
     if (!empty($THEME->langsheets)) {
         $params[] = 'lang='.current_language();
     }
+
 
 /// Convert params to string
     if ($params) {
@@ -2754,6 +3404,11 @@ function theme_setup($theme = '', $params=NULL) {
         }
     }
 
+// RTL support - only for RTL languages, add RTL CSS
+    if (get_string('thisdirection') == 'rtl') {
+        $CFG->stylesheets[] = $CFG->themewww.'/standard/rtl.css'.$paramstring;
+        $CFG->stylesheets[] = $CFG->themewww.'/'.$theme.'/rtl.css'.$paramstring;
+    }
 }
 
 
@@ -2807,9 +3462,9 @@ function user_login_string($course=NULL, $user=NULL) {
         if (isset($user->username) && $user->username == 'guest') {
             $loggedinas = $realuserinfo.get_string('loggedinasguest').
                       " (<a $CFG->frametarget href=\"$wwwroot/login/index.php\">".get_string('login').'</a>)';
-        } else if (!empty($user->switchrole[$context->id])) {
+        } else if (!empty($user->access['rsw'][$context->path])) {
             $rolename = '';
-            if ($role = get_record('role', 'id', $user->switchrole[$context->id])) {
+            if ($role = get_record('role', 'id', $user->access['rsw'][$context->path])) {
                 $rolename = ': '.format_string($role->name);
             }
             $loggedinas = get_string('loggedinas', 'moodle', $username).$rolename.
@@ -2843,7 +3498,11 @@ function check_theme_arrows() {
         // Also OK in Win 9x/2K/IE 5.x
         $THEME->rarrow = '&#x25BA;';
         $THEME->larrow = '&#x25C4;';
-        $uagent = $_SERVER['HTTP_USER_AGENT'];
+        if (empty($_SERVER['HTTP_USER_AGENT'])) {
+            $uagent = '';
+        } else {
+            $uagent = $_SERVER['HTTP_USER_AGENT'];
+        }
         if (false !== strpos($uagent, 'Opera')
             || false !== strpos($uagent, 'Mac')) {
             // Looks good in Win XP/Mac/Opera 8/9, Mac/Firefox 2, Camino, Safari.
@@ -2862,14 +3521,20 @@ function check_theme_arrows() {
             $THEME->rarrow = '&gt;';
             $THEME->larrow = '&lt;';
         }
+
+    /// RTL support - in RTL languages, swap r and l arrows
+        if (right_to_left()) {
+            $t = $THEME->rarrow;
+            $THEME->rarrow = $THEME->larrow;
+            $THEME->larrow = $t;
+        }
     }
 }
+
 
 /**
  * Return the right arrow with text ('next'), and optionally embedded in a link.
  * See function above, check_theme_arrows.
- * To see examples of this function in use, see function get_separator below (simple),
- * and function calendar_get_link_next in calendar/lib.php (more complex).
  * @param string $text HTML/plain text label (set to blank only for breadcrumb separator cases).
  * @param string $url An optional link to use in a surrounding HTML anchor.
  * @param bool $accesshide True if text should be hidden (for screen readers only).
@@ -2888,7 +3553,7 @@ function link_arrow_right($text, $url='', $accesshide=false, $addclass='') {
     if ($text) {
         $htmltext = $text.'&nbsp;';
         if ($accesshide) {
-            $htmltext = '<span class="accesshide">'.$htmltext.'</span>';
+            $htmltext = get_accesshide($htmltext);
         }
     }
     if ($url) {
@@ -2922,7 +3587,7 @@ function link_arrow_left($text, $url='', $accesshide=false, $addclass='') {
     if ($text) {
         $htmltext = '&nbsp;'.$text;
         if ($accesshide) {
-            $htmltext = '<span class="accesshide">'.$htmltext.'</span>';
+            $htmltext = get_accesshide($htmltext);
         }
     }
     if ($url) {
@@ -2933,6 +3598,19 @@ function link_arrow_left($text, $url='', $accesshide=false, $addclass='') {
         return '<a'.$class.' href="'.$url.'" title="'.preg_replace('/<.*?>/','',$text).'">'.$arrow.$htmltext.'</a>';
     }
     return $arrow.$htmltext;
+}
+
+/**
+ * Return a HTML element with the class "accesshide", for accessibility.
+ *   Please use cautiously - where possible, text should be visible!
+ * @param string $text Plain text.
+ * @param string $elem Lowercase element name, default "span".
+ * @param string $class Additional classes for the element.
+ * @param string $attrs Additional attributes string in the form, "name='value' name2='value2'"
+ * @return string HTML string.
+ */
+function get_accesshide($text, $elem='span', $class='', $attrs='') {
+    return "<$elem class=\"accesshide $class\" $attrs>$text</$elem>";
 }
 
 /**
@@ -2966,6 +3644,17 @@ function print_navigation ($navigation, $separator=0, $return=false) {
 
     if ($navigation) {
 
+        if (is_newnav($navigation)) {
+            if ($return) {
+                return($navigation['navlinks']);
+            } else {
+                echo $navigation['navlinks'];
+                return;
+            }
+        } else {
+            debugging('Navigation needs to be updated to use build_navigation()', DEBUG_DEVELOPER);
+        }
+
         if (!is_array($navigation)) {
             $ar = explode('->', $navigation);
             $navigation = array();
@@ -2987,8 +3676,7 @@ function print_navigation ($navigation, $separator=0, $return=false) {
         }
 
         //Accessibility: breadcrumb links now in a list, &raquo; replaced with a 'silent' character.
-        $nav_text = get_string('youarehere','access');
-        $output .= '<h2 class="accesshide">'.$nav_text."</h2><ul>\n";
+        $output .= get_accesshide(get_string('youarehere','access'), 'h2')."<ul>\n";
 
         $output .= '<li class="first">'."\n".'<a '.$CFG->frametarget.' onclick="this.target=\''.$CFG->framename.'\'" href="'
                .$CFG->wwwroot.((!has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))
@@ -3017,6 +3705,168 @@ function print_navigation ($navigation, $separator=0, $return=false) {
         echo $output;
     }
 }
+
+/**
+ * This function will build the navigation string to be used by print_header
+ * and others.
+ *
+ * It automatically generates the site and course level (if appropriate) links.
+ *
+ * If you pass in a $cm object, the method will also generate the activity (e.g. 'Forums')
+ * and activityinstances (e.g. 'General Developer Forum') navigation levels.
+ *
+ * If you want to add any further navigation links after the ones this function generates,
+ * the pass an array of extra link arrays like this:
+ * array(
+ *     array('name' => $linktext1, 'link' => $url1, 'type' => $linktype1),
+ *     array('name' => $linktext2, 'link' => $url2, 'type' => $linktype2)
+ * )
+ * The normal case is to just add one further link, for example 'Editing forum' after
+ * 'General Developer Forum', with no link.
+ * To do that, you need to pass
+ * array(array('name' => $linktext, 'link' => '', 'type' => 'title'))
+ * However, becuase this is a very common case, you can use a shortcut syntax, and just
+ * pass the string 'Editing forum', instead of an array as $extranavlinks.
+ *
+ * At the moment, the link types only have limited significance. Type 'activity' is
+ * recognised in order to implement the $CFG->hideactivitytypenavlink feature. Types
+ * that are known to appear are 'home', 'course', 'activity', 'activityinstance' and 'title'.
+ * This really needs to be documented better. In the mean time, try to be consistent, it will
+ * enable people to customise the navigation more in future.
+ *
+ * When passing a $cm object, the fields used are $cm->modname, $cm->name and $cm->course.
+ * If you get the $cm object using the function get_coursemodule_from_instance or
+ * get_coursemodule_from_id (as recommended) then this will be done for you automatically.
+ * If you don't have $cm->modname or $cm->name, this fuction will attempt to find them using
+ * the $cm->module and $cm->instance fields, but this takes extra database queries, so a
+ * warning is printed in developer debug mode.
+ *
+ * @uses $CFG
+ * @uses $THEME
+ *
+ * @param mixed $extranavlinks - Normally an array of arrays, keys: name, link, type. If you
+ *      only want one extra item with no link, you can pass a string instead. If you don't want
+ *      any extra links, pass an empty string.
+ * @param mixed $cm - optionally the $cm object, if you want this function to generate the
+ *      activity and activityinstance levels of navigation too.
+ *
+ * @return $navigation as an object so it can be differentiated from old style
+ *      navigation strings.
+ */
+function build_navigation($extranavlinks, $cm = null) {
+    global $CFG, $COURSE;
+
+    if (is_string($extranavlinks)) {
+        if ($extranavlinks == '') {
+            $extranavlinks = array();
+        } else {
+            $extranavlinks = array(array('name' => $extranavlinks, 'link' => '', 'type' => 'title'));
+        }
+    }
+
+    $navlinks = array();
+
+    //Site name
+    if ($site = get_site()) {
+        $navlinks[] = array(
+                'name' => format_string($site->shortname),
+                'link' => "$CFG->wwwroot/",
+                'type' => 'home');
+    }
+
+    // Course name, if appropriate.
+    if (isset($COURSE) && $COURSE->id != SITEID) {
+        $navlinks[] = array(
+                'name' => format_string($COURSE->shortname),
+                'link' => "$CFG->wwwroot/course/view.php?id=$COURSE->id",
+                'type' => 'course');
+    }
+
+    // Activity type and instance, if appropriate.
+    if (is_object($cm)) {
+        if (!isset($cm->modname)) {
+            debugging('The field $cm->modname should be set if you call build_navigation with '.
+                    'a $cm parameter. If you get $cm using get_coursemodule_from_instance or '.
+                    'get_coursemodule_from_id, this will be done automatically.', DEBUG_DEVELOPER);
+            if (!$cm->modname = get_field('modules', 'name', 'id', $cm->module)) {
+                error('Cannot get the module type in build navigation.');
+            }
+        }
+        if (!isset($cm->name)) {
+            debugging('The field $cm->name should be set if you call build_navigation with '.
+                    'a $cm parameter. If you get $cm using get_coursemodule_from_instance or '.
+                    'get_coursemodule_from_id, this will be done automatically.', DEBUG_DEVELOPER);
+            if (!$cm->name = get_field($cm->modname, 'name', 'id', $cm->instance)) {
+                error('Cannot get the module name in build navigation.');
+            }
+        }
+        $navlinks[] = array(
+                'name' => get_string('modulenameplural', $cm->modname),
+                'link' => $CFG->wwwroot . '/mod/' . $cm->modname . '/index.php?id=' . $cm->course,
+                'type' => 'activity');
+        $navlinks[] = array(
+                'name' => format_string($cm->name),
+                'link' => $CFG->wwwroot . '/mod/' . $cm->modname . '/view.php?id=' . $cm->id,
+                'type' => 'activityinstance');
+    }
+
+    //Merge in extra navigation links
+    $navlinks = array_merge($navlinks, $extranavlinks);
+
+    // Work out whether we should be showing the activity (e.g. Forums) link.
+    // Note: build_navigation() is called from many places --
+    // install & upgrade for example -- where we cannot count on the
+    // roles infrastructure to be defined. Hence the $CFG->rolesactive check.
+    if (!isset($CFG->hideactivitytypenavlink)) {
+        $CFG->hideactivitytypenavlink = 0;
+    }
+    if ($CFG->hideactivitytypenavlink == 2) {
+        $hideactivitylink = true;
+    } else if ($CFG->hideactivitytypenavlink == 1 && $CFG->rolesactive &&
+            !empty($COURSE->id) && $COURSE->id != SITEID) {
+        if (!isset($COURSE->context)) {
+            $COURSE->context = get_context_instance(CONTEXT_COURSE, $COURSE->id);
+        }
+        $hideactivitylink = !has_capability('moodle/course:manageactivities', $COURSE->context);
+    } else {
+        $hideactivitylink = false;
+    }
+
+    //Construct an unordered list from $navlinks
+    //Accessibility: heading hidden from visual browsers by default.
+    $navigation = get_accesshide(get_string('youarehere','access'), 'h2')." <ul>\n";
+    $lastindex = count($navlinks) - 1;
+    $i = -1; // Used to count the times, so we know when we get to the last item.
+    $first = true;
+    foreach ($navlinks as $navlink) {
+        $i++;
+        $last = ($i == $lastindex);
+        if (!is_array($navlink)) {
+            continue;
+        }
+        if (!empty($navlink['type']) && $navlink['type'] == 'activity' && !$last && $hideactivitylink) {
+            continue;
+        }
+        $navigation .= '<li class="first">';
+        if (!$first) {
+            $navigation .= get_separator();
+        }
+        if ((!empty($navlink['link'])) && !$last) {
+            $navigation .= "<a onclick=\"this.target='$CFG->framename'\" href=\"{$navlink['link']}\">";
+        }
+        $navigation .= "{$navlink['name']}";
+        if ((!empty($navlink['link'])) && !$last) {
+            $navigation .= "</a>";
+        }
+
+        $navigation .= "</li>";
+        $first = false;
+    }
+    $navigation .= "</ul>";
+
+    return(array('newnav' => true, 'navlinks' => $navigation));
+}
+
 
 /**
  * Prints a string in a specified size  (retained for backward compatibility)
@@ -3117,9 +3967,15 @@ function print_continue($link, $return=false) {
         }
     }
 
+    $options = array();
+    $linkparts = parse_url(str_replace('&amp;', '&', $link));
+    if (isset($linkparts['query'])) {
+        parse_str($linkparts['query'], $options);
+    }
+
     $output .= '<div class="continuebutton">';
 
-    $output .= print_single_button($link, NULL, get_string('continue'), 'post', $CFG->framename, true);
+    $output .= print_single_button($link, $options, get_string('continue'), 'get', $CFG->framename, true);
     $output .= '</div>'."\n";
 
     if ($return) {
@@ -3136,8 +3992,9 @@ function print_continue($link, $return=false) {
  *
  * @param string $message, the content of the box
  * @param string $classes, space-separated class names.
- * @param string $ids, space-separated id names.
+ * @param string $idbase
  * @param boolean $return, return as string or just print it
+ * @return mixed string or void
  */
 function print_box($message, $classes='generalbox', $ids='', $return=false) {
 
@@ -3157,25 +4014,28 @@ function print_box($message, $classes='generalbox', $ids='', $return=false) {
  * Replaces print_simple_box_start (see deprecatedlib.php)
  *
  * @param string $classes, space-separated class names.
- * @param string $ids, space-separated id names.
+ * @param string $idbase
  * @param boolean $return, return as string or just print it
+ * @return mixed string or void
  */
 function print_box_start($classes='generalbox', $ids='', $return=false) {
-    $output = '';
+    global $THEME;
 
-    if ($ids) {
-        $ids = ' id="'.$ids.'"';
-    }
-
-    $output .= '<div'.$ids.' class="box '.$classes.'">';
-
-    if ($return) {
-        return $output;
+    if (strpos($classes, 'clearfix') !== false) {
+        $clearfix = true;
+        $classes = trim(str_replace('clearfix', '', $classes));
     } else {
-        echo $output;
+        $clearfix = false;
     }
-}
 
+    if (!empty($THEME->customcorners)) {
+        $classes .= ' ccbox box';
+    } else {
+        $classes .= ' box';
+    }
+
+    return print_container_start($clearfix, $classes, $ids, $return);
+}
 
 /**
  * Simple function to end a box (see above)
@@ -3184,7 +4044,25 @@ function print_box_start($classes='generalbox', $ids='', $return=false) {
  * @param boolean $return, return as string or just print it
  */
 function print_box_end($return=false) {
-    $output = '</div>';
+    return print_container_end($return);
+}
+
+/**
+ * Print a message in a standard themed container.
+ *
+ * @param string $message, the content of the container
+ * @param boolean $clearfix clear both sides
+ * @param string $classes, space-separated class names.
+ * @param string $idbase
+ * @param boolean $return, return as string or just print it
+ * @return string or void
+ */
+function print_container($message, $clearfix=false, $classes='', $idbase='', $return=false) {
+
+    $output  = print_container_start($clearfix, $classes, $idbase, true);
+    $output .= stripslashes_safe($message);
+    $output .= print_container_end(true);
+
     if ($return) {
         return $output;
     } else {
@@ -3192,17 +4070,191 @@ function print_box_end($return=false) {
     }
 }
 
+/**
+ * Starts a container using divs
+ *
+ * @param boolean $clearfix clear both sides
+ * @param string $classes, space-separated class names.
+ * @param string $idbase
+ * @param boolean $return, return as string or just print it
+ * @return mixed string or void
+ */
+function print_container_start($clearfix=false, $classes='', $idbase='', $return=false) {
+    global $THEME;
+
+    if (!isset($THEME->open_containers)) {
+        $THEME->open_containers = array();
+    }
+    $THEME->open_containers[] = $idbase;
+
+
+    if (!empty($THEME->customcorners)) {
+        $output = _print_custom_corners_start($clearfix, $classes, $idbase);
+    } else {
+        if ($idbase) {
+            $id = ' id="'.$idbase.'"';
+        } else {
+            $id = '';
+        }
+        if ($clearfix) {
+            $clearfix = ' clearfix';
+        } else {
+            $clearfix = '';
+        }
+        if ($classes or $clearfix) {
+            $class = ' class="'.$classes.$clearfix.'"';
+        } else {
+            $class = '';
+        }
+        $output = '<div'.$id.$class.'>';
+    }
+
+    if ($return) {
+        return $output;
+    } else {
+        echo $output;
+    }
+}
+
+/**
+ * Simple function to end a container (see above)
+ * @param boolean $return, return as string or just print it
+ * @return mixed string or void
+ */
+function print_container_end($return=false) {
+    global $THEME;
+
+    if (empty($THEME->open_containers)) {
+        debugging('Incorrect request to end container - no more open containers.', DEBUG_DEVELOPER);
+        $idbase = '';
+    } else {
+        $idbase = array_pop($THEME->open_containers);
+    }
+
+    if (!empty($THEME->customcorners)) {
+        $output = _print_custom_corners_end($idbase);
+    } else {
+        $output = '</div>';
+    }
+
+    if ($return) {
+        return $output;
+    } else {
+        echo $output;
+    }
+}
+
+/**
+ * Returns number of currently open containers
+ * @return int number of open containers
+ */
+function open_containers() {
+    global $THEME;
+
+    if (!isset($THEME->open_containers)) {
+        $THEME->open_containers = array();
+    }
+
+    return count($THEME->open_containers);
+}
+
+/**
+ * Force closing of open containers
+ * @param boolean $return, return as string or just print it
+ * @param int $keep number of containers to be kept open - usually theme or page containers
+ * @return mixed string or void
+ */
+function print_container_end_all($return=false, $keep=0) {
+    $output = '';
+    while (open_containers() > $keep) {
+        $output .= print_container_end($return);
+    }
+
+    if ($return) {
+        return $output;
+    } else {
+        echo $output;
+    }
+}
+
+/**
+ * Internal function - do not use directly!
+ * Starting part of the surrounding divs for custom corners
+ *
+ * @param boolean $clearfix, add CLASS "clearfix" to the inner div against collapsing
+ * @param string $classes
+ * @param mixed $idbase, optionally, define one idbase to be added to all the elements in the corners
+ * @return string
+ */
+function _print_custom_corners_start($clearfix=false, $classes='', $idbase='') {
+/// Analise if we want ids for the custom corner elements
+    $id = '';
+    $idbt = '';
+    $idi1 = '';
+    $idi2 = '';
+    $idi3 = '';
+
+    if ($idbase) {
+        $id   = 'id="'.$idbase.'" ';
+        $idbt = 'id="'.$idbase.'-bt" ';
+        $idi1 = 'id="'.$idbase.'-i1" ';
+        $idi2 = 'id="'.$idbase.'-i2" ';
+        $idi3 = 'id="'.$idbase.'-i3" ';
+    }
+
+/// Calculate current level
+    $level = open_containers();
+
+/// Output begins
+    $output = '<div '.$id.'class="wrap wraplevel'.$level.' '.$classes.'">'."\n";
+    $output .= '<div '.$idbt.'class="bt"><div>&nbsp;</div></div>';
+    $output .= "\n";
+    $output .= '<div '.$idi1.'class="i1"><div '.$idi2.'class="i2">';
+    $output .= (!empty($clearfix)) ? '<div '.$idi3.'class="i3 clearfix">' : '<div '.$idi3.'class="i3">';
+
+    return $output;
+}
+
+
+/**
+ * Internal function - do not use directly!
+ * Ending part of the surrounding divs for custom corners
+ * @param string $idbase
+ * @return string
+ */
+function _print_custom_corners_end($idbase) {
+/// Analise if we want ids for the custom corner elements
+    $idbb = '';
+
+    if ($idbase) {
+        $idbb = 'id="' . $idbase . '-bb" ';
+    }
+
+/// Output begins
+    $output = '</div></div></div>';
+    $output .= "\n";
+    $output .= '<div '.$idbb.'class="bb"><div>&nbsp;</div></div>'."\n";
+    $output .= '</div>';
+
+    return $output;
+}
+
 
 /**
  * Print a self contained form with a single submit button.
  *
- * @param string $link ?
- * @param array $options ?
- * @param string $label ?
- * @param string $method ?
- * @todo Finish documenting this function
+ * @param string $link used as the action attribute on the form, so the URL that will be hit if the button is clicked.
+ * @param array $options these become hidden form fields, so these options get passed to the script at $link.
+ * @param string $label the caption that appears on the button.
+ * @param string $method HTTP method used on the request of the button is clicked. 'get' or 'post'.
+ * @param string $target no longer used.
+ * @param boolean $return if false, output the form directly, otherwise return the HTML as a string.
+ * @param string $tooltip a tooltip to add to the button as a title attribute.
+ * @param boolean $disabled if true, the button will be disabled.
+ * @param string $jsconfirmmessage if not empty then display a confirm dialogue with this string as the question.
+ * @return string / nothing depending on the $return paramter.
  */
-function print_single_button($link, $options, $label='OK', $method='get', $target='_self', $return=false) {
+function print_single_button($link, $options, $label='OK', $method='get', $target='_self', $return=false, $tooltip='', $disabled = false, $jsconfirmmessage='') {
     $output = '';
     $link = str_replace('"', '&quot;', $link); //basic XSS protection
     $output .= '<div class="singlebutton">';
@@ -3214,7 +4266,21 @@ function print_single_button($link, $options, $label='OK', $method='get', $targe
             $output .= '<input type="hidden" name="'. $name .'" value="'. s($value) .'" />';
         }
     }
-    $output .= '<input type="submit" value="'. s($label) .'" /></div></form></div>';
+    if ($tooltip) {
+        $tooltip = 'title="' . s($tooltip) . '"';
+    } else {
+        $tooltip = '';
+    }
+    if ($disabled) {
+        $disabled = 'disabled="disabled"';
+    } else {
+        $disabled = '';
+    }
+    if ($jsconfirmmessage){
+        $jsconfirmmessage = addslashes_js($jsconfirmmessage);
+        $jsconfirmmessage = 'onclick="return confirm(\''. $jsconfirmmessage .'\');" ';
+    }
+    $output .= '<input type="submit" value="'. s($label) ."\" $tooltip $disabled $jsconfirmmessage/></div></form></div>";
 
     if ($return) {
         return $output;
@@ -3277,11 +4343,8 @@ function print_file_picture($path, $courseid=0, $height='', $width='', $link='',
 
     } else if ($courseid) {
         $output .= '<img style="height:'.$height.'px;width:'.$width.'px;" src="';
-        if ($CFG->slasharguments) {        // Use this method if possible for better caching
-            $output .= $CFG->wwwroot .'/file.php/'. $courseid .'/'. $path;
-        } else {
-            $output .= $CFG->wwwroot .'/file.php?file=/'. $courseid .'/'. $path;
-        }
+        require_once($CFG->libdir.'/filelib.php');
+        $output .= get_file_url("$courseid/$path");
         $output .= '" />';
     } else {
         $output .= 'Error: must pass URL or course';
@@ -3300,7 +4363,10 @@ function print_file_picture($path, $courseid=0, $height='', $width='', $link='',
 /**
  * Print the specified user's avatar.
  *
- * @param int $userid ?
+ * If you pass a $user object that has id, picture, imagealt, firstname, lastname
+ * you save a DB query.
+ *
+ * @param int $user takes a userid, or a userobj
  * @param int $courseid ?
  * @param boolean $picture Print the user picture?
  * @param int $size Size in pixels.  Special values are (true/1 = 100px) and (false/0 = 35px) for backward compatability
@@ -3311,14 +4377,47 @@ function print_file_picture($path, $courseid=0, $height='', $width='', $link='',
  * return string
  * @todo Finish documenting this function
  */
-function print_user_picture($userid, $courseid, $picture, $size=0, $return=false, $link=true, $target='', $alttext=true) {
+function print_user_picture($user, $courseid, $picture=NULL, $size=0, $return=false, $link=true, $target='', $alttext=true) {
     global $CFG;
 
-    if ($link) {
-        if ($target) {
-            $target=' target="_blank"';
+    $needrec = false;
+    // only touch the DB if we are missing data...
+    if (is_object($user)) {
+        // Note - both picture and imagealt _can_ be empty
+        // what we are trying to see here is if they have been fetched
+        // from the DB. We should use isset() _except_ that some installs
+        // have those fields as nullable, and isset() will return false
+        // on null. The only safe thing is to ask array_key_exists()
+        // which works on objects. property_exists() isn't quite
+        // what we want here...
+        if (! (array_key_exists('picture', $user)
+               && ($alttext && array_key_exists('imagealt', $user)
+                   || (isset($user->firstname) && isset($user->lastname)))) ) {
+            $needrec = true;
+            $user = $user->id;
         }
-        $output = '<a '.$target.' href="'. $CFG->wwwroot .'/user/view.php?id='. $userid .'&amp;course='. $courseid .'">';
+    } else {
+        if ($alttext) {
+            // we need firstname, lastname, imagealt, can't escape...
+            $needrec = true;
+        } else {
+            $userobj = new StdClass; // fake it to save DB traffic
+            $userobj->id = $user;
+            $userobj->picture = $picture;
+            $user = clone($userobj);
+            unset($userobj);
+        }
+    }
+    if ($needrec) {
+        $user = get_record('user','id',$user, '', '', '', '', 'id,firstname,lastname,imagealt');
+    }
+
+    if ($link) {
+        $url = '/user/view.php?id='. $user->id .'&amp;course='. $courseid ;
+        if ($target) {
+            $target='onclick="return openpopup(\''.$url.'\');"';
+        }
+        $output = '<a '.$target.' href="'. $CFG->wwwroot . $url .'">';
     } else {
         $output = '';
     }
@@ -3334,18 +4433,20 @@ function print_user_picture($userid, $courseid, $picture, $size=0, $return=false
         $file = 'f2';
     }
     $class = "userpicture";
+
+    if (is_null($picture) and !empty($user->picture)) {
+        $picture = $user->picture;
+    }
+
     if ($picture) {  // Print custom user picture
-        if ($CFG->slasharguments) {        // Use this method if possible for better caching
-            $src =  $CFG->wwwroot .'/user/pix.php/'. $userid .'/'. $file .'.jpg';
-        } else {
-            $src =  $CFG->wwwroot .'/user/pix.php?file=/'. $userid .'/'. $file .'.jpg';
-        }
+        require_once($CFG->libdir.'/filelib.php');
+        $src = get_file_url($user->id.'/'.$file.'.jpg', null, 'user');
     } else {         // Print default user pictures (use theme version if available)
         $class .= " defaultuserpic";
         $src =  "$CFG->pixpath/u/$file.png";
     }
     $imagealt = '';
-    if ($alttext and $user = get_record('user','id',$userid)) {
+    if ($alttext) {
         if (!empty($user->imagealt)) {
             $imagealt = $user->imagealt;
         } else {
@@ -3353,7 +4454,7 @@ function print_user_picture($userid, $courseid, $picture, $size=0, $return=false
         }
     }
 
-    $output .= '<img class="'.$class.'" src="'.$src.'" alt="'.s($imagealt).'" />';
+    $output .= "<img class=\"$class\" src=\"$src\" height=\"$size\" width=\"$size\" alt=\"".s($imagealt).'"  />';
     if ($link) {
         $output .= '</a>';
     }
@@ -3384,11 +4485,16 @@ function print_user($user, $course, $messageselect=false, $return=false) {
     static $countries;
 
     $context = get_context_instance(CONTEXT_COURSE, $course->id);
+    if (isset($user->context->id)) {
+        $usercontext = $user->context;
+    } else {
+        $usercontext = get_context_instance(CONTEXT_USER, $user->id);
+    }
 
     if (empty($string)) {     // Cache all the strings for the rest of the page
 
         $string->email       = get_string('email');
-        $string->location    = get_string('location');
+        $string->city = get_string('city');
         $string->lastaccess  = get_string('lastaccess');
         $string->activity    = get_string('activity');
         $string->unenrol     = get_string('unenrol');
@@ -3406,6 +4512,8 @@ function print_user($user, $course, $messageselect=false, $return=false) {
         $datestring->mins    = get_string('mins');
         $datestring->sec     = get_string('sec');
         $datestring->secs    = get_string('secs');
+        $datestring->year    = get_string('year');
+        $datestring->years   = get_string('years');
 
         $countries = get_list_of_countries();
     }
@@ -3420,7 +4528,7 @@ function print_user($user, $course, $messageselect=false, $return=false) {
     $output .= '<table class="userinfobox">';
     $output .= '<tr>';
     $output .= '<td class="left side">';
-    $output .= print_user_picture($user->id, $course->id, $user->picture, true, true);
+    $output .= print_user_picture($user, $course->id, $user->picture, true, true);
     $output .= '</td>';
     $output .= '<td class="content">';
     $output .= '<div class="username">'.fullname($user, has_capability('moodle/site:viewfullnames', $context)).'</div>';
@@ -3433,7 +4541,7 @@ has_capability('moodle/course:viewhiddenuserfields', $context)) {
         $output .= $string->email .': <a href="mailto:'. $user->email .'">'. $user->email .'</a><br />';
     }
     if (($user->city or $user->country) and (!isset($hiddenfields['city']) or !isset($hiddenfields['country']))) {
-        $output .= $string->location .': ';
+        $output .= $string->city .': ';
         if ($user->city && !isset($hiddenfields['city'])) {
             $output .= $user->city;
         }
@@ -3459,12 +4567,15 @@ has_capability('moodle/course:viewhiddenuserfields', $context)) {
     if ($CFG->bloglevel > 0) {
         $output .= '<a href="'.$CFG->wwwroot.'/blog/index.php?userid='.$user->id.'">'.get_string('blogs','blog').'</a><br />';
     }
+    //link to notes
+    if (!empty($CFG->enablenotes) and (has_capability('moodle/notes:manage', $context) || has_capability('moodle/notes:view', $context))) {
+        $output .= '<a href="'.$CFG->wwwroot.'/notes/index.php?course=' . $course->id. '&amp;user='.$user->id.'">'.get_string('notes','notes').'</a><br />';
+    }
 
-    if (has_capability('moodle/site:viewreports', $context)) {
-        $timemidnight = usergetmidnight(time());
+    if (has_capability('moodle/site:viewreports', $context) or has_capability('moodle/user:viewuseractivitiesreport', $usercontext)) {
         $output .= '<a href="'. $CFG->wwwroot .'/course/user.php?id='. $course->id .'&amp;user='. $user->id .'">'. $string->activity .'</a><br />';
     }
-    if (has_capability('moodle/role:assign', $context, NULL)) {  // Includes admins
+    if (has_capability('moodle/role:assign', $context) and get_user_roles($context, $user->id, false)) {  // I can unassing and user has some role
         $output .= '<a href="'. $CFG->wwwroot .'/course/unenrol.php?id='. $course->id .'&amp;user='. $user->id .'">'. $string->unenrol .'</a><br />';
     }
     if ($USER->id != $user->id && empty($USER->realuser) && has_capability('moodle/user:loginas', $context) &&
@@ -3526,19 +4637,14 @@ function print_group_picture($group, $courseid, $large=false, $return=false, $li
     }
     if ($large) {
         $file = 'f1';
-        $size = 100;
     } else {
         $file = 'f2';
-        $size = 35;
     }
     if ($group->picture) {  // Print custom group picture
-        if ($CFG->slasharguments) {        // Use this method if possible for better caching
-            $output .= '<img class="grouppicture" src="'.$CFG->wwwroot.'/user/pixgroup.php/'.$group->id.'/'.$file.'.jpg"'.
-                       ' style="width:'.$size.'px;height:'.$size.'px;" alt="'.s(get_string('group').' '.$group->name).'" title="'.s($group->name).'"/>';
-        } else {
-            $output .= '<img class="grouppicture" src="'.$CFG->wwwroot.'/user/pixgroup.php?file=/'.$group->id.'/'.$file.'.jpg"'.
-                       ' style="width:'.$size.'px;height:'.$size.'px;" alt="'.s(get_string('group').' '.$group->name).'" title="'.s($group->name).'"/>';
-        }
+        require_once($CFG->libdir.'/filelib.php');
+        $grouppictureurl = get_file_url($group->id.'/'.$file.'.jpg', null, 'usergroup');
+        $output .= '<img class="grouppicture" src="'.$grouppictureurl.'"'.
+            ' alt="'.s(get_string('group').' '.$group->name).'" title="'.s($group->name).'"/>';
     }
     if ($link or has_capability('moodle/site:accessallgroups', $context)) {
         $output .= '</a>';
@@ -3590,7 +4696,8 @@ function print_png($url, $sizex, $sizey, $return, $parameters='alt=""') {
  * Print a nicely formatted table.
  *
  * @param array $table is an object with several properties.
- *     <ul<li>$table->head - An array of heading names.
+ * <ul>
+ *     <li>$table->head - An array of heading names.
  *     <li>$table->align - An array of column alignments
  *     <li>$table->size  - An array of column sizes
  *     <li>$table->wrap - An array of "nowrap"s or nothing
@@ -3599,6 +4706,10 @@ function print_png($url, $sizex, $sizey, $return, $parameters='alt=""') {
  *     <li>$table->tablealign  - Align the whole table
  *     <li>$table->cellpadding  - Padding on each cell
  *     <li>$table->cellspacing  - Spacing between cells
+ *     <li>$table->class - class attribute to put on the table
+ *     <li>$table->id - id attribute to put on the table.
+ *     <li>$table->rowclass[] - classes to add to particular rows.
+ *     <li>$table->summary - Description of the contents for screen readers.
  * </ul>
  * @param bool $return whether to return an output string or echo now
  * @return boolean or $string
@@ -3610,7 +4721,7 @@ function print_table($table, $return=false) {
     if (isset($table->align)) {
         foreach ($table->align as $key => $aa) {
             if ($aa) {
-                $align[$key] = ' text-align:'. $aa.';';
+                $align[$key] = ' text-align:'. fix_align_rtl($aa) .';';  // Fix for RTL languages
             } else {
                 $align[$key] = '';
             }
@@ -3643,11 +4754,11 @@ function print_table($table, $return=false) {
         $table->tablealign = 'center';
     }
 
-    if (empty($table->cellpadding)) {
+    if (!isset($table->cellpadding)) {
         $table->cellpadding = '5';
     }
 
-    if (empty($table->cellspacing)) {
+    if (!isset($table->cellspacing)) {
         $table->cellspacing = '1';
     }
 
@@ -3658,13 +4769,18 @@ function print_table($table, $return=false) {
     $tableid = empty($table->id) ? '' : 'id="'.$table->id.'"';
 
     $output .= '<table width="'.$table->width.'" ';
+    if (!empty($table->summary)) {
+        $output .= " summary=\"$table->summary\"";
+    }
     $output .= " cellpadding=\"$table->cellpadding\" cellspacing=\"$table->cellspacing\" class=\"$table->class boxalign$table->tablealign\" $tableid>\n";
 
     $countcols = 0;
-
+    
     if (!empty($table->head)) {
         $countcols = count($table->head);
         $output .= '<tr>';
+        $keys=array_keys($table->head);
+        $lastkey = end($keys);
         foreach ($table->head as $key => $heading) {
 
             if (!isset($size[$key])) {
@@ -3673,22 +4789,35 @@ function print_table($table, $return=false) {
             if (!isset($align[$key])) {
                 $align[$key] = '';
             }
+            if ($key == $lastkey) {
+                $extraclass = ' lastcol';
+            } else {
+                $extraclass = '';
+            }
 
-            $output .= '<th class="header c'.$key.'" scope="col">'. $heading .'</th>';
-            // commenting the following code out as <th style does not validate MDL-7861
-            //$output .= '<th sytle="vertical-align:top;'. $align[$key].$size[$key] .';white-space:nowrap;" class="header c'.$key.'" scope="col">'. $heading .'</th>';
+            $output .= '<th style="vertical-align:top;'. $align[$key].$size[$key] .';white-space:nowrap;" class="header c'.$key.$extraclass.'" scope="col">'. $heading .'</th>';
         }
         $output .= '</tr>'."\n";
     }
 
     if (!empty($table->data)) {
         $oddeven = 1;
+        $keys=array_keys($table->data);
+        $lastrowkey = end($keys);
         foreach ($table->data as $key => $row) {
             $oddeven = $oddeven ? 0 : 1;
-            $output .= '<tr class="r'.$oddeven.'">'."\n";
+            if (!isset($table->rowclass[$key])) {
+                $table->rowclass[$key] = '';
+            }
+            if ($key == $lastrowkey) {
+                $table->rowclass[$key] .= ' lastrow';
+            }
+            $output .= '<tr class="r'.$oddeven.' '.$table->rowclass[$key].'">'."\n";
             if ($row == 'hr' and $countcols) {
                 $output .= '<td colspan="'. $countcols .'"><div class="tabledivider"></div></td>';
             } else {  /// it's a normal row of data
+                $keys2=array_keys($row);
+                $lastkey = end($keys2);
                 foreach ($row as $key => $item) {
                     if (!isset($size[$key])) {
                         $size[$key] = '';
@@ -3699,7 +4828,12 @@ function print_table($table, $return=false) {
                     if (!isset($wrap[$key])) {
                         $wrap[$key] = '';
                     }
-                    $output .= '<td style="'. $align[$key].$size[$key].$wrap[$key] .'" class="cell c'.$key.'">'. $item .'</td>';
+                    if ($key == $lastkey) {
+                      $extraclass = ' lastcol';
+                    } else {
+                      $extraclass = '';
+                    }
+                    $output .= '<td style="'. $align[$key].$size[$key].$wrap[$key] .'" class="cell c'.$key.$extraclass.'">'. $item .'</td>';
                 }
             }
             $output .= '</tr>'."\n";
@@ -3715,136 +4849,22 @@ function print_table($table, $return=false) {
     return true;
 }
 
-/**
- * Creates a nicely formatted table and returns it.
- *
- * @param array $table is an object with several properties.
- *     <ul<li>$table->head - An array of heading names.
- *     <li>$table->align - An array of column alignments
- *     <li>$table->size  - An array of column sizes
- *     <li>$table->wrap - An array of "nowrap"s or nothing
- *     <li>$table->data[] - An array of arrays containing the data.
- *     <li>$table->class -  A css class name
- *     <li>$table->fontsize - Is the size of all the text
- *     <li>$table->tablealign  - Align the whole table
- *     <li>$table->width  - A percentage of the page
- *     <li>$table->cellpadding  - Padding on each cell
- *     <li>$table->cellspacing  - Spacing between cells
- * </ul>
- * @return string
- * @todo Finish documenting this function
- */
-function make_table($table) {
-
-    if (isset($table->align)) {
-        foreach ($table->align as $key => $aa) {
-            if ($aa) {
-                $align[$key] = ' align="'. $aa .'"';
-            } else {
-                $align[$key] = '';
-            }
-        }
-    }
-    if (isset($table->size)) {
-        foreach ($table->size as $key => $ss) {
-            if ($ss) {
-                $size[$key] = ' width="'. $ss .'"';
-            } else {
-                $size[$key] = '';
-            }
-        }
-    }
-    if (isset($table->wrap)) {
-        foreach ($table->wrap as $key => $ww) {
-            if ($ww) {
-                $wrap[$key] = ' style="white-space:nowrap;" ';
-            } else {
-                $wrap[$key] = '';
-            }
-        }
-    }
-
-    if (empty($table->width)) {
-        $table->width = '80%';
-    }
-
-    if (empty($table->tablealign)) {
-        $table->tablealign = 'center';
-    }
-
-    if (empty($table->cellpadding)) {
-        $table->cellpadding = '5';
-    }
-
-    if (empty($table->cellspacing)) {
-        $table->cellspacing = '1';
-    }
-
-    if (empty($table->class)) {
-        $table->class = 'generaltable';
-    }
-
-    if (empty($table->fontsize)) {
-        $fontsize = '';
-    } else {
-        $fontsize = '<font size="'. $table->fontsize .'">';
-    }
-
-    $output =  '<table width="'. $table->width .'" align="'. $table->tablealign .'" ';
-    $output .= ' cellpadding="'. $table->cellpadding .'" cellspacing="'. $table->cellspacing .'" class="'. $table->class .'">'."\n";
-
-    if (!empty($table->head)) {
-        $output .= '<tr valign="top">';
-        foreach ($table->head as $key => $heading) {
-            if (!isset($size[$key])) {
-                $size[$key] = '';
-            }
-            if (!isset($align[$key])) {
-                $align[$key] = '';
-            }
-            $output .= '<th valign="top" '. $align[$key].$size[$key] .' style="white-space:nowrap;" class="'. $table->class .'header" scope="col">'.$fontsize.$heading.'</th>';
-        }
-        $output .= '</tr>'."\n";
-    }
-
-    foreach ($table->data as $row) {
-        $output .= '<tr valign="top">';
-        foreach ($row as $key => $item) {
-            if (!isset($size[$key])) {
-                $size[$key] = '';
-            }
-            if (!isset($align[$key])) {
-                $align[$key] = '';
-            }
-            if (!isset($wrap[$key])) {
-                $wrap[$key] = '';
-            }
-            $output .= '<td '. $align[$key].$size[$key].$wrap[$key] .' class="'. $table->class .'cell">'. $fontsize . $item .'</td>';
-        }
-        $output .= '</tr>'."\n";
-    }
-    $output .= '</table>'."\n";
-
-    return $output;
-}
-
-function print_recent_activity_note($time, $user, $text, $link, $return=false) {
-    static $strftimerecent;
+function print_recent_activity_note($time, $user, $text, $link, $return=false, $viewfullnames=null) {
+    static $strftimerecent = null;
     $output = '';
 
-    $context = get_context_instance(CONTEXT_SYSTEM, SITEID);
-    $viewfullnames = has_capability('moodle/site:viewfullnames', $context);
+    if (is_null($viewfullnames)) {
+        $context = get_context_instance(CONTEXT_SYSTEM);
+        $viewfullnames = has_capability('moodle/site:viewfullnames', $context);
+    }
 
-    if (empty($strftimerecent)) {
+    if (is_null($strftimerecent)) {
         $strftimerecent = get_string('strftimerecent');
     }
 
-    $date = userdate($time, $strftimerecent);
-    $name = fullname($user, $viewfullnames);
-
     $output .= '<div class="head">';
-    $output .= '<div class="date">'.$date.'</div> '.
-         '<div class="name">'.fullname($user, $viewfullnames).'</div>';
+    $output .= '<div class="date">'.userdate($time, $strftimerecent).'</div>';
+    $output .= '<div class="name">'.fullname($user, $viewfullnames).'</div>';
     $output .= '</div>';
     $output .= '<div class="info"><a href="'.$link.'">'.format_string($text,true).'</a></div>';
 
@@ -3892,7 +4912,7 @@ function print_textarea($usehtmleditor, $rows, $cols, $width, $height, $name, $v
 
         if ($usehtmleditor) {
             if (!empty($courseid) and has_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $courseid))) {
-                $httpsrequired = empty($HTTPSPAGEREQUIRED) ? '' : '&httpsrequired=1';
+                $httpsrequired = empty($HTTPSPAGEREQUIRED) ? '' : '&amp;httpsrequired=1';
                 // needed for course file area browsing in image insert plugin
                 $str .= ($scriptcount < 1) ? '<script type="text/javascript" src="'.
                         $CFG->httpswwwroot .'/lib/editor/htmlarea/htmlarea.php?id='.$courseid.$httpsrequired.'"></script>'."\n" : '';
@@ -3928,8 +4948,11 @@ function print_textarea($usehtmleditor, $rows, $cols, $width, $height, $name, $v
 
     if ($usehtmleditor) {
         // Show shortcuts button if HTML editor is in use, but only if JavaScript is enabled (MDL-9556)
-        $str .= '<script type="text/javascript">document.write(\''.
-            str_replace('\'','\\\'',editorshortcutshelpbutton()).'\'); </script>';
+        $str .= '<script type="text/javascript">
+//<![CDATA[
+document.write(\''.addslashes_js(editorshortcutshelpbutton()).'\');
+//]]>
+</script>';
     }
 
     if ($return) {
@@ -3949,6 +4972,8 @@ function print_textarea($usehtmleditor, $rows, $cols, $width, $height, $name, $v
  * @param string $name Form element to replace with HTMl editor by name
  */
 function use_html_editor($name='', $editorhidebuttons='', $id='') {
+    global $THEME;
+
     $editor = 'editor_'.md5($name); //name might contain illegal characters
     if ($id === '') {
         $id = 'edit-'.$name;
@@ -3960,10 +4985,19 @@ function use_html_editor($name='', $editorhidebuttons='', $id='') {
 
     echo print_editor_config($editorhidebuttons);
 
-    if (empty($name)) {
-        echo "\nHTMLArea.replaceAll($editor.config);\n";
+    if (empty($THEME->htmleditorpostprocess)) {
+        if (empty($name)) {
+            echo "\nHTMLArea.replaceAll($editor.config);\n";
+        } else {
+            echo "\n$editor.generate();\n";
+        }
     } else {
-        echo "\n$editor.generate();\n";
+        if (empty($name)) {
+            echo "\nvar HTML_name = '';";
+        } else {
+            echo "\nvar HTML_name = \"$name;\"";
+        }
+        echo "\nvar HTML_editor = $editor;";
     }
     echo '//]]>'."\n";
     echo '</script>'."\n";
@@ -4028,54 +5062,31 @@ function print_editor_config($editorhidebuttons='', $return=false) {
  * Returns a turn edit on/off button for course in a self contained form.
  * Used to be an icon, but it's now a simple form button
  *
+ * Note that the caller is responsible for capchecks.
+ *
  * @uses $CFG
  * @uses $USER
  * @param int $courseid The course  to update by id as found in 'course' table
  * @return string
  */
 function update_course_icon($courseid) {
-
     global $CFG, $USER;
 
-    $coursecontext = get_context_instance(CONTEXT_COURSE, $courseid);
-
-    $capcheck = false;
-
-    if (has_capability('moodle/course:manageactivities', $coursecontext) ||
-        has_capability('moodle/site:manageblocks', $coursecontext)) {
-        $capcheck = true;
+    if (!empty($USER->editing)) {
+        $string = get_string('turneditingoff');
+        $edit = '0';
     } else {
-        // loop through all child context, see if user has moodle/course:manageactivities or moodle/site:manageblocks
-        if ($children = get_child_contexts($coursecontext)) {
-            foreach ($children as $child) {
-                $childcontext = get_record('context', 'id', $child);
-                if (has_capability('moodle/course:manageactivities', $childcontext) ||
-                    has_capability('moodle/site:manageblocks', $childcontext)) {
-                    $capcheck = true;
-                    break;
-                }
-            }
-        }
+        $string = get_string('turneditingon');
+        $edit = '1';
     }
 
-
-    if ($capcheck) {
-        if (!empty($USER->editing)) {
-            $string = get_string('turneditingoff');
-            $edit = '0';
-        } else {
-            $string = get_string('turneditingon');
-            $edit = '1';
-        }
-
-        return '<form '.$CFG->frametarget.' method="get" action="'.$CFG->wwwroot.'/course/view.php">'.
-               '<div>'.
-               '<input type="hidden" name="id" value="'.$courseid.'" />'.
-               '<input type="hidden" name="edit" value="'.$edit.'" />'.
-               '<input type="hidden" name="sesskey" value="'.sesskey().'" />'.
-               '<input type="submit" value="'.$string.'" />'.
-               '</div></form>';
-    }
+    return '<form '.$CFG->frametarget.' method="get" action="'.$CFG->wwwroot.'/course/view.php">'.
+           '<div>'.
+           '<input type="hidden" name="id" value="'.$courseid.'" />'.
+           '<input type="hidden" name="edit" value="'.$edit.'" />'.
+           '<input type="hidden" name="sesskey" value="'.sesskey().'" />'.
+           '<input type="submit" value="'.$string.'" />'.
+           '</div></form>';
 }
 
 /**
@@ -4095,7 +5106,7 @@ function switchroles_form($courseid) {
         return '';
     }
 
-    if (!empty($USER->switchrole[$context->id])){  // Just a button to return to normal
+    if (!empty($USER->access['rsw'][$context->path])){  // Just a button to return to normal
         $options = array();
         $options['id'] = $courseid;
         $options['sesskey'] = sesskey();
@@ -4106,7 +5117,7 @@ function switchroles_form($courseid) {
     }
 
     if (has_capability('moodle/role:switchroles', $context)) {
-        if (!$roles = get_assignable_roles($context)) {
+        if (!$roles = get_assignable_roles_for_switchrole($context)) {
             return '';   // Nothing to show!
         }
         // unset default user role - it would not work
@@ -4147,6 +5158,32 @@ function update_mymoodle_icon() {
 }
 
 /**
+ * Returns a turn edit on/off button for tag in a self contained form.
+ *
+ * @uses $CFG
+ * @uses $USER
+ * @return string
+ */
+function update_tag_button($tagid) {
+
+    global $CFG, $USER;
+
+    if (!empty($USER->editing)) {
+        $string = get_string('turneditingoff');
+        $edit = '0';
+    } else {
+        $string = get_string('turneditingon');
+        $edit = '1';
+    }
+
+    return "<form $CFG->frametarget method=\"get\" action=\"$CFG->wwwroot/tag/index.php\">".
+           "<div>".
+           "<input type=\"hidden\" name=\"edit\" value=\"$edit\" />".
+           "<input type=\"hidden\" name=\"id\" value=\"$tagid\" />".
+           "<input type=\"submit\" value=\"$string\" /></div></form>";
+}
+
+/**
  * Prints the editing button on a module "view" page
  *
  * @uses $CFG
@@ -4171,63 +5208,6 @@ function update_module_button($moduleid, $courseid, $string) {
 }
 
 /**
- * Prints the editing button on a category page
- *
- * @uses $CFG
- * @uses $USER
- * @param int $categoryid ?
- * @return string
- * @todo Finish documenting this function
- */
-function update_category_button($categoryid) {
-    global $CFG, $USER;
-
-    if (has_capability('moodle/category:update', get_context_instance(CONTEXT_COURSECAT, $categoryid))) {
-        if (!empty($USER->categoryediting)) {
-            $string = get_string('turneditingoff');
-            $edit = 'off';
-        } else {
-            $string = get_string('turneditingon');
-            $edit = 'on';
-        }
-
-        return "<form $CFG->frametarget method=\"get\" action=\"$CFG->wwwroot/course/category.php\">".
-               '<div>'.
-               "<input type=\"hidden\" name=\"id\" value=\"$categoryid\" />".
-               "<input type=\"hidden\" name=\"categoryedit\" value=\"$edit\" />".
-               "<input type=\"hidden\" name=\"sesskey\" value=\"$USER->sesskey\" />".
-               "<input type=\"submit\" value=\"$string\" /></div></form>";
-    }
-}
-
-/**
- * Prints the editing button on categories listing
- *
- * @uses $CFG
- * @uses $USER
- * @return string
- */
-function update_categories_button() {
-    global $CFG, $USER;
-
-    if (has_capability('moodle/category:update', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
-        if (!empty($USER->categoryediting)) {
-            $string = get_string('turneditingoff');
-            $categoryedit = 'off';
-        } else {
-            $string = get_string('turneditingon');
-            $categoryedit = 'on';
-        }
-
-        return "<form $CFG->frametarget method=\"get\" action=\"$CFG->wwwroot/course/index.php\">".
-               '<div>'.
-               '<input type="hidden" name="categoryedit" value="'. $categoryedit .'" />'.
-               '<input type="hidden" name="sesskey" value="'.$USER->sesskey.'" />'.
-               '<input type="submit" value="'. $string .'" /></div></form>';
-    }
-}
-
-/**
  * Prints the editing button on search results listing
  * For bulk move courses to another category
  */
@@ -4236,7 +5216,7 @@ function update_categories_search_button($search,$page,$perpage) {
     global $CFG, $USER;
 
     // not sure if this capability is the best  here
-    if (has_capability('moodle/category:update', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+    if (has_capability('moodle/category:manage', get_context_instance(CONTEXT_SYSTEM))) {
         if (!empty($USER->categoryediting)) {
             $string = get_string("turneditingoff");
             $edit = "off";
@@ -4255,105 +5235,6 @@ function update_categories_search_button($search,$page,$perpage) {
                "<input type=\"hidden\" name=\"perpage\" value=\"$perpage\" />".
                "<input type=\"submit\" value=\"".s($string)."\" /></div></form>";
     }
-}
-
-/**
- * Prints the editing button on group page
- *
- * @uses $CFG
- * @uses $USER
- * @param int $courseid The course group is associated with
- * @param int $groupid The group to update
- * @return string
- */
-function update_group_button($courseid, $groupid) {
-    global $CFG, $USER;
-
-    if (has_capability('moodle/course:managegroups', get_context_instance(CONTEXT_GROUP, $groupid))) {
-        $string = get_string('editgroupprofile');
-
-        return "<form $CFG->frametarget method=\"get\" action=\"$CFG->wwwroot/group/edit.php\">".
-               '<div>'.
-               '<input type="hidden" name="courseid" value="'. $courseid .'" />'.
-               '<input type="hidden" name="id" value="'. $groupid .'" />'.
-               '<input type="hidden" name="grouping" value="-1" />'.
-               '<input type="hidden" name="edit" value="on" />'.
-               '<input type="submit" value="'. $string .'" /></div></form>';
-    }
-}
-
-/**
- * Prints the editing button on groups page
- *
- * @uses $CFG
- * @uses $USER
- * @param int $courseid The id of the course to be edited
- * @return string
- * @todo Finish documenting this function
- */
-function update_groups_button($courseid) {
-    global $CFG, $USER;
-
-    if (has_capability('moodle/course:managegroups', get_context_instance(CONTEXT_COURSE, $courseid))) {
-        if (!empty($USER->groupsediting)) {
-            $string = get_string('turneditingoff');
-            $edit = 'off';
-        } else {
-            $string = get_string('turneditingon');
-            $edit = 'on';
-        }
-
-        return "<form $CFG->frametarget method=\"get\" action=\"$CFG->wwwroot/group/index.php\">".
-               '<div>'.
-               "<input type=\"hidden\" name=\"id\" value=\"$courseid\" />".
-               "<input type=\"hidden\" name=\"edit\" value=\"$edit\" />".
-               "<input type=\"submit\" value=\"$string\" /></div></form>";
-    }
-}
-
-/**
- * Prints an appropriate group selection menu
- *
- * @uses VISIBLEGROUPS
- * @param array $groups ?
- * @param int $groupmode ?
- * @param string $currentgroup ?
- * @param string $urlroot ?
- * @param boolean $showall: if set to 0, it is a student in separate groups, do not display all participants
- * @todo Finish documenting this function
- */
-function print_group_menu($groups, $groupmode, $currentgroup, $urlroot, $showall=1, $return=false) {
-
-    $output = '';
-    $groupsmenu = array();
-
-/// Add an "All groups" to the start of the menu
-    if ($showall){
-        $groupsmenu[0] = get_string('allparticipants');
-    }
-    foreach ($groups as $key => $group) {
-        $groupsmenu[$key] = format_string($group->name);
-    }
-
-    if ($groupmode == VISIBLEGROUPS) {
-        $grouplabel = get_string('groupsvisible');
-    } else {
-        $grouplabel = get_string('groupsseparate');
-    }
-
-    if (count($groupsmenu) == 1) {
-        $groupname = reset($groupsmenu);
-        $output .= $grouplabel.': '.$groupname;
-    } else {
-        $output .= popup_form($urlroot.'&amp;group=', $groupsmenu, 'selectgroup', $currentgroup, '', '', '', true, 'self', $grouplabel);
-    }
-
-    if ($return) {
-        return $output;
-    } else {
-        echo $output;
-    }
-
 }
 
 /**
@@ -4390,10 +5271,7 @@ function navmenu($course, $cm=NULL, $targetwindow='self') {
     }
     $strjumpto = get_string('jumpto');
 
-/// Casting $course->modinfo to string prevents one notice when the field is null
-    if (!$modinfo = unserialize((string)$course->modinfo)) {
-        return '';
-    }
+    $modinfo = get_fast_modinfo($course);
     $context = get_context_instance(CONTEXT_COURSE, $course->id);
 
     $section = -1;
@@ -4414,23 +5292,27 @@ function navmenu($course, $cm=NULL, $targetwindow='self') {
         $THEME->navmenulist = navmenulist($course, $sections, $modinfo, $strsection, $strjumpto, $width, $cm);
     }
 
-    foreach ($modinfo as $mod) {
-        if ($mod->mod == 'label') {
+    foreach ($modinfo->cms as $mod) {
+        if ($mod->modname == 'label') {
             continue;
         }
 
-        if ($mod->section > $course->numsections) {   /// Don't show excess hidden sections
+        if ($mod->sectionnum > $course->numsections) {   /// Don't show excess hidden sections
             break;
         }
 
-        if ($mod->section > 0 and $section <> $mod->section) {
-            $thissection = $sections[$mod->section];
+        if (!$mod->uservisible) { // do not icnlude empty sections at all
+            continue;
+        }
+
+        if ($mod->sectionnum > 0 and $section != $mod->sectionnum) {
+            $thissection = $sections[$mod->sectionnum];
 
             if ($thissection->visible or !$course->hiddensections or
                 has_capability('moodle/course:viewhiddensections', $context)) {
                 $thissection->summary = strip_tags(format_string($thissection->summary,true));
                 if ($course->format == 'weeks' or empty($thissection->summary)) {
-                    $menu[] = '--'.$strsection ." ". $mod->section;
+                    $menu[] = '--'.$strsection ." ". $mod->sectionnum;
                 } else {
                     if (strlen($thissection->summary) < ($width-3)) {
                         $menu[] = '--'.$thissection->summary;
@@ -4438,68 +5320,68 @@ function navmenu($course, $cm=NULL, $targetwindow='self') {
                         $menu[] = '--'.substr($thissection->summary, 0, $width).'...';
                     }
                 }
-            }
-        }
-
-        $section = $mod->section;
-
-        //Only add visible or teacher mods to jumpmenu
-        if ($mod->visible or has_capability('moodle/course:viewhiddenactivities',
-                                             get_context_instance(CONTEXT_MODULE, $mod->cm))) {
-            $url = $mod->mod .'/view.php?id='. $mod->cm;
-            if ($flag) { // the current mod is the "next" mod
-                $nextmod = $mod;
-                $flag = false;
-            }
-            if ($cm == $mod->cm) {
-                $selected = $url;
-                $selectmod = $mod;
-                $backmod = $previousmod;
-                $flag = true; // set flag so we know to use next mod for "next"
-                $mod->name = $strjumpto;
-                $strjumpto = '';
+                $section = $mod->sectionnum;
             } else {
-                $mod->name = strip_tags(format_string(urldecode($mod->name),true));
-                if (strlen($mod->name) > ($width+5)) {
-                    $mod->name = substr($mod->name, 0, $width).'...';
-                }
-                if (!$mod->visible) {
-                    $mod->name = '('.$mod->name.')';
-                }
+                // no activities from this hidden section shown
+                continue;
             }
-            $menu[$url] = $mod->name;
-            if (empty($THEME->navmenuiconshide)) {
-                $menustyle[$url] = 'style="background-image: url('.$CFG->modpixpath.'/'.$mod->mod.'/icon.gif);"';  // Unfortunately necessary to do this here
-            }
-            $previousmod = $mod;
         }
+
+        $url = $mod->modname.'/view.php?id='. $mod->id;
+        if ($flag) { // the current mod is the "next" mod
+            $nextmod = $mod;
+            $flag = false;
+        }
+        $localname = $mod->name;
+        if ($cm == $mod->id) {
+            $selected = $url;
+            $selectmod = $mod;
+            $backmod = $previousmod;
+            $flag = true; // set flag so we know to use next mod for "next"
+            $localname = $strjumpto;
+            $strjumpto = '';
+        } else {
+            $localname = strip_tags(format_string($localname,true));
+            $tl=textlib_get_instance();
+            if ($tl->strlen($localname) > ($width+5)) {
+                $localname = $tl->substr($localname, 0, $width).'...';
+            }
+            if (!$mod->visible) {
+                $localname = '('.$localname.')';
+            }
+        }
+        $menu[$url] = $localname;
+        if (empty($THEME->navmenuiconshide)) {
+            $menustyle[$url] = 'style="background-image: url('.$CFG->modpixpath.'/'.$mod->modname.'/icon.gif);"';  // Unfortunately necessary to do this here
+        }
+        $previousmod = $mod;
     }
     //Accessibility: added Alt text, replaced &gt; &lt; with 'silent' character and 'accesshide' text.
 
-    if ($selectmod and has_capability('moodle/site:viewreports', $context)) {
+    if ($selectmod and has_capability('coursereport/log:view', $context)) {
         $logstext = get_string('alllogs');
-        $logslink = '<li>'."\n".'<a title="'.$logstext.'" '.'onclick="this.target=\''.$CFG->framename.'\';"'.
-                    ' href="'.
+        $logslink = '<li>'."\n".'<a title="'.$logstext.'" '.
+                    $CFG->frametarget.'onclick="this.target=\''.$CFG->framename.'\';"'.' href="'.
                     $CFG->wwwroot.'/course/report/log/index.php?chooselog=1&amp;user=0&amp;date=0&amp;id='.
-                       $course->id.'&amp;modid='.$selectmod->cm.'">'.
+                       $course->id.'&amp;modid='.$selectmod->id.'">'.
                     '<img class="icon log" src="'.$CFG->pixpath.'/i/log.gif" alt="'.$logstext.'" /></a>'."\n".'</li>';
 
     }
     if ($backmod) {
         $backtext= get_string('activityprev', 'access');
-        $backmod = '<li>'."\n".'<form action="'.$CFG->wwwroot.'/mod/'.$backmod->mod.'/view.php" '.
-                   'onclick="this.target=\''.$CFG->framename.'\';">'."\n".'<div>'."\n".
-                   '<input type="hidden" name="id" value="'.$backmod->cm.'" />'."\n".
-                   '<button type="submit" title="'.$backtext.'">'.link_arrow_left($backtext, $url='', $accesshide=true)."\n".
-                   '</button>'."\n".'</div>'."\n".'</form>'."\n".'</li>'."\n";
+        $backmod = '<li><form action="'.$CFG->wwwroot.'/mod/'.$backmod->modname.'/view.php" '.
+                   'onclick="this.target=\''.$CFG->framename.'\';"'.'><fieldset class="invisiblefieldset">'.
+                   '<input type="hidden" name="id" value="'.$backmod->id.'" />'.
+                   '<button type="submit" title="'.$backtext.'">'.link_arrow_left($backtext, $url='', $accesshide=true).
+                   '</button></fieldset></form></li>';
     }
     if ($nextmod) {
         $nexttext= get_string('activitynext', 'access');
-        $nextmod = '<li>'."\n".'<form action="'.$CFG->wwwroot.'/mod/'.$nextmod->mod.'/view.php"  '.
-                   'onclick="this.target=\''.$CFG->framename.'\';">'."\n".'<div>'."\n".
-                   '<input type="hidden" name="id" value="'.$nextmod->cm.'" />'."\n".
-                   '<button type="submit" title="'.$nexttext.'">'.link_arrow_right($nexttext, $url='', $accesshide=true)."\n".
-                   '</button>'."\n".'</div>'."\n".'</form>'."\n".'</li>'."\n";
+        $nextmod = '<li><form action="'.$CFG->wwwroot.'/mod/'.$nextmod->modname.'/view.php"  '.
+                   'onclick="this.target=\''.$CFG->framename.'\';"'.'><fieldset class="invisiblefieldset">'.
+                   '<input type="hidden" name="id" value="'.$nextmod->id.'" />'.
+                   '<button type="submit" title="'.$nexttext.'">'.link_arrow_right($nexttext, $url='', $accesshide=true).
+                   '</button></fieldset></form></li>';
     }
 
     return '<div class="navigation">'."\n".'<ul>'.$logslink . $backmod .
@@ -4525,39 +5407,37 @@ function navmenulist($course, $sections, $modinfo, $strsection, $strjumpto, $wid
     global $CFG;
 
     $section = -1;
-    $selected = '';
     $url = '';
-    $previousmod = NULL;
-    $backmod = NULL;
-    $nextmod = NULL;
-    $selectmod = NULL;
-    $logslink = NULL;
-    $flag = false;
     $menu = array();
+    $doneheading = false;
 
     $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
 
     $menu[] = '<ul class="navmenulist"><li class="jumpto section"><span>'.$strjumpto.'</span><ul>';
-    foreach ($modinfo as $mod) {
-        if ($mod->mod == 'label') {
+    foreach ($modinfo->cms as $mod) {
+        if ($mod->modname == 'label') {
             continue;
         }
 
-        if ($mod->section > $course->numsections) {   /// Don't show excess hidden sections
+        if ($mod->sectionnum > $course->numsections) {   /// Don't show excess hidden sections
             break;
         }
 
-        if ($mod->section >= 0 and $section <> $mod->section) {
-            $thissection = $sections[$mod->section];
+        if (!$mod->uservisible) { // do not icnlude empty sections at all
+            continue;
+        }
+
+        if ($mod->sectionnum >= 0 and $section != $mod->sectionnum) {
+            $thissection = $sections[$mod->sectionnum];
 
             if ($thissection->visible or !$course->hiddensections or
                       has_capability('moodle/course:viewhiddensections', $coursecontext)) {
                 $thissection->summary = strip_tags(format_string($thissection->summary,true));
-                if (!empty($doneheading)) {
+                if (!$doneheading) {
                     $menu[] = '</ul></li>';
                 }
                 if ($course->format == 'weeks' or empty($thissection->summary)) {
-                    $item = $strsection ." ". $mod->section;
+                    $item = $strsection ." ". $mod->sectionnum;
                 } else {
                     if (strlen($thissection->summary) < ($width-3)) {
                         $item = $thissection->summary;
@@ -4568,33 +5448,29 @@ function navmenulist($course, $sections, $modinfo, $strsection, $strjumpto, $wid
                 $menu[] = '<li class="section"><span>'.$item.'</span>';
                 $menu[] = '<ul>';
                 $doneheading = true;
+
+                $section = $mod->sectionnum;
+            } else {
+                // no activities from this hidden section shown
+                continue;
             }
         }
 
-        $section = $mod->section;
-
-        //Only add visible or teacher mods to jumpmenu
-        if ($mod->visible or has_capability('moodle/course:viewhiddenactivities', get_context_instance(CONTEXT_MODULE, $mod->id))) {
-            $url = $mod->mod .'/view.php?id='. $mod->cm;
-            if ($flag) { // the current mod is the "next" mod
-                $nextmod = $mod;
-                $flag = false;
-            }
-            $mod->name = strip_tags(format_string(urldecode($mod->name),true));
-            if (strlen($mod->name) > ($width+5)) {
-                $mod->name = substr($mod->name, 0, $width).'...';
-            }
-            if (!$mod->visible) {
-                $mod->name = '('.$mod->name.')';
-            }
-            $class = 'activity '.$mod->mod;
-            $class .= ($cmid == $mod->cm) ? ' selected' : '';
-            $menu[] = '<li class="'.$class.'">'.
-                      '<img src="'.$CFG->modpixpath.'/'.$mod->mod.'/icon.gif" alt="" />'.
-                      '<a href="'.$CFG->wwwroot.'/mod/'.$url.'">'.$mod->name.'</a></li>';
-            $previousmod = $mod;
+        $url = $mod->modname .'/view.php?id='. $mod->id;
+        $mod->name = strip_tags(format_string(urldecode($mod->name),true));
+        if (strlen($mod->name) > ($width+5)) {
+            $mod->name = substr($mod->name, 0, $width).'...';
         }
+        if (!$mod->visible) {
+            $mod->name = '('.$mod->name.')';
+        }
+        $class = 'activity '.$mod->modname;
+        $class .= ($cmid == $mod->cm) ? ' selected' : '';
+        $menu[] = '<li class="'.$class.'">'.
+                  '<img src="'.$CFG->modpixpath.'/'.$mod->modname.'/icon.gif" alt="" />'.
+                  '<a href="'.$CFG->wwwroot.'/mod/'.$url.'">'.$mod->name.'</a></li>';
     }
+
     if ($doneheading) {
         $menu[] = '</ul></li>';
     }
@@ -4784,83 +5660,36 @@ function print_scale_menu_helpbutton($courseid, $scale, $return=false) {
 }
 
 /**
- * Print an error page displaying an error message.
- * Old method, don't call directly in new code - use print_error instead.
- *
+ * Print an error page displaying an error message.  New method - use this for new code.
  *
  * @uses $SESSION
  * @uses $CFG
- * @param string $message The message to display to the user about the error.
+ * @param string $errorcode The name of the string from error.php (or other specified file) to print
  * @param string $link The url where the user will be prompted to continue. If no url is provided the user will be directed to the site index page.
+ * @param object $a Extra words and phrases that might be required in the error string
+ * @param array $extralocations An array of strings with other locations to look for string files
+ * @return does not return, terminates script
  */
-function error ($message, $link='', $adminroot=false) {
+function print_error($errorcode, $module='error', $link='', $a=NULL, $extralocations=NULL) {
+    global $CFG, $SESSION, $THEME;
 
-    global $CFG, $SESSION;
-    $message = clean_text($message);   // In case nasties are in here
-
-    if (defined('FULLME') && FULLME == 'cron') {
-        // Errors in cron should be mtrace'd.
-        mtrace($message);
-        die;
+    if (empty($module) || $module === 'moodle' || $module === 'core') {
+        $module = 'error';
     }
 
-    if (! defined('HEADER_PRINTED')) {
-        //header not yet printed
-        @header('HTTP/1.0 404 Not Found');
-        print_header(get_string('error'));
+    $message = get_string($errorcode, $module, $a, $extralocations);
+    if ($module === 'error' and strpos($message, '[[') === 0) {
+        //search in moodle file if error specified - needed for backwards compatibility
+        $message = get_string($errorcode, 'moodle', $a, $extralocations);
     }
 
-    echo '<br />';
-    print_simple_box($message, '', '', '', '', 'errorbox');
-
-    debugging('Stack trace:', DEBUG_DEVELOPER);
-
-    // in case we are logging upgrade in admin/index.php stop it
-    if (function_exists('upgrade_log_finish')) {
-        upgrade_log_finish();
-    }
-
-    if (!$link) {
+    if (empty($link) and !defined('ADMIN_EXT_HEADER_PRINTED')) {
         if ( !empty($SESSION->fromurl) ) {
             $link = $SESSION->fromurl;
             unset($SESSION->fromurl);
         } else {
             $link = $CFG->wwwroot .'/';
         }
-    }
-
-    if ($adminroot) {
-        admin_externalpage_print_footer($adminroot);
-    } else {
-        print_continue($link);
-        print_footer();
-    }
-    for ($i=0;$i<512;$i++) {  // Padding to help IE work with 404
-        echo ' ';
-    }
-
-    die;
-}
-
-/**
- * Print an error page displaying an error message.  New method - use this for new code.
- *
- * @uses $SESSION
- * @uses $CFG
- * @param string $errorcode The name of the string from error.php to print
- * @param string $link The url where the user will be prompted to continue. If no url is provided the user will be directed to the site index page.
- * @param object $a Extra words and phrases that might be required in the error string
- * @param boolean $adminroot Is the page an admin settings page?
- */
-function print_error ($errorcode, $module='', $link='', $a=NULL, $adminroot=false) {
-
-    global $CFG;
-
-    if (empty($module) || $module == 'moodle' || $module == 'core') {
-        $module = 'error';
-        $modulelink = 'moodle';
-    } else {
-        $modulelink = $module;
     }
 
     if (!empty($CFG->errordocroot)) {
@@ -4871,12 +5700,70 @@ function print_error ($errorcode, $module='', $link='', $a=NULL, $adminroot=fals
         $errordocroot = 'http://docs.moodle.org';
     }
 
-    $message = '<p class="errormessage">'.get_string($errorcode, $module, $a).'</p>'.
+    if (defined('FULLME') && FULLME == 'cron') {
+        // Errors in cron should be mtrace'd.
+        mtrace($message);
+        die;
+    }
+
+    if ($module === 'error') {
+        $modulelink = 'moodle';
+    } else {
+        $modulelink = $module;
+    }
+
+    $message = clean_text('<p class="errormessage">'.$message.'</p>'.
                '<p class="errorcode">'.
                '<a href="'.$errordocroot.'/en/error/'.$modulelink.'/'.$errorcode.'">'.
-                 get_string('moreinformation').'</a></p>';
-    error($message, $link, $adminroot);
+                 get_string('moreinformation').'</a></p>');
+
+    if (! defined('HEADER_PRINTED')) {
+        //header not yet printed
+        @header('HTTP/1.0 404 Not Found');
+        print_header(get_string('error'));
+    } else {
+        print_container_end_all(false, $THEME->open_header_containers);
+    }
+
+    echo '<br />';
+
+    print_simple_box($message, '', '', '', '', 'errorbox');
+
+    debugging('Stack trace:', DEBUG_DEVELOPER);
+
+    // in case we are logging upgrade in admin/index.php stop it
+    if (function_exists('upgrade_log_finish')) {
+        upgrade_log_finish();
+    }
+
+    if (!empty($link)) {
+        print_continue($link);
+    }
+
+    print_footer();
+
+    for ($i=0;$i<512;$i++) {  // Padding to help IE work with 404
+        echo ' ';
+    }
+    die;
 }
+
+/**
+ * Print an error to STDOUT and exit with a non-zero code. For commandline scripts.
+ * Default errorcode is 1.
+ *
+ * Very useful for perl-like error-handling:
+ *
+ * do_somethting() or mdie("Something went wrong");
+ *
+ * @param string  $msg       Error message
+ * @param integer $errorcode Error code to emit
+ */
+function mdie($msg='', $errorcode=1) {
+    trigger_error($msg);
+    exit($errorcode);
+}
+
 /**
  * Returns a string of html with an image of a help icon linked to a help page on a number of help topics.
  * Should be used only with htmleditor or textarea.
@@ -4937,7 +5824,7 @@ function editorhelpbutton(){
 
     $paramstring = join('&', $urlparams);
     $linkobject = '<img alt="'.$alttag.'" class="iconhelp" src="'.$CFG->pixpath .'/help.gif" />';
-    return link_to_popup_window(s('/lib/form/editorhelp.php?'.$paramstring), $alttag, $linkobject, 400, 500, $alttag, 'none', true);
+    return link_to_popup_window(s('/lib/form/editorhelp.php?'.$paramstring), 'popup', $linkobject, 400, 500, $alttag, 'none', true);
 }
 
 /**
@@ -4957,13 +5844,20 @@ function editorhelpbutton(){
  * @return string
  * @todo Finish documenting this function
  */
-function helpbutton ($page, $title='', $module='moodle', $image=true, $linktext=false, $text='', $return=false,
+function helpbutton ($page, $title, $module='moodle', $image=true, $linktext=false, $text='', $return=false,
                      $imagetext='') {
-    global $CFG, $course;
+    global $CFG, $COURSE;
+
+    //warning if ever $text parameter is used
+    //$text option won't work properly because the text needs to be always cleaned and,
+    // when cleaned... html tags always break, so it's unusable.
+    if ( isset($text) && $text!='') {
+      debugging('Warning: it\'s not recommended to use $text parameter in helpbutton ($page=' . $page . ', $module=' . $module . ') function', DEBUG_DEVELOPER);
+    }
 
     // fix for MDL-7734
-    if (!empty($course->lang)) {
-        $forcelang = $course->lang;
+    if (!empty($COURSE->lang)) {
+        $forcelang = $COURSE->lang;
     } else {
         $forcelang = '';
     }
@@ -4972,7 +5866,12 @@ function helpbutton ($page, $title='', $module='moodle', $image=true, $linktext=
         $module = 'moodle';
     }
 
-    $tooltip = get_string('helpprefix2', '', trim($title, ". \t"));
+    if ($title == '' && $linktext == '') {
+        debugging('Error in call to helpbutton function: at least one of $title and $linktext is required');
+    }
+
+    // Warn users about new window for Accessibility
+    $tooltip = get_string('helpprefix2', '', trim($title, ". \t")) .' ('.get_string('newwindow').')';
 
     $linkobject = '';
 
@@ -4986,13 +5885,11 @@ function helpbutton ($page, $title='', $module='moodle', $image=true, $linktext=
             $linkobject .= $imagetext;
         } else {
             $linkobject .= '<img class="iconhelp" alt="'.s(strip_tags($tooltip)).'" src="'.
-                       $CFG->pixpath .'/help.gif" />';
+                $CFG->pixpath .'/help.gif" />';
         }
     } else {
         $linkobject .= $tooltip;
     }
-
-    $tooltip .= ' ('.get_string('newwindow').')';   // Warn users about new window for Accessibility
 
     // fix for MDL-7734
     if ($text) {
@@ -5047,7 +5944,7 @@ function editorshortcutshelpbutton() {
 
     global $CFG;
     $imagetext = '<img src="' . $CFG->httpswwwroot . '/lib/editor/htmlarea/images/kbhelp.gif" alt="'.
-                    get_string('editorshortcutkeys').'" class="iconkbhelp" />';
+        get_string('editorshortcutkeys').'" class="iconkbhelp" />';
 
     return helpbutton('editorshortcuts', get_string('editorshortcutkeys'), 'moodle', true, false, '', true, $imagetext);
 }
@@ -5060,22 +5957,29 @@ function editorshortcutshelpbutton() {
  * @param string $link ?
  * @todo Finish documenting this function
  */
-function notice ($message, $link='', $course=NULL, $adminroot='') {
-    global $CFG, $SITE;
+function notice ($message, $link='', $course=NULL) {
+    global $CFG, $SITE, $THEME, $COURSE;
 
-    $message = clean_text($message);
+    $message = clean_text($message);   // In case nasties are in here
+
+    if (defined('FULLME') && FULLME == 'cron') {
+        // notices in cron should be mtrace'd.
+        mtrace($message);
+        die;
+    }
+
+    if (! defined('HEADER_PRINTED')) {
+        //header not yet printed
+        print_header(get_string('notice'));
+    } else {
+        print_container_end_all(false, $THEME->open_header_containers);
+    }
 
     print_box($message, 'generalbox', 'notice');
     print_continue($link);
 
-    // xhtml strict fix, need to make sure it's the right footer
-    if ($adminroot) {
-        admin_externalpage_print_footer($adminroot);
-        exit;
-    }
-
     if (empty($course)) {
-        print_footer($SITE);
+        print_footer($COURSE);
     } else {
         print_footer($course);
     }
@@ -5088,6 +5992,7 @@ function notice ($message, $link='', $course=NULL, $adminroot='') {
  * @param string $message The text to display
  * @param string $linkyes The link to take the user to if they choose "Yes"
  * @param string $linkno The link to take the user to if they choose "No"
+ * TODO Document remaining arguments
  */
 function notice_yesno ($message, $linkyes, $linkno, $optionsyes=NULL, $optionsno=NULL, $methodyes='post', $methodno='post') {
 
@@ -5107,6 +6012,19 @@ function notice_yesno ($message, $linkyes, $linkno, $optionsyes=NULL, $optionsno
 }
 
 /**
+ * Provide an definition of error_get_last for PHP before 5.2.0. This simply
+ * returns NULL, since there is not way to get the right answer.
+ */
+if (!function_exists('error_get_last')) {
+    // the eval is needed to prevent PHP 5.2+ from getting a parse error!
+    eval('
+        function error_get_last() {
+            return NULL;
+        }
+    ');
+}
+
+/**
  * Redirects the user to another page, after printing a notice
  *
  * @param string $url The url to take the user to
@@ -5118,9 +6036,9 @@ function notice_yesno ($message, $linkyes, $linkno, $optionsyes=NULL, $optionsno
  *      the correct input) and then encode for where it's needed
  *      echo "<script type='text/javascript'>alert('Redirect $url');</script>";
  */
-function redirect($url, $message='', $delay=-1, $adminroot = '') {
+function redirect($url, $message='', $delay=-1) {
 
-    global $CFG;
+    global $CFG, $THEME;
 
     if (!empty($CFG->usesid) && !isset($_COOKIE[session_name()])) {
        $url = sid_process_url($url);
@@ -5128,13 +6046,26 @@ function redirect($url, $message='', $delay=-1, $adminroot = '') {
 
     $message = clean_text($message);
 
-    $url = html_entity_decode($url);
-    $url = str_replace(array("\n", "\r"), '', $url); // some more cleaning
-    $encodedurl = htmlentities($url);
-    $tmpstr = clean_text('<a href="'.$encodedurl.'" />'); //clean encoded URL
-    $encodedurl = substr($tmpstr, 9, strlen($tmpstr)-13);
-    $url = html_entity_decode($encodedurl);
-    $surl = addslashes($url);
+    $encodedurl = preg_replace("/\&(?![a-zA-Z0-9#]{1,8};)/", "&amp;", $url);
+    $encodedurl = preg_replace('/^.*href="([^"]*)".*$/', "\\1", clean_text('<a href="'.$encodedurl.'" />'));
+    $url = str_replace('&amp;', '&', $encodedurl);
+
+/// At developer debug level. Don't redirect if errors have been printed on screen.
+/// Currenly only works in PHP 5.2+; we do not want strict PHP5 errors
+    $lasterror = error_get_last();
+    $error = defined('DEBUGGING_PRINTED') or (!empty($lasterror) && ($lasterror['type'] & DEBUG_DEVELOPER));
+    $errorprinted = debugging('', DEBUG_ALL) && $CFG->debugdisplay && $error;
+    if ($errorprinted) {
+        $message = "<strong>Error output, so disabling automatic redirect.</strong></p><p>" . $message;
+    }
+
+    $performanceinfo = '';
+    if (defined('MDL_PERF') || (!empty($CFG->perfdebug) and $CFG->perfdebug > 7)) {
+        if (defined('MDL_PERFTOLOG') && !function_exists('register_shutdown_function')) {
+            $perf = get_performance_info();
+            error_log("PERF: " . $perf['txt']);
+        }
+    }
 
 /// when no message and header printed yet, try to redirect
     if (empty($message) and !defined('HEADER_PRINTED')) {
@@ -5169,7 +6100,7 @@ function redirect($url, $message='', $delay=-1, $adminroot = '') {
         @header('Location: '.$url);
         //another way for older browsers and already sent headers (eg trailing whitespace in config.php)
         echo '<meta http-equiv="refresh" content="'. $delay .'; url='. $encodedurl .'" />';
-        echo '<script type="text/javascript">'. "\n" .'//<![CDATA['. "\n". "location.replace('$surl');". "\n". '//]]>'. "\n". '</script>';   // To cope with Mozilla bug
+        echo '<script type="text/javascript">'. "\n" .'//<![CDATA['. "\n". "location.replace('".addslashes_js($url)."');". "\n". '//]]>'. "\n". '</script>';   // To cope with Mozilla bug
         die;
     }
 
@@ -5178,31 +6109,32 @@ function redirect($url, $message='', $delay=-1, $adminroot = '') {
     }
     if (! defined('HEADER_PRINTED')) {
         // this type of redirect might not be working in some browsers - such as lynx :-(
-        print_header('', '', '', '', '<meta http-equiv="refresh" content="'. $delay .'; url='. $encodedurl .'" />');
+        print_header('', '', '', '', $errorprinted ? '' : ('<meta http-equiv="refresh" content="'. $delay .'; url='. $encodedurl .'" />'));
         $delay += 3; // double redirect prevention, it was sometimes breaking upgrades before 1.7
+    } else {
+        print_container_end_all(false, $THEME->open_header_containers);
     }
-    echo '<div style="text-align:center">';
-    echo '<div>'. $message .'</div>';
-    echo '<div>( <a href="'. $encodedurl .'">'. get_string('continue') .'</a> )</div>';
+    echo '<div id="redirect">';
+    echo '<div id="message">' . $message . '</div>';
+    echo '<div id="continue">( <a href="'. $encodedurl .'">'. get_string('continue') .'</a> )</div>';
     echo '</div>';
-// it might be better not to set timeout the same for both types of redirect, so that we can be sure which one wins
+
+    if (!$errorprinted) {
 ?>
 <script type="text/javascript">
 //<![CDATA[
 
   function redirect() {
-      document.location.replace('<?php echo $surl ?>');
+      document.location.replace('<?php echo addslashes_js($url) ?>');
   }
   setTimeout("redirect()", <?php echo ($delay * 1000) ?>);
 //]]>
 </script>
 <?php
-    // fix for MDL-8517, admin pages redirections causes bad xhtml
-    if ($adminroot) {
-        admin_externalpage_print_footer($adminroot);
-    } else {
-        print_footer('none');
     }
+
+    $CFG->docroot = false; // to prevent the link to moodle docs from being displayed on redirect page.
+    print_footer('none');
     die;
 }
 
@@ -5221,7 +6153,7 @@ function notify($message, $style='notifyproblem', $align='center', $return=false
 
     $message = clean_text($message);
 
-    $output = '<div class="'.$style.'" style="text-align:'. $align .'">'. $message .'</div>'."<br />\n";
+    $output = '<div class="'.$style.'" style="text-align:'. $align .'">'. $message .'</div>'."\n";
 
     if ($return) {
         return $output;
@@ -5314,8 +6246,8 @@ function obfuscate_mailto($email, $label='', $dimmed=false) {
  * @param int $totalcount Thetotal number of entries available to be paged through
  * @param int $page The page you are currently viewing
  * @param int $perpage The number of entries that should be shown per page
- * @param string $baseurl The url which will be used to create page numbered links. Each page will consist of the base url appended by the page
-var an equal sign, then the page number.
+ * @param mixed $baseurl If this  is a string then it is the url which will be appended with $pagevar, an equals sign and the page number.
+ *                          If this is a moodle_url object then the pagevar param will be replaced by the page no, for each page.
  * @param string $pagevar This is the variable name that you use for the page number in your code (ie. 'tablepage', 'blogpage', etc)
  * @param bool $nocurr do not display the current page as a link
  * @param bool $return whether to return an output string or echo now
@@ -5330,34 +6262,59 @@ function print_paging_bar($totalcount, $page, $perpage, $baseurl, $pagevar='page
         $output .= get_string('page') .':';
         if ($page > 0) {
             $pagenum = $page - 1;
-            $output .= '&nbsp;(<a  href="'. $baseurl . $pagevar .'='. $pagenum .'">'. get_string('previous') .'</a>)&nbsp;';
+            if (!is_a($baseurl, 'moodle_url')){
+                $output .= '&nbsp;(<a href="'. $baseurl . $pagevar .'='. $pagenum .'">'. get_string('previous') .'</a>)&nbsp;';
+            } else {
+                $output .= '&nbsp;(<a href="'. $baseurl->out(false, array($pagevar => $pagenum)).'">'. get_string('previous') .'</a>)&nbsp;';
+            }
         }
-        $lastpage = ceil($totalcount / $perpage);
+        if ($perpage > 0) {
+            $lastpage = ceil($totalcount / $perpage);
+        } else {
+            $lastpage = 1;
+        }
         if ($page > 15) {
             $startpage = $page - 10;
-            $output .= '&nbsp;<a href="'. $baseurl . $pagevar .'=0">1</a>&nbsp;...';
+            if (!is_a($baseurl, 'moodle_url')){
+                $output .= '&nbsp;<a href="'. $baseurl . $pagevar .'=0">1</a>&nbsp;...';
+            } else {
+                $output .= '&nbsp;<a href="'. $baseurl->out(false, array($pagevar => 0)).'">1</a>&nbsp;...';
+            }
         } else {
             $startpage = 0;
         }
         $currpage = $startpage;
-        $displaycount = 0;
+        $displaycount = $displaypage = 0;
         while ($displaycount < $maxdisplay and $currpage < $lastpage) {
             $displaypage = $currpage+1;
             if ($page == $currpage && empty($nocurr)) {
                 $output .= '&nbsp;&nbsp;'. $displaypage;
             } else {
-                $output .= '&nbsp;&nbsp;<a href="'. $baseurl . $pagevar .'='. $currpage .'">'. $displaypage .'</a>';
+                if (!is_a($baseurl, 'moodle_url')){
+                    $output .= '&nbsp;&nbsp;<a href="'. $baseurl . $pagevar .'='. $currpage .'">'. $displaypage .'</a>';
+                } else {
+                    $output .= '&nbsp;&nbsp;<a href="'. $baseurl->out(false, array($pagevar => $currpage)).'">'. $displaypage .'</a>';
+                }
+
             }
             $displaycount++;
             $currpage++;
         }
         if ($currpage < $lastpage) {
             $lastpageactual = $lastpage - 1;
-            $output .= '&nbsp;...<a href="'. $baseurl . $pagevar .'='. $lastpageactual .'">'. $lastpage .'</a>&nbsp;';
+            if (!is_a($baseurl, 'moodle_url')){
+                $output .= '&nbsp;...<a href="'. $baseurl . $pagevar .'='. $lastpageactual .'">'. $lastpage .'</a>&nbsp;';
+            } else {
+                $output .= '&nbsp;...<a href="'. $baseurl->out(false, array($pagevar => $lastpageactual)).'">'. $lastpage .'</a>&nbsp;';
+            }
         }
         $pagenum = $page + 1;
         if ($pagenum != $displaypage) {
-            $output .= '&nbsp;&nbsp;(<a href="'. $baseurl . $pagevar .'='. $pagenum .'">'. get_string('next') .'</a>)';
+            if (!is_a($baseurl, 'moodle_url')){
+                $output .= '&nbsp;&nbsp;(<a href="'. $baseurl . $pagevar .'='. $pagenum .'">'. get_string('next') .'</a>)';
+            } else {
+                $output .= '&nbsp;&nbsp;(<a href="'. $baseurl->out(false, array($pagevar => $pagenum)) .'">'. get_string('next') .'</a>)';
+            }
         }
         $output .= '</div>';
     }
@@ -5408,15 +6365,13 @@ function print_side_block($heading='', $content='', $list=NULL, $icons=NULL, $fo
     else {
         $skip_text = get_string('skipa', 'access', strip_tags($title));
     }
-    $skip_link = '<a href="#sb-'.$block_id.'" class="skip-block" title="'.$skip_text.'">'."\n".'<span class="accesshide">'.$skip_text.'</span>'."\n".'</a>';
+    $skip_link = '<a href="#sb-'.$block_id.'" class="skip-block">'.$skip_text.'</a>';
     $skip_dest = '<span id="sb-'.$block_id.'" class="skip-block-to"></span>';
 
     if (! empty($heading)) {
-        $heading = $skip_link . $heading;
-    }
-    /*else { //ELSE: I think a single link on a page, "Skip block 4" is too confusing - don't print.
         echo $skip_link;
-    }*/
+    }
+    //ELSE: a single link on a page "Skip block 4" is too confusing - ignore.
 
     print_side_block_start($heading, $attributes);
 
@@ -5447,7 +6402,7 @@ function print_side_block($heading='', $content='', $list=NULL, $icons=NULL, $fo
 
     }
 
-    print_side_block_end($attributes);
+    print_side_block_end($attributes, $title);
     echo $skip_dest;
 }
 
@@ -5493,27 +6448,31 @@ function print_side_block_start($heading='', $attributes = array()) {
 
     echo '<div '.$attrtext.'>';
 
+    if (!empty($THEME->customcorners)) {
+        echo '<div class="wrap">'."\n";
+    }
     if ($heading) {
-        //Accessibility: replaced <div> with H2; no, H2 more appropriate in moodleblock.class.php: _title_html.
-        // echo '<div class="header">'.$heading.'</div>';
+        //Accessibility:  H2 more appropriate in moodleblock.class.php: _title_html.
         echo '<div class="header">';
-        if (!empty($THEME->roundcorners)) {
-            echo '<div class="bt"><div></div></div>';
-            echo '<div class="i1"><div class="i2"><div class="i3">';
+        if (!empty($THEME->customcorners)) {
+            echo '<div class="bt"><div>&nbsp;</div></div>';
+            echo '<div class="i1"><div class="i2">';
+            echo '<div class="i3">';
         }
         echo $heading;
-        if (!empty($THEME->roundcorners)) {
+        if (!empty($THEME->customcorners)) {
             echo '</div></div></div>';
         }
         echo '</div>';
     } else {
-        if (!empty($THEME->roundcorners)) {
-            echo '<div class="bt"><div></div></div>';
+        if (!empty($THEME->customcorners)) {
+            echo '<div class="bt"><div>&nbsp;</div></div>';
         }
     }
 
-    if (!empty($THEME->roundcorners)) {
-        echo '<div class="i1"><div class="i2"><div class="i3">';
+    if (!empty($THEME->customcorners)) {
+        echo '<div class="i1"><div class="i2">';
+        echo '<div class="i3">';
     }
     echo '<div class="content">';
 
@@ -5523,22 +6482,24 @@ function print_side_block_start($heading='', $attributes = array()) {
 /**
  * Print table ending tags for a side block box.
  */
-function print_side_block_end($attributes = array()) {
+function print_side_block_end($attributes = array(), $title='') {
     global $CFG, $THEME;
 
     echo '</div>';
 
-    if (!empty($THEME->roundcorners)) {
-        echo '</div></div></div>';
-        echo '<div class="bb"><div></div></div>';
+    if (!empty($THEME->customcorners)) {
+        echo '</div></div></div><div class="bb"><div>&nbsp;</div></div></div>';
     }
 
     echo '</div>';
 
+    $strshow = addslashes_js(get_string('showblocka', 'access', strip_tags($title)));
+    $strhide = addslashes_js(get_string('hideblocka', 'access', strip_tags($title)));
+
     // IE workaround: if I do it THIS way, it works! WTF?
     if (!empty($CFG->allowuserblockhiding) && isset($attributes['id'])) {
-        echo '<script type="text/javascript">'."\n//<![CDATA[\n".'elementCookieHide("'.$attributes['id'].'"); '.
-             "\n//]]>\n".'</script>';
+        echo '<script type="text/javascript">'."\n//<![CDATA[\n".'elementCookieHide("'.$attributes['id'].
+             '","'.$strshow.'","'.$strhide."\");\n//]]>\n".'</script>';
     }
 
 }
@@ -5561,16 +6522,16 @@ function print_speller_code ($usehtmleditor=false, $return=false) {
     if(!$usehtmleditor) {
         $str .= 'function openSpellChecker() {'."\n";
         $str .= "\tvar speller = new spellChecker();\n";
-        $str .= "\tspeller.popUpUrl = \"" . $CFG->wwwroot ."/lib/speller/spellchecker.html\";\n";
-        $str .= "\tspeller.spellCheckScript = \"". $CFG->wwwroot ."/lib/speller/server-scripts/spellchecker.php\";\n";
+        $str .= "\tspeller.popUpUrl = \"" . $CFG->httpswwwroot ."/lib/speller/spellchecker.html\";\n";
+        $str .= "\tspeller.spellCheckScript = \"". $CFG->httpswwwroot ."/lib/speller/server-scripts/spellchecker.php\";\n";
         $str .= "\tspeller.spellCheckAll();\n";
         $str .= '}'."\n";
     } else {
         $str .= "function spellClickHandler(editor, buttonId) {\n";
         $str .= "\teditor._textArea.value = editor.getHTML();\n";
         $str .= "\tvar speller = new spellChecker( editor._textArea );\n";
-        $str .= "\tspeller.popUpUrl = \"" . $CFG->wwwroot ."/lib/speller/spellchecker.html\";\n";
-        $str .= "\tspeller.spellCheckScript = \"". $CFG->wwwroot ."/lib/speller/server-scripts/spellchecker.php\";\n";
+        $str .= "\tspeller.popUpUrl = \"" . $CFG->httpswwwroot ."/lib/speller/spellchecker.html\";\n";
+        $str .= "\tspeller.spellCheckScript = \"". $CFG->httpswwwroot ."/lib/speller/server-scripts/spellchecker.php\";\n";
         $str .= "\tspeller._moogle_edit=1;\n";
         $str .= "\tspeller._editor=editor;\n";
         $str .= "\tspeller.openChecker();\n";
@@ -5632,11 +6593,12 @@ function page_id_and_class(&$getid, &$getclass) {
 function print_maintenance_message () {
     global $CFG, $SITE;
 
+    $CFG->pagepath = "index.php";
     print_header(strip_tags($SITE->fullname), $SITE->fullname, 'home');
-    print_simple_box_start('center');
+    print_box_start();
     print_heading(get_string('sitemaintenance', 'admin'));
     @include($CFG->dataroot.'/1/maintenance.html');
-    print_simple_box_end();
+    print_box_end();
     print_footer();
 }
 
@@ -5740,7 +6702,7 @@ function convert_tree_to_html($tree, $row=0) {
             $liclass .= (empty($liclass)) ? 'onerow' : ' onerow';
         }
 
-        if ($tab->inactive || $tab->active || ($tab->selected && !$tab->linkedwhenselected)) {
+        if ($tab->inactive || $tab->active || $tab->selected) {
             if ($tab->selected) {
                 $liclass .= (empty($liclass)) ? 'here selected' : ' here selected';
             } else if ($tab->active) {
@@ -5751,7 +6713,8 @@ function convert_tree_to_html($tree, $row=0) {
         $str .= (!empty($liclass)) ? '<li class="'.$liclass.'">' : '<li>';
 
         if ($tab->inactive || $tab->active || ($tab->selected && !$tab->linkedwhenselected)) {
-            $str .= '<a href="#" title="'.$tab->title.'"><span>'.$tab->text.'</span></a>';
+            // The a tag is used for styling
+            $str .= '<a class="nolink"><span>'.$tab->text.'</span></a>';
         } else {
             $str .= '<a href="'.$tab->link.'" title="'.$tab->title.'"><span>'.$tab->text.'</span></a>';
         }
@@ -5799,6 +6762,7 @@ function convert_tabrows_to_tree($tabrows, $selected, $inactive, $activated) {
     return $subtree;
 }
 
+
 /**
  * Returns a string containing a link to the user documentation for the current
  * page. Also contains an icon by default. Shown to teachers and admin only.
@@ -5807,7 +6771,21 @@ function convert_tabrows_to_tree($tabrows, $selected, $inactive, $activated) {
  * @param string $iconpath  The path to the icon to be displayed
  */
 function page_doc_link($text='', $iconpath='') {
-    global $ME, $CFG;
+    global $ME, $COURSE, $CFG;
+
+    if (empty($CFG->docroot) or empty($CFG->rolesactive)) {
+        return '';
+    }
+
+    if (empty($COURSE->id)) {
+        $context = get_context_instance(CONTEXT_SYSTEM);
+    } else {
+        $context = get_context_instance(CONTEXT_COURSE, $COURSE->id);
+    }
+
+    if (!has_capability('moodle/site:doclinks', $context)) {
+        return '';
+    }
 
     if (empty($CFG->pagepath)) {
         $CFG->pagepath = $ME;
@@ -5834,7 +6812,7 @@ function page_doc_link($text='', $iconpath='') {
 function doc_link($path='', $text='', $iconpath='') {
     global $CFG;
 
-    if (empty($CFG->docroot) ||  !has_capability('moodle/site:doclinks')) {
+    if (empty($CFG->docroot)) {
         return '';
     }
 
@@ -5856,6 +6834,8 @@ function doc_link($path='', $text='', $iconpath='') {
 
     return $str;
 }
+
+
 /**
  * Returns true if the current site debugging settings are equal or above specified level.
  * If passed a parameter it will emit a debugging notice similar to trigger_error(). The
@@ -5890,6 +6870,12 @@ function debugging($message='', $level=DEBUG_NORMAL) {
             $callers = debug_backtrace();
             $from = '<ul style="text-align: left">';
             foreach ($callers as $caller) {
+                if (!isset($caller['line'])) {
+                    $caller['line'] = '?'; // probably call_user_func()
+                }
+                if (!isset($caller['file'])) {
+                    $caller['file'] = $CFG->dirroot.'/unknownfile'; // probably call_user_func()
+                }
                 $from .= '<li>line ' . $caller['line'] . ' of ' . substr($caller['file'], strlen($CFG->dirroot) + 1);
                 if (isset($caller['function'])) {
                     $from .= ': call to ';
@@ -5902,9 +6888,12 @@ function debugging($message='', $level=DEBUG_NORMAL) {
             }
             $from .= '</ul>';
             if (!isset($CFG->debugdisplay)) {
-                $CFG->debugdisplay = ini_get('display_errors');
+                $CFG->debugdisplay = ini_get_bool('display_errors');
             }
             if ($CFG->debugdisplay) {
+                if (!defined('DEBUGGING_PRINTED')) {
+                    define('DEBUGGING_PRINTED', 1); // indicates we have printed something
+                }
                 notify($message . $from, 'notifytiny');
             } else {
                 trigger_error($message . $from, E_USER_NOTICE);
@@ -5954,5 +6943,104 @@ function print_location_comment($file, $line, $return = false)
         echo "<!-- $file at line $line -->\n";
     }
 }
+
+
+/**
+ * Returns an image of an up or down arrow, used for column sorting. To avoid unnecessary DB accesses, please
+ * provide this function with the language strings for sortasc and sortdesc.
+ * If no sort string is associated with the direction, an arrow with no alt text will be printed/returned.
+ * @param string $direction 'up' or 'down'
+ * @param string $strsort The language string used for the alt attribute of this image
+ * @param bool $return Whether to print directly or return the html string
+ * @return string HTML for the image
+ *
+ * TODO See if this isn't already defined somewhere. If not, move this to weblib
+ */
+function print_arrow($direction='up', $strsort=null, $return=false) {
+    global $CFG;
+
+    if (!in_array($direction, array('up', 'down', 'right', 'left', 'move'))) {
+        return null;
+    }
+
+    $return = null;
+
+    switch ($direction) {
+        case 'up':
+            $sortdir = 'asc';
+            break;
+        case 'down':
+            $sortdir = 'desc';
+            break;
+        case 'move':
+            $sortdir = 'asc';
+            break;
+        default:
+            $sortdir = null;
+            break;
+    }
+
+    // Prepare language string
+    $strsort = '';
+    if (empty($strsort) && !empty($sortdir)) {
+        $strsort  = get_string('sort' . $sortdir, 'grades');
+    }
+
+    $return = ' <img src="'.$CFG->pixpath.'/t/' . $direction . '.gif" alt="'.$strsort.'" /> ';
+
+    if ($return) {
+        return $return;
+    } else {
+        echo $return;
+    }
+}
+
+/**
+ * Returns boolean true if the current language is right-to-left (Hebrew, Arabic etc)
+ *
+ */
+function right_to_left() {
+    static $result;
+
+    if (isset($result)) {
+        return $result;
+    }
+    return $result = (get_string('thisdirection') == 'rtl');
+}
+
+
+/**
+ * Returns swapped left<=>right if in RTL environment.
+ * part of RTL support
+ *
+ * @param string $align align to check
+ * @return string
+ */
+function fix_align_rtl($align) {
+    if (!right_to_left()) {
+        return $align;
+    }
+    if ($align=='left')  { return 'right'; }
+    if ($align=='right') { return 'left'; }
+    return $align;
+}
+
+
+/**
+ * Returns true if the page is displayed in a popup window.
+ * Gets the information from the URL parameter inpopup.
+ *
+ * @return boolean
+ *
+ * TODO Use a central function to create the popup calls allover Moodle and
+ * TODO In the moment only works with resources and probably questions.
+ */
+function is_in_popup() {
+    $inpopup = optional_param('inpopup', '', PARAM_BOOL);
+
+    return ($inpopup);
+}
+
+
 // vim:autoindent:expandtab:shiftwidth=4:tabstop=4:tw=140:
 ?>

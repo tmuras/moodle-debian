@@ -1,21 +1,33 @@
-<?php  // $Id: lib.php,v 1.12 2007/01/02 09:33:07 skodak Exp $
+<?php  // $Id: lib.php,v 1.12.4.11 2008/10/08 01:46:40 fmarier Exp $
 
 /// Library of functions and constants for module label
 
 
 define("LABEL_MAX_NAME_LENGTH", 50);
 
+function get_label_name($label) {
+    $textlib = textlib_get_instance();
+
+    $name = addslashes(strip_tags(format_string(stripslashes($label->content),true)));
+    if ($textlib->strlen($name) > LABEL_MAX_NAME_LENGTH) {
+        $name = $textlib->substr($name, 0, LABEL_MAX_NAME_LENGTH)."...";
+    }
+
+    if (empty($name)) {
+        // arbitrary name
+        $name = get_string('modulename','label');
+    }
+
+    return $name;
+}
+
 function label_add_instance($label) {
 /// Given an object containing all the necessary data, 
 /// (defined by the form in mod.html) this function 
 /// will create a new instance and return the id number 
 /// of the new instance.
-    $textlib = textlib_get_instance();
 
-    $label->name = addslashes(strip_tags(format_string(stripslashes($label->content),true)));
-    if ($textlib->strlen($label->name) > LABEL_MAX_NAME_LENGTH) {
-        $label->name = $textlib->substr($label->name, 0, LABEL_MAX_NAME_LENGTH)."...";
-    }
+    $label->name = get_label_name($label);
     $label->timemodified = time();
 
     return insert_record("label", $label);
@@ -26,12 +38,8 @@ function label_update_instance($label) {
 /// Given an object containing all the necessary data, 
 /// (defined by the form in mod.html) this function 
 /// will update an existing instance with new data.
-    $textlib = textlib_get_instance();
 
-    $label->name = addslashes(strip_tags(format_string(stripslashes($label->content),true)));
-    if ($textlib->strlen($label->name) > LABEL_MAX_NAME_LENGTH) {
-        $label->name = $textlib->substr($label->name, 0, LABEL_MAX_NAME_LENGTH)."...";
-    }
+    $label->name = get_label_name($label);
     $label->timemodified = time();
     $label->id = $label->instance;
 
@@ -64,20 +72,26 @@ function label_get_participants($labelid) {
     return false;
 }
 
+/**
+ * Given a course_module object, this function returns any
+ * "extra" information that may be needed when printing
+ * this activity in a course listing.
+ * See get_array_of_activities() in course/lib.php
+ */
 function label_get_coursemodule_info($coursemodule) {
-/// Given a course_module object, this function returns any 
-/// "extra" information that may be needed when printing
-/// this activity in a course listing.
-///
-/// See get_array_of_activities() in course/lib.php
-
-   $info = NULL;
-
-   if ($label = get_record("label", "id", $coursemodule->instance)) {
-       $info->extra = urlencode($label->content);
-   }
-
-   return $info;
+    if ($label = get_record('label', 'id', $coursemodule->instance, '', '', '', '', 'id, content, name')) {
+        if (empty($label->name)) {
+            // label name missing, fix it
+            $label->name = "label{$label->id}";
+            set_field('label', 'name', $label->name, 'id', $label->id);
+        }
+        $info = new object();
+        $info->extra = urlencode($label->content);
+        $info->name = urlencode($label->name);
+        return $info;
+    } else {
+        return null;
+    }
 }
 
 function label_get_view_actions() {
@@ -99,4 +113,21 @@ function label_get_types() {
 
     return $types;
 }
+
+/**
+ * This function is used by the reset_course_userdata function in moodlelib.
+ * @param $data the data submitted from the reset course.
+ * @return array status array
+ */
+function label_reset_userdata($data) {
+    return array();
+}
+
+/**
+ * Returns all other caps used in module
+ */
+function label_get_extra_capabilities() {
+    return array('moodle/site:accessallgroups');
+}
+
 ?>

@@ -1,9 +1,9 @@
-<?PHP //$Id: block_login.php,v 1.19.2.3 2007/03/22 12:40:39 skodak Exp $
+<?PHP //$Id: block_login.php,v 1.22.2.4 2008/03/03 11:41:03 moodler Exp $
 
 class block_login extends block_base {
     function init() {
         $this->title = get_string('login');
-        $this->version = 2006102700; //TODO
+        $this->version = 2007101509; 
     }
 
     function applicable_formats() {
@@ -45,10 +45,10 @@ class block_login extends block_base {
 
             $this->content->text .= "\n".'<form class="loginform" id="login" method="post" action="'.$wwwroot.'/login/index.php">';
 
-            $this->content->text .= '<div class="c1"><label for="login_username">'.get_string('username').'</label>: ';
+            $this->content->text .= '<div class="c1 fld username"><label for="login_username">'.get_string('username').'</label>';
             $this->content->text .= '<input type="text" name="username" id="login_username" value="'.s($username).'" /></div>';
 
-            $this->content->text .= '<div class="c1"><label for="login_password">'.get_string('password').'</label>: ';
+            $this->content->text .= '<div class="c1 fld password"><label for="login_password">'.get_string('password').'</label>';
             $this->content->text .= '<input type="password" name="password" id="login_password" value="" /></div>';
 
             $this->content->text .= '<div class="c1 btn"><input type="submit" value="'.get_string('login').'" /></div>';

@@ -17,7 +17,7 @@ define('CHAT_SIDEKICK_MESSAGE',     0x22);
 define('CHAT_SIDEKICK_BEEP',        0x23);
 
 $phpversion = phpversion();
-echo 'Moodle chat daemon v1.0 on PHP '.$phpversion." (\$Id: chatd.php,v 1.32 2007/01/28 21:18:17 skodak Exp $)\n\n";
+echo 'Moodle chat daemon v1.0 on PHP '.$phpversion." (\$Id: chatd.php,v 1.32.4.3 2008/10/08 06:41:55 dongsheng Exp $)\n\n";
 
 /// Set up all the variables we need   /////////////////////////////////////
 
@@ -44,7 +44,8 @@ if(!empty($safemode)) {
     die("Error: Cannot run with PHP safe_mode = On. Turn off safe_mode in php.ini.\n");
 }
 
-if(ini_get('allow_call_time_pass_reference') == '0') {
+$passref = ini_get('allow_call_time_pass_reference');
+if(empty($passref)) {
     die("Error: Cannot run with PHP allow_call_time_pass_reference = Off. Turn on allow_call_time_pass_reference in php.ini.\n");
 }
 
@@ -243,26 +244,30 @@ class ChatDaemon {
             $str->mins  = get_string("mins");
             $str->sec   = get_string("sec");
             $str->secs  = get_string("secs");
+            $str->years = get_string('years');
         }
 
         ob_start();
-        echo '<html><head>';
-        echo '<script text="text/javascript">';
-        echo "//<![CDATA[\n";
-
-        echo 'function openpopup(url,name,options,fullscreen) {';
-        echo 'fullurl = "'.$CFG->wwwroot.'" + url;';
-        echo 'windowobj = window.open(fullurl,name,options);';
-        echo 'if (fullscreen) {';
-        echo '  windowobj.moveTo(0,0);';
-        echo '  windowobj.resizeTo(screen.availWidth,screen.availHeight); ';
-        echo '}';
-        echo 'windowobj.focus();';
-        echo 'return false;';
-        echo "}\n//]]>\n";
-        echo '</script></head><body style="font-face: serif;" bgcolor="#FFFFFF">';
-
-        echo '<table style="width: 100%;"><tbody>';
+        $refresh_inval = $CFG->chat_refresh_userlist * 1000;
+        echo <<<EOD
+        <html><head>
+        <meta http-equiv="refresh" content="$refresh_inval">
+        <style type="text/css"> img{border:0} </style>
+        <script type="text/javascript">
+        //<![CDATA[
+        function openpopup(url,name,options,fullscreen) {
+            fullurl = "$CFG->wwwroot" + url;
+            windowobj = window.open(fullurl,name,options);
+            if (fullscreen) {
+                windowobj.moveTo(0,0);
+                windowobj.resizeTo(screen.availWidth,screen.availHeight);
+            }
+            windowobj.focus();
+            return false;
+        }
+        //]]>
+        </script></head><body><table><tbody>
+EOD;
 
         // Get the users from that chatroom
         $users = $this->chatrooms[$info['chatid']]['users'];

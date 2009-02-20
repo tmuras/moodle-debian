@@ -1,4 +1,4 @@
-<?php  // $Id: viewassessment.php,v 1.13 2007/01/10 08:29:42 toyomoyo Exp $
+<?php  // $Id: viewassessment.php,v 1.18.2.1 2007/10/12 16:09:46 tjhunt Exp $
 
     require("../../config.php");
     require("lib.php");
@@ -58,11 +58,8 @@
     /// top frame with the navigation bar and the assessment form
 
     if ($frameset == "top") {
-
-        // removed <base target="_parent" /> as it does not validate
-        print_header_simple(format_string($workshop->name), "",
-                     "<a href=\"index.php?id=$course->id\">$strworkshops</a> ->
-                      <a href=\"view.php?id=$cm->id\">".format_string($workshop->name,true)."</a> -> $strassess",
+        $navigation = build_navigation($strassess, $cm);
+        print_header_simple(format_string($workshop->name), "", $navigation,
                       "", '', true);
 
         // show assessment but don't allow changes
@@ -89,4 +86,3 @@
     print_footer('none');
 
 ?>
-

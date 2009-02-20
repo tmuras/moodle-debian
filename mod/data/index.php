@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.12.2.1 2007/05/15 18:27:06 skodak Exp $
+<?php // $Id: index.php,v 1.18.2.6 2008/04/21 13:25:04 skodak Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -41,11 +41,16 @@
     $strtopic = get_string('topic');
     $strname = get_string('name');
     $strdata = get_string('modulename','data');
+    $strdataplural  = get_string('modulenameplural','data');
 
-    print_header_simple($strdata, '', $strdata, '', '', true, "", navmenu($course));
+    $navlinks = array();
+    $navlinks[] = array('name' => $strdata, 'link' => "index.php?id=$course->id", 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
+
+    print_header_simple($strdata, '', $navigation, '', '', true, "", navmenu($course));
 
     if (! $datas = get_all_instances_in_course("data", $course)) {
-        notice("There are no databases", "$CFG->wwwroot/course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle',$strdataplural) , "$CFG->wwwroot/course/view.php?id=$course->id");
     }
 
     $timenow  = time();
@@ -75,13 +80,8 @@
         array_push($table->align, 'center');
     }
 
-    $currentgroup = get_and_set_current_group($course, groupmode($course));
-    if ($currentgroup and has_capability('mod/data:manageentries', $context)) {
-        $group = groups_get_group($currentgroup, false);
-        $groupname = " ($group->name)";
-    } else {
-        $groupname = "";
-    }
+    $options = new object();
+    $options->noclean = true;
 
     $currentsection = "";
 
@@ -97,6 +97,8 @@
             //Show normal if the mod is visible
             $link = "<a href=\"view.php?id=$data->coursemodule\">".format_string($data->name,true)."</a>";
         }
+
+        // TODO: add group restricted counts here, and limit unapproved to ppl with approve cap only + link to approval page
 
         $numrecords = count_records_sql('SELECT COUNT(r.id) FROM '.$CFG->prefix.
                 'data_records r WHERE r.dataid ='.$data->id);
@@ -124,10 +126,10 @@
                 }
                 $currentsection = $data->section;
             }
-            $row = array ($printsection, $link, $data->intro, $numrecords, $numunapprovedrecords);
+            $row = array ($printsection, $link, format_text($data->intro, FORMAT_MOODLE, $options), $numrecords, $numunapprovedrecords);
 
         } else {
-            $row = array ($link, $data->intro, $numrecords, $numunapprovedrecords);
+            $row = array ($link, format_text($data->intro, FORMAT_MOODLE, $options), $numrecords, $numunapprovedrecords);
         }
 
         if ($rss) {

@@ -1,9 +1,10 @@
-<?php  // $Id: report.php,v 1.43 2006/08/25 11:23:00 tjhunt Exp $
+<?php  // $Id: report.php,v 1.45.2.2 2008/05/01 07:40:54 jamiesensei Exp $
 
 // This script uses installed report plugins to print quiz reports
 
-    require_once("../../config.php");
-    require_once("locallib.php");
+    require_once('../../config.php');
+    require_once($CFG->dirroot.'/mod/quiz/locallib.php');
+    require_once($CFG->dirroot.'/mod/quiz/report/reportlib.php');
 
     $id = optional_param('id',0,PARAM_INT);    // Course Module ID, or
     $q = optional_param('q',0,PARAM_INT);     // quiz ID
@@ -35,16 +36,16 @@
         }
     }
 
-    require_login($course->id, false);
+    require_login($course, false, $cm);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_capability('mod/quiz:viewreports', $context);
 
     // if no questions have been set up yet redirect to edit.php
     if (!$quiz->questions and has_capability('mod/quiz:manage', $context)) {
-        redirect('edit.php?quizid='.$quiz->id);
+        redirect('edit.php?cmid='.$cm->id);
     }
 
-    // Upgrade any attempts that have not yet been upgraded to the 
+    // Upgrade any attempts that have not yet been upgraded to the
     // Moodle 1.5 model (they will not yet have the timestamp set)
     if ($attempts = get_records_sql("SELECT a.*".
            "  FROM {$CFG->prefix}quiz_attempts a, {$CFG->prefix}question_states s".

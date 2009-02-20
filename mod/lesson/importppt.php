@@ -1,4 +1,4 @@
-<?php // $Id: importppt.php,v 1.17 2007/01/04 21:32:50 skodak Exp $
+<?php // $Id: importppt.php,v 1.22.2.2 2008/07/10 09:48:47 scyrma Exp $
 /**
  * This is a very rough importer for powerpoint slides
  * Export a powerpoint presentation with powerpoint as html pages
@@ -8,7 +8,7 @@
  * 
  * The script supports book and lesson.
  *
- * @version $Id: importppt.php,v 1.17 2007/01/04 21:32:50 skodak Exp $
+ * @version $Id: importppt.php,v 1.22.2.2 2008/07/10 09:48:47 scyrma Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -37,15 +37,15 @@
         error("Course module is incorrect");
     }
 
-    require_login($course->id, false);
+    require_login($course->id, false, $cm);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_capability('mod/lesson:edit', $context);
 
     $strimportppt = get_string("importppt", "lesson");
     $strlessons = get_string("modulenameplural", "lesson");
 
-    print_header_simple("$strimportppt", " $strimportppt",
-                 "<a href=\"index.php?id=$course->id\">$strlessons</a> -> <a href=\"$CFG->wwwroot/mod/$modname/view.php?id=$cm->id\">".format_string($mod->name,true)."</a>-> $strimportppt");
+    $navigation = build_navigation($strimportppt, $cm);
+    print_header_simple("$strimportppt", " $strimportppt", $navigation);
 
     if ($form = data_submitted()) {   /// Filename
 
@@ -195,11 +195,8 @@ function extract_data($pages, $courseid, $lessonname, $modname) {
     
     $imagedir = $CFG->dataroot.'/'.$courseid.'/moddata/'.$modname;
     
-    if ($CFG->slasharguments) {
-        $imagelink = $CFG->wwwroot.'/file.php/'.$courseid.'/moddata/'.$modname;
-    } else {
-        $imagelink = $CFG->wwwroot.'/file.php?file=/'.$courseid.'/moddata/'.$modname;
-    }
+    require_once($CFG->libdir .'/filelib.php');
+    $imagelink = get_file_url($courseid.'/moddata/'.$modname);
     
     // try to make a unique subfolder to store the images
     $lessonname = str_replace(' ', '_', $lessonname); // get rid of spaces

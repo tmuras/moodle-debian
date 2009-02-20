@@ -1,4 +1,4 @@
-<?php  // $Id: pdflib.php,v 1.4 2006/09/12 06:58:42 vyshane Exp $
+<?php  // $Id: pdflib.php,v 1.5.2.1 2008/01/28 05:27:13 moodler Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.org                                            //
 //                                                                       //
-// Copyright (C) 1999-2999  Martin Dougiamas  http://moodle.com          //
+// Copyright (C) 1999 onwards Martin Dougiamas  http://moodle.com          //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
 // it under the terms of the GNU General Public License as published by  //
@@ -96,7 +96,7 @@ class pdf extends TCPDF {
      * Fake constructor to keep PHP5 happy.
      */
     function __construct($orientation='P', $unit='mm', $format='A4', $unicode=true, $encoding='UTF-8') {
-        $this->pdf($orientation='P', $unit='mm', $format='A4', $unicode=true, $encoding='UTF-8');
+        $this->pdf($orientation, $unit, $format, $unicode, $encoding);
     }
     
     

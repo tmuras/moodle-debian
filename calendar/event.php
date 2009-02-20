@@ -1,4 +1,4 @@
-<?php // $Id: event.php,v 1.63.2.4 2007/06/28 03:58:39 toyomoyo Exp $
+<?php // $Id: event.php,v 1.74.2.5 2008/07/02 07:08:22 dongsheng Exp $
 
 /////////////////////////////////////////////////////////////////////////////
 //                                                                         //
@@ -45,11 +45,6 @@
 
     require_login();
 
-    if(isguest()) {
-        // Guests cannot do anything with events
-        redirect(CALENDAR_URL.'view.php?view=upcoming');
-    }
-
     $action = required_param('action', PARAM_ALPHA);
     $eventid = optional_param('id', 0, PARAM_INT);
     $eventtype = optional_param('type', 'select', PARAM_ALPHA);
@@ -57,6 +52,11 @@
     $cal_y = optional_param('cal_y');
     $cal_m = optional_param('cal_m');
     $cal_d = optional_param('cal_d');
+
+    if(isguest()) {
+        // Guests cannot do anything with events
+        redirect(CALENDAR_URL.'view.php?view=upcoming&amp;course='.$urlcourse);
+    }
 
     $focus = '';
 
@@ -70,7 +70,12 @@
     calendar_session_vars();
 
     $now = usergetdate(time());
-    $nav = calendar_get_link_tag($strcalendar, CALENDAR_URL.'view.php?view=upcoming&amp;', $now['mday'], $now['mon'], $now['year']);
+    $navlinks = array();
+    $calendar_navlink = array('name' => $strcalendar,
+                          'link' =>calendar_get_link_href(CALENDAR_URL.'view.php?view=upcoming&amp;course='.$urlcourse.'&amp;',
+                                                          $now['mday'], $now['mon'], $now['year']),
+                          'type' => 'misc');
+
     $day = intval($now['mday']);
     $mon = intval($now['mon']);
     $yr = intval($now['year']);
@@ -96,6 +101,8 @@
             calendar_set_referring_course($SESSION->cal_courses_shown);
         }
     }
+
+    $form = null;
 
     switch($action) {
         case 'delete':
@@ -153,29 +160,27 @@
                         }
 
                         execute_sql('UPDATE '.$CFG->prefix.'event SET '.
-                            'name = '.$db->qstr($form->name).','.
-                            'description = '.$db->qstr($form->description).','.
+                            'name = \''.$form->name.'\','.
+                            'description = \''.$form->description.'\','.
                             'timestart = '.$timestartoffset.','.
                             'timeduration = '.$form->timeduration.','.
                             'timemodified = '.time().' WHERE repeatid = '.$event->repeatid);
-                            
+
                         /// Log the event update.
-                        $form->name = stripslashes($form->name);  //To avoid double-slashes
-                        add_to_log($form->courseid, 'calendar', 'edit all', 'event.php?action=edit&amp;id='.$form->id, $form->name);
+                        add_to_log($form->courseid, 'calendar', 'edit all', 'event.php?action=edit&amp;id='.$form->id, stripslashes($form->name));
                     }
 
                     else {
                         // Update this
                         $form->timemodified = time();
                         update_record('event', $form);
-    
+
                         /// Log the event update.
-                        $form->name = stripslashes($form->name);  //To avoid double-slashes
-                        add_to_log($form->courseid, 'calendar', 'edit', 'event.php?action=edit&amp;id='.$form->id, $form->name);
+                        add_to_log($form->courseid, 'calendar', 'edit', 'event.php?action=edit&amp;id='.$form->id, stripslashes($form->name));
                     }
 
                     // OK, now redirect to day view
-                    redirect(CALENDAR_URL.'view.php?view=day&cal_d='.$form->startday.'&cal_m='.$form->startmon.'&cal_y='.$form->startyr);
+                    redirect(CALENDAR_URL.'view.php?view=day&amp;course='.$urlcourse.'&cal_d='.$form->startday.'&cal_m='.$form->startmon.'&cal_y='.$form->startyr);
                 }
                 else {
                     foreach ($err as $key => $value) {
@@ -212,13 +217,14 @@
                 if (count($err) == 0) {
                     $form->timemodified = time();
 
-                    if ($form->repeat) {
-                        $fetch = get_record_sql('SELECT 1, MAX(repeatid) AS repeatid FROM '.$CFG->prefix.'event');
-                        $form->repeatid = empty($fetch) ? 1 : $fetch->repeatid + 1;
-                    }
-
                     /// Get the event id for the log record.
                     $eventid = insert_record('event', $form, true);
+                    
+                    /// Use the event id as the repeatid to link repeat entries together
+                    if ($form->repeat) {
+                        $form->repeatid = $form->id = $eventid;
+                        update_record('event', $form);         // update the row, to set its repeatid        	
+                    }
 
                     /// Log the event entry.
                     add_to_log($form->courseid, 'calendar', 'add', 'event.php?action=edit&amp;id='.$eventid, stripslashes($form->name));
@@ -241,7 +247,7 @@
                         }
                     }
                     // OK, now redirect to day view
-                    redirect(CALENDAR_URL.'view.php?view=day&cal_d='.$form->startday.'&cal_m='.$form->startmon.'&cal_y='.$form->startyr);
+                    redirect(CALENDAR_URL.'view.php?view=day&amp;course='.$urlcourse.'&cal_d='.$form->startday.'&cal_m='.$form->startmon.'&cal_y='.$form->startyr);
                 }
                 else {
                     foreach ($err as $key => $value) {
@@ -255,13 +261,7 @@
         break;
     }
 
-    // Let's see if we are supposed to provide a referring course link
-    // but NOT for the "main page" course
-    if($SESSION->cal_course_referer != SITEID &&
-      ($shortname = get_field('course', 'shortname', 'id', $SESSION->cal_course_referer)) !== false) {
-        // If we know about the referring course, show a return link
-        $nav = '<a href="'.$CFG->wwwroot.'/course/view.php?id='.$SESSION->cal_course_referer.'">'.$shortname.'</a> -> '.$nav;
-    }
+    $form = stripslashes_recursive($form);
 
     if (!empty($SESSION->cal_course_referer)) {
         // TODO: This is part of the Great $course Hack in Moodle. Replace it at some point.
@@ -271,7 +271,10 @@
     }
     require_login($course, false);
 
-    print_header($site->shortname.': '.$strcalendar.': '.$title, $strcalendar, $nav.' -> '.$title,
+    $navlinks[] = $calendar_navlink;
+    $navlinks[] = array('name' => $title, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+    print_header($site->shortname.': '.$strcalendar.': '.$title, $strcalendar, $navigation,
                  'eventform.name', '', true, '', user_login_string($site));
 
     echo calendar_overlib_html();
@@ -297,7 +300,8 @@
                     }
                 }
 
-                redirect(CALENDAR_URL.'view.php?view=day&cal_d='.$_REQUEST['d'].'&cal_m='.$_REQUEST['m'].'&cal_y='.$_REQUEST['y']);
+                echo '</td></tr></table>';
+                redirect(CALENDAR_URL.'view.php?view=day&amp;course='.$urlcourse.'&cal_d='.$_REQUEST['d'].'&cal_m='.$_REQUEST['m'].'&cal_y='.$_REQUEST['y']);
 
             }
             else {
@@ -313,7 +317,7 @@
                 else {
                     $repeatcount = 0;
                 }
-                
+
                 // Display confirmation form
                 echo '<div class="header">'.get_string('deleteevent', 'calendar').': '.$event->name.'</div>';
                 echo '<h2>'.get_string('confirmeventdelete', 'calendar').'</h2>';
@@ -504,12 +508,8 @@
                 if (!$course = get_record('course', 'id', $courseid)) {
                     error('Incorrect course ID');
                 }
-                if ($groupmode = groupmode($course)) {   // Groups are being used
-                    $changegroup = optional_param('group', -1, PARAM_INT);
-                    $groupid = get_and_set_current_group($course, $groupmode, $changegroup);
-                } else {
-                    $groupid = 0;
-                }
+                
+                $groupid = groups_get_course_group($course);
 
                 echo '<h2>'.get_string('eventkind', 'calendar').':</h2>';
                 echo '<div id="selecteventtype">';
@@ -530,25 +530,34 @@
     // START: Last column (3-month display)
 
     $defaultcourses = calendar_get_default_courses();
-    calendar_set_filters($courses, $groups, $users, $defaultcourses, $defaultcourses);
+    //calendar_set_filters($courses, $groups, $users, $defaultcourses, $defaultcourses);
+    
+    // when adding an event you can not be a guest, so I think it's reasonalbe to ignore defaultcourses
+    // MDL-10353
+    calendar_set_filters($courses, $groups, $users);
     list($prevmon, $prevyr) = calendar_sub_month($mon, $yr);
     list($nextmon, $nextyr) = calendar_add_month($mon, $yr);
-    
+
     echo '<td class="sidecalendar">';
-    echo '<div class="header">'.get_string('monthlyview', 'calendar').'</div>';
+    echo '<div class="sideblock">';
+    echo '<div class="header">'.get_string('eventskey', 'calendar').'</div>';
     echo '<div class="filters">';
     echo calendar_filter_controls('event', 'action='.$action.'&amp;type='.$eventtype.'&amp;id='.$eventid);
     echo '</div>';
-    
-    echo '<div class="minicalendarblock">';
-    echo calendar_top_controls('display', array('m' => $prevmon, 'y' => $prevyr));
+    echo '</div>';
+
+    echo '<div class="sideblock">';
+    echo '<div class="header">'.get_string('monthlyview', 'calendar').'</div>';
+    echo '<div class="minicalendarblock minicalendartop">';
+    echo calendar_top_controls('display', array('id' => $urlcourse, 'm' => $prevmon, 'y' => $prevyr));
     echo calendar_get_mini($courses, $groups, $users, $prevmon, $prevyr);
     echo '</div><div class="minicalendarblock">';
-    echo calendar_top_controls('display', array('m' => $mon, 'y' => $yr));
+    echo calendar_top_controls('display', array('id' => $urlcourse, 'm' => $mon, 'y' => $yr));
     echo calendar_get_mini($courses, $groups, $users, $mon, $yr);
     echo '</div><div class="minicalendarblock">';
-    echo calendar_top_controls('display', array('m' => $nextmon, 'y' => $nextyr));
+    echo calendar_top_controls('display', array('id' => $urlcourse, 'm' => $nextmon, 'y' => $nextyr));
     echo calendar_get_mini($courses, $groups, $users, $nextmon, $nextyr);
+    echo '</div>';
     echo '</div>';
 
     echo '</td>';
@@ -565,9 +574,11 @@ function validate_form(&$form, &$err) {
     if(empty($form->name)) {
         $err['name'] = get_string('errornoeventname', 'calendar');
     }
+/* Allow events without a description
     if(empty($form->description)) {
         $err['description'] = get_string('errornodescription', 'calendar');
     }
+*/
     if(!checkdate($form->startmon, $form->startday, $form->startyr)) {
         $err['timestart'] = get_string('errorinvaliddate', 'calendar');
     }
@@ -597,7 +608,7 @@ function calendar_add_event_allowed($event) {
 
     // can not be using guest account
     if (empty($USER->id) or $USER->username == 'guest') {
-        return false;  
+        return false;
     }
 
     $sitecontext = get_context_instance(CONTEXT_SYSTEM);
@@ -611,14 +622,14 @@ function calendar_add_event_allowed($event) {
             return has_capability('moodle/calendar:manageentries', get_context_instance(CONTEXT_COURSE, $event->courseid));
 
         case 'group':
-            if (! groups_group_exists($event->groupid)) { //TODO:check.
-                return false;
-            } 
-            // this is ok because if you have this capability at course level, you should be able 
-            // to edit group calendar too
-            // there is no need to check membership, because if you have this capability
-            // you will have a role in this group context
-            return has_capability('moodle/calendar:manageentries', get_context_instance(CONTEXT_GROUP, $event->groupid));
+            // Allow users to add/edit group events if:
+            // 1) They have manageentries (= entries for whole course)
+            // 2) They have managegroupentries AND are in the group
+            $group = get_record('groups', 'id', $event->groupid);         
+            return $group && (
+                has_capability('moodle/calendar:manageentries', get_context_instance(CONTEXT_COURSE, $group->courseid)) ||
+                (has_capability('moodle/calendar:managegroupentries', get_context_instance(CONTEXT_COURSE, $group->courseid))
+                    && groups_is_member($event->groupid)));
 
         case 'user':
             if ($event->userid == $USER->id) {

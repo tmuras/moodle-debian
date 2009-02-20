@@ -1,4 +1,4 @@
-<?PHP //$Id: try.php,v 1.5.6.3 2007/02/28 05:36:21 nicolasconnault Exp $
+<?PHP //$Id: try.php,v 1.8.4.1 2008/05/02 04:07:31 dongsheng Exp $
     require_once ("../config.php");
     require_once ("backup_scheduled.php");
     require_once ("lib.php");
@@ -7,7 +7,7 @@
 
     require_login();
 
-    require_capability('moodle/site:restore', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    require_capability('moodle/site:restore', get_context_instance(CONTEXT_SYSTEM));
 
     //Check site
     if (!$site = get_site()) {

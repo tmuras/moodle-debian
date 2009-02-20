@@ -1,4 +1,4 @@
-<?php  // $Id: showentry.php,v 1.32.4.2 2007/03/30 07:02:59 toyomoyo Exp $
+<?php  // $Id: showentry.php,v 1.40 2007/08/17 19:09:21 nicolasconnault Exp $
     require_once("../../config.php");
     require_once("lib.php");
 
@@ -48,13 +48,13 @@
         $strsearch = get_string("search");
 
         $CFG->framename = "newwindow";
-        if ($course->id != SITEID) {
-            print_header(strip_tags("$course->shortname: $strglossaries $strsearch"), $course->fullname,
-            "<a target=\"newwindow\" href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</a> -> $strglossaries -> $strsearch", "", "", true, "&nbsp;", "&nbsp;");
-        } else {
-            print_header(strip_tags("$course->shortname: $strglossaries $strsearch"), $course->fullname,
-            "$strglossaries -> $strsearch", "", "", true, "&nbsp;", "&nbsp;");
-        }
+        $navlinks = array();
+        $navlinks[] = array('name' => $strglossaries, 'link' => '', 'type' => 'activity');
+        $navlinks[] = array('name' => $strsearch, 'link' => '', 'type' => 'title');
+
+        $navigation = build_navigation($navlinks);
+
+        print_header(strip_tags("$course->shortname: $strglossaries $strsearch"), $course->fullname, $navigation, "", "", true, "&nbsp;", "&nbsp;");
 
     } else {
         print_header();    // Needs to be something here to allow linking back to the whole glossary

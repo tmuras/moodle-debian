@@ -1,11 +1,8 @@
-<?php // $Id: locallib.php,v 1.51.2.2 2007/03/01 06:57:03 toyomoyo Exp $
+<?php // $Id: locallib.php,v 1.54.2.4 2008/09/27 00:40:00 ethem Exp $
 
 if (!defined('MOODLE_INTERNAL')) {
     die('Direct access to this script is forbidden.');
 }
-
-require_once('const.php');
-require_once('authorizenetlib.php');
 
 define('ORDER_CAPTURE', 'capture');
 define('ORDER_DELETE',  'delete');
@@ -53,7 +50,7 @@ function authorize_print_orders($courseid, $userid)
         $sql .= "WHERE (e.userid='$userid') ";
     }
     $sql .= "ORDER BY c.sortorder, c.fullname";
-    if ($popupcrs = get_records_sql_menu($sql)) {
+    if (($popupcrs = get_records_sql_menu($sql))) {
         $popupcrs = array($SITE->id => $SITE->fullname) + $popupcrs;
         echo "<table border='0' width='100%' cellspacing='0' cellpadding='3' class='generaltable generalbox'>";
         echo "<tr>";
@@ -155,7 +152,7 @@ function authorize_print_orders($courseid, $userid)
         $where .= "AND (e.userid = '" . $userid . "') ";
     }
 
-    if ($sort = $table->get_sql_sort()) {
+    if (($sort = $table->get_sql_sort())) {
         $sort = ' ORDER BY ' . $sort;
     }
 
@@ -163,7 +160,7 @@ function authorize_print_orders($courseid, $userid)
     $table->initialbars($totalcount > $perpage);
     $table->pagesize($perpage, $totalcount);
 
-    if ($records = get_records_sql($select . $from . $where . $sort, $table->get_page_start(), $table->get_page_size())) {
+    if (($records = get_records_sql($select . $from . $where . $sort, $table->get_page_start(), $table->get_page_size()))) {
         foreach ($records as $record) {
             $actionstatus = authorize_get_status_action($record);
             $color = authorize_get_status_color($actionstatus->status);
@@ -260,7 +257,7 @@ function authorize_print_order_details($orderno)
         if (!in_array(ORDER_CAPTURE, $status->actions)) {
             $a = new stdClass;
             $a->action = $authstrs->capture;
-            error(get_string('youcantdo', 'enrol_authorize', $a));
+            print_error('youcantdo', 'enrol_authorize', '', $a);
         }
 
         if (empty($confirm)) {
@@ -279,7 +276,7 @@ function authorize_print_order_details($orderno)
             else {
                 if (empty($CFG->an_test)) {
                     $user = get_record('user', 'id', $order->userid);
-                    if (enrol_into_course($course, $user, 'manual')) {
+                    if (enrol_into_course($course, $user, 'authorize')) {
                         if (!empty($CFG->enrol_mailstudents)) {
                             send_welcome_messages($order->id);
                         }
@@ -302,25 +299,22 @@ function authorize_print_order_details($orderno)
         if (!in_array(ORDER_REFUND, $status->actions)) {
             $a = new stdClass;
             $a->action = $authstrs->refund;
-            error(get_string('youcantdo', 'enrol_authorize', $a));
+            print_error('youcantdo', 'enrol_authorize', '', $a);
         }
 
-        $extra = new stdClass;
-        $extra->sum = 0.0;
-        $extra->orderid = $orderno;
-
+        $refunded = 0.0;
         $sql = "SELECT SUM(amount) AS refunded FROM {$CFG->prefix}enrol_authorize_refunds " .
                "WHERE (orderid = '" . $orderno . "') AND (status = '" . AN_STATUS_CREDIT . "')";
 
-        if ($refund = get_record_sql($sql)) {
-            $extra->sum = floatval($refund->refunded);
+        if (($refundval = get_field_sql($sql))) {
+            $refunded = floatval($refundval);
         }
-        $upto = format_float($order->amount - $extra->sum, 2);
+        $upto = round($order->amount - $refunded, 2);
         if ($upto <= 0) {
             error("Refunded to original amount.");
         }
         else {
-            $amount = format_float(optional_param('amount', $upto), 2);
+            $amount = round(optional_param('amount', $upto), 2);
             if (($amount > $upto) or empty($confirm)) {
                 $a = new stdClass;
                 $a->upto = $upto;
@@ -334,6 +328,8 @@ function authorize_print_order_details($orderno)
                      $strcanbecredit<br /><input type='submit' name='".ORDER_REFUND."' value='$authstrs->refund' />");
             }
             else {
+                $extra = new stdClass;
+                $extra->orderid = $orderno;
                 $extra->amount = $amount;
                 $message = '';
                 $success = authorize_action($order, $message, $extra, AN_ACTION_CREDIT);
@@ -367,7 +363,7 @@ function authorize_print_order_details($orderno)
             if (!in_array(ORDER_VOID, $status->actions)) {
                 $a = new stdClass;
                 $a->action = $authstrs->void;
-                error(get_string('youcantdo', 'enrol_authorize', $a));
+                print_error('youcantdo', 'enrol_authorize', '', $a);
             }
             if (empty($confirm)) {
                 $strvoidyes = get_string('voidyes', 'enrol_authorize');
@@ -408,7 +404,7 @@ function authorize_print_order_details($orderno)
                 if (!in_array(ORDER_VOID, $refundedstatus->actions)) {
                     $a = new stdClass;
                     $a->action = $authstrs->void;
-                    error(get_string('youcantdo', 'enrol_authorize', $a));
+                    print_error('youcantdo', 'enrol_authorize', '', $a);
                 }
                 unset($suborder->courseid);
                 if (empty($confirm)) {
@@ -452,7 +448,7 @@ function authorize_print_order_details($orderno)
         if (!in_array(ORDER_DELETE, $status->actions)) {
             $a = new stdClass;
             $a->action = $authstrs->delete;
-            error(get_string('youcantdo', 'enrol_authorize', $a));
+            print_error('youcantdo', 'enrol_authorize', '', $a);
         }
         if (empty($confirm)) {
             $cbunenrol = print_checkbox('unenrol', '1', !empty($unenrol), '', '', '', true);
@@ -565,7 +561,7 @@ function authorize_get_status_action($order)
 
     $canmanage = has_capability('enrol/authorize:managepayments', get_context_instance(CONTEXT_COURSE, $order->courseid));
 
-    if (intval($order->transid) == 0) { // test transaction or new order
+    if (floatval($order->transid) == 0) { // test transaction or new order
         if ($order->timecreated < $newordertime) {
             if ($canmanage) {
                 $ret->actions = array(ORDER_DELETE);

@@ -1,19 +1,15 @@
-<?php // $Id: oacleanup.php,v 1.6.6.2 2007/02/28 05:36:20 nicolasconnault Exp $
+<?php // $Id: oacleanup.php,v 1.9 2007/04/30 17:08:43 skodak Exp $
 
 if (!isset($CFG)) {
 
     require('../config.php');
     require_once($CFG->libdir.'/adminlib.php');
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('oacleanup', $adminroot);
 
-    require_login();
+    admin_externalpage_setup('oacleanup');
 
-    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
-
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
     online_assignment_cleanup(true);
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 
 }
 

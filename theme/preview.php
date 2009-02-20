@@ -1,4 +1,4 @@
-<?php // $Id: preview.php,v 1.5 2006/10/09 10:12:43 skodak Exp $
+<?php // $Id: preview.php,v 1.6.2.1 2008/05/02 04:07:33 dongsheng Exp $
 
     require_once("../config.php");
 
@@ -14,7 +14,7 @@
 
     require_login();
 
-    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
 
     $CFG->theme = $preview;
 
@@ -28,7 +28,11 @@
     $strtheme = get_string("theme");
     $strthemesaved = get_string("themesaved");
 
-    print_header("$site->shortname: $strpreview", $site->fullname, "$strthemes -> $strpreview");
+    $navlinks = array();
+    $navlinks[] = array('name' => $strthemes, 'link' => null, 'type' => 'misc');
+    $navlinks[] = array('name' => $strpreview, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+    print_header("$site->shortname: $strpreview", $site->fullname, $navigation);
 
     print_simple_box_start('center', '80%');
     print_heading($preview);

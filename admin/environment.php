@@ -1,4 +1,4 @@
-<?php  //$Id: environment.php,v 1.17 2007/02/06 08:24:37 toyomoyo Exp $
+<?php  //$Id: environment.php,v 1.19.2.2 2007/12/31 01:09:31 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas     http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -34,8 +34,7 @@
     require_once($CFG->libdir.'/environmentlib.php');
     require_once($CFG->libdir.'/componentlib.class.php');
 
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('environment', $adminroot);
+    admin_externalpage_setup('environment');
 
 /// Parameters
     $action  = optional_param('action', '', PARAM_ACTION);
@@ -53,7 +52,7 @@
     $strmisc = get_string('miscellaneous');
 
 /// Print the header stuff
-    admin_externalpage_print_header($adminroot);
+    admin_externalpage_print_header();
 
 /// Print the component download link
     echo '<div class="reportlink"><a href="environment.php?action=updatecomponent&amp;sesskey='.$USER->sesskey.'">'.$strupdate.'</a></div>';
@@ -66,10 +65,10 @@
         if ($cd = new component_installer('http://download.moodle.org', 
                                           'environment', 
                                           'environment.zip')) {
-            $status = $cd->install(); //returns ERROR | UPTODATE | INSTALLED
+            $status = $cd->install(); //returns COMPONENT_(ERROR | UPTODATE | INSTALLED)
             switch ($status) {
-                case ERROR:
-                    if ($cd->get_error() == 'remotedownloadnotallowed') {
+                case COMPONENT_ERROR:
+                    if ($cd->get_error() == 'remotedownloaderror') {
                         $a = new stdClass();
                         $a->url = 'http://download.moodle.org/environment/environment.zip';
                         $a->dest= $CFG->dataroot.'/';
@@ -78,10 +77,10 @@
                         print_simple_box(get_string($cd->get_error(), 'error'), 'center', '', '', 5, 'errorbox');
                     }
                     break;
-                case UPTODATE:
+                case COMPONENT_UPTODATE:
                     print_simple_box(get_string($cd->get_error(), 'error'), 'center');
                     break;
-                case INSTALLED:
+                case COMPONENT_INSTALLED:
                     print_simple_box(get_string('componentinstalled', 'admin'), 'center');
                     break;
             }
@@ -133,5 +132,5 @@
     $status = check_moodle_environment($version, $environment_results);
 
 /// Print footer
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 ?>

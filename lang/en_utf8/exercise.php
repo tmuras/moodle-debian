@@ -1,4 +1,4 @@
-<?PHP // $Id: exercise.php,v 1.4 2006/11/01 09:44:05 moodler Exp $ 
+<?PHP // $Id: exercise.php,v 1.4.8.1 2008/10/02 14:39:13 poltawski Exp $ 
       // exercise.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -98,7 +98,7 @@ $string['noteongradinggrade'] = 'This grade is a measure of how well your assess
 $string['noteonstudentassessments'] = '{Grade from student / Grading Grade for assessment}';
 $string['notgraded'] = 'Not Graded';
 $string['notitlegiven'] = 'No Title Given';
-$string['numberofassessmentelements'] = 'Number of Comments, Assessment Elements, Grade Bands, Criterion Statments or Categories in a Rubric';
+$string['numberofassessmentelements'] = 'Number of Comments, Assessment Elements, Grade Bands, Criterion Statements or Categories in a Rubric';
 $string['numberofcriterionelements'] = 'Number of Criterion Elements must be greater than one.';
 $string['numberofentries'] = 'Number of Entries';
 $string['numberofentriesinleaguetable'] = 'Number of Entries in League Table';

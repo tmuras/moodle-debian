@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.3 2006/08/15 21:25:39 tjhunt Exp $
+<?php  // $Id: questiontype.php,v 1.4.4.1 2007/11/02 16:20:48 tjhunt Exp $
 
 /////////////////////
 /// RANDOMSAMATCH ///
@@ -8,6 +8,10 @@
 /// can not also be used by a random question
 
 /// QUESTION TYPE CLASS //////////////////
+/**
+ * @package questionbank
+ * @subpackage questiontypes
+*/
 class question_randomsamatch_qtype extends question_match_qtype {
 /// Extends 'match' as there are quite a few simularities...
 

@@ -1,4 +1,4 @@
-<?PHP // $Id: currencies.php,v 1.5.4.1 2007/02/17 23:37:51 koenr Exp $ 
+<?PHP // $Id: currencies.php,v 1.8 2007/08/05 13:25:44 koenr Exp $ 
       // currencies.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -89,7 +89,7 @@ $string['MTL'] = 'Maltese Lira';
 $string['MUR'] = 'Mauritius Rupee';
 $string['MVR'] = 'Maldive Rufiyaa';
 $string['MWK'] = 'Malawi Kwacha';
-$string['MXN'] = 'Mexican New Peso';
+$string['MXN'] = 'Mexican Peso';
 $string['MYR'] = 'Malaysian Ringgit';
 $string['MZM'] = 'Mozambique Metical';
 $string['NGN'] = 'Nigerian Naira';

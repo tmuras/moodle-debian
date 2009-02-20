@@ -1,4 +1,4 @@
-<?php  // $Id: locallib.php,v 1.34.2.7 2007/06/06 22:16:38 bobopinna Exp $
+<?php  // $Id: locallib.php,v 1.46.2.26 2008/12/12 19:39:32 danmarsden Exp $
 
 /// Constants and settings for module scorm
 define('UPDATE_NEVER', '0');
@@ -14,45 +14,34 @@ define('GRADESCOES', '0');
 define('GRADEHIGHEST', '1');
 define('GRADEAVERAGE', '2');
 define('GRADESUM', '3');
-$SCORM_GRADE_METHOD = array (GRADESCOES => get_string('gradescoes', 'scorm'),
-                             GRADEHIGHEST => get_string('gradehighest', 'scorm'),
-                             GRADEAVERAGE => get_string('gradeaverage', 'scorm'),
-                             GRADESUM => get_string('gradesum', 'scorm'));
 
 define('HIGHESTATTEMPT', '0');
 define('AVERAGEATTEMPT', '1');
 define('FIRSTATTEMPT', '2');
 define('LASTATTEMPT', '3');
-$SCORM_WHAT_GRADE = array (HIGHESTATTEMPT => get_string('highestattempt', 'scorm'),
-                           AVERAGEATTEMPT => get_string('averageattempt', 'scorm'),
-                           FIRSTATTEMPT => get_string('firstattempt', 'scorm'),
-                           LASTATTEMPT => get_string('lastattempt', 'scorm'));
 
-$SCORM_POPUP_OPTIONS = array('resizable'=>1, 
-                             'scrollbars'=>1, 
-                             'directories'=>0, 
-                             'location'=>0,
-                             'menubar'=>0, 
-                             'toolbar'=>0, 
-                             'status'=>0);
+/**
+ * Returns an array of the popup options for SCORM and each options default value
+ *
+ * @return array an array of popup options as the key and their defaults as the value
+ */
+function scorm_get_popup_options_array(){
+    global $CFG;
+    return array('resizable'=> isset($CFG->scorm_resizable) ? $CFG->scorm_resizable : 0,
+                 'scrollbars'=> isset($CFG->scorm_scrollbars) ? $CFG->scorm_scrollbars : 0,
+                 'directories'=> isset($CFG->scorm_directories) ? $CFG->scorm_directories : 0,
+                 'location'=> isset($CFG->scorm_location) ? $CFG->scorm_location : 0,
+                 'menubar'=> isset($CFG->scorm_menubar) ? $CFG->scorm_menubar : 0,
+                 'toolbar'=> isset($CFG->scorm_toolbar) ? $CFG->scorm_toolbar : 0,
+                 'status'=> isset($CFG->scorm_status) ? $CFG->scorm_status : 0);
+}
+
 $stdoptions = '';
-foreach ($SCORM_POPUP_OPTIONS as $popupopt => $value) {
+foreach (scorm_get_popup_options_array() as $popupopt => $value) {
     $stdoptions .= $popupopt.'='.$value;
     if ($popupopt != 'status') {
         $stdoptions .= ',';
     }
-}
-
-if (!isset($CFG->scorm_maxattempts)) {
-    set_config('scorm_maxattempts','6');
-}
-
-if (!isset($CFG->scorm_frameheight)) {
-    set_config('scorm_frameheight','500');
-}
-
-if (!isset($CFG->scorm_framewidth)) {
-    set_config('scorm_framewidth','100%');
 }
 
 if (!isset($CFG->scorm_updatetime)) {
@@ -67,13 +56,89 @@ if (!isset($CFG->scorm_windowsettings)) {
     set_config('scorm_windowsettings','0');
 }
 
-//
-// Repository configurations
-//
-$repositoryconfigfile = $CFG->dirroot.'/mod/resource/type/ims/repository_config.php';
-$repositorybrowser = '/mod/resource/type/ims/finder.php';
-
 /// Local Library of functions for module scorm
+/**
+ * Returns an array of the array of what grade options
+ *
+ * @return array an array of what grade options
+ */
+function scorm_get_grade_method_array(){
+    return array (GRADESCOES => get_string('gradescoes', 'scorm'),
+                  GRADEHIGHEST => get_string('gradehighest', 'scorm'),
+                  GRADEAVERAGE => get_string('gradeaverage', 'scorm'),
+                  GRADESUM => get_string('gradesum', 'scorm'));
+}
+
+/**
+ * Returns an array of the array of what grade options
+ *
+ * @return array an array of what grade options
+ */
+function scorm_get_what_grade_array(){
+    return array (HIGHESTATTEMPT => get_string('highestattempt', 'scorm'),
+                  AVERAGEATTEMPT => get_string('averageattempt', 'scorm'),
+                  FIRSTATTEMPT => get_string('firstattempt', 'scorm'),
+                  LASTATTEMPT => get_string('lastattempt', 'scorm'));
+}
+
+/**
+ * Returns an array of the array of skip view options
+ *
+ * @return array an array of skip view options
+ */
+function scorm_get_skip_view_array(){
+   return array(0 => get_string('never'),
+                 1 => get_string('firstaccess','scorm'),
+                 2 => get_string('always'));
+}
+
+/**
+ * Returns an array of the array of hide table of contents options
+ *
+ * @return array an array of hide table of contents options
+ */
+function scorm_get_hidetoc_array(){
+     return array(0 =>get_string('sided','scorm'),
+                  1 => get_string('hidden','scorm'),
+                  2 => get_string('popupmenu','scorm'));
+}
+
+/**
+ * Returns an array of the array of update frequency options
+ *
+ * @return array an array of update frequency options
+ */
+function scorm_get_updatefreq_array(){
+    return array(0 => get_string('never'),
+                 1 => get_string('everyday','scorm'),
+                 2 => get_string('everytime','scorm'));
+}
+
+/**
+ * Returns an array of the array of popup display options
+ *
+ * @return array an array of popup display options
+ */
+function scorm_get_popup_display_array(){
+    return array(0 => get_string('iframe', 'scorm'),
+                 1 => get_string('popup', 'scorm'));
+}
+
+/**
+ * Returns an array of the array of attempt options
+ *
+ * @return array an array of attempt options
+ */
+function scorm_get_attempts_array(){
+    $attempts = array(0 => get_string('nolimit','scorm'),
+                      1 => get_string('attempt1','scorm'));
+
+    for ($i=2; $i<=6; $i++) {
+        $attempts[$i] = get_string('attemptsx','scorm', $i);
+    }
+
+    return $attempts;
+}
 
 /**
 * This function will permanently delete the given
@@ -146,7 +211,7 @@ function scorm_tempdir($strPath)
                     }
                     $randstring .= $char;
                     $lchar = $char;
-            } 
+            }
             $datadir='/'.$randstring;
         } while (file_exists($strPath.$datadir));
         mkdir($strPath.$datadir, $CFG->directorypermissions);
@@ -211,18 +276,46 @@ function scorm_get_sco($id,$what=SCO_ALL) {
         $sco = ($what == SCO_DATA) ? new stdClass() : $sco;
         if (($what != SCO_ONLY) && ($scodatas = get_records('scorm_scoes_data','scoid',$id))) {
             foreach ($scodatas as $scodata) {
-                $sco->{$scodata->name} = $scodata->value;		
+                $sco->{$scodata->name} = $scodata->value;
             }
-		}
-        elseif (($what != SCO_ONLY) && (!($scodatas = get_records('scorm_scoes_data','scoid',$id)))){		
-                $sco->parameters = ''; 
-            }
-       
+        } else if (($what != SCO_ONLY) && (!($scodatas = get_records('scorm_scoes_data','scoid',$id)))) {
+            $sco->parameters = '';
+        }
         return $sco;
     } else {
         return false;
     }
 }
+
+/**
+* Returns an object (array) containing all the scoes data related to the given sco ID
+*
+* @param integer $id The sco ID
+* @param integer $organisation an organisation ID - defaults to false if not required
+* @return mixed (false if there are no scoes or an array)
+*/
+
+function scorm_get_scoes($id,$organisation=false) {
+    $organizationsql = '';
+    if (!empty($organisation)) {
+        $organizationsql = "AND organization='$organisation'";
+    }
+    if ($scoes = get_records_select('scorm_scoes',"scorm='$id' $organizationsql order by id ASC")) {
+        // drop keys so that it is a simple array as expected
+        $scoes = array_values($scoes);
+        foreach ($scoes as $sco) {
+            if ($scodatas = get_records('scorm_scoes_data','scoid',$sco->id)) {
+                foreach ($scodatas as $scodata) {
+                    $sco->{$scodata->name} = stripslashes_safe($scodata->value);
+                }
+            }
+        }
+        return $scoes;
+    } else {
+        return false;
+    }
+}
+
 function scorm_insert_track($userid,$scormid,$scoid,$attempt,$element,$value) {
     $id = null;
     if ($track = get_record_select('scorm_scoes_track',"userid='$userid' AND scormid='$scormid' AND scoid='$scoid' AND attempt='$attempt' AND element='$element'")) {
@@ -239,6 +332,15 @@ function scorm_insert_track($userid,$scormid,$scoid,$attempt,$element,$value) {
         $track->timemodified = time();
         $id = insert_record('scorm_scoes_track',$track);
     }
+
+    if (strstr($element, '.score.raw') ||
+        (($element == 'cmi.core.lesson_status' || $element == 'cmi.completion_status') && ($track->value == 'completed' || $track->value == 'passed'))) {
+        $scorm = get_record('scorm', 'id', $scormid);
+        $grademethod = $scorm->grademethod % 10;
+        include_once('lib.php');
+        scorm_update_grades($scorm, $userid);
+    }
+
     return $id;
 }
 
@@ -256,7 +358,7 @@ function scorm_get_tracks($scoid,$userid,$attempt='') {
     $attemptsql = ' AND attempt=' . $attempt;
     if ($tracks = get_records_select('scorm_scoes_track',"userid=$userid AND scoid=$scoid".$attemptsql,'element ASC')) {
         $usertrack->userid = $userid;
-        $usertrack->scoid = $scoid; 
+        $usertrack->scoid = $scoid;
         // Defined in order to unify scorm1.2 and scorm2004
         $usertrack->score_raw = '';
         $usertrack->status = '';
@@ -271,26 +373,29 @@ function scorm_get_tracks($scoid,$userid,$attempt='') {
                 case 'cmi.completion_status':
                     if ($track->value == 'not attempted') {
                         $track->value = 'notattempted';
-                    }       
+                    }
                     $usertrack->status = $track->value;
-                break;  
+                break;
                 case 'cmi.core.score.raw':
                 case 'cmi.score.raw':
                     $usertrack->score_raw = $track->value;
-                break;  
+                break;
                 case 'cmi.core.session_time':
                 case 'cmi.session_time':
                     $usertrack->session_time = $track->value;
-                break;  
+                break;
                 case 'cmi.core.total_time':
                 case 'cmi.total_time':
                     $usertrack->total_time = $track->value;
-                break;  
-            }       
+                break;
+            }
             if (isset($track->timemodified) && ($track->timemodified > $usertrack->timemodified)) {
                 $usertrack->timemodified = $track->timemodified;
-            }       
-        }       
+            }
+        }
+        if (is_array($usertrack)) {
+            ksort($usertrack);
+        }
         return $usertrack;
     } else {
         return false;
@@ -305,24 +410,27 @@ function scorm_get_user_data($userid) {
 }
 
 function scorm_grade_user_attempt($scorm, $userid, $attempt=1, $time=false) {
-    $attemptscore = NULL; 
+    $attemptscore = NULL;
     $attemptscore->scoes = 0;
     $attemptscore->values = 0;
     $attemptscore->max = 0;
     $attemptscore->sum = 0;
     $attemptscore->lastmodify = 0;
-    
+
     if (!$scoes = get_records('scorm_scoes','scorm',$scorm->id)) {
         return NULL;
     }
 
+    // this treatment is necessary as the whatgrade field was not in the DB
+    // and so whatgrade and grademethod are combined in grademethod 10s are whatgrade
+    // and 1s are grademethod
     $grademethod = $scorm->grademethod % 10;
 
-    foreach ($scoes as $sco) { 
-        if ($userdata=scorm_get_tracks($sco->id, $userid,$attempt)) {
+    foreach ($scoes as $sco) {
+        if ($userdata = scorm_get_tracks($sco->id, $userid, $attempt)) {
             if (($userdata->status == 'completed') || ($userdata->status == 'passed')) {
                 $attemptscore->scoes++;
-            }       
+            }
             if (!empty($userdata->score_raw)) {
                 $attemptscore->values++;
                 $attemptscore->sum += $userdata->score_raw;
@@ -332,26 +440,28 @@ function scorm_grade_user_attempt($scorm, $userid, $attempt=1, $time=false) {
                 } else {
                     $attemptscore->lastmodify = 0;
                 }
-            }       
-        }       
+            }
+        }
     }
     switch ($grademethod) {
         case GRADEHIGHEST:
             $score = $attemptscore->max;
-        break;  
+        break;
         case GRADEAVERAGE:
             if ($attemptscore->values > 0) {
                 $score = $attemptscore->sum/$attemptscore->values;
             } else {
                 $score = 0;
-            }       
-        break;  
+            }
+        break;
         case GRADESUM:
             $score = $attemptscore->sum;
-        break;  
+        break;
         case GRADESCOES:
             $score = $attemptscore->scoes;
-        break;  
+        break;
+        default:
+            $score = $attemptscore->max;   // Remote Learner GRADEHIGHEST is default
     }
 
     if ($time) {
@@ -366,18 +476,25 @@ function scorm_grade_user_attempt($scorm, $userid, $attempt=1, $time=false) {
 }
 
 function scorm_grade_user($scorm, $userid, $time=false) {
-
+    // this treatment is necessary as the whatgrade field was not in the DB
+    // and so whatgrade and grademethod are combined in grademethod 10s are whatgrade
+    // and 1s are grademethod
     $whatgrade = intval($scorm->grademethod / 10);
+
+    // insure we dont grade user beyond $scorm->maxattempt settings
+    $lastattempt = scorm_get_last_attempt($scorm->id, $userid);
+    if($scorm->maxattempt != 0 && $lastattempt >= $scorm->maxattempt){
+        $lastattempt = $scorm->maxattempt;
+    }
 
     switch ($whatgrade) {
         case FIRSTATTEMPT:
             return scorm_grade_user_attempt($scorm, $userid, 1, $time);
-        break;    
+        break;
         case LASTATTEMPT:
             return scorm_grade_user_attempt($scorm, $userid, scorm_get_last_attempt($scorm->id, $userid), $time);
         break;
         case HIGHESTATTEMPT:
-            $lastattempt = scorm_get_last_attempt($scorm->id, $userid);
             $maxscore = 0;
             $attempttime = 0;
             for ($attempt = 1; $attempt <= $lastattempt; $attempt++) {
@@ -435,7 +552,7 @@ function scorm_count_launchable($scormid,$organization='') {
     if (!empty($organization)) {
         $strorganization = " AND organization='$organization'";
     }
-    return count_records_select('scorm_scoes',"scorm=$scormid$strorganization AND launch<>''");
+    return count_records_select('scorm_scoes',"scorm=$scormid$strorganization AND launch<>'".sql_empty()."'");
 }
 
 function scorm_get_last_attempt($scormid, $userid) {
@@ -458,7 +575,7 @@ function scorm_course_format_display($user,$course) {
 
     echo '<div class="mod-scorm">';
     if ($scorms = get_all_instances_in_course('scorm', $course)) {
-        // The module SCORM activity with the least id is the course  
+        // The module SCORM activity with the least id is the course
         $scorm = current($scorms);
         if (! $cm = get_coursemodule_from_instance('scorm', $scorm->id, $course->id)) {
             error('Course Module ID was incorrect');
@@ -484,7 +601,7 @@ function scorm_course_format_display($user,$course) {
                 $headertext .= '<td class="reportlink">'.get_string('noreports','scorm');
             }
             $colspan = ' colspan="2"';
-        } 
+        }
         $headertext .= '</td></tr><tr><td'.$colspan.'>'.format_text(get_string('summary').':<br />'.$scorm->summary).'</td></tr></table>';
         print_simple_box($headertext,'','100%');
         scorm_view_display($user, $scorm, 'view.php?id='.$course->id, $cm, '100%');
@@ -503,6 +620,8 @@ function scorm_view_display ($user, $scorm, $action, $cm, $boxwidth='') {
     global $CFG;
 
     if ($scorm->updatefreq == UPDATE_EVERYTIME){
+        require_once($CFG->dirroot.'/mod/scorm/lib.php');
+
         $scorm->instance = $scorm->id;
         scorm_update_instance($scorm);
     }
@@ -519,7 +638,7 @@ function scorm_view_display ($user, $scorm, $action, $cm, $boxwidth='') {
     if ($orgs = get_records_select_menu('scorm_scoes',"scorm='$scorm->id' AND organization='' AND launch=''",'id','id,title')) {
         if (count($orgs) > 1) {
  ?>
-            <div class='center'>
+            <div class='scorm-center'>
                 <?php print_string('organizations','scorm') ?>
                 <form id='changeorg' method='post' action='<?php echo $action ?>'>
                     <?php choose_from_menu($orgs, 'organization', "$organization", '','submit()') ?>
@@ -552,7 +671,6 @@ function scorm_view_display ($user, $scorm, $action, $cm, $boxwidth='') {
         $scorm->version = 'scorm_12';
     }
     require_once($CFG->dirroot.'/mod/scorm/datamodels/'.$scorm->version.'lib.php');
-	
 
     $result = scorm_get_toc($user,$scorm,'structlist',$orgidentifier);
     $incomplete = $result->incomplete;
@@ -560,12 +678,11 @@ function scorm_view_display ($user, $scorm, $action, $cm, $boxwidth='') {
     print_simple_box_end();
 
 ?>
-            <div class="center">
-               <form id="theform" method="post" action="<?php echo $CFG->wwwroot ?>/mod/scorm/player.php?scoid=<?php echo $sco->id ?>&id=<?php echo $cm->id ?>"<?php echo $scorm->popup == 1?' target="newwin"':'' ?>>
+            <div class="scorm-center">
+               <form id="theform" method="post" action="<?php echo $CFG->wwwroot ?>/mod/scorm/player.php">
               <?php
                   if ($scorm->hidebrowse == 0) {
                       print_string('mode','scorm');
-                      echo '<input type="hidden" name="scoid" value="'.$sco->id.'" />'."\n";
                       echo ': <input type="radio" id="b" name="mode" value="browse" /><label for="b">'.get_string('browse','scorm').'</label>'."\n";
                       echo '<input type="radio" id="n" name="mode" value="normal" checked="checked" /><label for="n">'.get_string('normal','scorm')."</label>\n";
                   } else {
@@ -581,30 +698,35 @@ function scorm_view_display ($user, $scorm, $action, $cm, $boxwidth='') {
               ?>
               <br />
               <input type="hidden" name="scoid"/>
+              <input type="hidden" name="id" value="<?php echo $cm->id ?>"/>
               <input type="hidden" name="currentorg" value="<?php echo $orgidentifier ?>" />
-              <input type="submit" value="<?php print_string('entercourse','scorm') ?>" />
+              <input type="submit" value="<?php print_string('enter','scorm') ?>" />
               </form>
           </div>
 <?php
 }
 function scorm_simple_play($scorm,$user) {
-   $result = false;
-  
-   $scoes = get_records_select('scorm_scoes','scorm='.$scorm->id.' AND launch<>\'\'');
-   
-   if (count($scoes) == 1) {
-       if ($scorm->skipview >= 1) {
-           $sco = current($scoes);
-           if (scorm_get_tracks($sco->id,$user->id) === false) {
-               header('Location: player.php?a='.$scorm->id.'&scoid='.$sco->id);
-               $result = true;
-           } else if ($scorm->skipview == 2) {
-               header('Location: player.php?a='.$scorm->id.'&scoid='.$sco->id);
-               $result = true;
-           }
-       }
-   }
-   return $result;
+    $result = false;
+    
+    if ($scorm->updatefreq == UPDATE_EVERYTIME) {
+        scorm_parse($scorm);
+    }
+
+    $scoes = get_records_select('scorm_scoes','scorm='.$scorm->id.' AND launch<>\''.sql_empty().'\'');
+
+    if ($scoes) {
+        if ($scorm->skipview >= 1) {
+            $sco = current($scoes);
+            if (scorm_get_tracks($sco->id,$user->id) === false) {
+                header('Location: player.php?a='.$scorm->id.'&scoid='.$sco->id);
+                $result = true;
+            } else if ($scorm->skipview == 2) {
+                header('Location: player.php?a='.$scorm->id.'&scoid='.$sco->id);
+                $result = true;
+            }
+        }
+    }
+    return $result;
 }
 /*
 function scorm_simple_play($scorm,$user) {
@@ -627,24 +749,27 @@ function scorm_simple_play($scorm,$user) {
 }
 */
 function scorm_parse($scorm) {
-    global $CFG,$repositoryconfigfile;
-    
+    global $CFG;
+
     if ($scorm->reference[0] == '#') {
-        $reference = $CFG->repository.substr($scorm->reference,1);
+        if (isset($CFG->repositoryactivate) && $CFG->repositoryactivate) {
+            $referencedir = $CFG->repository.substr($scorm->reference,1);
+        }
     } else {
-        $reference = $scorm->dir.'/'.$scorm->id;
+        if ((!scorm_external_link($scorm->reference)) && (basename($scorm->reference) == 'imsmanifest.xml')) {
+            $referencedir = $CFG->dataroot.'/'.$scorm->course.'/'.$scorm->datadir;
+        } else {
+            $referencedir = $CFG->dataroot.'/'.$scorm->course.'/moddata/scorm/'.$scorm->id;
+        }
     }
+
     // Parse scorm manifest
     if ($scorm->pkgtype == 'AICC') {
         require_once('datamodels/aicclib.php');
-        $scorm->launch = scorm_parse_aicc($reference, $scorm->id);
+        $scorm->launch = scorm_parse_aicc($referencedir, $scorm->id);
     } else {
         require_once('datamodels/scormlib.php');
-        if ($scorm->reference[0] == '#') {
-            require_once($repositoryconfigfile);
-        }
-
-        $scorm->launch = scorm_parse_scorm($reference,$scorm->id);
+        $scorm->launch = scorm_parse_scorm($referencedir,$scorm->id);
     }
     return $scorm->launch;
 }
@@ -714,7 +839,7 @@ function scorm_validate($data) {
     }
     $reference = $data['reference'];              // Package/manifest path/location
 
-    $scormid = $data['instance'];                 // scorm ID 
+    $scormid = $data['instance'];                 // scorm ID
     $scorm = new stdClass();
     if (!empty($scormid)) {
         if (!$scorm = get_record('scorm','id',$scormid)) {
@@ -725,8 +850,7 @@ function scorm_validate($data) {
     }
 
     if ($reference[0] == '#') {
-        require_once($repositoryconfigfile);
-        if ($CFG->repositoryactivate) {
+        if (isset($CFG->repositoryactivate) && $CFG->repositoryactivate) {
             $reference = $CFG->repository.substr($reference,1).'/imsmanifest.xml';
         } else {
             $validation->errors['reference'] = get_string('badpackage','scorm');
@@ -779,7 +903,7 @@ function scorm_validate($data) {
                             $validation->result = false;
                         }
                     break;
-                    default: 
+                    default:
                         $validation->errors['reference'] = get_string('badpackage','scorm');
                         $validation->result = false;
                     break;
@@ -803,9 +927,11 @@ function scorm_validate($data) {
 function scorm_check_package($data) {
     global $CFG, $COURSE;
 
+    require_once($CFG->libdir.'/filelib.php');
+
     $courseid = $data->course;                  // Course Module ID
     $reference = $data->reference;              // Package path
-    $scormid = $data->instance;                 // scorm ID 
+    $scormid = $data->instance;                 // scorm ID
 
     $validation = new stdClass();
 
@@ -817,9 +943,8 @@ function scorm_check_package($data) {
         if (empty($reference)) {
             $validation = null;
         } else if ($reference[0] == '#') {
-            require_once($repositoryconfigfile);
-            if ($CFG->repositoryactivate) {
-                $referencefield = $reference.'/imsmanfest.xml';
+            if (isset($CFG->repositoryactivate) && $CFG->repositoryactivate) {
+                $referencefield = $reference.'/imsmanifest.xml';
                 $reference = $CFG->repository.substr($reference,1).'/imsmanifest.xml';
             } else {
                 $validation = null;
@@ -828,28 +953,30 @@ function scorm_check_package($data) {
             $reference = $CFG->dataroot.'/'.$courseid.'/'.$reference;
         }
 
-        if (!empty($scormid)) {  
+        if (!empty($scormid)) {
         //
         // SCORM Update
         //
             if ((!empty($validation)) && (is_file($reference) || $externalpackage)){
-                
+
                 if (!$externalpackage) {
                     $mdcheck = md5_file($reference);
                 } else if ($externalpackage){
                     if ($scormdir = make_upload_directory("$courseid/$CFG->moddata/scorm")) {
                         if ($tempdir = scorm_tempdir($scormdir)) {
-                            copy ("$reference", $tempdir.'/'.basename($reference));
+                            $content = download_file_content($reference);
+                            $file = fopen($tempdir.'/'.basename($reference), 'x');
+                            fwrite($file, $content);
+                            fclose($file);
                             $mdcheck = md5_file($tempdir.'/'.basename($reference));
                             scorm_delete_files($tempdir);
                         }
                     }
                 }
-                
+
                 if ($scorm = get_record('scorm','id',$scormid)) {
                     if ($scorm->reference[0] == '#') {
-                        require_once($repositoryconfigfile);
-                        if ($CFG->repositoryactivate) {
+                        if (isset($CFG->repositoryactivate) && $CFG->repositoryactivate) {
                             $oldreference = $CFG->repository.substr($scorm->reference,1).'/imsmanifest.xml';
                         } else {
                             $oldreference = $scorm->reference;
@@ -892,7 +1019,14 @@ function scorm_check_package($data) {
                     $scormdir = '';
                     if ($scormdir = make_upload_directory("$courseid/$CFG->moddata/scorm")) {
                         if ($tempdir = scorm_tempdir($scormdir)) {
-                            copy ("$reference", $tempdir.'/'.basename($reference));
+                            if ($externalpackage){
+                                $content = download_file_content($reference);
+                                $file = fopen($tempdir.'/'.basename($reference), 'x');
+                                fwrite($file, $content);
+                                fclose($file);
+                            } else {
+                                copy ("$reference", $tempdir.'/'.basename($reference));
+                            }
                             unzip_file($tempdir.'/'.basename($reference), $tempdir, false);
                             if (!$externalpackage) {
                                 unlink ($tempdir.'/'.basename($reference));
@@ -916,7 +1050,10 @@ function scorm_check_package($data) {
                         if ($externalpackage) {
                             if ($scormdir = make_upload_directory("$courseid/$CFG->moddata/scorm")) {
                                 if ($tempdir = scorm_tempdir($scormdir)) {
-                                    copy ("$reference", $tempdir.'/'.basename($reference));
+                                    $content = download_file_content($reference);
+                                    $file = fopen($tempdir.'/'.basename($reference), 'x');
+                                    fwrite($file, $content);
+                                    fclose($file);
                                     if (is_file($tempdir.'/'.basename($reference))) {
                                         $validation = scorm_validate_manifest($tempdir.'/'.basename($reference));
                                     } else {
@@ -925,14 +1062,14 @@ function scorm_check_package($data) {
                                 }
                             }
                         } else {
-                            $validation = scorm_validate_manifest($CFG->dataroot.'/'.$COURSE->id.'/'.$reference);
+                            $validation = scorm_validate_manifest($reference);
                         }
                         $validation->pkgtype = 'SCORM';
                     } else {
                         $validation = null;
                     }
                 break;
-                default: 
+                default:
                     $validation = null;
                 break;
             }
@@ -956,4 +1093,212 @@ function scorm_check_package($data) {
     return $validation;
 }
 
+
+function scorm_get_count_users($scormid, $groupingid=null) {
+
+    global $CFG;
+
+    if (!empty($CFG->enablegroupings) && !empty($groupingid)) {
+        $sql = "SELECT COUNT(DISTINCT st.userid)
+                FROM {$CFG->prefix}scorm_scoes_track st
+                    INNER JOIN {$CFG->prefix}groups_members gm ON st.userid = gm.userid
+                    INNER JOIN {$CFG->prefix}groupings_groups gg ON gm.groupid = gg.groupid
+                WHERE st.scormid = $scormid AND gg.groupingid = $groupingid
+                ";
+    } else {
+        $sql = "SELECT COUNT(DISTINCT st.userid)
+                FROM {$CFG->prefix}scorm_scoes_track st
+                WHERE st.scormid = $scormid
+                ";
+    }
+
+    return(count_records_sql($sql));
+}
+
+ /**
+* Build up the JavaScript representation of an array element
+*
+* @param string $sversion SCORM API version
+* @param array $userdata User track data
+* @param string $element_name Name of array element to get values for
+* @param array $children list of sub elements of this array element that also need instantiating
+* @return None
+*/
+function scorm_reconstitute_array_element($sversion, $userdata, $element_name, $children) {
+    // reconstitute comments_from_learner and comments_from_lms
+    $current = '';
+    $current_subelement = '';
+    $current_sub = '';
+    $count = 0;
+    $count_sub = 0;
+
+    // filter out the ones we want
+    $element_list = array();
+    foreach($userdata as $element => $value){
+        if (substr($element,0,strlen($element_name)) == $element_name) {
+            $element_list[$element] = $value;
+        }
+    }
+
+    // sort elements in .n array order
+    uksort($element_list, "scorm_element_cmp");
+
+    // generate JavaScript
+    foreach($element_list as $element => $value){
+        if ($sversion == 'scorm_13') {
+            $element = preg_replace('/\.(\d+)\./', ".N\$1.", $element);
+            preg_match('/\.(N\d+)\./', $element, $matches);
+        } else {
+            $element = preg_replace('/\.(\d+)\./', "_\$1.", $element);
+            preg_match('/\_(\d+)\./', $element, $matches);
+        }
+        if (count($matches) > 0 && $current != $matches[1]) {
+            if ($count_sub > 0) {
+                echo '    '.$element_name.'_'.$current.'.'.$current_subelement.'._count = '.$count_sub.";\n";
+            }
+            $current = $matches[1];
+            $count++;
+            $current_subelement = '';
+            $current_sub = '';
+            $count_sub = 0;
+            $end = strpos($element,$matches[1])+strlen($matches[1]);
+            $subelement = substr($element,0,$end);
+            echo '    '.$subelement." = new Object();\n";
+            // now add the children
+            foreach ($children as $child) {
+                echo '    '.$subelement.".".$child." = new Object();\n";
+                echo '    '.$subelement.".".$child."._children = ".$child."_children;\n";
+            }
+        }
+
+        // now - flesh out the second level elements if there are any
+        if ($sversion == 'scorm_13') {
+            $element = preg_replace('/(.*?\.N\d+\..*?)\.(\d+)\./', "\$1.N\$2.", $element);
+            preg_match('/.*?\.N\d+\.(.*?)\.(N\d+)\./', $element, $matches);
+        } else {
+            $element = preg_replace('/(.*?\_\d+\..*?)\.(\d+)\./', "\$1_\$2.", $element);
+            preg_match('/.*?\_\d+\.(.*?)\_(\d+)\./', $element, $matches);
+        }
+
+        // check the sub element type
+        if (count($matches) > 0 && $current_subelement != $matches[1]) {
+            if ($count_sub > 0) {
+                echo '    '.$element_name.'_'.$current.'.'.$current_subelement.'._count = '.$count_sub.";\n";
+            }
+            $current_subelement = $matches[1];
+            $current_sub = '';
+            $count_sub = 0;
+            $end = strpos($element,$matches[1])+strlen($matches[1]);
+            $subelement = substr($element,0,$end);
+            echo '    '.$subelement." = new Object();\n";
+        }
+
+        // now check the subelement subscript
+        if (count($matches) > 0 && $current_sub != $matches[2]) {
+            $current_sub = $matches[2];
+            $count_sub++;
+            $end = strrpos($element,$matches[2])+strlen($matches[2]);
+            $subelement = substr($element,0,$end);
+            echo '    '.$subelement." = new Object();\n";
+        }
+
+        echo '    '.$element.' = \''.$value."';\n";
+    }
+    if ($count_sub > 0) {
+        echo '    '.$element_name.'_'.$current.'.'.$current_subelement.'._count = '.$count_sub.";\n";
+    }
+    if ($count > 0) {
+        echo '    '.$element_name.'._count = '.$count.";\n";
+    }
+}
+
+/**
+* Build up the JavaScript representation of an array element
+*
+* @param string $a left array element
+* @param string $b right array element
+* @return comparator - 0,1,-1
+*/
+function scorm_element_cmp($a, $b) {
+    preg_match('/.*?(\d+)\./', $a, $matches);
+    $left = intval($matches[1]);
+    preg_match('/.?(\d+)\./', $b, $matches);
+    $right = intval($matches[1]);
+    if ($left < $right) {
+        return -1; // smaller
+    } elseif ($left > $right) {
+        return 1;  // bigger
+    } else {
+        // look for a second level qualifier eg cmi.interactions_0.correct_responses_0.pattern
+        if (preg_match('/.*?(\d+)\.(.*?)\.(\d+)\./', $a, $matches)) {
+            $leftterm = intval($matches[2]);
+            $left = intval($matches[3]);
+            if (preg_match('/.*?(\d+)\.(.*?)\.(\d+)\./', $b, $matches)) {
+                $rightterm = intval($matches[2]);
+                $right = intval($matches[3]);
+                if ($leftterm < $rightterm) {
+                    return -1; // smaller
+                } elseif ($leftterm > $rightterm) {
+                    return 1;  // bigger
+                } else {
+                    if ($left < $right) {
+                        return -1; // smaller
+                    } elseif ($left > $right) {
+                        return 1;  // bigger
+                    }
+                }
+            }
+        }
+        // fall back for no second level matches or second level matches are equal
+        return 0;  // equal to
+    }
+}
+
+/**
+* Delete Scorm tracks for selected users
+*
+* @param array $attemptids list of attempts that need to be deleted
+* @param int $scormid ID of Scorm
+*
+* return bool true deleted all responses, false failed deleting an attempt - stopped here
+*/
+function scorm_delete_responses($attemptids, $scormid) {
+    if(!is_array($attemptids) || empty($attemptids)) {
+        return false;
+    }
+
+    foreach($attemptids as $num => $attemptid) {
+        if(empty($attemptid)) {
+            unset($attemptids[$num]);
+        }
+    }
+
+    foreach($attemptids as $attempt) {
+        $keys = explode(':', $attempt);
+        if (count($keys) == 2) {
+            $userid = clean_param($keys[0], PARAM_INT);
+            $attemptid = clean_param($keys[1], PARAM_INT);
+            if (!$userid || !$attemptid || !scorm_delete_attempt($userid, $scormid, $attemptid)) {
+                    return false;
+            }
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+* Delete Scorm tracks for selected users
+*
+* @param int $userid ID of User
+* @param int $scormid ID of Scorm
+* @param int $attemptid user attempt that need to be deleted
+*
+* return bool true suceeded
+*/
+function scorm_delete_attempt($userid, $scormid, $attemptid) {
+    delete_records('scorm_scoes_track', 'userid', $userid, 'scormid', $scormid, 'attempt', $attemptid);
+    return true;
+}
 ?>

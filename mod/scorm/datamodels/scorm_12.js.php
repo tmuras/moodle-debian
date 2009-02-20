@@ -1,4 +1,6 @@
 <?php
+    require_once($CFG->dirroot.'/mod/scorm/locallib.php');
+    
     if (isset($userdata->status)) {
         if ($userdata->status == '') {
             $userdata->entry = 'ab-initio';
@@ -16,10 +18,8 @@
 //
 function SCORMapi1_2() {
     // Standard Data Type Definition
-    CMIString256 = '^.{0,255}$';
-    CMIString4096 = '^.{0,4096}$';
-    //CMIString256 = '^[\.|\\n|\\r]{0,255}$';
-    //CMIString4096 = '^[\.|\\n|\\r]{0,4095}$';
+    CMIString256 = '^[\\u0000-\\uffff]{0,255}$';
+    CMIString4096 = '^[\\u0000-\\uffff]{0,4096}$';
     CMITime = '^([0-2]{1}[0-9]{1}):([0-5]{1}[0-9]{1}):([0-5]{1}[0-9]{1})(\.[0-9]{1,2})?$';
     CMITimespan = '^([0-9]{2,4}):([0-9]{2}):([0-9]{2})(\.[0-9]{1,2})?$';
     CMIInteger = '^\\d+$';
@@ -39,7 +39,9 @@ function SCORMapi1_2() {
     cmi_children = 'core, suspend_data, launch_data, comments, objectives, student_data, student_preference, interactions';
     core_children = 'student_id, student_name, lesson_location, credit, lesson_status, entry, score, total_time, lesson_mode, exit, session_time';
     score_children = 'raw, min, max';
+    comments_children = 'content, location, time';
     objectives_children = 'id, score, status';
+    correct_responses_children = 'pattern';
     student_data_children = 'mastery_score, max_time_allowed, time_limit_action';
     student_preference_children = 'audio, language, speed, text';
     interactions_children = 'id, objectives, time, type, correct_responses, weighting, student_response, result, latency';
@@ -55,7 +57,7 @@ function SCORMapi1_2() {
         'cmi._version':{'defaultvalue':'3.4', 'mod':'r', 'writeerror':'402'},
         'cmi.core._children':{'defaultvalue':core_children, 'mod':'r', 'writeerror':'402'},
         'cmi.core.student_id':{'defaultvalue':'<?php echo $userdata->student_id ?>', 'mod':'r', 'writeerror':'403'},
-        'cmi.core.student_name':{'defaultvalue':'<?php echo addslashes($userdata->student_name) ?>', 'mod':'r', 'writeerror':'403'},
+        'cmi.core.student_name':{'defaultvalue':'<?php echo $userdata->student_name ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.core.lesson_location':{'defaultvalue':'<?php echo isset($userdata->{'cmi.core.lesson_location'})?$userdata->{'cmi.core.lesson_location'}:'' ?>', 'format':CMIString256, 'mod':'rw', 'writeerror':'405'},
         'cmi.core.credit':{'defaultvalue':'<?php echo $userdata->credit ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.core.lesson_status':{'defaultvalue':'<?php echo isset($userdata->{'cmi.core.lesson_status'})?$userdata->{'cmi.core.lesson_status'}:'' ?>', 'format':CMIStatus, 'mod':'rw', 'writeerror':'405'},
@@ -71,6 +73,12 @@ function SCORMapi1_2() {
         'cmi.suspend_data':{'defaultvalue':'<?php echo isset($userdata->{'cmi.suspend_data'})?$userdata->{'cmi.suspend_data'}:'' ?>', 'format':CMIString4096, 'mod':'rw', 'writeerror':'405'},
         'cmi.launch_data':{'defaultvalue':'<?php echo isset($userdata->datafromlms)?$userdata->datafromlms:'' ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.comments':{'defaultvalue':'<?php echo isset($userdata->{'cmi.comments'})?$userdata->{'cmi.comments'}:'' ?>', 'format':CMIString4096, 'mod':'rw', 'writeerror':'405'},
+        // deprecated evaluation attributes
+        'cmi.evaluation.comments._count':{'defaultvalue':'0', 'mod':'r', 'writeerror':'402'},
+        'cmi.evaluation.comments._children':{'defaultvalue':comments_children, 'mod':'r', 'writeerror':'402'},
+        'cmi.evaluation.comments.n.content':{'defaultvalue':'', 'pattern':CMIIndex, 'format':CMIString256, 'mod':'rw', 'writeerror':'405'},
+        'cmi.evaluation.comments.n.location':{'defaultvalue':'', 'pattern':CMIIndex, 'format':CMIString256, 'mod':'rw', 'writeerror':'405'},
+        'cmi.evaluation.comments.n.time':{'defaultvalue':'', 'pattern':CMIIndex, 'format':CMITime, 'mod':'rw', 'writeerror':'405'},
         'cmi.comments_from_lms':{'mod':'r', 'writeerror':'403'},
         'cmi.objectives._children':{'defaultvalue':objectives_children, 'mod':'r', 'writeerror':'402'},
         'cmi.objectives._count':{'mod':'r', 'defaultvalue':'0', 'writeerror':'402'},
@@ -104,6 +112,7 @@ function SCORMapi1_2() {
         'cmi.interactions.n.latency':{'pattern':CMIIndex, 'format':CMITimespan, 'mod':'w', 'readerror':'404', 'writeerror':'405'},
         'nav.event':{'defaultvalue':'', 'format':NAVEvent, 'mod':'w', 'readerror':'404', 'writeerror':'405'}
     };
+    
     //
     // Datamodel inizialization
     //
@@ -114,6 +123,9 @@ function SCORMapi1_2() {
         cmi.student_data = new Object();
         cmi.student_preference = new Object();
         cmi.interactions = new Object();
+        // deprecated evaluation attributes
+        cmi.evaluation = new Object();
+        cmi.evaluation.comments = new Object();
 
     // Navigation Object
     var nav = new Object();
@@ -129,30 +141,10 @@ function SCORMapi1_2() {
     }
 
 <?php
-    $count = 0;
-    $objectives = '';
-    foreach($userdata as $element => $value){
-        if (substr($element,0,14) == 'cmi.objectives') {
-            preg_match('/\.(\d+)\./',$element,$matches);
-            $element = preg_replace('/\.(\d+)\./',".\$1.",$element);
-            if ($matches[1] == $count) {
-                $count++;
-                $end = strpos($element,$matches[1])+strlen($matches[1]);
-                $subelement = substr($element,0,$end);
-                echo '    '.$subelement." = new Object();\n";
-                echo '    '.$subelement.".score = new Object();\n";
-                echo '    '.$subelement.".score._children = score_children;\n";
-                echo '    '.$subelement.".score.raw = '';\n";
-                echo '    '.$subelement.".score.min = '';\n";
-                echo '    '.$subelement.".score.max = '';\n";
-            }
-            echo '    '.$element.' = \''.$value."';\n";
-        }
-    }
-    if ($count > 0) {
-        echo '    cmi.objectives._count = '.$count.";\n";
-    }
-?>
+    // reconstitute objectives
+    scorm_reconstitute_array_element($scorm->version, $userdata, 'cmi.objectives', array('score'));
+    scorm_reconstitute_array_element($scorm->version, $userdata, 'cmi.interactions', array('objectives', 'correct_responses'));
+    ?>
 
     if (cmi.core.lesson_status == '') {
         cmi.core.lesson_status = 'not attempted';
@@ -167,13 +159,14 @@ function SCORMapi1_2() {
         errorCode = "0";
         if (param == "") {
             if (!Initialized) {
-                <?php 
-                    if (debugging('',DEBUG_DEVELOPER)) {
-                        echo 'alert("Initialized SCORM 1.2");';
-                    }
-                ?>
                 Initialized = true;
                 errorCode = "0";
+                <?php 
+                    if (debugging('',DEBUG_DEVELOPER)) {
+                        //echo 'alert("Initialized SCORM 1.2");';
+                        echo 'LogAPICall("LMSInitialize", param, "", errorCode);';
+                    }
+                ?>
                 return "true";
             } else {
                 errorCode = "101";
@@ -181,6 +174,11 @@ function SCORMapi1_2() {
         } else {
             errorCode = "201";
         }
+        <?php 
+            if (debugging('',DEBUG_DEVELOPER)) {
+                echo 'LogAPICall("LMSInitialize", param, "", errorCode);';
+            }
+        ?>
         return "false";
     }
     
@@ -188,11 +186,6 @@ function SCORMapi1_2() {
         errorCode = "0";
         if (param == "") {
             if (Initialized) {
-                <?php 
-                    if (debugging('',DEBUG_DEVELOPER)) {
-                        echo 'alert("Finished SCORM 1.2");';
-                    }
-                ?>
                 Initialized = false;
                 result = StoreData(cmi,true);
                 if (nav.event != '') {
@@ -206,6 +199,12 @@ function SCORMapi1_2() {
                         setTimeout('top.document.location=top.next;',500);
                     }
                 }    
+                <?php 
+                    if (debugging('',DEBUG_DEVELOPER)) {
+                        //echo 'alert("Finished SCORM 1.2");';
+                        echo 'LogAPICall("LMSFinish", param, "", 0);';
+                    }
+                ?>
                 return "true";
             } else {
                 errorCode = "301";
@@ -213,6 +212,11 @@ function SCORMapi1_2() {
         } else {
             errorCode = "201";
         }
+        <?php 
+            if (debugging('',DEBUG_DEVELOPER)) {
+                echo 'LogAPICall("LMSFinish", param, "", errorCode);';
+            }
+        ?>
         return "false";
     }
     
@@ -221,11 +225,11 @@ function SCORMapi1_2() {
         if (Initialized) {
             if (element !="") {
                 expression = new RegExp(CMIIndex,'g');
-                elementmodel = element.replace(expression,'.n.');
+                elementmodel = String(element).replace(expression,'.n.');
                 if ((typeof eval('datamodel["'+elementmodel+'"]')) != "undefined") {
                     if (eval('datamodel["'+elementmodel+'"].mod') != 'w') {
-                            element = element.replace(expression, "_$1.");
-                            elementIndexes = element.split('.');
+                        element = String(element).replace(expression, "_$1.");
+                        elementIndexes = element.split('.');
                         subelement = 'cmi';
                         i = 1;
                         while ((i < elementIndexes.length) && (typeof eval(subelement) != "undefined")) {
@@ -235,7 +239,8 @@ function SCORMapi1_2() {
                             errorCode = "0";
                             <?php 
                                 if (debugging('',DEBUG_DEVELOPER)) {
-                                    echo 'alert(element+": "+eval(element));';
+                                   //echo 'alert(element+": "+eval(element));';
+                                    echo 'LogAPICall("LMSGetValue", element, eval(element), 0);';
                                 }
                             ?>
                             return eval(element);
@@ -272,6 +277,11 @@ function SCORMapi1_2() {
         } else {
             errorCode = "301";
         }
+        <?php 
+            if (debugging('',DEBUG_DEVELOPER)) {
+                echo 'LogAPICall("LMSGetValue", element, "", errorCode);';
+            }
+        ?>
         return "";
     }
     
@@ -280,7 +290,7 @@ function SCORMapi1_2() {
         if (Initialized) {
             if (element != "") {
                 expression = new RegExp(CMIIndex,'g');
-                elementmodel = element.replace(expression,'.n.');
+                elementmodel = String(element).replace(expression,'.n.');
                 if ((typeof eval('datamodel["'+elementmodel+'"]')) != "undefined") {
                     if (eval('datamodel["'+elementmodel+'"].mod') != 'r') {
                         expression = new RegExp(eval('datamodel["'+elementmodel+'"].format'));
@@ -339,7 +349,8 @@ function SCORMapi1_2() {
                                         errorCode = "0";
                                         <?php 
                                             if (debugging('',DEBUG_DEVELOPER)) {
-                                                echo 'alert(element+":= "+value);';
+                                                echo 'LogAPICall("LMSSetValue", element, value, errorCode);';
+                                                //echo 'alert(element+":= "+value);';
                                             }
                                         ?>
                                         return "true";
@@ -348,14 +359,15 @@ function SCORMapi1_2() {
                                     }
                                 } else {
                                     if (element == 'cmi.comments') {
-                                        eval(element+'=value;');
+                                          cmi.comments = cmi.comments + value;
                                     } else {
                                         eval(element+'=value;');
                                     }
                                     errorCode = "0";
                                     <?php 
                                         if (debugging('',DEBUG_DEVELOPER)) {
-                                            echo 'alert(element+":= "+value);';
+                                            echo 'LogAPICall("LMSSetValue", element, value, errorCode);';
+                                            //echo 'alert(element+":= "+value);';
                                         }
                                     ?>
                                     return "true";
@@ -376,6 +388,11 @@ function SCORMapi1_2() {
         } else {
             errorCode = "301";
         }
+       <?php 
+        if (debugging('',DEBUG_DEVELOPER)) {
+            echo 'LogAPICall("LMSSetValue", element, value, errorCode);';
+        }
+        ?>
         return "false";
     }
     
@@ -386,7 +403,8 @@ function SCORMapi1_2() {
                 result = StoreData(cmi,false);
                 <?php 
                     if (debugging('',DEBUG_DEVELOPER)) {
-                        echo 'alert("Data Commited");';
+                        echo 'LogAPICall("Commit", param, "", 0);';
+                        //echo 'alert("Data Commited");';
                     }
                 ?>
                 return "true";
@@ -396,10 +414,20 @@ function SCORMapi1_2() {
         } else {
             errorCode = "201";
         }
+        <?php 
+            if (debugging('',DEBUG_DEVELOPER)) {
+                echo 'LogAPICall("LMSCommit", param, "", 0);';
+            }
+        ?>
         return "false";
     }
     
     function LMSGetLastError () {
+     <?php 
+        if (debugging('',DEBUG_DEVELOPER)) {
+            echo 'LogAPICall("LMSGetLastError", "", "", errorCode);';
+        }
+    ?>
         return errorCode;
     }
     
@@ -417,8 +445,18 @@ function SCORMapi1_2() {
             errorString["403"] = "Element is read only";
             errorString["404"] = "Element is write only";
             errorString["405"] = "Incorrect data type";
+            <?php 
+            if (debugging('',DEBUG_DEVELOPER)) {
+                echo 'LogAPICall("LMSGetErrorString", param,  errorString[param], 0);';
+            }
+             ?>
             return errorString[param];
         } else {
+           <?php 
+            if (debugging('',DEBUG_DEVELOPER)) {
+                echo 'LogAPICall("LMSGetErrorString", param,  "No error string found!", 0);';
+            }
+             ?>
            return "";
         }
     }
@@ -427,6 +465,11 @@ function SCORMapi1_2() {
         if (param == "") {
             param = errorCode;
         }
+        <?php 
+            if (debugging('',DEBUG_DEVELOPER)) {
+                echo 'LogAPICall("LMSGetDiagnostic", param, param, 0);';
+            }
+        ?>
         return param;
     }
 
@@ -491,7 +534,7 @@ function SCORMapi1_2() {
             } else {
                 element = parent+'.'+property;
                 expression = new RegExp(CMIIndex,'g');
-                elementmodel = element.replace(expression,'.n.');
+                elementmodel = String(element).replace(expression,'.n.');
                 if (elementmodel != "cmi.core.session_time") {
                     if ((typeof eval('datamodel["'+elementmodel+'"]')) != "undefined") {
                         if (eval('datamodel["'+elementmodel+'"].mod') != 'r') {
@@ -519,7 +562,7 @@ function SCORMapi1_2() {
             if (cmi.core.lesson_mode == 'normal') {
                 if (cmi.core.credit == 'credit') {
                     if (cmi.core.lesson_status == 'completed') {
-                        if (cmi.student_data.mastery_score != '') {
+                        if (cmi.student_data.mastery_score != '' && cmi.core.score.raw != '') {
                             if (parseFloat(cmi.core.score.raw) >= parseFloat(cmi.student_data.mastery_score)) {
                                 cmi.core.lesson_status = 'passed';
                             } else {
@@ -530,7 +573,7 @@ function SCORMapi1_2() {
                 }
             }
             if (cmi.core.lesson_mode == 'browse') {
-                if (datamodel['cmi.core.lesson_status'].defaultvalue == '') {
+                if (datamodel['cmi.core.lesson_status'].defaultvalue == '' && cmi.core.lesson_status == 'not attempted') {
                     cmi.core.lesson_status = 'browsed';
                 }
             }
@@ -544,7 +587,7 @@ function SCORMapi1_2() {
         
         var myRequest = NewHttpReq();
         result = DoRequest(myRequest,"<?php p($CFG->wwwroot) ?>/mod/scorm/datamodel.php","id=<?php p($id) ?>&sesskey=<?php p($USER->sesskey) ?>"+datastring);
-        results = result.split('\n');
+        results = String(result).split('\n');
         errorCode = results[1];
         return results[0];
     }
@@ -560,3 +603,12 @@ function SCORMapi1_2() {
 }
 
 var API = new SCORMapi1_2();
+
+<?php
+// pull in the debugging utilities
+if (debugging('',DEBUG_DEVELOPER)) {
+    include_once($CFG->dirroot.'/mod/scorm/datamodels/debug.js.php');
+    echo 'AppendToLog("Moodle SCORM 1.2 API Loaded, Activity: '.$scorm->name.', SCO: '.$sco->identifier.'", 0);';
+}
+ ?>
+

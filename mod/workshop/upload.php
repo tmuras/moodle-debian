@@ -1,4 +1,4 @@
-<?php  // $Id: upload.php,v 1.27 2006/09/22 03:28:56 vyshane Exp $
+<?php  // $Id: upload.php,v 1.32.2.1 2007/10/12 16:09:46 tjhunt Exp $
 
     require("../../config.php");
     require("lib.php");
@@ -23,9 +23,8 @@
     $strworkshop = get_string('modulename', 'workshop');
     $strsubmission = get_string('submission', 'workshop');
 
-    print_header_simple(format_string($workshop->name)." : $strsubmission", "",
-                 "<a href=\"index.php?id=$course->id\">$strworkshops</a> ->
-                  <a href=\"view.php?a=$workshop->id\">".format_string($workshop->name,true)."</a> -> $strsubmission",
+    $navigation = build_navigation($strsubmission, $cm);
+    print_header_simple(format_string($workshop->name)." : $strsubmission", "", $navigation,
                   "", "", true);
     $timenow = time();
 
@@ -117,4 +116,3 @@
     print_footer($course);
 
 ?>
-

@@ -1,12 +1,16 @@
-<?PHP // $Id: pix.php,v 1.16 2007/01/26 20:15:54 skodak Exp $
+<?PHP // $Id: pix.php,v 1.16.4.3 2008/11/01 22:28:54 skodak Exp $
       // This function fetches user pictures from the data directory
       // Syntax:   pix.php/userid/f1.jpg or pix.php/userid/f2.jpg
       //     OR:   ?file=userid/f1.jpg or ?file=userid/f2.jpg
 
-    $nomoodlecookie = true;     // Because it interferes with caching
-
     require_once('../config.php');
     require_once($CFG->libdir.'/filelib.php');
+
+    if (!empty($CFG->forcelogin) and !isloggedin()) {
+        // protect images if login required and not logged in;
+        // do not use require_login() because it is expensive and not suitable here anyway
+        redirect($CFG->pixpath.'/u/f1.png');
+    }
 
     // disable moodle specific debug messages
     disable_debugging();
@@ -17,10 +21,13 @@
 
     if (count($args) == 2) {
         $userid   = (integer)$args[0];
-        $image    = $args[1];
-        $pathname = $CFG->dataroot.'/users/'.$userid.'/'.$image;
-        if (file_exists($pathname) and !is_dir($pathname)) {
-            send_file($pathname, $image);
+        // do not serve images of deleted users
+        if ($user = get_record('user', 'id', $userid, 'deleted', 0, 'picture', 1)) {
+            $image    = $args[1];
+            $pathname = make_user_directory($userid, true) . "/$image";
+            if (file_exists($pathname) and !is_dir($pathname)) {
+                send_file($pathname, $image);
+            }
         }
     }
 

@@ -6,11 +6,9 @@
     $a = optional_param('a', '', PARAM_INT);         // scorm ID
     $scoid = required_param('scoid', PARAM_INT);  // sco ID
     $attempt = required_param('attempt', PARAM_INT);  // attempt number
-//    $attempt = $SESSION->scorm_attempt;
-
-
+    
     if (!empty($id)) {
-        if (! $cm = get_record("course_modules", "id", $id)) {
+        if (! $cm = get_coursemodule_from_id('scorm', $id)) {
             error("Course Module ID was incorrect");
         }
         if (! $course = get_record("course", "id", $cm->course)) {
@@ -39,7 +37,7 @@
         $result = true;
         $request = null;
         if (has_capability('mod/scorm:savetrack', get_context_instance(CONTEXT_MODULE,$cm->id))) {
-            foreach ($_POST as $element => $value) {
+            foreach (data_submitted() as $element => $value) {
                 $element = str_replace('__','.',$element);
                 if (substr($element,0,3) == 'cmi') {
                     $netelement = preg_replace('/\.N(\d+)\./',"\.\$1\.",$element);
@@ -55,7 +53,7 @@
 
                     if ($action != $value) {
                         // Evaluating navigation request
-                        $valid = scorm_sequencing_overall ($scoid,$USER->id,$action);
+                        $valid = scorm_seq_overall ($scoid,$USER->id,$action,$attempt);
                         $valid = 'true';
 
                         // Set valid request
@@ -67,6 +65,12 @@
                         }
                     }
                 }
+//                // Log every datamodel update requested
+//                if (substr($element,0,15) == 'adl.nav.request' || substr($element,0,3) == 'cmi') {
+//                    if (debugging('',DEBUG_DEVELOPER)) {
+//                        add_to_log($course->id, 'scorm', 'trk: '.trim($scorm->name).' at: '.$attempt, 'view.php?id='.$cm->id, "$element => $value", $cm->id);
+//                    }
+//                }
             }
         }
         if ($result) {
@@ -79,4 +83,3 @@
         }
     }
 ?>
-

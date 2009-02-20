@@ -1,4 +1,4 @@
-<?php  // $Id: index.php,v 1.11.2.1 2007/05/06 05:32:06 martinlanghoff Exp $
+<?php  // $Id: index.php,v 1.16.2.2 2008/04/09 02:43:51 dongsheng Exp $
 
     // this is the 'my moodle' page
 
@@ -6,7 +6,7 @@
     require_once($CFG->libdir.'/blocklib.php');
     require_once($CFG->dirroot.'/course/lib.php');
     require_once('pagelib.php');
-
+    
     require_login();
 
     $mymoodlestr = get_string('mymoodle','my');
@@ -38,24 +38,34 @@
 
     $PAGE->print_header($mymoodlestr);
 
-    echo '<table border="0" cellpadding="3" cellspacing="0" width="100%" id="layout-table">';
+    echo '<table id="layout-table">';
     echo '<tr valign="top">';
 
+    $lt = (empty($THEME->layouttable)) ? array('left', 'middle', 'right') : $THEME->layouttable;
+    foreach ($lt as $column) {
+        switch ($column) {
+            case 'left':
 
     $blocks_preferred_width = bounded_number(180, blocks_preferred_width($pageblocks[BLOCK_POS_LEFT]), 210);
 
     if(blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $PAGE->user_is_editing()) {
         echo '<td style="vertical-align: top; width: '.$blocks_preferred_width.'px;" id="left-column">';
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
+        print_container_end();
         echo '</td>';
     }
-
+    
+            break;
+            case 'middle':
+    
     echo '<td valign="top" id="middle-column">';
+    print_container_start(TRUE);
 
 /// The main overview in the middle of the page
     
     // limits the number of courses showing up
-    $courses = get_my_courses($USER->id, 'visible DESC,sortorder ASC', null, false, 21);
+    $courses = get_my_courses($USER->id, 'visible DESC,sortorder ASC', '*', false, 21);
     $site = get_site();
     $course = $site; //just in case we need the old global $course hack
 
@@ -82,16 +92,24 @@
         echo '<br />...';  
     }
     
+    print_container_end();
     echo '</td>';
-
+    
+            break;
+            case 'right':
+            
     $blocks_preferred_width = bounded_number(180, blocks_preferred_width($pageblocks[BLOCK_POS_RIGHT]), 210);
 
     if (blocks_have_content($pageblocks, BLOCK_POS_RIGHT) || $PAGE->user_is_editing()) {
         echo '<td style="vertical-align: top; width: '.$blocks_preferred_width.'px;" id="right-column">';
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_RIGHT);
+        print_container_end();
         echo '</td>';
     }
-
+            break;
+        }
+    }
 
     /// Finish the page
     echo '</tr></table>';

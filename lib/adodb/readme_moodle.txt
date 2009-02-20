@@ -1,4 +1,4 @@
-Description of ADODB v4.93 library import into Moodle
+Description of ADODB v4.98 library import into Moodle
 
 Removed:
  * contrib/
@@ -10,16 +10,18 @@ Removed:
 
 Added:
  * index.html - prevent directory browsing on misconfigured servers
- * tests/tmssql.php - detection of attack attempts and overwrite on incorrectly upgraded sites
  * readme_moodle.txt - this file ;-)
 
 Our changes:
- * adodb-lib.inc.php - forced conversion to proper numeric type in _adodb_column_sql()
- * drivers/adodb-odbc_mssql.inc.php - Fixed one buggy function (ServerInfo) that was not
-       working properly. Simplified logic (now that we are FETCH_ASSOC). Work in progress
-       for the annoying http://tracker.moodle.org/browse/MDL-6877.
+ * adodb-lib.inc.php - added support for "F" and "L" types in  _adodb_column_sql()
+ * adodb-lib.inc.php - modify some debug output to be correct XHTML. MDL-12378.
+       Reported to ADOdb at: http://phplens.com/lens/lensforum/msgs.php?id=17133
        Once fixed by adodb guys, we'll return to their official distro.
- * removed bogus "_connec" from first line of adodb-postgres64.inc.php
+ * drivers/adodb-mysqli.inc.php - fixed problem with driver not detecting enums
+       in the MetaColumns() function. MDL-14215.
+       Reported to ADOdb at: http://phplens.com/lens/lensforum/msgs.php?id=17383
+       Once fixed by adodb guys, we'll return to their official distro.
 
-skodak
-11 October 2006
+skodak, iarenaza, moodler, stronk7
+
+$Id: readme_moodle.txt,v 1.14.2.4 2008/04/04 22:33:39 stronk7 Exp $

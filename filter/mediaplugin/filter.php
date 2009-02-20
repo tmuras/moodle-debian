@@ -1,4 +1,4 @@
-<?php // $Id: filter.php,v 1.31.2.3 2007/03/19 08:07:19 skodak Exp $
+<?php // $Id: filter.php,v 1.38.2.8 2009/01/19 01:55:50 dongsheng Exp $
 //////////////////////////////////////////////////////////////
 //  Media plugin filtering
 //
@@ -17,65 +17,85 @@
 
 require_once($CFG->libdir.'/filelib.php');
 
+
 function mediaplugin_filter($courseid, $text) {
     global $CFG;
+    static $eolas_fix_applied = false;
 
-    include 'defaultsettings.php';
+    // You should never modify parameters passed to a method or function, it's BAD practice. Create a copy instead.
+    // The reason is that you must always be able to refer to the original parameter that was passed.
+    // For this reason, I changed $text = preg_replace(..,..,$text) into $newtext = preg.... (NICOLAS CONNAULT)
+    // Thanks to Pablo Etcheverry for pointing this out! MDL-10177
 
     // We're using the UFO technique for flash to attain XHTML Strict 1.0
     // See: http://www.bobbyvandersluis.com/ufo/
+    if (!is_string($text)) {
+        // non string data can not be filtered anyway
+        return $text;
+    }
+    $newtext = $text; // fullclone is slow and not needed here
 
     if ($CFG->filter_mediaplugin_enable_mp3) {
         $search = '/<a.*?href="([^<]+\.mp3)"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_mp3_callback', $text);
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_mp3_callback', $newtext);
     }
 
     if ($CFG->filter_mediaplugin_enable_swf) {
-        $search = '/<a.*?href="([^<]+\.swf)(\?d=([\d]{1,3}%?)x([\d]{1,3}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_swf_callback', $text);
+        $search = '/<a.*?href="([^<]+\.swf)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_swf_callback', $newtext);
     }
 
     if ($CFG->filter_mediaplugin_enable_flv) {
-        $search = '/<a.*?href="([^<]+\.flv)(\?d=([\d]{1,3}%?)x([\d]{1,3}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_flv_callback', $text);
+        $search = '/<a.*?href="([^<]+\.flv)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_flv_callback', $newtext);
     }
 
     if ($CFG->filter_mediaplugin_enable_mov) {
-        $search = '/<a.*?href="([^<]+\.mov)(\?d=([\d]{1,3}%?)x([\d]{1,3}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_qt_callback', $text);
+        $search = '/<a.*?href="([^<]+\.mov)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_qt_callback', $newtext);
     }
 
     if ($CFG->filter_mediaplugin_enable_wmv) {
-        $search = '/<a.*?href="([^<]+\.wmv)(\?d=([\d]{1,3}%?)x([\d]{1,3}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_wmp_callback', $text);
+        $search = '/<a.*?href="([^<]+\.wmv)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_wmp_callback', $newtext);
     }
 
     if ($CFG->filter_mediaplugin_enable_mpg) {
-        $search = '/<a.*?href="([^<]+\.mpe?g)(\?d=([\d]{1,3}%?)x([\d]{1,3}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_qt_callback', $text);
+        $search = '/<a.*?href="([^<]+\.mpe?g)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_qt_callback', $newtext);
     }
 
     if ($CFG->filter_mediaplugin_enable_avi) {
-        $search = '/<a.*?href="([^<]+\.avi)(\?d=([\d]{1,3}%?)x([\d]{1,3}%?))?"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_wmp_callback', $text);
+        $search = '/<a.*?href="([^<]+\.avi)(\?d=([\d]{1,4}%?)x([\d]{1,4}%?))?"[^>]*>.*?<\/a>/is';
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_wmp_callback', $newtext);
     }
 
     if ($CFG->filter_mediaplugin_enable_ram) {
         $search = '/<a.*?href="([^<]+\.ram)"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_real_callback', $text);
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_real_callback', $newtext);
     }
 
     if ($CFG->filter_mediaplugin_enable_rpm) {
         $search = '/<a.*?href="([^<]+\.rpm)"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_real_callback', $text);
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_real_callback', $newtext);
     }
 
     if ($CFG->filter_mediaplugin_enable_rm) {
         $search = '/<a.*?href="([^<]+\.rm)"[^>]*>.*?<\/a>/is';
-        $text = preg_replace_callback($search, 'mediaplugin_filter_real_callback', $text);
+        $newtext = preg_replace_callback($search, 'mediaplugin_filter_real_callback', $newtext);
     }
 
-    return $text;
+    if (is_null($newtext) or $newtext === $text) {
+        // error or not filtered
+        return $text;
+    }
+    
+    if (!$eolas_fix_applied) {
+        $newtext .= '<script defer="defer" src="' . $CFG->wwwroot . '/filter/mediaplugin/eolas_fix.js" type="text/javascript">// <![CDATA[ ]]></script>';
+        $eolas_fix_applied = true;
+    }
+
+    return $newtext;
 }
 
 ///===========================
@@ -96,16 +116,18 @@ function mediaplugin_filter_mp3_callback($link) {
     static $count = 0;
     $count++;
     $id = 'filter_mp3_'.time().$count; //we need something unique because it might be stored in text cache
+    $div_id = 'filter_mp3player_'.time().$count;
 
     $url = addslashes_js($link[1]);
 
     return $link[0].
 '<span class="mediaplugin mediaplugin_mp3" id="'.$id.'">('.get_string('mp3audio', 'mediaplugin').')</span>
+<div id="'.$div_id.'" class="mediaplugin_mp3"></div>
 <script type="text/javascript">
 //<![CDATA[
   var FO = { movie:"'.$CFG->wwwroot.'/filter/mediaplugin/mp3player.swf?src='.$url.'",
     width:"90", height:"15", majorversion:"6", build:"40", flashvars:"'.$c.'", quality: "high" };
-  UFO.create(FO, "'.$id.'");
+  UFO.create(FO, "'.$div_id.'");
 //]]>
 </script>';
 }
@@ -114,6 +136,7 @@ function mediaplugin_filter_swf_callback($link) {
     static $count = 0;
     $count++;
     $id = 'filter_swf_'.time().$count; //we need something unique because it might be stored in text cache
+    $div_id = 'filter_swfplayer_'.time().$count;
 
     $width  = empty($link[3]) ? '400' : $link[3];
     $height = empty($link[4]) ? '300' : $link[4];
@@ -121,11 +144,12 @@ function mediaplugin_filter_swf_callback($link) {
 
     return $link[0].
 '<span class="mediaplugin mediaplugin_swf" id="'.$id.'">('.get_string('flashanimation', 'mediaplugin').')</span>
+<div id="'.$div_id.'" class="mediaplugin_swf"></div>
 <script type="text/javascript">
 //<![CDATA[
   var FO = { movie:"'.$url.'", width:"'.$width.'", height:"'.$height.'", majorversion:"6", build:"40",
     allowscriptaccess:"never", quality: "high" };
-  UFO.create(FO, "'.$id.'");
+  UFO.create(FO, "'.$div_id.'");
 //]]>
 </script>';
 }
@@ -136,6 +160,7 @@ function mediaplugin_filter_flv_callback($link) {
     static $count = 0;
     $count++;
     $id = 'filter_flv_'.time().$count; //we need something unique because it might be stored in text cache
+    $div_id = 'filter_flvplayer_'.time().$count;
 
     $width  = empty($link[3]) ? '480' : $link[3];
     $height = empty($link[4]) ? '360' : $link[4];
@@ -143,12 +168,13 @@ function mediaplugin_filter_flv_callback($link) {
 
     return $link[0].
 '<span class="mediaplugin mediaplugin_flv" id="'.$id.'">('.get_string('flashvideo', 'mediaplugin').')</span>
+<div id="'.$div_id.'" class="mediaplugin_flv"></div>
 <script type="text/javascript">
 //<![CDATA[
   var FO = { movie:"'.$CFG->wwwroot.'/filter/mediaplugin/flvplayer.swf?file='.$url.'",
     width:"'.$width.'", height:"'.$height.'", majorversion:"6", build:"40",
     allowscriptaccess:"never", quality: "high" };
-  UFO.create(FO, "'.$id.'");
+  UFO.create(FO, "'.$div_id.'");
 //]]>
 </script>';
 }
@@ -244,7 +270,7 @@ function mediaplugin_filter_qt_callback($link, $autostart=false) {
   codebase="http://www.apple.com/qtactivex/qtplugin.cab" '.$size.'>
  <param name="pluginspage" value="http://www.apple.com/quicktime/download/" />
  <param name="src" value="'.$url.'" />
- <param name="coltroller" value="true" />
+ <param name="controller" value="true" />
  <param name="loop" value="true" />
  <param name="autoplay" value="'.$autostart.'" />
  <param name="autostart" value="'.$autostart.'" />

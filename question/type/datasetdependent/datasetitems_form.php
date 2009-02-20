@@ -74,6 +74,7 @@ class question_dataset_dependent_items_form extends moodleform {
         $j = (($this->noofitems) * count($this->datasetdefs))+1;
         foreach ($this->datasetdefs as $defkey => $datasetdef){
             $mform->addElement('text', "number[$j]", get_string('param', 'qtype_datasetdependent', $datasetdef->name));
+            $mform->setType("number[$j]", PARAM_NUMBER);
             $this->qtypeobj->custom_generator_tools_part(&$mform, $idx, $j);
             $idx++;
             $mform->addElement('hidden', "definition[$j]");
@@ -87,7 +88,7 @@ class question_dataset_dependent_items_form extends moodleform {
         }
         $addremoveoptions = Array();
         $addremoveoptions['1']='1';
-        for ($i=10; $i<=100 ; $i+=10){               
+        for ($i=10; $i<=100 ; $i+=10){
              $addremoveoptions["$i"]="$i";
         }
                     $mform->addElement('header', 'additemhdr', get_string('add', 'moodle'));
@@ -128,10 +129,12 @@ class question_dataset_dependent_items_form extends moodleform {
             $mform->addElement('header', '', get_string('itemno', 'qtype_datasetdependent', $i));
             foreach ($this->datasetdefs as $defkey => $datasetdef){
                 $mform->addElement('text', "number[$j]", get_string('param', 'qtype_datasetdependent', $datasetdef->name));
-
+                $mform->setType("number[$j]", PARAM_NUMBER);
                 $mform->addElement('hidden', "itemid[$j]");
+                $mform->setType("itemid[$j]", PARAM_INT);
 
                 $mform->addElement('hidden', "definition[$j]");
+                $mform->setType("definition[$j]", PARAM_NOTAGS);
 
                 $j--;
             }
@@ -139,9 +142,6 @@ class question_dataset_dependent_items_form extends moodleform {
                 $repeated[] =& $mform->addElement('static', "answercomment[$i]", $strquestionlabel);
             }
         }
-        $mform->setType('number', PARAM_NUMBER);
-        $mform->setType('itemid', PARAM_INT);
-        $mform->setType('definition', PARAM_NOTAGS);
 
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -150,16 +150,23 @@ class question_dataset_dependent_items_form extends moodleform {
         $mform->closeHeaderBefore('backtoquiz');
 
         //hidden elements
-        $mform->addElement('hidden', 'returnurl');
-        $mform->setType('returnurl', PARAM_URL);
-        $mform->addElement('hidden', 'qtype');
-        $mform->setType('qtype', PARAM_ALPHA);
-        $mform->addElement('hidden', 'category');
-        $mform->setType('category', PARAM_INT);
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
+
+        $mform->addElement('hidden', 'courseid');
+        $mform->setType('courseid', PARAM_INT);
+        $mform->setDefault('courseid', 0);
+
+        $mform->addElement('hidden', 'cmid');
+        $mform->setType('cmid', PARAM_INT);
+        $mform->setDefault('cmid', 0);
+
         $mform->addElement('hidden', 'wizard', 'datasetitems');
         $mform->setType('wizard', PARAM_ALPHA);
+        
+        $mform->addElement('hidden', 'returnurl');
+        $mform->setType('returnurl', PARAM_LOCALURL);
+        $mform->setDefault('returnurl', 0);
     }
 
     function set_data($question){
@@ -223,7 +230,7 @@ class question_dataset_dependent_items_form extends moodleform {
         parent::set_data((object)($formdata + (array)$question));
     }
 
-    function validation($data){
+    function validation($data, $files) {
         $errors = array();
         if (isset($data['backtoquiz']) && ($this->noofitems==0)){
             $errors['warning'] = get_string('warning', 'mnet');

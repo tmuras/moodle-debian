@@ -1,7 +1,8 @@
-<?php // $Id: index.php,v 1.28.2.1 2007/05/15 18:27:13 skodak Exp $
+<?php // $Id: index.php,v 1.35.2.6 2008/10/08 08:25:03 nicolasconnault Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
+    require_once($CFG->libdir.'/gradelib.php');
 
     $id = required_param('id', PARAM_INT);   // course
 
@@ -22,10 +23,13 @@
     $strsubmitted = get_string("submitted", "assignment");
     $strgrade = get_string("grade");
 
+    $navlinks = array();
+    $navlinks[] = array('name' => $strassignments, 'link' => '', 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
 
-    print_header_simple($strassignments, "", $strassignments, "", "", true, "", navmenu($course));
+    print_header_simple($strassignments, "", $navigation, "", "", true, "", navmenu($course));
 
-    if (! $assignments = get_all_instances_in_course("assignment", $course)) {
+    if (!$cms = get_coursemodules_in_course('assignment', $course->id, 'm.assignmenttype, m.timedue')) {
         notice(get_string('noassignments', 'assignment'), "../../course/view.php?id=$course->id");
         die;
     }
@@ -43,58 +47,56 @@
         $table->align = array ("left", "left", "left", "right");
     }
 
-    $currentgroup = get_and_set_current_group($course, groupmode($course));
-    if ($currentgroup and has_capability('moodle/site:accessallgroups', get_context_instance(CONTEXT_COURSE, $id))) {
-        $group = groups_get_group($currentgroup, false);
-        $groupname = " ($group->name)";
-    } else {
-        $groupname = "";
-    }
-
     $currentsection = "";
 
     $types = assignment_types();
 
-    foreach ($assignments as $assignment) {
-
-        if (!file_exists($CFG->dirroot.'/mod/assignment/type/'.$assignment->assignmenttype.'/assignment.class.php')) {
+    $modinfo = get_fast_modinfo($course);
+    foreach ($modinfo->instances['assignment'] as $cm) {
+        if (!$cm->uservisible) {
             continue;
         }
 
-        require_once ($CFG->dirroot.'/mod/assignment/type/'.$assignment->assignmenttype.'/assignment.class.php');
-        $assignmentclass = 'assignment_'.$assignment->assignmenttype;
-        $assignmentinstance = new $assignmentclass($assignment->coursemodule);
-    
-        $submitted = $assignmentinstance->submittedlink();
+        $cm->timedue        = $cms[$cm->id]->timedue;
+        $cm->assignmenttype = $cms[$cm->id]->assignmenttype;
 
-        $grade = '-';
-        if ($submission = $assignmentinstance->get_submission($USER->id)) {
-            if ($submission->timemarked) {
-                $grade = $assignmentinstance->display_grade($submission->grade);
-            }
-        }
+        //Show dimmed if the mod is hidden
+        $class = $cm->visible ? '' : 'class="dimmed"';
 
-        $type = $types[$assignment->assignmenttype];
-
-        $due = $assignment->timedue ? userdate($assignment->timedue) : '-';
-        if (!$assignment->visible) {
-            //Show dimmed if the mod is hidden
-            $link = "<a class=\"dimmed\" href=\"view.php?id=$assignment->coursemodule\">".format_string($assignment->name,true)."</a>";
-        } else {
-            //Show normal if the mod is visible
-            $link = "<a href=\"view.php?id=$assignment->coursemodule\">".format_string($assignment->name,true)."</a>";
-        }
+        $link = "<a $class href=\"view.php?id=$cm->id\">".format_string($cm->name)."</a>";
 
         $printsection = "";
-        if ($assignment->section !== $currentsection) {
-            if ($assignment->section) {
-                $printsection = $assignment->section;
+        if ($cm->sectionnum !== $currentsection) {
+            if ($cm->sectionnum) {
+                $printsection = $cm->sectionnum;
             }
             if ($currentsection !== "") {
                 $table->data[] = 'hr';
             }
-            $currentsection = $assignment->section;
+            $currentsection = $cm->sectionnum;
         }
+
+        if (!file_exists($CFG->dirroot.'/mod/assignment/type/'.$cm->assignmenttype.'/assignment.class.php')) {
+            continue;
+        }
+
+        require_once ($CFG->dirroot.'/mod/assignment/type/'.$cm->assignmenttype.'/assignment.class.php');
+        $assignmentclass = 'assignment_'.$cm->assignmenttype;
+        $assignmentinstance = new $assignmentclass($cm->id, NULL, $cm, $course);
+
+        $submitted = $assignmentinstance->submittedlink(true);
+
+        $grading_info = grade_get_grades($course->id, 'mod', 'assignment', $cm->instance, $USER->id);
+        if (isset($grading_info->items[0]) && !$grading_info->items[0]->grades[$USER->id]->hidden ) {
+            $grade = $grading_info->items[0]->grades[$USER->id]->str_grade;
+        }
+        else {
+            $grade = '-';
+        }
+
+        $type = $types[$cm->assignmenttype];
+
+        $due = $cm->timedue ? userdate($cm->timedue) : '-';
 
         if ($course->format == "weeks" or $course->format == "topics") {
             $table->data[] = array ($printsection, $link, $type, $due, $submitted, $grade);

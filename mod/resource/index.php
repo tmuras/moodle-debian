@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.20.2.1 2007/02/28 05:36:18 nicolasconnault Exp $
+<?php // $Id: index.php,v 1.27.2.5 2008/02/05 21:39:53 skodak Exp $
 
     require_once("../../config.php");
 
@@ -12,11 +12,7 @@
 
     if ($course->id != SITEID) {
         require_login($course->id);
-        $navigation = "<a href=\"../../course/view.php?id=$course->id\">$course->shortname</a> ->";
-    } else {
-        $navigation = '';
     }
-
     add_to_log($course->id, "resource", "view all", "index.php?id=$course->id", "");
 
     $strresource = get_string("modulename", "resource");
@@ -27,11 +23,15 @@
     $strsummary = get_string("summary");
     $strlastmodified = get_string("lastmodified");
 
-    print_header("$course->shortname: $strresources", $course->fullname, "$navigation $strresources", 
+    $navlinks = array();
+    $navlinks[] = array('name' => $strresources, 'link' => '', 'type' => 'activityinstance');
+    $navigation = build_navigation($navlinks);
+
+    print_header("$course->shortname: $strresources", $course->fullname, $navigation,
                  "", "", true, "", navmenu($course));
 
     if (! $resources = get_all_instances_in_course("resource", $course)) {
-        notice("There are no resources", "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strresources), "../../course/view.php?id=$course->id");
         exit;
     }
 
@@ -85,6 +85,5 @@
     print_table($table);
 
     print_footer($course);
- 
-?>
 
+?>

@@ -1,4 +1,4 @@
-<?php // $Id: resource.class.php,v 1.35.2.2 2007/07/02 16:53:26 stronk7 Exp $
+<?php // $Id: resource.class.php,v 1.47.2.5 2008/07/10 09:48:47 scyrma Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas     http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -372,7 +372,9 @@ class resource_ims extends resource_base {
             if ($inpopup) {
                 print_header($pagetitle, $course->fullname.' : '.$resource->name);
             } else {
-                print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name), "", "", true, update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
+                $navigation = build_navigation($this->navlinks, $cm);
+                print_header($pagetitle, $course->fullname, $navigation, "", "", true,
+                        update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
             }
             print_simple_box_start('center', '60%');
             echo '<p align="center">'.$errortext.'</p>';
@@ -421,8 +423,10 @@ class resource_ims extends resource_base {
     /// Check whether this is supposed to be a popup, but was called directly
 
         if (empty($frameset) && $resource->popup && !$inpopup) {    /// Make a page and a pop-up window
+            $navigation = build_navigation($this->navlinks, $cm);
 
-            print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name), "", "", true, update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
+            print_header($pagetitle, $course->fullname, $navigation, "", "", true,
+                    update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
 
             echo "\n<script type=\"text/javascript\">";
             echo "\n<!--\n";
@@ -470,15 +474,13 @@ class resource_ims extends resource_base {
                 //print_header($pagetitle, $course->fullname.' : '.$resource->name);
                 print_header();
             } else {
-                print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name), "", "", true, update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm, "parent"));
+                $navigation = build_navigation($this->navlinks, $cm);
+                print_header($pagetitle, $course->fullname, $navigation, "", "", true, update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm, "parent"));
             }
         /// content - this produces everything else
             $this->print_ims($cm, $course, $items, $resource, $page);
-        /// Moodle footer is back! Now using the DOMContentLoaded event (see resize.js) to trigger the resize
-        /// no Moodle footer (because we cannot insert there the resize script).
-        /// echo "</div></div><script type=\"text/javascript\">resizeiframe($jsarg);</script></body></html>";
-        /// print_footer();
-            echo "</div></div></body></html>";
+
+            print_footer('empty');
 
         /// log it.
             add_to_log($course->id, "resource", "view", "view.php?id={$cm->id}", $resource->id, $cm->id);
@@ -506,11 +508,8 @@ class resource_ims extends resource_base {
 
     /// Calculate the file.php correct url
         if (!$this->isrepository) {
-            if ($CFG->slasharguments) {
-                $fileurl = "{$CFG->wwwroot}/file.php/{$course->id}/{$CFG->moddata}/resource/{$resource->id}";
-            } else {
-                $fileurl = "{$CFG->wwwroot}/file.php?file=/{$course->id}/{$CFG->moddata}/resource/{$resource->id}";
-            }
+            require_once($CFG->libdir.'/filelib.php');
+            $fileurl = get_file_url($course->id.'/'.$CFG->moddata.'/resource/'.$resource->id);
         }
         else {
             $fileurl = $CFG->repositorywebroot . $resource->reference;
@@ -606,7 +605,7 @@ class resource_ims extends resource_base {
 
         if (!isset($defaults['popup'])) {
             // use form defaults
-    
+
         } else if (!empty($defaults['popup'])) {
             $defaults['windowpopup'] = 1;
             if (array_key_exists('popup', $defaults)) {
@@ -670,7 +669,7 @@ class resource_ims extends resource_base {
         $mform->addElement('selectyesno', 'param_skipsubmenus', get_string('skipsubmenus', 'resource'));
         $mform->setDefault('param_skipsubmenus', 1);
         $mform->disabledIf('param_skipsubmenus', 'param_navigationmenu', 'eq', 1);
-        
+
         $mform->addElement('selectyesno', 'param_navigationupbutton', get_string('navigationup', 'resource'));
         $mform->setDefault('param_navigationupbutton', 1);
         $mform->disabledIf('param_navigationupbutton', 'param_navigationmenu', 'eq', 1);
@@ -896,13 +895,13 @@ class resource_ims extends resource_base {
         $cm = $resource_obj->cm;
         $resource = $resource_obj->resource;
 
-        $strtoc = get_string('toc', 'resource');
+        $strtoc = get_string('tableofcontentsabbrev', 'resource');
 
         $contents = '';
 
         if (!empty($resource_obj->parameters->tableofcontents)) {  //The toc is enabled
             $page = 0;
-            $contents .= "<span class=\"ims-nav-button\"><a href=\"view.php?id={$cm->id}&amp;type={$resource->type}&amp;page={$page}&amp;frameset=ims\">TOC</a></span>";
+            $contents .= "<span class=\"ims-nav-button\"><a href=\"view.php?id={$cm->id}&amp;type={$resource->type}&amp;page={$page}&amp;frameset=ims\">{$strtoc}</a></span>";
         }
 
         return $contents;

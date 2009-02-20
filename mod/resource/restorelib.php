@@ -1,4 +1,4 @@
-<?php //$Id: restorelib.php,v 1.24.6.2 2007/04/22 22:05:19 stronk7 Exp $
+<?php //$Id: restorelib.php,v 1.26 2007/04/22 22:07:03 stronk7 Exp $
     //This php script contains all the stuff to backup/restore
     //resource mods
 

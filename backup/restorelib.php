@@ -1,10 +1,32 @@
-<?php //$Id: restorelib.php,v 1.218.2.19 2007/06/14 08:51:56 toyomoyo Exp $
+<?php //$Id: restorelib.php,v 1.283.2.62 2009/01/24 00:20:52 stronk7 Exp $
     //Functions used in restore
-   
+
+    require_once($CFG->libdir.'/gradelib.php');
+
+/**
+ * Group backup/restore constants, 0.
+ */
+define('RESTORE_GROUPS_NONE', 0);
+
+/**
+ * Group backup/restore constants, 1.
+ */
+define('RESTORE_GROUPS_ONLY', 1);
+
+/**
+ * Group backup/restore constants, 2.
+ */
+define('RESTORE_GROUPINGS_ONLY', 2);
+
+/**
+ * Group backup/restore constants, course/all.
+ */
+define('RESTORE_GROUPS_GROUPINGS', 3);
+
     //This function unzips a zip file in the same directory that it is
     //It automatically uses pclzip or command line unzip
     function restore_unzip ($file) {
-        
+
         return unzip_file($file, '', false);
 
     }
@@ -12,7 +34,7 @@
     //This function checks if moodle.xml seems to be a valid xml file
     //(exists, has an xml header and a course main tag
     function restore_check_moodle_file ($file) {
-    
+
         $status = true;
 
         //Check if it exists
@@ -28,18 +50,18 @@
                     $status = strpos($first_chars,"<MOODLE_BACKUP>");
                 }
             }
-        }   
+        }
 
-        return $status;  
-    }   
+        return $status;
+    }
 
     //This function iterates over all modules in backup file, searching for a
     //MODNAME_refresh_events() to execute. Perhaps it should ve moved to central Moodle...
     function restore_refresh_events($restore) {
-   
+
         global $CFG;
         $status = true;
-        
+
         //Take all modules in backup
         $modules = $restore->mods;
         //Iterate
@@ -59,7 +81,7 @@
     }
 
     //This function makes all the necessary calls to xxxx_decode_content_links_caller()
-    //function in each module, passing them the desired contents to be decoded
+    //function in each module/block/course format..., passing them the desired contents to be decoded
     //from backup format to destination site/course in order to mantain inter-activities
     //working in the backup/restore process
     function restore_decode_content_links($restore) {
@@ -69,6 +91,42 @@
 
         if (!defined('RESTORE_SILENTLY')) {
             echo "<ul>";
+        }
+
+        // Recode links in the course summary.
+        if (!defined('RESTORE_SILENTLY')) {
+            echo '<li>' . get_string('from') . ' ' . get_string('course');
+        }
+        $course = get_record('course', 'id', $restore->course_id, '', '', '', '', 'id,summary');
+        $coursesummary = restore_decode_content_links_worker($course->summary, $restore);
+        if ($coursesummary != $course->summary) {
+            $course->summary = addslashes($coursesummary);
+            if (!update_record('course', $course)) {
+                $status = false;
+            }
+        }
+        if (!defined('RESTORE_SILENTLY')) {
+            echo '</li>';
+        }
+
+        // Recode links in section summaries.
+        $sections = get_records('course_sections', 'course', $restore->course_id, 'id', 'id,summary');
+        if ($sections) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '<li>' . get_string('from') . ' ' . get_string('sections');
+            }
+            foreach ($sections as $section) {
+                $sectionsummary = restore_decode_content_links_worker($section->summary, $restore);
+                if ($sectionsummary != $section->summary) {
+                    $section->summary = addslashes($sectionsummary);
+                    if (!update_record('course_sections', $section)) {
+                        $status = false;
+                    }
+                }
+            }
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '</li>';
+            }
         }
 
         // Restore links in modules.
@@ -82,7 +140,7 @@
                     if (!defined('RESTORE_SILENTLY')) {
                         echo "<li>".get_string ("from")." ".get_string("modulenameplural",$name);
                     }
-                    $status = $function_name($restore);
+                    $status = $function_name($restore) && $status;
                     if (!defined('RESTORE_SILENTLY')) {
                         echo '</li>';
                     }
@@ -90,14 +148,46 @@
             }
         }
 
-        // TODO: process all html text also in blocks too
+        // For the course format call its decode_content_links method (if it exists)
+        $format = get_field('course', 'format', 'id', $restore->course_id);
+        if (file_exists("$CFG->dirroot/course/format/$format/restorelib.php")) {
+            include_once("$CFG->dirroot/course/format/$format/restorelib.php");
+            $function_name = $format.'_decode_format_content_links_caller';
+
+            if (function_exists($function_name)) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo "<li>".get_string ("from")." ".get_string("format").' '.$format;
+                }
+                $status = $function_name($restore);
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo '</li>';
+                }
+            }
+        }
+
+        // Process all html text also in blocks too
+        if (!defined('RESTORE_SILENTLY')) {
+            echo '<li>'.get_string ('from').' '.get_string('blocks');
+        }
+
+        if ($blocks = get_records('block', 'visible', 1)) {
+            foreach ($blocks as $block) {
+                if ($blockobject = block_instance($block->name)) {
+                    $blockobject->decode_content_links_caller($restore);
+                }
+            }
+        }
+
+        if (!defined('RESTORE_SILENTLY')) {
+            echo '</li>';
+        }
 
         // Restore links in questions.
         require_once("$CFG->dirroot/question/restorelib.php");
         if (!defined('RESTORE_SILENTLY')) {
             echo '<li>' . get_string('from') . ' ' . get_string('questions', 'quiz');
         }
-        $status = question_decode_content_links_caller($restore);
+        $status = question_decode_content_links_caller($restore) && $status;
         if (!defined('RESTORE_SILENTLY')) {
             echo '</li>';
         }
@@ -108,17 +198,55 @@
 
         return $status;
     }
-    
+
     //This function is called from all xxxx_decode_content_links_caller(),
     //its task is to ask all modules (maybe other linkable objects) to restore
     //links to them.
     function restore_decode_content_links_worker($content,$restore) {
+        global $CFG;
         foreach($restore->mods as $name => $info) {
             $function_name = $name."_decode_content_links";
             if (function_exists($function_name)) {
                 $content = $function_name($content,$restore);
             }
         }
+
+        // For the current format, call decode_format_content_links if it exists
+        static $format_function_name;
+        if (!isset($format_function_name)) {
+            $format_function_name = false;
+            if ($format = get_field('course', 'format', 'id', $restore->course_id)) {
+                if (file_exists("$CFG->dirroot/course/format/$format/restorelib.php")) {
+                    include_once("$CFG->dirroot/course/format/$format/restorelib.php");
+                    $function_name = $format.'_decode_format_content_links';
+                    if (function_exists($function_name)) {
+                        $format_function_name = $function_name;
+                    }
+                }
+            }
+        }
+        // If the above worked - then we have a function to call
+        if ($format_function_name) {
+            $content = $format_function_name($content, $restore);
+        }
+
+        // For each block, call its encode_content_links method
+        static $blockobjects = null; 
+        if (!isset($blockobjects)) { 
+            $blockobjects = array(); 
+            if ($blocks = get_records('block', 'visible', 1)) { 
+                foreach ($blocks as $block) { 
+                    if ($blockobject = block_instance($block->name)) {
+                        $blockobjects[] = $blockobject; 
+                    }
+                }
+            }
+        }
+        
+        foreach ($blockobjects as $blockobject) { 
+            $content = $blockobject->decode_content_links($content,$restore); 
+        }
+
         return $content;
     }
 
@@ -158,16 +286,16 @@
     function restore_decode_wiki_content($content,$restore) {
 
         global $CFG;
-        
+
         $result = $content;
-        
+
         $searchstring='/ ([a-zA-Z]+):([0-9]+)\(([^)]+)\)/';
         //We look for it
         preg_match_all($searchstring,$content,$foundset);
         //If found, then we are going to look for its new id (in backup tables)
-        if ($foundset[0]) { 
+        if ($foundset[0]) {
             //print_object($foundset);                                     //Debug
-            //Iterate over foundset[2]. They are the old_ids               
+            //Iterate over foundset[2]. They are the old_ids
             foreach($foundset[2] as $old_id) {
                 //We get the needed variables here (course id)
                 $rec = backup_getid($restore->backup_unique_code,"course_modules",$old_id);
@@ -196,7 +324,7 @@
         return $info;
     }
 
-    //This function read the xml file and store it data from the course header zone in an object  
+    //This function read the xml file and store it data from the course header zone in an object
     function restore_read_xml_course_header ($xml_file) {
 
         //We call the main read_xml function, with todo = COURSE_HEADER
@@ -206,10 +334,10 @@
     }
 
     //This function read the xml file and store its data from the blocks in a object
-    function restore_read_xml_blocks ($xml_file) {
+    function restore_read_xml_blocks ($restore, $xml_file) {
 
         //We call the main read_xml function, with todo = BLOCKS
-        $info = restore_read_xml ($xml_file,'BLOCKS',false);
+        $info = restore_read_xml ($xml_file,'BLOCKS',$restore);
 
         return $info;
     }
@@ -222,7 +350,7 @@
 
         return $info;
     }
-    
+
     //This function read the xml file and store its data from the course format in an object
     function restore_read_xml_formatdata ($xml_file) {
 
@@ -231,7 +359,7 @@
 
         return $info;
     }
-    
+
     //This function read the xml file and store its data from the metacourse in a object
     function restore_read_xml_metacourse ($xml_file) {
 
@@ -246,11 +374,11 @@
 
         //We call the main read_xml function, with todo = GRADEBOOK
         $info = restore_read_xml ($xml_file,"GRADEBOOK",$restore);
-    
+
         return $info;
     }
 
-    //This function read the xml file and store its data from the users in 
+    //This function read the xml file and store its data from the users in
     //backup_ids->info db (and user's id in $info)
     function restore_read_xml_users ($restore,$xml_file) {
 
@@ -266,6 +394,16 @@
 
         //We call the main read_xml function, with todo = MESSAGES
         $info = restore_read_xml ($xml_file,"MESSAGES",$restore);
+
+        return $info;
+    }
+
+    //This function read the xml file and store its data from the blogs in
+    //backup_ids->blog and backup_ids->blog_tag and db (and their counters in info)
+    function restore_read_xml_blogs ($restore,$xml_file) {
+
+        //We call the main read_xml function, with todo = BLOGS
+        $info = restore_read_xml ($xml_file,"BLOGS",$restore);
 
         return $info;
     }
@@ -311,6 +449,16 @@
         return $info;
     }
 
+    //This function read the xml file and store its data from the groupings in
+    //backup_ids->info db (and grouping's id in $info)
+    function restore_read_xml_groupings_groups ($restore,$xml_file) {
+
+        //We call the main read_xml function, with todo = GROUPINGS
+        $info = restore_read_xml ($xml_file,"GROUPINGSGROUPS",$restore);
+
+        return $info;
+    }
+
     //This function read the xml file and store its data from the events (course) in
     //backup_ids->info db (and event's id in $info)
     function restore_read_xml_events ($restore,$xml_file) {
@@ -345,7 +493,7 @@
         //We call the main read_xml function, with todo = ROLES
         $info = restore_read_xml ($xml_file,"ROLES",false);
 
-        return $info;  
+        return $info;
     }
 
     //This function prints the contents from the info parammeter passed
@@ -355,9 +503,10 @@
 
         $status = true;
         if ($info) {
-            //This is tha align to every ingo table      
+            $table = new object();
+            //This is tha align to every ingo table
             $table->align = array ("right","left");
-            //This is the nowrap clause 
+            //This is the nowrap clause
             $table->wrap = array ("","nowrap");
             //The width
             $table->width = "70%";
@@ -374,6 +523,15 @@
             //The backup date
             $tab[3][0] = "<b>".get_string("backupdate").":</b>";
             $tab[3][1] = userdate($info->backup_date);
+            //Is this the same Moodle install?
+            if (!empty($info->original_siteidentifier)) {
+                $tab[4][0] = "<b>".get_string("backupfromthissite").":</b>";
+                if (backup_is_same_site($info)) {
+                    $tab[4][1] = get_string('yes');
+                } else {
+                    $tab[4][1] = get_string('no');
+                }
+            }
             //Print title
             print_heading(get_string("backup").":");
             $table->data = $tab;
@@ -451,9 +609,34 @@
                 $tab[$elem][1] = get_string("no");
             }
             $elem++;
+            //site Files info
+            $tab[$elem][0] = "<b>".get_string("sitefiles").":</b>";
+            if (isset($info->backup_site_files) && $info->backup_site_files == "true") {
+                $tab[$elem][1] = get_string("yes");
+            } else {
+                $tab[$elem][1] = get_string("no");
+            }
+            $elem++;
+            //gradebook history info
+            $tab[$elem][0] = "<b>".get_string('gradebookhistories', 'grades').":</b>";
+            if (isset($info->gradebook_histories) && $info->gradebook_histories == "true") {
+                $tab[$elem][1] = get_string("yes");
+            } else {
+                $tab[$elem][1] = get_string("no");
+            }
+            $elem++;
             //Messages info (only showed if present)
             if ($info->backup_messages == 'true') {
                 $tab[$elem][0] = "<b>".get_string('messages','message').":</b>";
+                $tab[$elem][1] = get_string('yes');
+                $elem++;
+            } else {
+                //Do nothing
+            }
+            $elem++;
+            //Blogs info (only showed if present)
+            if (isset($info->backup_blogs) && $info->backup_blogs == 'true') {
+                $tab[$elem][0] = "<b>".get_string('blogs','blog').":</b>";
                 $tab[$elem][1] = get_string('yes');
                 $elem++;
             } else {
@@ -476,6 +659,7 @@
 
         $status = true;
         if ($course_header) {
+            $table = new object();
             //This is tha align to every ingo table
             $table->align = array ("right","left");
             //The width
@@ -493,7 +677,7 @@
             //Print backup course header info
             print_table($table);
         } else {
-            $status = false; 
+            $status = false;
         }
         return $status;
     }
@@ -503,7 +687,7 @@
     function restore_create_new_course($restore,&$course_header) {
 
         global $CFG;
- 
+
         $status = true;
 
         $fullname = $course_header->course_fullname;
@@ -521,8 +705,8 @@
                 $suffixshort = "";
             }
             $currentfullname = $fullname.$suffixfull;
-            // Limit the size of shortname - database column accepts <= 15 chars
-            $currentshortname = substr($shortname, 0, 15 - strlen($suffixshort)).$suffixshort;
+            // Limit the size of shortname - database column accepts <= 100 chars
+            $currentshortname = substr($shortname, 0, 100 - strlen($suffixshort)).$suffixshort;
             $coursefull  = get_record("course","fullname",addslashes($currentfullname));
             $courseshort = get_record("course","shortname",addslashes($currentshortname));
             $counter++;
@@ -531,30 +715,32 @@
         //New name = currentname
         $course_header->course_fullname = $currentfullname;
         $course_header->course_shortname = $currentshortname;
-        
-        //Now calculate the category
-        
+
         // first try to get it from restore
         if ($restore->restore_restorecatto) {
             $category = get_record('course_categories', 'id', $restore->restore_restorecatto);
         }
-        
+
         // else we try to get it from the xml file
         //Now calculate the category
-        if (!$category) {
+        if (empty($category)) {
             $category = get_record("course_categories","id",$course_header->category->id,
                                    "name",addslashes($course_header->category->name));
         }
+
         //If no exists, try by name only
         if (!$category) {
             $category = get_record("course_categories","name",addslashes($course_header->category->name));
         }
+
         //If no exists, get category id 1
         if (!$category) {
             $category = get_record("course_categories","id","1");
         }
+
         //If category 1 doesn'exists, lets create the course category (get it from backup file)
         if (!$category) {
+            $ins_category = new object();
             $ins_category->name = addslashes($course_header->category->name);
             $ins_category->parent = 0;
             $ins_category->sortorder = 0;
@@ -578,13 +764,14 @@
 
         //Create the course_object
         if ($status) {
+            $course = new object();
             $course->category = addslashes($course_header->category->id);
             $course->password = addslashes($course_header->course_password);
             $course->fullname = addslashes($course_header->course_fullname);
             $course->shortname = addslashes($course_header->course_shortname);
             $course->idnumber = addslashes($course_header->course_idnumber);
             $course->idnumber = ''; //addslashes($course_header->course_idnumber); // we don't want this at all.
-            $course->summary = restore_decode_absolute_links(addslashes($course_header->course_summary));
+            $course->summary = backup_todb($course_header->course_summary);
             $course->format = addslashes($course_header->course_format);
             $course->showgrades = addslashes($course_header->course_showgrades);
             $course->newsitems = addslashes($course_header->course_newsitems);
@@ -595,7 +782,6 @@
             $course->guest = addslashes($course_header->course_guest);
             $course->startdate = addslashes($course_header->course_startdate);
             $course->startdate += $restore->course_startdateoffset;
-            $course->enrolperiod = addslashes($course_header->course_enrolperiod);
             $course->numsections = addslashes($course_header->course_numsections);
             //$course->showrecent = addslashes($course_header->course_showrecent);   INFO: This is out in 1.3
             $course->maxbytes = addslashes($course_header->course_maxbytes);
@@ -605,6 +791,10 @@
             }
             if (isset($course_header->course_groupmodeforce)) {
                 $course->groupmodeforce = addslashes($course_header->course_groupmodeforce);
+            }
+            if (isset($course_header->course_defaultgroupingid)) {
+                //keep the original now - convert after groupings restored
+                $course->defaultgroupingid = addslashes($course_header->course_defaultgroupingid);
             }
             $course->lang = addslashes($course_header->course_lang);
             $course->theme = addslashes($course_header->course_theme);
@@ -616,6 +806,19 @@
             $course->timecreated = addslashes($course_header->course_timecreated);
             $course->timemodified = addslashes($course_header->course_timemodified);
             $course->metacourse = addslashes($course_header->course_metacourse);
+            $course->expirynotify = isset($course_header->course_expirynotify) ? addslashes($course_header->course_expirynotify):0;
+            $course->notifystudents = isset($course_header->course_notifystudents) ? addslashes($course_header->course_notifystudents) : 0;
+            $course->expirythreshold = isset($course_header->course_expirythreshold) ? addslashes($course_header->course_expirythreshold) : 0;
+            $course->enrollable = isset($course_header->course_enrollable) ? addslashes($course_header->course_enrollable) : 1;
+            $course->enrolstartdate = isset($course_header->course_enrolstartdate) ? addslashes($course_header->course_enrolstartdate) : 0;
+            if ($course->enrolstartdate)  { //Roll course dates
+                $course->enrolstartdate += $restore->course_startdateoffset;
+            }
+            $course->enrolenddate = isset($course_header->course_enrolenddate) ? addslashes($course_header->course_enrolenddate) : 0;
+            if ($course->enrolenddate) { //Roll course dates
+                $course->enrolenddate  += $restore->course_startdateoffset;
+            }
+            $course->enrolperiod = addslashes($course_header->course_enrolperiod);
             //Calculate sortorder field
             $sortmax = get_record_sql('SELECT MAX(sortorder) AS max
                                        FROM ' . $CFG->prefix . 'course
@@ -641,7 +844,7 @@
             $themes = get_list_of_themes();
             if (!in_array($course->theme, $themes)) {
                 $course->theme = '';
-            } 
+            }
 
             //Now insert the record
             $newid = insert_record("course",$course);
@@ -658,52 +861,16 @@
         return $status;
     }
 
-   /**
-    * Returns the best question category (id) found to restore one
-    * question category from a backup file. Works by stamp (since Moodle 1.1)
-    * or by name (for older versions).
-    *
-    * @param object  $cat      the question_categories record to be searched
-    * @param integer $courseid the course where we are restoring
-    * @return integer the id of a existing question_category or 0 (not found)
-    */
-    function restore_get_best_question_category($cat, $courseid) {
-        
-        $found = 0;
 
-        //Decide how to work (by stamp or name)
-        if ($cat->stamp) {
-            $searchfield = 'stamp';
-            $searchvalue = $cat->stamp;
-        } else {
-            $searchfield = 'name';
-            $searchvalue = $cat->name;
-        }
-        
-        //First shot. Try to get the category from the course being restored
-        if ($fcat = get_record('question_categories','course',$courseid,$searchfield,$searchvalue)) {
-            $found = $fcat->id;
-        //Second shot. Try to obtain any concordant category and check its publish status and editing rights
-        } else if ($fcats = get_records('question_categories', $searchfield, $searchvalue, 'id', 'id, publish, course')) {
-            foreach ($fcats as $fcat) {
-                if ($fcat->publish == 1 && has_capability('moodle/site:restore', get_context_instance(CONTEXT_COURSE, $fcat->course))) {
-                    $found = $fcat->id;
-                    break;
-                }
-            }
-        }
-
-        return $found;
-    }
 
     //This function creates all the block stuff when restoring courses
-    //It calls selectively to  restore_create_block_instances() for 1.5 
+    //It calls selectively to  restore_create_block_instances() for 1.5
     //and above backups. Upwards compatible with old blocks.
     function restore_create_blocks($restore, $backup_block_format, $blockinfo, $xml_file) {
-
+        global $CFG;
         $status = true;
 
-        delete_records('block_instance', 'pageid', $restore->course_id, 'pagetype', PAGE_COURSE_VIEW);
+        blocks_delete_all_on_page(PAGE_COURSE_VIEW, $restore->course_id);
         if (empty($backup_block_format)) {     // This is a backup from Moodle < 1.5
             if (empty($blockinfo)) {
                 // Looks like it's from Moodle < 1.3. Let's give the course default blocks...
@@ -718,7 +885,7 @@
                 $temp_blocks = array(BLOCK_POS_LEFT => explode(',', $temp_blocks_l), BLOCK_POS_RIGHT => explode(',', $temp_blocks_r));
                 foreach($temp_blocks as $blockposition => $blocks) {
                     $blockweight = 0;
-                    foreach($blocks as $blockname) { 
+                    foreach($blocks as $blockname) {
                         if(!isset($blockrecords[$blockname])) {
                             // We don't know anything about this block!
                             continue;
@@ -749,20 +916,21 @@
 
         return $status;
 
-    } 
+    }
 
     //This function creates all the block_instances from xml when restoring in a
     //new course
     function restore_create_block_instances($restore,$xml_file) {
-
+        global $CFG;
         $status = true;
+
         //Check it exists
         if (!file_exists($xml_file)) {
             $status = false;
         }
         //Get info from xml
         if ($status) {
-            $info = restore_read_xml_blocks($xml_file);
+            $info = restore_read_xml_blocks($restore,$xml_file);
         }
 
         if(empty($info->instances)) {
@@ -780,20 +948,29 @@
             if($instance->pagetype == PAGE_COURSE_VIEW) {
                 // This one's easy...
                 $instance->pageid  = $restore->course_id;
-            }
-            else {
+
+            } else if (!empty($CFG->showblocksonmodpages)) {
                 $parts = explode('-', $instance->pagetype);
                 if($parts[0] == 'mod') {
                     if(!$restore->mods[$parts[1]]->restore) {
                         continue;
                     }
                     $getid = backup_getid($restore->backup_unique_code, $parts[1], $instance->pageid);
+
+                    if (empty($getid->new_id)) {
+                        // Failed, perhaps the module was not included in the restore  MDL-13554
+                        continue;
+                    }
                     $instance->pageid = $getid->new_id;
                 }
                 else {
                     // Not invented here ;-)
                     continue;
                 }
+
+            } else {
+                // do not restore activity blocks if disabled
+                continue;
             }
 
             if(!isset($pageinstances[$instance->pagetype])) {
@@ -806,7 +983,7 @@
             $pageinstances[$instance->pagetype][$instance->pageid][] = $instance;
         }
 
-        $blocks = get_records_select('block', '', '', 'name, id, multiple');
+        $blocks = get_records_select('block', 'visible = 1', '', 'name, id, multiple');
 
         // For each type of page we have restored
         foreach($pageinstances as $thistypeinstances) {
@@ -824,7 +1001,7 @@
                         //We are trying to restore a block we don't have...
                         continue;
                     }
-    
+
                     //If we have already added this block once and multiples aren't allowed, disregard it
                     if(!$blocks[$instance->name]->multiple && isset($addedblocks[$instance->name])) {
                         continue;
@@ -834,7 +1011,7 @@
                     if(empty($maxweights[$instance->position])) {
                         $maxweights[$instance->position] = 0;
                     }
-    
+
                     //If the instance weight is greater than the weight counter (we skipped some earlier
                     //blocks most probably), bring it back in line.
                     if($instance->weight > $maxweights[$instance->position]) {
@@ -843,24 +1020,50 @@
 
                     //Add this instance
                     $instance->blockid = $blocks[$instance->name]->id;
-                    
-                    if ($newid = insert_record('block_instance', $instance)) {
-                        if (!empty($instance->id)) { // this will only be set if we come from 1.7 and above backups
-                            backup_putid ($restore->backup_unique_code,"block_instance",$instance->id,$newid);
+
+                    // This will only be set if we come from 1.7 and above backups
+                    //  Also, must do this before insert (insert_record unsets id)
+                    if (!empty($instance->id)) { 
+                        $oldid = $instance->id;
+                    } else {
+                        $oldid = 0;
+                    }
+
+                    if ($instance->id = insert_record('block_instance', $instance)) {
+                        // Create block instance
+                        if (!$blockobj = block_instance($instance->name, $instance)) {
+                            $status = false;
+                            break;
                         }
+                        // Run the block restore if needed
+                        if ($blockobj->backuprestore_instancedata_used()) {
+                            // Get restore information
+                            $data = backup_getid($restore->backup_unique_code,'block_instance',$oldid);
+                            $data->new_id = $instance->id;  // For completeness
+                            if (!$blockobj->instance_restore($restore, $data)) {
+                                $status = false;
+                                break;
+                            }
+                        }
+                        // Save oldid after block restore process because info will be over-written with blank string
+                        if ($oldid) {
+                            backup_putid ($restore->backup_unique_code,"block_instance",$oldid,$instance->id);
+                        }
+
                     } else {
                         $status = false;
-                        break;                      
+                        break;
                     }
-                    
+
                     //Get an object for the block and tell it it's been restored so it can update dates
                     //etc. if necessary
-                    $blockobj=block_instance($instance->name,$instance);
-                    $blockobj->after_restore($restore);
-    
+                    if ($blockobj = block_instance($instance->name,$instance)) {
+                        $blockobj->after_restore($restore);
+                    }
+
                     //Now we can increment the weight counter
                     ++$maxweights[$instance->position];
-    
+
                     //Keep track of block types we have already added
                     $addedblocks[$instance->name] = true;
 
@@ -895,9 +1098,10 @@
             //For each, section, save it to db
             foreach ($info->sections as $key => $sect) {
                 $sequence = "";
+                $section = new object();
                 $section->course = $restore->course_id;
                 $section->section = $sect->number;
-                $section->summary = restore_decode_absolute_links(addslashes($sect->summary));
+                $section->summary = backup_todb($sect->summary);
                 $section->visible = $sect->visible;
                 $section->sequence = "";
                 //Now calculate the section's newid
@@ -919,6 +1123,7 @@
                     //Teorically this never should happen but, in practice, some users
                     //have reported this issue.
                     if(!$rec) {
+                        $zero_sec = new object();
                         $zero_sec->course = $restore->course_id;
                         $zero_sec->section = 0;
                         $zero_sec->summary = "";
@@ -942,13 +1147,14 @@
                     if (!empty($sect->mods)) {
                         //For each mod inside section
                         foreach ($sect->mods as $keym => $mod) {
-                            // Yu: This part is called repeatedly for every instance, 
-                            // so it is necessary to set the granular flag and check isset() 
+                            // Yu: This part is called repeatedly for every instance,
+                            // so it is necessary to set the granular flag and check isset()
                             // when the first instance of this type of mod is processed.
+
                             //if (!isset($restore->mods[$mod->type]->granular) && isset($restore->mods[$mod->type]->instances) && is_array($restore->mods[$mod->type]->instances)) {
-                            
+
                             if (!isset($restore->mods[$mod->type]->granular)) {
-                                if (isset($restore->mods[$mod->type]->instances) && is_array($restore->mods[$mod->type]->instances)) {                              
+                                if (isset($restore->mods[$mod->type]->instances) && is_array($restore->mods[$mod->type]->instances)) {
                                     // This defines whether we want to restore specific
                                     // instances of the modules (granular restore), or
                                     // whether we don't care and just want to restore
@@ -958,16 +1164,17 @@
                                     $restore->mods[$mod->type]->granular = false;
                                 }
                             }
-                          
-                            //Check if we've to restore this module (and instance) 
-                            if (!empty($restore->mods[$mod->type]->restore)) {                      
+
+                            //Check if we've to restore this module (and instance)
+                            if (!empty($restore->mods[$mod->type]->restore)) {
                                 if (empty($restore->mods[$mod->type]->granular)  // we don't care about per instance
-                                    || (array_key_exists($mod->instance,$restore->mods[$mod->type]->instances) 
+                                    || (array_key_exists($mod->instance,$restore->mods[$mod->type]->instances)
                                         && !empty($restore->mods[$mod->type]->instances[$mod->instance]->restore))) {
-                                    
+
                                     //Get the module id from modules
                                     $module = get_record("modules","name",$mod->type);
                                     if ($module) {
+                                        $course_module = new object();
                                         $course_module->course = $restore->course_id;
                                         $course_module->module = $module->id;
                                         $course_module->section = $newid;
@@ -975,23 +1182,32 @@
                                         $course_module->score = $mod->score;
                                         $course_module->indent = $mod->indent;
                                         $course_module->visible = $mod->visible;
-                                        if (isset($mod->groupmode)) {
-                                            $course_module->groupmode = $mod->groupmode;
+                                        $course_module->groupmode = $mod->groupmode;
+                                        if ($mod->groupingid and $grouping = restore_grouping_getid($restore, $mod->groupingid)) {
+                                            $course_module->groupingid = $grouping->new_id;
+                                        } else {
+                                            $course_module->groupingid = 0;
                                         }
+                                        $course_module->groupmembersonly = $mod->groupmembersonly;
                                         $course_module->instance = 0;
                                         //NOTE: The instance (new) is calculated and updated in db in the
                                         //      final step of the restore. We don't know it yet.
                                         //print_object($course_module);                    //Debug
                                         //Save it to db
+                                        if ($mod->idnumber) {
+                                            if (grade_verify_idnumber($mod->idnumber, $restore->course_id)) {
+                                                $course_module->idnumber = $mod->idnumber;
+                                            }
+                                        }
 
-                                        $newidmod = insert_record("course_modules",$course_module); 
+                                        $newidmod = insert_record("course_modules", addslashes_recursive($course_module));
                                         if ($newidmod) {
                                             //save old and new module id
                                             //In the info field, we save the original instance of the module
                                             //to use it later
                                             backup_putid ($restore->backup_unique_code,"course_modules",
                                                           $keym,$newidmod,$mod->instance);
-                                            
+
                                             $restore->mods[$mod->type]->instances[$mod->instance]->restored_as_course_module = $newidmod;
                                         } else {
                                             $status = false;
@@ -1015,6 +1231,7 @@
                 //If all is OK, update sequence field in course_sections
                 if ($status) {
                     if (isset($sequence)) {
+                        $update_rec = new object();
                         $update_rec->id = $newid;
                         $update_rec->sequence = $sequence;
                         $status = update_record("course_sections",$update_rec);
@@ -1030,7 +1247,7 @@
     //Called to set up any course-format specific data that may be in the file
     function restore_set_format_data($restore,$xml_file) {
         global $CFG,$db;
-        
+
         $status = true;
         //Check it exists
         if (!file_exists($xml_file)) {
@@ -1058,12 +1275,12 @@
                 }
                 return $function($restore,$info->format_data);
         }
-        
+
         // If we got here then there's no data, but that's cool
         return true;
     }
 
-    //This function creates all the metacourse data from xml, notifying 
+    //This function creates all the metacourse data from xml, notifying
     //about each incidence
     function restore_create_metacourse($restore,$xml_file) {
 
@@ -1089,7 +1306,7 @@
                     $dbmetacourse = false;
                     //Check if child course exists in destination server
                     //(by id in the same server or by idnumber and shortname in other server)
-                    if ($restore->original_wwwroot == $CFG->wwwroot) {
+                    if (backup_is_same_site($restore)) {
                         //Same server, lets see by id
                         $dbcourse = get_record('course','id',$child->id);
                     } else {
@@ -1121,7 +1338,7 @@
                     $dbmetacourse = false;
                     //Check if parent course exists in destination server
                     //(by id in the same server or by idnumber and shortname in other server)
-                    if ($restore->original_wwwroot == $CFG->wwwroot) {
+                    if (backup_is_same_site($restore)) {
                         //Same server, lets see by id
                         $dbcourse = get_record('course','id',$parent->id);
                     } else {
@@ -1157,314 +1374,1063 @@
         }
         return $status;
     }
-    
-    //This function creates all the gradebook data from xml, notifying 
-    //about each incidence
-    function restore_create_gradebook($restore,$xml_file) {
 
-        global $CFG,$db;
+    /**
+     * This function migrades all the pre 1.9 gradebook data from xml
+     */
+    function restore_migrate_old_gradebook($restore,$xml_file) {
+        global $CFG;
 
         $status = true;
         //Check it exists
         if (!file_exists($xml_file)) {
-            $status = false;
+            return false;
         }
-        //Get info from xml
-        if ($status) {
-            //info will contain the number of record to process
-            $info = restore_read_xml_gradebook($restore, $xml_file);
 
-        //If we have info, then process preferences, letters & categories
-            if ($info > 0) {
-                //Count how many we have
-                $preferencescount = count_records ('backup_ids', 'backup_code', $restore->backup_unique_code, 'table_name', 'grade_preferences');
-                $letterscount = count_records ('backup_ids', 'backup_code', $restore->backup_unique_code, 'table_name', 'grade_letter');
-                $categoriescount = count_records ('backup_ids', 'backup_code', $restore->backup_unique_code, 'table_name', 'grade_category');
+        // Get info from xml
+        // info will contain the number of record to process
+        $info = restore_read_xml_gradebook($restore, $xml_file);
 
-                if ($preferencescount || $letterscount || $categoriescount) {
-                    //Start ul
-                    if (!defined('RESTORE_SILENTLY')) {
-                        echo '<ul>';
-                    }
-                    //Number of records to get in every chunk
-                    $recordset_size = 2;
-                    //Flag to mark if we must continue
-                    $continue = true;
+        // If we have info, then process
+        if (empty($info)) {
+            return $status;
+        }
 
-                    //If there aren't preferences, stop
-                    if (!$preferencescount) {
-                        $continue = false;
-                        if (!defined('RESTORE_SILENTLY')) {
-                            echo '<li>'.get_string('backupwithoutgradebook','grade').'</li>';
-                        }
-                    }
+        // make sure top course category exists
+        $course_category = grade_category::fetch_course_category($restore->course_id);
+        $course_category->load_grade_item();
 
-                    //If we are restoring to an existing course and it has advanced disabled, stop
-                    if ($restore->restoreto != 2) {
-                        //Fetch the 'use_advanced' preferences (id = 0)
-                        if ($pref_rec = get_record('grade_preferences','courseid',$restore->course_id,'preference',0)) {
-                            if ($pref_rec->value == 0) {
-                                $continue = false;
-                                if (!defined('RESTORE_SILENTLY')) {
-                                    echo '<li>'.get_string('respectingcurrentdata','grade').'</li>';
-                                }
-                            }
-                        }
-                    }
+        // we need to know if all grade items that were backed up are being restored
+        // if that is not the case, we do not restore grade categories nor gradeitems of category type or course type
+        // i.e. the aggregated grades of that category
 
-                    //Process preferences
-                    if ($preferencescount && $continue) {
-                        if (!defined('RESTORE_SILENTLY')) {
-                            echo '<li>'.get_string('preferences','grades').'</li>';
-                        }
-                        $counter = 0;
-                        while ($counter < $preferencescount) {
-                            //Fetch recordset_size records in each iteration
-                            $recs = get_records_select("backup_ids","table_name = 'grade_preferences' AND backup_code = '$restore->backup_unique_code'",
-                                                       "old_id",
-                                                       "old_id, old_id",
-                                                       $counter,
-                                                       $recordset_size);
-                            if ($recs) {
-                                foreach ($recs as $rec) {
-                                    //Get the full record from backup_ids
-                                    $data = backup_getid($restore->backup_unique_code,'grade_preferences',$rec->old_id);
-                                    if ($data) {
-                                        //Now get completed xmlized object
-                                        $info = $data->info;
-                                        //traverse_xmlize($info);                            //Debug
-                                        //print_object ($GLOBALS['traverse_array']);         //Debug
-                                        //$GLOBALS['traverse_array']="";                     //Debug
-                                        //Now build the GRADE_PREFERENCES record structure
-                                        $dbrec->courseid   = $restore->course_id;
-                                        $dbrec->preference = backup_todb($info['GRADE_PREFERENCE']['#']['PREFERENCE']['0']['#']);
-                                        $dbrec->value      = backup_todb($info['GRADE_PREFERENCE']['#']['VALUE']['0']['#']);
-   
-                                        //Structure is equal to db, insert record
-                                        //if the preference doesn't exist
-                                        if (!$prerec = get_record('grade_preferences','courseid',$dbrec->courseid,'preference',$dbrec->preference)) {
-                                            $status = insert_record('grade_preferences',$dbrec);
-                                        }
-                                    }
-                                    //Increment counters
-                                    $counter++;
-                                    //Do some output
-                                    if ($counter % 1 == 0) {
-                                        if (!defined('RESTORE_SILENTLY')) {
-                                            echo ".";
-                                            if ($counter % 20 == 0) {
-                                                echo "<br />";
-                                            }
-                                        }
-                                        backup_flush(300);
-                                    }
-                                }
-                            }
-                        }
-                    }
+        $restoreall = true;  // set to false if any grade_item is not selected/restored
+        $importing  = !empty($SESSION->restore->importing); // there should not be a way to import old backups, but anyway ;-)
 
-                    //Process letters
-                    //If destination course has letters, skip restoring letters
-                    $hasletters = get_records('grade_letter', 'courseid', $restore->course_id);
+        if ($importing) {
+            $restoreall = false;
 
-                    if ($letterscount && $continue && !$hasletters) {
-                        if (!defined('RESTORE_SILENTLY')) {
-                            echo '<li>'.get_string('letters','grades').'</li>';
-                        }
-                        $counter = 0;
-                        while ($counter < $letterscount) {
-                            //Fetch recordset_size records in each iteration
-                            $recs = get_records_select("backup_ids","table_name = 'grade_letter' AND backup_code = '$restore->backup_unique_code'",
-                                                       "old_id",
-                                                       "old_id, old_id",
-                                                       $counter,
-                                                       $recordset_size);
-                            if ($recs) {
-                                foreach ($recs as $rec) {
-                                    //Get the full record from backup_ids
-                                    $data = backup_getid($restore->backup_unique_code,'grade_letter',$rec->old_id);
-                                    if ($data) {
-                                        //Now get completed xmlized object
-                                        $info = $data->info;
-                                        //traverse_xmlize($info);                            //Debug
-                                        //print_object ($GLOBALS['traverse_array']);         //Debug
-                                        //$GLOBALS['traverse_array']="";                     //Debug
-                                        //Now build the GRADE_LETTER record structure
-                                        $dbrec->courseid   = $restore->course_id;
-                                        $dbrec->letter     = backup_todb($info['GRADE_LETTER']['#']['LETTER']['0']['#']);
-                                        $dbrec->grade_high = backup_todb($info['GRADE_LETTER']['#']['GRADE_HIGH']['0']['#']);
-                                        $dbrec->grade_low  = backup_todb($info['GRADE_LETTER']['#']['GRADE_LOW']['0']['#']);
+        } else {
+            $prev_grade_items = grade_item::fetch_all(array('courseid'=>$restore->course_id));
+            $prev_grade_cats  = grade_category::fetch_all(array('courseid'=>$restore->course_id));
 
-                                        //Structure is equal to db, insert record
-                                        $status = insert_record('grade_letter',$dbrec);
-                                    }
-                                    //Increment counters
-                                    $counter++;
-                                    //Do some output
-                                    if ($counter % 1 == 0) {
-                                        if (!defined('RESTORE_SILENTLY')) {
-                                            echo ".";
-                                            if ($counter % 20 == 0) {
-                                                echo "<br />";
-                                            }
-                                        }
-                                        backup_flush(300);
-                                    }
-                                }
-                            }
-                        }
-                    }
+             // if any categories already present, skip restore of categories from backup
+            if (count($prev_grade_items) > 1 or count($prev_grade_cats) > 1) {
+                $restoreall = false;
+            }
+            unset($prev_grade_items);
+            unset($prev_grade_cats);
+        }
 
-                    //Process categories
-                    if ($categoriescount && $continue) {
-                        if (!defined('RESTORE_SILENTLY')) {
-                            echo '<li>'.get_string('categories','grades').'</li>';
-                        }
-                        $counter = 0;
-                        $countercat = 0;
-                        while ($countercat < $categoriescount) {
-                            //Fetch recordset_size records in each iteration
-                            $recs = get_records_select("backup_ids","table_name = 'grade_category' AND backup_code = '$restore->backup_unique_code'",
-                                                       "old_id",
-                                                       "old_id, old_id",
-                                                       $countercat,
-                                                       $recordset_size);
-                            if ($recs) {
-                                foreach ($recs as $rec) {
-                                    //Get the full record from backup_ids
-                                    $data = backup_getid($restore->backup_unique_code,'grade_category',$rec->old_id);
-                                    if ($data) {
-                                        //Now get completed xmlized object
-                                        $info = $data->info;
-                                        //traverse_xmlize($info);                            //Debug
-                                        //print_object ($GLOBALS['traverse_array']);         //Debug
-                                        //$GLOBALS['traverse_array']="";                     //Debug
-                                        //Now build the GRADE_CATEGORY record structure
-                                        $dbrec->courseid     = $restore->course_id;
-                                        $dbrec->name         = backup_todb($info['GRADE_CATEGORY']['#']['NAME']['0']['#']);
-                                        $dbrec->drop_x_lowest= backup_todb($info['GRADE_CATEGORY']['#']['DROP_X_LOWEST']['0']['#']);
-                                        $dbrec->bonus_points = backup_todb($info['GRADE_CATEGORY']['#']['BONUS_POINTS']['0']['#']);
-                                        $dbrec->hidden       = backup_todb($info['GRADE_CATEGORY']['#']['HIDDEN']['0']['#']);
-                                        $dbrec->weight       = backup_todb($info['GRADE_CATEGORY']['#']['WEIGHT']['0']['#']);
+        // force creation of all grade_items - the course_modules already exist
+        grade_force_full_regrading($restore->course_id);
+        grade_grab_course_grades($restore->course_id);
 
-                                        //If the grade_category exists in the course (by name), don't insert anything
-                                        $catex = get_record('grade_category','courseid',$dbrec->courseid,'name',$dbrec->name);
+        // Start ul
+        if (!defined('RESTORE_SILENTLY')) {
+            echo '<ul>';
+        }
 
-                                        if (!$catex) {
-                                            //Structure is equal to db, insert record
-                                            $categoryid = insert_record('grade_category',$dbrec);
-                                        } else {
-                                            //Simply remap category
-                                            $categoryid = $catex->id;
-                                        }
-
-                                        //Now, restore grade_item
-                                        $items = $info['GRADE_CATEGORY']['#']['GRADE_ITEMS']['0']['#']['GRADE_ITEM'];
-
-                                        //Iterate over items
-                                        for($i = 0; $i < sizeof($items); $i++) {
-                                            $ite_info = $items[$i];
-                                            //traverse_xmlize($ite_info);                                                                 //Debug
-                                            //print_object ($GLOBALS['traverse_array']);                                                  //Debug
-                                            //$GLOBALS['traverse_array']="";                                                              //Debug
-
-                                            //Now build the GRADE_ITEM record structure
-                                            $item->courseid     = $restore->course_id;
-                                            $item->category     = $categoryid;
-                                            $item->module_name  = backup_todb($ite_info['#']['MODULE_NAME']['0']['#']);
-                                            $item->cminstance   = backup_todb($ite_info['#']['CMINSTANCE']['0']['#']);
-                                            $item->scale_grade  = backup_todb($ite_info['#']['SCALE_GRADE']['0']['#']);
-                                            $item->extra_credit = backup_todb($ite_info['#']['EXTRA_CREDIT']['0']['#']);
-                                            $item->sort_order   = backup_todb($ite_info['#']['SORT_ORDER']['0']['#']);
-
-                                            //Check that the module has been included in the restore
-                                            if ($restore->mods[$item->module_name]->restore) {
-                                                //Get the id of the moduletype
-                                                if ($module = get_record('modules','name',$item->module_name)) {
-                                                    $item->modid = $module->id;
-                                                    //Get the instance id
-                                                    if ($instance = backup_getid($restore->backup_unique_code,$item->module_name,$item->cminstance)) {
-                                                        $item->cminstance = $instance->new_id;
-                                                        //Structure is equal to db, insert record
-                                                        $itemid = insert_record('grade_item',$item);
-
-                                                        //Now process grade_exceptions
-                                                        if (!empty($ite_info['#']['GRADE_EXCEPTIONS'])) {
-                                                            $exceptions = $ite_info['#']['GRADE_EXCEPTIONS']['0']['#']['GRADE_EXCEPTION'];
-                                                        } else {
-                                                            $exceptions = array();
-                                                        }
-
-                                                        //Iterate over exceptions
-                                                        for($j = 0; $j < sizeof($exceptions); $j++) {
-                                                            $exc_info = $exceptions[$j];
-                                                            //traverse_xmlize($exc_info);                                                                 //Debug
-                                                            //print_object ($GLOBALS['traverse_array']);                                                  //Debug
-                                                            //$GLOBALS['traverse_array']="";                                                              //Debug
-
-                                                            //Now build the GRADE_EXCEPTIONS record structure
-                                                            $exception->courseid     = $restore->course_id;
-                                                            $exception->grade_itemid = $itemid;
-                                                            $exception->userid       = backup_todb($exc_info['#']['USERID']['0']['#']);
-
-                                                            //We have to recode the useridto field
-                                                            $user = backup_getid($restore->backup_unique_code,"user",$exception->userid);
-                                                            if ($user) {
-                                                                $exception->userid = $user->new_id;
-                                                                //Structure is equal to db, insert record
-                                                                $exceptionid = insert_record('grade_exceptions',$exception);
-                                                                //Do some output
-                                                                $counter++;
-                                                                if ($counter % 20 == 0) {
-                                                                    if (!defined('RESTORE_SILENTLY')) {
-                                                                        echo ".";
-                                                                        if ($counter % 400 == 0) {
-                                                                            echo "<br />";
-                                                                        }
-                                                                    }
-                                                                    backup_flush(300);
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        //Re-sort all the grade_items because we can have duplicates
-                                        if ($grade_items = get_records ('grade_item','courseid',$restore->course_id,'sort_order','id,sort_order')) {
-                                            $order = 1;
-                                            foreach ($grade_items as $grade_item) {
-                                                $grade_item->sort_order = $order;
-                                                set_field ('grade_item','sort_order',$grade_item->sort_order,'id',$grade_item->id);
-                                                $order++;
-                                            }
-                                        }
-                                    }
-                                    //Increment counters
-                                    $countercat++;
-                                    //Do some output
-                                    if ($countercat % 1 == 0) {
-                                        if (!defined('RESTORE_SILENTLY')) {
-                                            echo ".";
-                                            if ($countercat % 20 == 0) {
-                                                echo "<br />";
-                                            }
-                                        }
-                                        backup_flush(300);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (!defined('RESTORE_SILENTLY')) {
-                    //End ul
-                        echo '</ul>';
+    /// Process letters
+        $context = get_context_instance(CONTEXT_COURSE, $restore->course_id);
+        // respect current grade letters if defined
+        if ($status and $restoreall and !record_exists('grade_letters', 'contextid', $context->id)) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '<li>'.get_string('gradeletters','grades').'</li>';
+            }
+            // Fetch recordset_size records in each iteration
+            $recs = get_records_select("backup_ids","table_name = 'grade_letter' AND backup_code = $restore->backup_unique_code",
+                                        "",
+                                        "old_id");
+            if ($recs) {
+                foreach ($recs as $rec) {
+                    // Get the full record from backup_ids
+                    $data = backup_getid($restore->backup_unique_code,'grade_letter',$rec->old_id);
+                    if ($data) {
+                        $info = $data->info;
+                        $dbrec = new object();
+                        $dbrec->contextid     = $context->id;
+                        $dbrec->lowerboundary = backup_todb($info['GRADE_LETTER']['#']['GRADE_LOW']['0']['#']);
+                        $dbrec->letter        = backup_todb($info['GRADE_LETTER']['#']['LETTER']['0']['#']);
+                        insert_record('grade_letters', $dbrec);
                     }
                 }
             }
-        }                
-     
+        }
+
+        if (!defined('RESTORE_SILENTLY')) {
+            echo '<li>'.get_string('categories','grades').'</li>';
+        }
+        //Fetch recordset_size records in each iteration
+        $recs = get_records_select("backup_ids","table_name = 'grade_category' AND backup_code = $restore->backup_unique_code",
+                                   "old_id",
+                                   "old_id");
+        $cat_count = count($recs);
+        if ($recs) {
+            foreach ($recs as $rec) {
+                //Get the full record from backup_ids
+                $data = backup_getid($restore->backup_unique_code,'grade_category',$rec->old_id);
+                if ($data) {
+                    //Now get completed xmlized object
+                    $info = $data->info;
+
+                    if ($restoreall) {
+                        if ($cat_count == 1) {
+                            $course_category->fullname            = backup_todb($info['GRADE_CATEGORY']['#']['NAME']['0']['#'], false);
+                            $course_category->droplow             = backup_todb($info['GRADE_CATEGORY']['#']['DROP_X_LOWEST']['0']['#'], false);
+                            $course_category->aggregation         = GRADE_AGGREGATE_WEIGHTED_MEAN2;
+                            $course_category->aggregateonlygraded = 0;
+                            $course_category->update('restore');
+                            $grade_category = $course_category;
+
+                        } else {
+                            $grade_category = new grade_category();
+                            $grade_category->courseid            = $restore->course_id;
+                            $grade_category->fullname            = backup_todb($info['GRADE_CATEGORY']['#']['NAME']['0']['#'], false);
+                            $grade_category->droplow             = backup_todb($info['GRADE_CATEGORY']['#']['DROP_X_LOWEST']['0']['#'], false);
+                            $grade_category->aggregation         = GRADE_AGGREGATE_WEIGHTED_MEAN2;
+                            $grade_category->aggregateonlygraded = 0;
+                            $grade_category->insert('restore');
+                            $grade_category->load_grade_item(); // force cretion of grade_item
+                        }
+
+                    } else {
+                        $grade_category = null;
+                    }
+
+                    /// now, restore grade_items
+                    $items = array();
+                    if (!empty($info['GRADE_CATEGORY']['#']['GRADE_ITEMS']['0']['#']['GRADE_ITEM'])) {
+                        //Iterate over items
+                        foreach ($info['GRADE_CATEGORY']['#']['GRADE_ITEMS']['0']['#']['GRADE_ITEM'] as $ite_info) {
+                            $modname         = backup_todb($ite_info['#']['MODULE_NAME']['0']['#'], false);
+                            $olditeminstance = backup_todb($ite_info['#']['CMINSTANCE']['0']['#'], false);
+                            if (!$mod = backup_getid($restore->backup_unique_code,$modname, $olditeminstance)) {
+                                continue; // not restored
+                            }
+                            $iteminstance = $mod->new_id;
+                            if (!$cm = get_coursemodule_from_instance($modname, $iteminstance, $restore->course_id)) {
+                                continue; // does not exist
+                            }
+
+                            if (!$grade_item = grade_item::fetch(array('itemtype'=>'mod', 'itemmodule'=>$cm->modname, 'iteminstance'=>$cm->instance, 'courseid'=>$cm->course, 'itemnumber'=>0))) {
+                                continue; // no item yet??
+                            }
+
+                            if ($grade_category) {
+                                $grade_item->sortorder = backup_todb($ite_info['#']['SORT_ORDER']['0']['#'], false);
+                                $grade_item->set_parent($grade_category->id);
+                            }
+
+                            if ($importing
+                              or ($grade_item->itemtype == 'mod' and !restore_userdata_selected($restore,  $grade_item->itemmodule, $olditeminstance))) {
+                                // module instance not selected when restored using granular
+                                // skip this item
+                                continue;
+                            }
+
+                            //Now process grade excludes
+                            if (empty($ite_info['#']['GRADE_EXCEPTIONS'])) {
+                                continue;
+                            }
+
+                            foreach($ite_info['#']['GRADE_EXCEPTIONS']['0']['#']['GRADE_EXCEPTION'] as $exc_info) {
+                                if ($u = backup_getid($restore->backup_unique_code,"user",backup_todb($exc_info['#']['USERID']['0']['#']))) {
+                                    $userid = $u->new_id;
+                                    $grade_grade = new grade_grade(array('itemid'=>$grade_item->id, 'userid'=>$userid));
+                                    $grade_grade->excluded = 1;
+                                    if ($grade_grade->id) {
+                                        $grade_grade->update('restore');
+                                    } else {
+                                        $grade_grade->insert('restore');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!defined('RESTORE_SILENTLY')) {
+        //End ul
+            echo '</ul>';
+        }
+
+        return $status;
+    }
+
+    /**
+     * This function creates all the gradebook data from xml
+     */
+    function restore_create_gradebook($restore,$xml_file) {
+        global $CFG;
+
+        $status = true;
+        //Check it exists
+        if (!file_exists($xml_file)) {
+            return false;
+        }
+
+        // Get info from xml
+        // info will contain the number of record to process
+        $info = restore_read_xml_gradebook($restore, $xml_file);
+
+        // If we have info, then process
+        if (empty($info)) {
+            return $status;
+        }
+
+        if (empty($CFG->disablegradehistory) and isset($info->gradebook_histories) and $info->gradebook_histories == "true") {
+            $restore_histories = true;
+        } else {
+            $restore_histories = false;
+        }
+
+        // make sure top course category exists
+        $course_category = grade_category::fetch_course_category($restore->course_id);
+        $course_category->load_grade_item();
+
+        // we need to know if all grade items that were backed up are being restored
+        // if that is not the case, we do not restore grade categories nor gradeitems of category type or course type
+        // i.e. the aggregated grades of that category
+
+        $restoreall = true;  // set to false if any grade_item is not selected/restored or already exist
+        $importing  = !empty($SESSION->restore->importing);
+
+        if ($importing) {
+            $restoreall = false;
+
+        } else {
+            $prev_grade_items = grade_item::fetch_all(array('courseid'=>$restore->course_id));
+            $prev_grade_cats  = grade_category::fetch_all(array('courseid'=>$restore->course_id));
+
+             // if any categories already present, skip restore of categories from backup - course item or category already exist
+            if (count($prev_grade_items) > 1 or count($prev_grade_cats) > 1) {
+                $restoreall = false;
+            }
+            unset($prev_grade_items);
+            unset($prev_grade_cats);
+
+            if ($restoreall) {
+                if ($recs = get_records_select("backup_ids","table_name = 'grade_items' AND backup_code = $restore->backup_unique_code", "", "old_id")) {
+                    foreach ($recs as $rec) {
+                        if ($data = backup_getid($restore->backup_unique_code,'grade_items',$rec->old_id)) {
+
+                            $info = $data->info;
+                            // do not restore if this grade_item is a mod, and
+                            $itemtype = backup_todb($info['GRADE_ITEM']['#']['ITEMTYPE']['0']['#']);
+
+                            if ($itemtype == 'mod') {
+                                $olditeminstance = backup_todb($info['GRADE_ITEM']['#']['ITEMINSTANCE']['0']['#']);
+                                $itemmodule      = backup_todb($info['GRADE_ITEM']['#']['ITEMMODULE']['0']['#']);
+
+                                if (empty($restore->mods[$itemmodule]->granular)) {
+                                    continue;
+                                } else if (!empty($restore->mods[$itemmodule]->instances[$olditeminstance]->restore)) {
+                                    continue;
+                                }
+                                // at least one activity should not be restored - do not restore categories and manual items at all
+                                $restoreall = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Start ul
+        if (!defined('RESTORE_SILENTLY')) {
+            echo '<ul>';
+        }
+
+        // array of restored categories - speedup ;-)
+        $cached_categories = array();
+        $outcomes          = array();
+
+    /// Process letters
+        $context = get_context_instance(CONTEXT_COURSE, $restore->course_id);
+        // respect current grade letters if defined
+        if ($status and $restoreall and !record_exists('grade_letters', 'contextid', $context->id)) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '<li>'.get_string('gradeletters','grades').'</li>';
+            }
+            // Fetch recordset_size records in each iteration
+            $recs = get_records_select("backup_ids","table_name = 'grade_letters' AND backup_code = $restore->backup_unique_code",
+                                        "",
+                                        "old_id");
+            if ($recs) {
+                foreach ($recs as $rec) {
+                    // Get the full record from backup_ids
+                    $data = backup_getid($restore->backup_unique_code,'grade_letters',$rec->old_id);
+                    if ($data) {
+                        $info = $data->info;
+                        $dbrec = new object();
+                        $dbrec->contextid     = $context->id;
+                        $dbrec->lowerboundary = backup_todb($info['GRADE_LETTER']['#']['LOWERBOUNDARY']['0']['#']);
+                        $dbrec->letter        = backup_todb($info['GRADE_LETTER']['#']['LETTER']['0']['#']);
+                        insert_record('grade_letters', $dbrec);
+                    }
+                }
+            }
+        }
+
+    /// Preprocess outcomes - do not store them yet!
+        if ($status and !$importing and $restoreall) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '<li>'.get_string('gradeoutcomes','grades').'</li>';
+            }
+            $recs = get_records_select("backup_ids","table_name = 'grade_outcomes' AND backup_code = '$restore->backup_unique_code'",
+                                        "",
+                                        "old_id");
+            if ($recs) {
+                foreach ($recs as $rec) {
+                    //Get the full record from backup_ids
+                    $data = backup_getid($restore->backup_unique_code,'grade_outcomes',$rec->old_id);
+                    if ($data) {
+                        $info = $data->info;
+
+                        //first find out if outcome already exists
+                        $shortname = backup_todb($info['GRADE_OUTCOME']['#']['SHORTNAME']['0']['#']);
+
+                        if ($candidates = get_records_sql("SELECT *
+                                                             FROM {$CFG->prefix}grade_outcomes
+                                                            WHERE (courseid IS NULL OR courseid = $restore->course_id)
+                                                                  AND shortname = '$shortname'
+                                                         ORDER BY courseid ASC, id ASC")) {
+                            $grade_outcome = reset($candidates);
+                            $outcomes[$rec->old_id] = $grade_outcome;
+                            continue;
+                        }
+
+                        $dbrec = new object();
+
+                        if (has_capability('moodle/grade:manageoutcomes', get_context_instance(CONTEXT_SYSTEM))) {
+                            $oldoutcome = backup_todb($info['GRADE_OUTCOME']['#']['COURSEID']['0']['#']);
+                            if (empty($oldoutcome)) {
+                                //site wide
+                                $dbrec->courseid = null;
+                            } else {
+                                //course only
+                                $dbrec->courseid = $restore->course_id;
+                            }
+                        } else {
+                            // no permission to add site outcomes
+                            $dbrec->courseid = $restore->course_id;
+                        }
+
+                        //Get the fields
+                        $dbrec->shortname    = backup_todb($info['GRADE_OUTCOME']['#']['SHORTNAME']['0']['#'], false);
+                        $dbrec->fullname     = backup_todb($info['GRADE_OUTCOME']['#']['FULLNAME']['0']['#'], false);
+                        $dbrec->scaleid      = backup_todb($info['GRADE_OUTCOME']['#']['SCALEID']['0']['#'], false);
+                        $dbrec->description  = backup_todb($info['GRADE_OUTCOME']['#']['DESCRIPTION']['0']['#'], false);
+                        $dbrec->timecreated  = backup_todb($info['GRADE_OUTCOME']['#']['TIMECREATED']['0']['#'], false);
+                        $dbrec->timemodified = backup_todb($info['GRADE_OUTCOME']['#']['TIMEMODIFIED']['0']['#'], false);
+                        $dbrec->usermodified = backup_todb($info['GRADE_OUTCOME']['#']['USERMODIFIED']['0']['#'], false);
+
+                        //Need to recode the scaleid
+                        if ($scale = backup_getid($restore->backup_unique_code, 'scale', $dbrec->scaleid)) {
+                            $dbrec->scaleid = $scale->new_id;
+                        }
+
+                        //Need to recode the usermodified
+                        if ($modifier = backup_getid($restore->backup_unique_code, 'user', $dbrec->usermodified)) {
+                            $dbrec->usermodified = $modifier->new_id;
+                        }
+
+                        $grade_outcome = new grade_outcome($dbrec, false);
+                        $outcomes[$rec->old_id] = $grade_outcome;
+                    }
+                }
+            }
+        }
+
+    /// Process grade items and grades
+        if ($status) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '<li>'.get_string('gradeitems','grades').'</li>';
+            }
+            $counter = 0;
+
+            //Fetch recordset_size records in each iteration
+            $recs = get_records_select("backup_ids","table_name = 'grade_items' AND backup_code = '$restore->backup_unique_code'",
+                                        "id", // restore in the backup order
+                                        "old_id");
+
+            if ($recs) {
+                foreach ($recs as $rec) {
+                    //Get the full record from backup_ids
+                    $data = backup_getid($restore->backup_unique_code,'grade_items',$rec->old_id);
+                    if ($data) {
+                        $info = $data->info;
+
+                        // first find out if category or normal item
+                        $itemtype =  backup_todb($info['GRADE_ITEM']['#']['ITEMTYPE']['0']['#'], false);
+                        if ($itemtype == 'course' or $itemtype == 'category') {
+                            if (!$restoreall or $importing) {
+                                continue;
+                            }
+
+                            $oldcat = backup_todb($info['GRADE_ITEM']['#']['ITEMINSTANCE']['0']['#'], false);
+                            if (!$cdata = backup_getid($restore->backup_unique_code,'grade_categories',$oldcat)) {
+                                continue;
+                            }
+                            $cinfo = $cdata->info;
+                            unset($cdata);
+                            if ($itemtype == 'course') {
+
+                                $course_category->fullname            = backup_todb($cinfo['GRADE_CATEGORY']['#']['FULLNAME']['0']['#'], false);
+                                $course_category->aggregation         = backup_todb($cinfo['GRADE_CATEGORY']['#']['AGGREGATION']['0']['#'], false);
+                                $course_category->keephigh            = backup_todb($cinfo['GRADE_CATEGORY']['#']['KEEPHIGH']['0']['#'], false);
+                                $course_category->droplow             = backup_todb($cinfo['GRADE_CATEGORY']['#']['DROPLOW']['0']['#'], false);
+                                $course_category->aggregateonlygraded = backup_todb($cinfo['GRADE_CATEGORY']['#']['AGGREGATEONLYGRADED']['0']['#'], false);
+                                $course_category->aggregateoutcomes   = backup_todb($cinfo['GRADE_CATEGORY']['#']['AGGREGATEOUTCOMES']['0']['#'], false);
+                                $course_category->aggregatesubcats    = backup_todb($cinfo['GRADE_CATEGORY']['#']['AGGREGATESUBCATS']['0']['#'], false);
+                                $course_category->timecreated         = backup_todb($cinfo['GRADE_CATEGORY']['#']['TIMECREATED']['0']['#'], false);
+                                $course_category->update('restore');
+
+                                $status = backup_putid($restore->backup_unique_code,'grade_categories',$oldcat,$course_category->id) && $status;
+                                $cached_categories[$oldcat] = $course_category;
+                                $grade_item = $course_category->get_grade_item();
+
+                            } else {
+                                $oldparent = backup_todb($cinfo['GRADE_CATEGORY']['#']['PARENT']['0']['#'], false);
+                                if (empty($cached_categories[$oldparent])) {
+                                    debugging('parent not found '.$oldparent);
+                                    continue; // parent not found, sorry
+                                }
+                                $grade_category = new grade_category();
+                                $grade_category->courseid            = $restore->course_id;
+                                $grade_category->parent              = $cached_categories[$oldparent]->id;
+                                $grade_category->fullname            = backup_todb($cinfo['GRADE_CATEGORY']['#']['FULLNAME']['0']['#'], false);
+                                $grade_category->aggregation         = backup_todb($cinfo['GRADE_CATEGORY']['#']['AGGREGATION']['0']['#'], false);
+                                $grade_category->keephigh            = backup_todb($cinfo['GRADE_CATEGORY']['#']['KEEPHIGH']['0']['#'], false);
+                                $grade_category->droplow             = backup_todb($cinfo['GRADE_CATEGORY']['#']['DROPLOW']['0']['#'], false);
+                                $grade_category->aggregateonlygraded = backup_todb($cinfo['GRADE_CATEGORY']['#']['AGGREGATEONLYGRADED']['0']['#'], false);
+                                $grade_category->aggregateoutcomes   = backup_todb($cinfo['GRADE_CATEGORY']['#']['AGGREGATEOUTCOMES']['0']['#'], false);
+                                $grade_category->aggregatesubcats    = backup_todb($cinfo['GRADE_CATEGORY']['#']['AGGREGATESUBCATS']['0']['#'], false);
+                                $grade_category->timecreated         = backup_todb($cinfo['GRADE_CATEGORY']['#']['TIMECREATED']['0']['#'], false);
+                                $grade_category->insert('restore');
+
+                                $status = backup_putid($restore->backup_unique_code,'grade_categories',$oldcat,$grade_category->id) && $status;
+                                $cached_categories[$oldcat] = $grade_category;
+                                $grade_item = $grade_category->get_grade_item(); // creates grade_item too
+                            }
+                            unset($cinfo);
+
+                            $idnumber = backup_todb($info['GRADE_ITEM']['#']['IDNUMBER']['0']['#'], false);
+                            if (grade_verify_idnumber($idnumber, $restore->course_id)) {
+                                $grade_item->idnumber    = $idnumber;
+                            }
+
+                            $grade_item->itemname        = backup_todb($info['GRADE_ITEM']['#']['ITEMNAME']['0']['#'], false);
+                            $grade_item->iteminfo        = backup_todb($info['GRADE_ITEM']['#']['ITEMINFO']['0']['#'], false);
+                            $grade_item->gradetype       = backup_todb($info['GRADE_ITEM']['#']['GRADETYPE']['0']['#'], false);
+                            $grade_item->calculation     = backup_todb($info['GRADE_ITEM']['#']['CALCULATION']['0']['#'], false);
+                            $grade_item->grademax        = backup_todb($info['GRADE_ITEM']['#']['GRADEMAX']['0']['#'], false);
+                            $grade_item->grademin        = backup_todb($info['GRADE_ITEM']['#']['GRADEMIN']['0']['#'], false);
+                            $grade_item->gradepass       = backup_todb($info['GRADE_ITEM']['#']['GRADEPASS']['0']['#'], false);
+                            $grade_item->multfactor      = backup_todb($info['GRADE_ITEM']['#']['MULTFACTOR']['0']['#'], false);
+                            $grade_item->plusfactor      = backup_todb($info['GRADE_ITEM']['#']['PLUSFACTOR']['0']['#'], false);
+                            $grade_item->aggregationcoef = backup_todb($info['GRADE_ITEM']['#']['AGGREGATIONCOEF']['0']['#'], false);
+                            $grade_item->display         = backup_todb($info['GRADE_ITEM']['#']['DISPLAY']['0']['#'], false);
+                            $grade_item->decimals        = backup_todb($info['GRADE_ITEM']['#']['DECIMALS']['0']['#'], false);
+                            $grade_item->hidden          = backup_todb($info['GRADE_ITEM']['#']['HIDDEN']['0']['#'], false);
+                            $grade_item->locked          = backup_todb($info['GRADE_ITEM']['#']['LOCKED']['0']['#'], false);
+                            $grade_item->locktime        = backup_todb($info['GRADE_ITEM']['#']['LOCKTIME']['0']['#'], false);
+                            $grade_item->timecreated     = backup_todb($info['GRADE_ITEM']['#']['TIMECREATED']['0']['#'], false);
+
+                            if (backup_todb($info['GRADE_ITEM']['#']['SCALEID']['0']['#'], false)) {
+                                $scale = backup_getid($restore->backup_unique_code,"scale",backup_todb($info['GRADE_ITEM']['#']['SCALEID']['0']['#'], false));
+                                $grade_item->scaleid     = $scale->new_id;
+                            }
+
+                            if  (backup_todb($info['GRADE_ITEM']['#']['OUTCOMEID']['0']['#'], false)) {
+                                $outcome = backup_getid($restore->backup_unique_code,"grade_outcomes",backup_todb($info['GRADE_ITEM']['#']['OUTCOMEID']['0']['#'], false));
+                                $grade_item->outcomeid   = $outcome->new_id;
+                            }
+
+                            $grade_item->update('restore');
+                            $status = backup_putid($restore->backup_unique_code,"grade_items", $rec->old_id, $grade_item->id) && $status;
+
+                        } else {
+                            if ($itemtype != 'mod' and (!$restoreall or $importing)) {
+                                // not extra gradebook stuff if restoring individual activities or something already there
+                                continue;
+                            }
+
+                            $dbrec = new object();
+
+                            $dbrec->courseid      = $restore->course_id;
+                            $dbrec->itemtype      = backup_todb($info['GRADE_ITEM']['#']['ITEMTYPE']['0']['#'], false);
+                            $dbrec->itemmodule    = backup_todb($info['GRADE_ITEM']['#']['ITEMMODULE']['0']['#'], false);
+
+                            if ($itemtype == 'mod') {
+                                // iteminstance should point to new mod
+                                $olditeminstance = backup_todb($info['GRADE_ITEM']['#']['ITEMINSTANCE']['0']['#'], false);
+                                $mod = backup_getid($restore->backup_unique_code,$dbrec->itemmodule, $olditeminstance);
+                                $dbrec->iteminstance = $mod->new_id;
+                                if (!$cm = get_coursemodule_from_instance($dbrec->itemmodule, $mod->new_id)) {
+                                    // item not restored - no item
+                                    continue;
+                                }
+                                // keep in sync with activity idnumber
+                                $dbrec->idnumber = $cm->idnumber;
+
+                            } else {
+                                $idnumber = backup_todb($info['GRADE_ITEM']['#']['IDNUMBER']['0']['#'], false);
+
+                                if (grade_verify_idnumber($idnumber, $restore->course_id)) {
+                                    //make sure the new idnumber is unique
+                                    $dbrec->idnumber  = $idnumber;
+                                }
+                            }
+
+                            $dbrec->itemname        = backup_todb($info['GRADE_ITEM']['#']['ITEMNAME']['0']['#'], false);
+                            $dbrec->itemtype        = backup_todb($info['GRADE_ITEM']['#']['ITEMTYPE']['0']['#'], false);
+                            $dbrec->itemmodule      = backup_todb($info['GRADE_ITEM']['#']['ITEMMODULE']['0']['#'], false);
+                            $dbrec->itemnumber      = backup_todb($info['GRADE_ITEM']['#']['ITEMNUMBER']['0']['#'], false);
+                            $dbrec->iteminfo        = backup_todb($info['GRADE_ITEM']['#']['ITEMINFO']['0']['#'], false);
+                            $dbrec->gradetype       = backup_todb($info['GRADE_ITEM']['#']['GRADETYPE']['0']['#'], false);
+                            $dbrec->calculation     = backup_todb($info['GRADE_ITEM']['#']['CALCULATION']['0']['#'], false);
+                            $dbrec->grademax        = backup_todb($info['GRADE_ITEM']['#']['GRADEMAX']['0']['#'], false);
+                            $dbrec->grademin        = backup_todb($info['GRADE_ITEM']['#']['GRADEMIN']['0']['#'], false);
+                            $dbrec->gradepass       = backup_todb($info['GRADE_ITEM']['#']['GRADEPASS']['0']['#'], false);
+                            $dbrec->multfactor      = backup_todb($info['GRADE_ITEM']['#']['MULTFACTOR']['0']['#'], false);
+                            $dbrec->plusfactor      = backup_todb($info['GRADE_ITEM']['#']['PLUSFACTOR']['0']['#'], false);
+                            $dbrec->aggregationcoef = backup_todb($info['GRADE_ITEM']['#']['AGGREGATIONCOEF']['0']['#'], false);
+                            $dbrec->display         = backup_todb($info['GRADE_ITEM']['#']['DISPLAY']['0']['#'], false);
+                            $dbrec->decimals        = backup_todb($info['GRADE_ITEM']['#']['DECIMALS']['0']['#'], false);
+                            $dbrec->hidden          = backup_todb($info['GRADE_ITEM']['#']['HIDDEN']['0']['#'], false);
+                            $dbrec->locked          = backup_todb($info['GRADE_ITEM']['#']['LOCKED']['0']['#'], false);
+                            $dbrec->locktime        = backup_todb($info['GRADE_ITEM']['#']['LOCKTIME']['0']['#'], false);
+                            $dbrec->timecreated     = backup_todb($info['GRADE_ITEM']['#']['TIMECREATED']['0']['#'], false);
+
+                            if (backup_todb($info['GRADE_ITEM']['#']['SCALEID']['0']['#'], false)) {
+                                $scale = backup_getid($restore->backup_unique_code,"scale",backup_todb($info['GRADE_ITEM']['#']['SCALEID']['0']['#'], false));
+                                $dbrec->scaleid = $scale->new_id;
+                            }
+
+                            if  (backup_todb($info['GRADE_ITEM']['#']['OUTCOMEID']['0']['#'])) {
+                                $oldoutcome = backup_todb($info['GRADE_ITEM']['#']['OUTCOMEID']['0']['#']);
+                                if (empty($outcomes[$oldoutcome])) {
+                                    continue; // error!
+                                } 
+                                if (empty($outcomes[$oldoutcome]->id)) {
+                                    $outcomes[$oldoutcome]->insert('restore');
+                                    $outcomes[$oldoutcome]->use_in($restore->course_id);
+                                    backup_putid($restore->backup_unique_code, "grade_outcomes", $oldoutcome, $outcomes[$oldoutcome]->id);
+                                }
+                                $dbrec->outcomeid = $outcomes[$oldoutcome]->id;
+                            }
+
+                            $grade_item = new grade_item($dbrec, false);
+                            $grade_item->insert('restore');
+                            if ($restoreall) {
+                                // set original parent if restored
+                                $oldcat = $info['GRADE_ITEM']['#']['CATEGORYID']['0']['#'];
+                                if (!empty($cached_categories[$oldcat])) {
+                                    $grade_item->set_parent($cached_categories[$oldcat]->id);
+                                }
+                            }
+                            $status = backup_putid($restore->backup_unique_code,"grade_items", $rec->old_id, $grade_item->id) && $status;
+                        }
+
+                        // no need to restore grades if user data is not selected or importing activities
+                        if ($importing
+                          or ($grade_item->itemtype == 'mod' and !restore_userdata_selected($restore,  $grade_item->itemmodule, $olditeminstance))) {
+                            // module instance not selected when restored using granular
+                            // skip this item
+                            continue;
+                        }
+
+                        /// now, restore grade_grades
+                        if (!empty($info['GRADE_ITEM']['#']['GRADE_GRADES']['0']['#']['GRADE'])) {
+                            //Iterate over items
+                            foreach ($info['GRADE_ITEM']['#']['GRADE_GRADES']['0']['#']['GRADE'] as $g_info) {
+
+                                $grade = new grade_grade();
+                                $grade->itemid         = $grade_item->id;
+
+                                $olduser = backup_todb($g_info['#']['USERID']['0']['#'], false);
+                                $user = backup_getid($restore->backup_unique_code,"user",$olduser);
+                                $grade->userid         = $user->new_id;
+
+                                $grade->rawgrade       = backup_todb($g_info['#']['RAWGRADE']['0']['#'], false);
+                                $grade->rawgrademax    = backup_todb($g_info['#']['RAWGRADEMAX']['0']['#'], false);
+                                $grade->rawgrademin    = backup_todb($g_info['#']['RAWGRADEMIN']['0']['#'], false);
+                                // need to find scaleid
+                                if (backup_todb($g_info['#']['RAWSCALEID']['0']['#'])) {
+                                    $scale = backup_getid($restore->backup_unique_code,"scale",backup_todb($g_info['#']['RAWSCALEID']['0']['#'], false));
+                                    $grade->rawscaleid = $scale->new_id;
+                                }
+
+                                if (backup_todb($g_info['#']['USERMODIFIED']['0']['#'])) {
+                                    if ($modifier = backup_getid($restore->backup_unique_code,"user", backup_todb($g_info['#']['USERMODIFIED']['0']['#'], false))) {
+                                        $grade->usermodified = $modifier->new_id;
+                                    }
+                                }
+
+                                $grade->finalgrade        = backup_todb($g_info['#']['FINALGRADE']['0']['#'], false);
+                                $grade->hidden            = backup_todb($g_info['#']['HIDDEN']['0']['#'], false);
+                                $grade->locked            = backup_todb($g_info['#']['LOCKED']['0']['#'], false);
+                                $grade->locktime          = backup_todb($g_info['#']['LOCKTIME']['0']['#'], false);
+                                $grade->exported          = backup_todb($g_info['#']['EXPORTED']['0']['#'], false);
+                                $grade->overridden        = backup_todb($g_info['#']['OVERRIDDEN']['0']['#'], false);
+                                $grade->excluded          = backup_todb($g_info['#']['EXCLUDED']['0']['#'], false);
+                                $grade->feedback          = backup_todb($g_info['#']['FEEDBACK']['0']['#'], false);
+                                $grade->feedbackformat    = backup_todb($g_info['#']['FEEDBACKFORMAT']['0']['#'], false);
+                                $grade->information       = backup_todb($g_info['#']['INFORMATION']['0']['#'], false);
+                                $grade->informationformat = backup_todb($g_info['#']['INFORMATIONFORMAT']['0']['#'], false);
+                                $grade->timecreated       = backup_todb($g_info['#']['TIMECREATED']['0']['#'], false);
+                                $grade->timemodified      = backup_todb($g_info['#']['TIMEMODIFIED']['0']['#'], false);
+
+                                $grade->insert('restore');
+                                backup_putid($restore->backup_unique_code,"grade_grades", backup_todb($g_info['#']['ID']['0']['#']), $grade->id);
+
+                                $counter++;
+                                if ($counter % 20 == 0) {
+                                    if (!defined('RESTORE_SILENTLY')) {
+                                        echo ".";
+                                        if ($counter % 400 == 0) {
+                                            echo "<br />";
+                                        }
+                                    }
+                                    backup_flush(300);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    /// add outcomes that are not used when doing full restore
+        if ($status and $restoreall) {
+            foreach ($outcomes as $oldoutcome=>$grade_outcome) {
+                if (empty($grade_outcome->id)) {
+                    $grade_outcome->insert('restore');
+                    $grade_outcome->use_in($restore->course_id);
+                    backup_putid($restore->backup_unique_code, "grade_outcomes", $oldoutcome, $grade_outcome->id);
+                }
+            }
+        }
+
+
+        if ($status and !$importing and $restore_histories) {
+            /// following code is very inefficient 
+
+            $gchcount = count_records ('backup_ids', 'backup_code', $restore->backup_unique_code, 'table_name', 'grade_categories_history');
+            $gghcount = count_records ('backup_ids', 'backup_code', $restore->backup_unique_code, 'table_name', 'grade_grades_history');
+            $gihcount = count_records ('backup_ids', 'backup_code', $restore->backup_unique_code, 'table_name', 'grade_items_history');
+            $gohcount = count_records ('backup_ids', 'backup_code', $restore->backup_unique_code, 'table_name', 'grade_outcomes_history');
+
+            // Number of records to get in every chunk
+            $recordset_size = 2;
+
+            // process histories
+            if ($gchcount && $status) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo '<li>'.get_string('gradecategoryhistory','grades').'</li>';
+                }
+                $counter = 0;
+                while ($counter < $gchcount) {
+                    //Fetch recordset_size records in each iteration
+                    $recs = get_records_select("backup_ids","table_name = 'grade_categories_history' AND backup_code = '$restore->backup_unique_code'",
+                                                "old_id",
+                                                "old_id",
+                                                $counter,
+                                                $recordset_size);
+                    if ($recs) {
+                        foreach ($recs as $rec) {
+                            //Get the full record from backup_ids
+                            $data = backup_getid($restore->backup_unique_code,'grade_categories_history',$rec->old_id);
+                            if ($data) {
+                                //Now get completed xmlized object
+                                $info = $data->info;
+                                //traverse_xmlize($info);                            //Debug
+                                //print_object ($GLOBALS['traverse_array']);         //Debug
+                                //$GLOBALS['traverse_array']="";                     //Debug
+    
+                                $oldobj = backup_getid($restore->backup_unique_code,"grade_categories", backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['OLDID']['0']['#']));
+                                if (empty($oldobj->new_id)) {
+                                    // if the old object is not being restored, can't restoring its history
+                                    $counter++;
+                                    continue;
+                                }
+                                $dbrec->oldid = $oldobj->new_id;
+                                $dbrec->action = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['ACTION']['0']['#']);
+                                $dbrec->source = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['SOURCE']['0']['#']);
+                                $dbrec->timemodified = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['TIMEMODIFIED']['0']['#']);
+    
+                                // loggeduser might not be restored, e.g. admin
+                                if ($oldobj = backup_getid($restore->backup_unique_code,"user", backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['LOGGEDUSER']['0']['#']))) {
+                                    $dbrec->loggeduser = $oldobj->new_id;
+                                }
+    
+                                // this item might not have a parent at all, do not skip it if no parent is specified
+                                if (backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['PARENT']['0']['#'])) {
+                                    $oldobj = backup_getid($restore->backup_unique_code,"grade_categories", backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['PARENT']['0']['#']));
+                                    if (empty($oldobj->new_id)) {
+                                        // if the parent category not restored
+                                        $counter++;
+                                        continue;
+                                    }
+                                }
+                                $dbrec->parent = $oldobj->new_id;
+                                $dbrec->depth = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['DEPTH']['0']['#']);
+                                // path needs to be rebuilt
+                                if ($path = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['PATH']['0']['#'])) {
+                                // to preserve the path and make it work, we need to replace the categories one by one
+                                // we first get the list of categories in current path
+                                    if ($paths = explode("/", $path)) {
+                                        $newpath = '';
+                                        foreach ($paths as $catid) {
+                                            if ($catid) {
+                                                // find the new corresponding path
+                                                $oldpath = backup_getid($restore->backup_unique_code,"grade_categories", $catid);
+                                                $newpath .= "/$oldpath->new_id";
+                                            }
+                                        }
+                                        $dbrec->path = $newpath;
+                                    }
+                                }
+                                $dbrec->fullname = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['FULLNAME']['0']['#']);
+                                $dbrec->aggregation = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['AGGRETGATION']['0']['#']);
+                                $dbrec->keephigh = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['KEEPHIGH']['0']['#']);
+                                $dbrec->droplow = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['DROPLOW']['0']['#']);
+                                
+                                $dbrec->aggregateonlygraded = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['AGGREGATEONLYGRADED']['0']['#']);
+                                $dbrec->aggregateoutcomes = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['AGGREGATEOUTCOMES']['0']['#']);
+                                $dbrec->aggregatesubcats = backup_todb($info['GRADE_CATEGORIES_HISTORY']['#']['AGGREGATESUBCATS']['0']['#']);
+    
+                                $dbrec->courseid = $restore->course_id;
+                                insert_record('grade_categories_history', $dbrec);
+                                unset($dbrec);
+    
+                            }
+                            //Increment counters
+                            $counter++;
+                            //Do some output
+                            if ($counter % 1 == 0) {
+                                if (!defined('RESTORE_SILENTLY')) {
+                                    echo ".";
+                                    if ($counter % 20 == 0) {
+                                        echo "<br />";
+                                    }
+                                }
+                                backup_flush(300);
+                            }
+                        }
+                    }
+                }
+            }
+    
+            // process histories
+            if ($gghcount && $status) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo '<li>'.get_string('gradegradeshistory','grades').'</li>';
+                }
+                $counter = 0;
+                while ($counter < $gghcount) {
+                    //Fetch recordset_size records in each iteration
+                    $recs = get_records_select("backup_ids","table_name = 'grade_grades_history' AND backup_code = '$restore->backup_unique_code'",
+                                                "old_id",
+                                                "old_id",
+                                                $counter,
+                                                $recordset_size);
+                    if ($recs) {
+                        foreach ($recs as $rec) {
+                            //Get the full record from backup_ids
+                            $data = backup_getid($restore->backup_unique_code,'grade_grades_history',$rec->old_id);
+                            if ($data) {
+                                //Now get completed xmlized object
+                                $info = $data->info;
+                                //traverse_xmlize($info);                            //Debug
+                                //print_object ($GLOBALS['traverse_array']);         //Debug
+                                //$GLOBALS['traverse_array']="";                     //Debug
+    
+                                $oldobj = backup_getid($restore->backup_unique_code,"grade_grades", backup_todb($info['GRADE_GRADES_HISTORY']['#']['OLDID']['0']['#']));
+                                if (empty($oldobj->new_id)) {
+                                    // if the old object is not being restored, can't restoring its history
+                                    $counter++;
+                                    continue;
+                                }
+                                $dbrec->oldid = $oldobj->new_id;
+                                $dbrec->action = backup_todb($info['GRADE_GRADES_HISTORY']['#']['ACTION']['0']['#']);
+                                $dbrec->source = backup_todb($info['GRADE_GRADES_HISTORY']['#']['SOURCE']['0']['#']);
+                                $dbrec->timemodified = backup_todb($info['GRADE_GRADES_HISTORY']['#']['TIMEMODIFIED']['0']['#']);
+                                if ($oldobj = backup_getid($restore->backup_unique_code,"user", backup_todb($info['GRADE_GRADES_HISTORY']['#']['LOGGEDUSER']['0']['#']))) {
+                                    $dbrec->loggeduser = $oldobj->new_id;
+                                }
+                                
+                                $oldobj = backup_getid($restore->backup_unique_code,"grade_items", backup_todb($info['GRADE_GRADES_HISTORY']['#']['ITEMID']['0']['#']));
+                                $dbrec->itemid = $oldobj->new_id;
+                                if (empty($dbrec->itemid)) {
+                                    $counter++;
+                                    continue; // grade item not being restored
+                                }
+                                $oldobj = backup_getid($restore->backup_unique_code,"user", backup_todb($info['GRADE_GRADES_HISTORY']['#']['USERID']['0']['#']));
+                                $dbrec->userid = $oldobj->new_id;
+                                $dbrec->rawgrade = backup_todb($info['GRADE_GRADES_HISTORY']['#']['RAWGRADE']['0']['#']);
+                                $dbrec->rawgrademax = backup_todb($info['GRADE_GRADES_HISTORY']['#']['RAWGRADEMAX']['0']['#']);
+                                $dbrec->rawgrademin = backup_todb($info['GRADE_GRADES_HISTORY']['#']['RAWGRADEMIN']['0']['#']);
+                                if ($oldobj = backup_getid($restore->backup_unique_code,"user", backup_todb($info['GRADE_GRADES_HISTORY']['#']['USERMODIFIED']['0']['#']))) {
+                                    $dbrec->usermodified = $oldobj->new_id;
+                                }
+                                
+                                if (backup_todb($info['GRADE_GRADES_HISTORY']['#']['RAWSCALEID']['0']['#'])) {
+                                    $scale = backup_getid($restore->backup_unique_code,"scale",backup_todb($info['GRADE_GRADES_HISTORY']['#']['RAWSCALEID']['0']['#']));
+                                    $dbrec->rawscaleid = $scale->new_id;
+                                }
+                                
+                                $dbrec->finalgrade = backup_todb($info['GRADE_GRADES_HISTORY']['#']['FINALGRADE']['0']['#']);
+                                $dbrec->hidden = backup_todb($info['GRADE_GRADES_HISTORY']['#']['HIDDEN']['0']['#']);
+                                $dbrec->locked = backup_todb($info['GRADE_GRADES_HISTORY']['#']['LOCKED']['0']['#']);
+                                $dbrec->locktime = backup_todb($info['GRADE_GRADES_HISTORY']['#']['LOCKTIME']['0']['#']);
+                                $dbrec->exported = backup_todb($info['GRADE_GRADES_HISTORY']['#']['EXPORTED']['0']['#']);
+                                $dbrec->overridden = backup_todb($info['GRADE_GRADES_HISTORY']['#']['OVERRIDDEN']['0']['#']);
+                                $dbrec->excluded = backup_todb($info['GRADE_GRADES_HISTORY']['#']['EXCLUDED']['0']['#']);
+                                $dbrec->feedback = backup_todb($info['GRADE_TEXT_HISTORY']['#']['FEEDBACK']['0']['#']);
+                                $dbrec->feedbackformat = backup_todb($info['GRADE_TEXT_HISTORY']['#']['FEEDBACKFORMAT']['0']['#']);
+                                $dbrec->information = backup_todb($info['GRADE_TEXT_HISTORY']['#']['INFORMATION']['0']['#']);
+                                $dbrec->informationformat = backup_todb($info['GRADE_TEXT_HISTORY']['#']['INFORMATIONFORMAT']['0']['#']);
+    
+                                insert_record('grade_grades_history', $dbrec);
+                                unset($dbrec);
+    
+                            }
+                            //Increment counters
+                            $counter++;
+                            //Do some output
+                            if ($counter % 1 == 0) {
+                                if (!defined('RESTORE_SILENTLY')) {
+                                    echo ".";
+                                    if ($counter % 20 == 0) {
+                                        echo "<br />";
+                                    }
+                                }
+                                backup_flush(300);
+                            }
+                        }
+                    }
+                }
+            }
+    
+            // process histories
+    
+            if ($gihcount && $status) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo '<li>'.get_string('gradeitemshistory','grades').'</li>';
+                }
+                $counter = 0;
+                while ($counter < $gihcount) {
+                    //Fetch recordset_size records in each iteration
+                    $recs = get_records_select("backup_ids","table_name = 'grade_items_history' AND backup_code = '$restore->backup_unique_code'",
+                                                "old_id",
+                                                "old_id",
+                                                $counter,
+                                                $recordset_size);
+                    if ($recs) {
+                        foreach ($recs as $rec) {
+                            //Get the full record from backup_ids
+                            $data = backup_getid($restore->backup_unique_code,'grade_items_history',$rec->old_id);
+                            if ($data) {
+                                //Now get completed xmlized object
+                                $info = $data->info;
+                                //traverse_xmlize($info);                            //Debug
+                                //print_object ($GLOBALS['traverse_array']);         //Debug
+                                //$GLOBALS['traverse_array']="";                     //Debug
+    
+    
+                                $oldobj = backup_getid($restore->backup_unique_code,"grade_items", backup_todb($info['GRADE_ITEM_HISTORY']['#']['OLDID']['0']['#']));
+                                if (empty($oldobj->new_id)) {
+                                    // if the old object is not being restored, can't restoring its history
+                                    $counter++;
+                                    continue;
+                                }
+                                $dbrec->oldid = $oldobj->new_id;
+                                $dbrec->action = backup_todb($info['GRADE_ITEM_HISTORY']['#']['ACTION']['0']['#']);
+                                $dbrec->source = backup_todb($info['GRADE_ITEM_HISTORY']['#']['SOURCE']['0']['#']);
+                                $dbrec->timemodified = backup_todb($info['GRADE_ITEM_HISTORY']['#']['TIMEMODIFIED']['0']['#']);
+                                if ($oldobj = backup_getid($restore->backup_unique_code,"user", backup_todb($info['GRADE_ITEM_HISTORY']['#']['LOGGEDUSER']['0']['#']))) {
+                                    $dbrec->loggeduser = $oldobj->new_id;
+                                }
+                                $dbrec->courseid = $restore->course_id;
+                                $oldobj = backup_getid($restore->backup_unique_code,'grade_categories',backup_todb($info['GRADE_ITEM_HISTORY']['#']['CATEGORYID']['0']['#']));
+                                $oldobj->categoryid = $category->new_id;
+                                if (empty($oldobj->categoryid)) {
+                                    $counter++;
+                                    continue; // category not restored
+                                }
+    
+                                $dbrec->itemname= backup_todb($info['GRADE_ITEM_HISTORY']['#']['ITEMNAME']['0']['#']);
+                                $dbrec->itemtype = backup_todb($info['GRADE_ITEM_HISTORY']['#']['ITEMTYPE']['0']['#']);
+                                $dbrec->itemmodule = backup_todb($info['GRADE_ITEM_HISTORY']['#']['ITEMMODULE']['0']['#']);
+    
+                                // code from grade_items restore
+                                $iteminstance = backup_todb($info['GRADE_ITEM_HISTORY']['#']['ITEMINSTANCE']['0']['#']);
+                                // do not restore if this grade_item is a mod, and
+                                if ($dbrec->itemtype == 'mod') {
+    
+                                    if (!restore_userdata_selected($restore,  $dbrec->itemmodule, $iteminstance)) {
+                                        // module instance not selected when restored using granular
+                                        // skip this item
+                                        $counter++;
+                                        continue;
+                                    }
+    
+                                    // iteminstance should point to new mod
+    
+                                    $mod = backup_getid($restore->backup_unique_code,$dbrec->itemmodule, $iteminstance);
+                                    $dbrec->iteminstance = $mod->new_id;
+    
+                                } else if ($dbrec->itemtype == 'category') {
+                                    // the item instance should point to the new grade category
+    
+                                    // only proceed if we are restoring all grade items
+                                    if ($restoreall) {
+                                        $category = backup_getid($restore->backup_unique_code,'grade_categories', $iteminstance);
+                                        $dbrec->iteminstance = $category->new_id;
+                                    } else {
+                                        // otherwise we can safely ignore this grade item and subsequent
+                                        // grade_raws, grade_finals etc
+                                        continue;
+                                    }
+                                } elseif ($dbrec->itemtype == 'course') { // We don't restore course type to avoid duplicate course items
+                                    if ($restoreall) {
+                                        // TODO any special code needed here to restore course item without duplicating it?
+                                        // find the course category with depth 1, and course id = current course id
+                                        // this would have been already restored
+    
+                                        $cat = get_record('grade_categories', 'depth', 1, 'courseid', $restore->course_id);
+                                        $dbrec->iteminstance = $cat->id;
+    
+                                    } else {
+                                        $counter++;
+                                        continue;
+                                    }
+                                }
+    
+                                $dbrec->itemnumber = backup_todb($info['GRADE_ITEM_HISTORY']['#']['ITEMNUMBER']['0']['#']);
+                                $dbrec->iteminfo = backup_todb($info['GRADE_ITEM_HISTORY']['#']['ITEMINFO']['0']['#']);
+                                $dbrec->idnumber = backup_todb($info['GRADE_ITEM_HISTORY']['#']['IDNUMBER']['0']['#']);
+                                $dbrec->calculation = backup_todb($info['GRADE_ITEM_HISTORY']['#']['CALCULATION']['0']['#']);
+                                $dbrec->gradetype = backup_todb($info['GRADE_ITEM_HISTORY']['#']['GRADETYPE']['0']['#']);
+                                $dbrec->grademax = backup_todb($info['GRADE_ITEM_HISTORY']['#']['GRADEMAX']['0']['#']);
+                                $dbrec->grademin = backup_todb($info['GRADE_ITEM_HISTORY']['#']['GRADEMIN']['0']['#']);
+                                if ($oldobj = backup_getid($restore->backup_unique_code,"scale", backup_todb($info['GRADE_ITEM_HISTORY']['#']['SCALEID']['0']['#']))) {
+                                    // scaleid is optional
+                                    $dbrec->scaleid = $oldobj->new_id;
+                                }
+                                if ($oldobj = backup_getid($restore->backup_unique_code,"grade_outcomes", backup_todb($info['GRADE_ITEM_HISTORY']['#']['OUTCOMEID']['0']['#']))) {
+                                    // outcome is optional
+                                    $dbrec->outcomeid = $oldobj->new_id;
+                                }
+                                $dbrec->gradepass = backup_todb($info['GRADE_ITEM_HISTORY']['#']['GRADEPASS']['0']['#']);
+                                $dbrec->multfactor = backup_todb($info['GRADE_ITEM_HISTORY']['#']['MULTFACTOR']['0']['#']);
+                                $dbrec->plusfactor = backup_todb($info['GRADE_ITEM_HISTORY']['#']['PLUSFACTOR']['0']['#']);
+                                $dbrec->aggregationcoef = backup_todb($info['GRADE_ITEM_HISTORY']['#']['AGGREGATIONCOEF']['0']['#']);
+                                $dbrec->sortorder = backup_todb($info['GRADE_ITEM_HISTORY']['#']['SORTORDER']['0']['#']);
+                                $dbrec->display = backup_todb($info['GRADE_ITEM_HISTORY']['#']['DISPLAY']['0']['#']);
+                                $dbrec->decimals = backup_todb($info['GRADE_ITEM_HISTORY']['#']['DECIMALS']['0']['#']);
+                                $dbrec->hidden = backup_todb($info['GRADE_ITEM_HISTORY']['#']['HIDDEN']['0']['#']);
+                                $dbrec->locked = backup_todb($info['GRADE_ITEM_HISTORY']['#']['LOCKED']['0']['#']);
+                                $dbrec->locktime = backup_todb($info['GRADE_ITEM_HISTORY']['#']['LOCKTIME']['0']['#']);
+                                $dbrec->needsupdate = backup_todb($info['GRADE_ITEM_HISTORY']['#']['NEEDSUPDATE']['0']['#']);
+    
+                                insert_record('grade_items_history', $dbrec);
+                                unset($dbrec);
+    
+                            }
+                            //Increment counters
+                            $counter++;
+                            //Do some output
+                            if ($counter % 1 == 0) {
+                                if (!defined('RESTORE_SILENTLY')) {
+                                    echo ".";
+                                    if ($counter % 20 == 0) {
+                                        echo "<br />";
+                                    }
+                                }
+                                backup_flush(300);
+                            }
+                        }
+                    }
+                }
+            }
+    
+            // process histories
+            if ($gohcount && $status) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo '<li>'.get_string('gradeoutcomeshistory','grades').'</li>';
+                }
+                $counter = 0;
+                while ($counter < $gohcount) {
+                    //Fetch recordset_size records in each iteration
+                    $recs = get_records_select("backup_ids","table_name = 'grade_outcomes_history' AND backup_code = '$restore->backup_unique_code'",
+                                                "old_id",
+                                                "old_id",
+                                                $counter,
+                                                $recordset_size);
+                    if ($recs) {
+                        foreach ($recs as $rec) {
+                            //Get the full record from backup_ids
+                            $data = backup_getid($restore->backup_unique_code,'grade_outcomes_history',$rec->old_id);
+                            if ($data) {
+                                //Now get completed xmlized object
+                                $info = $data->info;
+                                //traverse_xmlize($info);                            //Debug
+                                //print_object ($GLOBALS['traverse_array']);         //Debug
+                                //$GLOBALS['traverse_array']="";                     //Debug
+    
+                                $oldobj = backup_getid($restore->backup_unique_code,"grade_outcomes", backup_todb($info['GRADE_OUTCOME_HISTORY']['#']['OLDID']['0']['#']));
+                                if (empty($oldobj->new_id)) {
+                                    // if the old object is not being restored, can't restoring its history
+                                    $counter++;
+                                    continue;
+                                }
+                                $dbrec->oldid = $oldobj->new_id;
+                                $dbrec->action = backup_todb($info['GRADE_OUTCOME_HISTORY']['#']['ACTION']['0']['#']);
+                                $dbrec->source = backup_todb($info['GRADE_OUTCOME_HISTORY']['#']['SOURCE']['0']['#']);
+                                $dbrec->timemodified = backup_todb($info['GRADE_OUTCOME_HISTORY']['#']['TIMEMODIFIED']['0']['#']);
+                                if ($oldobj = backup_getid($restore->backup_unique_code,"user", backup_todb($info['GRADE_OUTCOME_HISTORY']['#']['LOGGEDUSER']['0']['#']))) {
+                                    $dbrec->loggeduser = $oldobj->new_id;
+                                }
+                                $dbrec->courseid = $restore->course_id;
+                                $dbrec->shortname = backup_todb($info['GRADE_OUTCOME_HISTORY']['#']['SHORTNAME']['0']['#']);
+                                $dbrec->fullname= backup_todb($info['GRADE_OUTCOME_HISTORY']['#']['FULLNAME']['0']['#']);
+                                $oldobj = backup_getid($restore->backup_unique_code,"scale", backup_todb($info['GRADE_OUTCOME_HISTORY']['#']['SCALEID']['0']['#']));
+                                $dbrec->scaleid = $oldobj->new_id;
+                                $dbrec->description = backup_todb($info['GRADE_OUTCOME_HISTORY']['#']['DESCRIPTION']['0']['#']);
+    
+                                insert_record('grade_outcomes_history', $dbrec);
+                                unset($dbrec);
+    
+                            }
+                            //Increment counters
+                            $counter++;
+                            //Do some output
+                            if ($counter % 1 == 0) {
+                                if (!defined('RESTORE_SILENTLY')) {
+                                    echo ".";
+                                    if ($counter % 20 == 0) {
+                                        echo "<br />";
+                                    }
+                                }
+                                backup_flush(300);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!defined('RESTORE_SILENTLY')) {
+        //End ul
+            echo '</ul>';
+        }
         return $status;
     }
 
@@ -1473,6 +2439,7 @@
     function restore_create_users($restore,$xml_file) {
 
         global $CFG, $db;
+        require_once ($CFG->dirroot.'/tag/lib.php');
 
         $status = true;
         //Check it exists
@@ -1487,29 +2454,56 @@
         }
 
         //Now, get evey user_id from $info and user data from $backup_ids
-        //and create the necessary records (users, user_students, user_teachers
-        //user_course_creators and user_admins
+        //and create the necessary db structures
+
         if (!empty($info->users)) {
-            // Grab mnethosts keyed by wwwroot, to map to id
-            $mnethosts = get_records('mnet_host', '', '', 
+
+        /// Grab mnethosts keyed by wwwroot, to map to id
+            $mnethosts = get_records('mnet_host', '', '',
                                      'wwwroot', 'wwwroot, id');
 
+        /// Get languages for quick search later
             $languages = get_list_of_languages();
 
+        /// Iterate over all users loaded from xml
+            $counter = 0;
+
+        /// Init trailing messages
+            $messages = array();
             foreach ($info->users as $userid) {
-                $rec = backup_getid($restore->backup_unique_code,"user",$userid); 
+                $rec = backup_getid($restore->backup_unique_code,"user",$userid);
                 $user = $rec->info;
+                foreach (array_keys(get_object_vars($user)) as $field) {
+                    if (!is_array($user->$field)) {
+                        $user->$field = backup_todb($user->$field);
+                        if (is_null($user->$field)) {
+                            $user->$field = '';
+                        }
+                    }
+                }
 
                 //Now, recode some languages (Moodle 1.5)
                 if ($user->lang == 'ma_nt') {
                     $user->lang = 'mi_nt';
                 }
 
+                //Country list updates - MDL-13060
+                //Any user whose country code has been deleted or modified needs to be assigned a valid one.
+                $country_update_map = array(
+                    'ZR' => 'CD',
+                    'TP' => 'TL',
+                    'FX' => 'FR',
+                    'KO' => 'RS',
+                    'CS' => 'RS',
+                    'WA' => 'GB');
+                if (array_key_exists($user->country, $country_update_map)) {
+                    $user->country = $country_update_map[$user->country];
+                }
 
                 //If language does not exist here - use site default
                 if (!array_key_exists($user->lang, $languages)) {
                     $user->lang = $CFG->lang;
-                } 
+                }
 
                 //Check if it's admin and coursecreator
                 $is_admin =         !empty($user->roles['admin']);
@@ -1533,28 +2527,37 @@
                     // fast url-to-id lookups
                     if (isset($mnethosts[$user->mnethosturl])) {
                         $user->mnethostid = $mnethosts[$user->mnethosturl]->id;
-                    } else { 
-                        // should not happen, as we check in restore_chech.php 
-                        // but handle the error if it does
-                        error("This backup file contains external Moodle Network Hosts that are not configured locally.");
+                    } else {
+                        // lookup failed, switch user auth to manual and host to local. MDL-17009
+                        if ($CFG->registerauth == 'email') {
+                            $user->auth = 'email';
+                        } else {
+                            $user->auth = 'manual';
+                        }
+                        $user->mnethostid = $CFG->mnet_localhost_id;
+                        // inform about the automatic switch of authentication/host
+                        $messages[] = get_string('mnetrestore_extusers_switchuserauth', 'admin', $user);
                     }
                 }
                 unset($user->mnethosturl);
 
-                //To store new ids created
+                //To store user->id along all the iteration
                 $newid=null;
                 //check if it exists (by username) and get its id
                 $user_exists = true;
-                $user_data = get_record("user","username",addslashes($user->username), 
+                $user_data = get_record("user","username",addslashes($user->username),
                                         'mnethostid', $user->mnethostid);
                 if (!$user_data) {
                     $user_exists = false;
                 } else {
                     $newid = $user_data->id;
                 }
-                //Flags to see if we have to create the user, roles and preferences
+
+                //Flags to see what parts are we going to restore
                 $create_user = true;
                 $create_roles = true;
+                $create_custom_profile_fields = true;
+                $create_tags = true;
                 $create_preferences = true;
 
                 //If we are restoring course users and it isn't a course user
@@ -1563,6 +2566,8 @@
                     $status = backup_putid($restore->backup_unique_code,"user",$userid,null,'notincourse');
                     $create_user = false;
                     $create_roles = false;
+                    $create_custom_profile_fields = false;
+                    $create_tags = false;
                     $create_preferences = false;
                 }
 
@@ -1570,6 +2575,9 @@
                     //If user exists mark its newid in backup_ids (the same than old)
                     $status = backup_putid($restore->backup_unique_code,"user",$userid,$newid,'exists');
                     $create_user = false;
+                    $create_custom_profile_fields = false;
+                    $create_tags = false;
+                    $create_preferences = false;
                 }
 
                 //Here, if create_user, do it
@@ -1577,10 +2585,15 @@
                     //Unset the id because it's going to be inserted with a new one
                     unset ($user->id);
                     // relink the descriptions
-                    $user->description = restore_decode_absolute_links($user->description);
+                    $user->description = stripslashes($user->description);
+
+                /// Disable pictures based on global setting or existing empty value (old backups can contain wrong empties)
+                    if (!empty($CFG->disableuserimages) || empty($user->picture)) {
+                        $user->picture = 0;
+                    }
 
                     //We need to analyse the AUTH field to recode it:
-                    //   - if the field isn't set, we are in a pre 1.4 backup and we'll 
+                    //   - if the field isn't set, we are in a pre 1.4 backup and we'll
                     //     use manual
 
                     if (empty($user->auth)) {
@@ -1595,7 +2608,7 @@
                     //    - if the destination site is different (by wwwroot) reset it.
                     //    - if the destination site is the same (by wwwroot), leave it unmodified
 
-                    if ($restore->original_wwwroot != $CFG->wwwroot) {
+                    if (!backup_is_same_site($restore)) {
                         $user->policyagreed = 0;
                     } else {
                         //Nothing to do, we are in the same server
@@ -1609,11 +2622,15 @@
 
                     //We are going to create the user
                     //The structure is exactly as we need
+
                     $newid = insert_record ("user", addslashes_recursive($user));
                     //Put the new id
                     $status = backup_putid($restore->backup_unique_code,"user",$userid,$newid,"new");
                 }
 
+                ///TODO: This seccion is to support pre 1.7 course backups, using old roles
+                ///      teacher, coursecreator, student.... providing a basic mapping to new ones.
+                ///      Someday we'll drop support for them and this section will be safely deleted (2.0?)
                 //Here, if create_roles, do it as necessary
                 if ($create_roles) {
                     //Get the newid and current info from backup_ids
@@ -1621,21 +2638,21 @@
                     $newid = $data->new_id;
                     $currinfo = $data->info.",";
 
-                    //Now, depending of the role, create records in user_studentes and user_teacher 
+                    //Now, depending of the role, create records in user_studentes and user_teacher
                     //and/or mark it in backup_ids
-                    
+
                     if ($is_admin) {
                         //If the record (user_admins) doesn't exists
                         //Only put status in backup_ids
                         $currinfo = $currinfo."admin,";
                         $status = backup_putid($restore->backup_unique_code,"user",$userid,$newid,$currinfo);
-                    } 
+                    }
                     if ($is_coursecreator) {
                         //If the record (user_coursecreators) doesn't exists
                         //Only put status in backup_ids
                         $currinfo = $currinfo."coursecreator,";
                         $status = backup_putid($restore->backup_unique_code,"user",$userid,$newid,$currinfo);
-                    } 
+                    }
                     if ($is_needed) {
                         //Only put status in backup_ids
                         $currinfo = $currinfo."needed,";
@@ -1643,7 +2660,7 @@
                     }
                     if ($is_teacher) {
                         //If the record (teacher) doesn't exists
-                        //Put status in backup_ids 
+                        //Put status in backup_ids
                         $currinfo = $currinfo."teacher,";
                         $status = backup_putid($restore->backup_unique_code,"user",$userid,$newid,$currinfo);
                         //Set course and user
@@ -1656,37 +2673,37 @@
                         //    - if we are in the same server (by wwwroot), maintain it unmodified.
                         if (empty($user->roles['teacher']->enrol)) {
                             $user->roles['teacher']->enrol = $CFG->enrol;
-                        } else if ($restore->original_wwwroot != $CFG->wwwroot) {
+                        } else if (!backup_is_same_site($restore)) {
                             $user->roles['teacher']->enrol = $CFG->enrol;
                         } else {
                             //Nothing to do. Leave it unmodified
-                        }    
+                        }
 
                         $rolesmapping = $restore->rolesmapping;
                         $context = get_context_instance(CONTEXT_COURSE, $restore->course_id);
                         if ($user->roles['teacher']->editall) {
                             role_assign($rolesmapping['defaultteacheredit'],
-                                        $newid, 
-                                        0, 
-                                        $context->id, 
-                                        $user->roles['teacher']->timestart, 
-                                        $user->roles['teacher']->timeend, 
-                                        0, 
+                                        $newid,
+                                        0,
+                                        $context->id,
+                                        $user->roles['teacher']->timestart,
+                                        $user->roles['teacher']->timeend,
+                                        0,
                                         $user->roles['teacher']->enrol);
-                            
-                            // editting teacher  
+
+                            // editting teacher
                         } else {
                             // non editting teacher
                             role_assign($rolesmapping['defaultteacher'],
-                                        $newid, 
-                                        0, 
-                                        $context->id, 
-                                        $user->roles['teacher']->timestart, 
-                                        $user->roles['teacher']->timeend, 
-                                        0, 
+                                        $newid,
+                                        0,
+                                        $context->id,
+                                        $user->roles['teacher']->timestart,
+                                        $user->roles['teacher']->timeend,
+                                        0,
                                         $user->roles['teacher']->enrol);
-                        }         
-                    } 
+                        }
+                    }
                     if ($is_student) {
 
                         //Put status in backup_ids
@@ -1702,21 +2719,21 @@
                         //    - if we are in the same server (by wwwroot), maintain it unmodified.
                         if (empty($user->roles['student']->enrol)) {
                             $user->roles['student']->enrol = $CFG->enrol;
-                        } else if ($restore->original_wwwroot != $CFG->wwwroot) {
+                        } else if (!backup_is_same_site($restore)) {
                             $user->roles['student']->enrol = $CFG->enrol;
                         } else {
                             //Nothing to do. Leave it unmodified
-                        }    
+                        }
                         $rolesmapping = $restore->rolesmapping;
                         $context = get_context_instance(CONTEXT_COURSE, $restore->course_id);
-                            
+
                         role_assign($rolesmapping['defaultstudent'],
-                                    $newid, 
-                                    0, 
-                                    $context->id, 
-                                    $user->roles['student']->timestart, 
-                                    $user->roles['student']->timeend, 
-                                    0, 
+                                    $newid,
+                                    0,
+                                    $context->id,
+                                    $user->roles['student']->timestart,
+                                    $user->roles['student']->timeend,
+                                    0,
                                     $user->roles['student']->enrol);
 
                     }
@@ -1730,19 +2747,43 @@
                     }
                 }
 
+            /// Here, if create_custom_profile_fields, do it as necessary
+                if ($create_custom_profile_fields) {
+                    if (isset($user->user_custom_profile_fields)) {
+                        foreach($user->user_custom_profile_fields as $udata) {
+                        /// If the profile field has data and the profile shortname-datatype is defined in server
+                            if ($udata->field_data) {
+                                if ($field = get_record('user_info_field', 'shortname', $udata->field_name, 'datatype', $udata->field_type)) {
+                                /// Insert the user_custom_profile_field
+                                    $rec = new object();
+                                    $rec->userid = $newid;
+                                    $rec->fieldid = $field->id;
+                                    $rec->data    = $udata->field_data;
+                                    insert_record('user_info_data', $rec);
+                                }
+                            }
+                        }
+                    }
+                }
+
+            /// Here, if create_tags, do it as necessary
+                if ($create_tags) {
+                /// if tags are enabled and there are user tags
+                    if (!empty($CFG->usetags) && isset($user->user_tags)) {
+                        $tags = array();
+                        foreach($user->user_tags as $user_tag) {
+                            $tags[] = $user_tag->rawname;
+                        }
+                        tag_set('user', $newid, $tags);
+                    }
+                }
+
                 //Here, if create_preferences, do it as necessary
                 if ($create_preferences) {
-                    //echo "Checking for preferences of user ".$user->username."<br />";         //Debug
-                    //Get user new id from backup_ids
-                    $data = backup_getid($restore->backup_unique_code,"user",$userid);
-                    $newid = $data->new_id;
                     if (isset($user->user_preferences)) {
-                        //echo "Preferences exist in backup file<br />";                         //Debug
                         foreach($user->user_preferences as $user_preference) {
-                            //echo $user_preference->name." = ".$user_preference->value."<br />";    //Debug
                             //We check if that user_preference exists in DB
                             if (!record_exists("user_preferences","userid",$newid,"name",$user_preference->name)) {
-                                //echo "Creating it<br />";                                              //Debug
                                 //Prepare the record and insert it
                                 $user_preference->userid = $newid;
                                 $status = insert_record("user_preferences",$user_preference);
@@ -1750,9 +2791,32 @@
                         }
                     }
                 }
+
+                //Do some output
+                $counter++;
+                if ($counter % 10 == 0) {
+                    if (!defined('RESTORE_SILENTLY')) {
+                        echo ".";
+                        if ($counter % 200 == 0) {
+                            echo "<br />";
+                        }
+                    }
+                    backup_flush(300);
+                }
+            } /// End of loop over all the users loaded from xml
+
+        /// Inform about all the messages geerated while restoring users
+            if (!defined('RESTORE_SILENTLY')) {
+                if ($messages) {
+                    echo '<ul>';
+                    foreach ($messages as $message) {
+                        echo '<li>' . $message . '</li>';
+                    }
+                    echo '</ul>';
+                }
             }
         }
-        
+
         return $status;
     }
 
@@ -1795,7 +2859,7 @@
                         $counter = 0;
                         while ($counter < $unreadcount) {
                             //Fetch recordset_size records in each iteration
-                            $recs = get_records_select("backup_ids","table_name = 'message' AND backup_code = '$restore->backup_unique_code'","old_id","old_id, old_id",$counter,$recordset_size);
+                            $recs = get_records_select("backup_ids","table_name = 'message' AND backup_code = '$restore->backup_unique_code'","old_id","old_id",$counter,$recordset_size);
                             if ($recs) {
                                 foreach ($recs as $rec) {
                                     //Get the full record from backup_ids
@@ -1807,6 +2871,7 @@
                                         //print_object ($GLOBALS['traverse_array']);         //Debug
                                         //$GLOBALS['traverse_array']="";                     //Debug
                                         //Now build the MESSAGE record structure
+                                        $dbrec = new object();
                                         $dbrec->useridfrom = backup_todb($info['MESSAGE']['#']['USERIDFROM']['0']['#']);
                                         $dbrec->useridto = backup_todb($info['MESSAGE']['#']['USERIDTO']['0']['#']);
                                         $dbrec->message = backup_todb($info['MESSAGE']['#']['MESSAGE']['0']['#']);
@@ -1860,7 +2925,7 @@
                         $counter = 0;
                         while ($counter < $readcount) {
                             //Fetch recordset_size records in each iteration
-                            $recs = get_records_select("backup_ids","table_name = 'message_read' AND backup_code = '$restore->backup_unique_code'","old_id","old_id, old_id",$counter,$recordset_size);
+                            $recs = get_records_select("backup_ids","table_name = 'message_read' AND backup_code = '$restore->backup_unique_code'","old_id","old_id",$counter,$recordset_size);
                             if ($recs) {
                                 foreach ($recs as $rec) {
                                     //Get the full record from backup_ids
@@ -1927,7 +2992,7 @@
                         $counter = 0;
                         while ($counter < $contactcount) {
                             //Fetch recordset_size records in each iteration
-                            $recs = get_records_select("backup_ids","table_name = 'message_contacts' AND backup_code = '$restore->backup_unique_code'","old_id","old_id, old_id",$counter,$recordset_size);
+                            $recs = get_records_select("backup_ids","table_name = 'message_contacts' AND backup_code = '$restore->backup_unique_code'","old_id","old_id",$counter,$recordset_size);
                             if ($recs) {
                                 foreach ($recs as $rec) {
                                     //Get the full record from backup_ids
@@ -1990,8 +3055,129 @@
        return $status;
     }
 
+    //This function creates all the structures for blogs and blog tags
+    function restore_create_blogs($restore,$xml_file) {
+
+        global $CFG;
+
+        $status = true;
+        //Check it exists
+        if (!file_exists($xml_file)) {
+            $status = false;
+        }
+        //Get info from xml
+        if ($status) {
+            //info will contain the number of blogs in the backup file
+            //in backup_ids->info will be the real info (serialized)
+            $info = restore_read_xml_blogs($restore,$xml_file);
+
+            //If we have info, then process blogs & blog_tags
+            if ($info > 0) {
+                //Count how many we have
+                $blogcount = count_records ('backup_ids', 'backup_code', $restore->backup_unique_code, 'table_name', 'blog');
+                if ($blogcount) {
+                    //Number of records to get in every chunk
+                    $recordset_size = 4;
+
+                    //Process blog
+                    if ($blogcount) {
+                        $counter = 0;
+                        while ($counter < $blogcount) {
+                            //Fetch recordset_size records in each iteration
+                            $recs = get_records_select("backup_ids","table_name = 'blog' AND backup_code = '$restore->backup_unique_code'","old_id","old_id",$counter,$recordset_size);
+                            if ($recs) {
+                                foreach ($recs as $rec) {
+                                    //Get the full record from backup_ids
+                                    $data = backup_getid($restore->backup_unique_code,"blog",$rec->old_id);
+                                    if ($data) {
+                                        //Now get completed xmlized object
+                                        $info = $data->info;
+                                        //traverse_xmlize($info);                            //Debug
+                                        //print_object ($GLOBALS['traverse_array']);         //Debug
+                                        //$GLOBALS['traverse_array']="";                     //Debug
+                                        //Now build the BLOG record structure
+                                        $dbrec = new object();
+                                        $dbrec->module = backup_todb($info['BLOG']['#']['MODULE']['0']['#']);
+                                        $dbrec->userid = backup_todb($info['BLOG']['#']['USERID']['0']['#']);
+                                        $dbrec->courseid = backup_todb($info['BLOG']['#']['COURSEID']['0']['#']);
+                                        $dbrec->groupid = backup_todb($info['BLOG']['#']['GROUPID']['0']['#']);
+                                        $dbrec->moduleid = backup_todb($info['BLOG']['#']['MODULEID']['0']['#']);
+                                        $dbrec->coursemoduleid = backup_todb($info['BLOG']['#']['COURSEMODULEID']['0']['#']);
+                                        $dbrec->subject = backup_todb($info['BLOG']['#']['SUBJECT']['0']['#']);
+                                        $dbrec->summary = backup_todb($info['BLOG']['#']['SUMMARY']['0']['#']);
+                                        $dbrec->content = backup_todb($info['BLOG']['#']['CONTENT']['0']['#']);
+                                        $dbrec->uniquehash = backup_todb($info['BLOG']['#']['UNIQUEHASH']['0']['#']);
+                                        $dbrec->rating = backup_todb($info['BLOG']['#']['RATING']['0']['#']);
+                                        $dbrec->format = backup_todb($info['BLOG']['#']['FORMAT']['0']['#']);
+                                        $dbrec->attachment = backup_todb($info['BLOG']['#']['ATTACHMENT']['0']['#']);
+                                        $dbrec->publishstate = backup_todb($info['BLOG']['#']['PUBLISHSTATE']['0']['#']);
+                                        $dbrec->lastmodified = backup_todb($info['BLOG']['#']['LASTMODIFIED']['0']['#']);
+                                        $dbrec->created = backup_todb($info['BLOG']['#']['CREATED']['0']['#']);
+                                        $dbrec->usermodified = backup_todb($info['BLOG']['#']['USERMODIFIED']['0']['#']);
+
+                                        //We have to recode the userid field
+                                        $user = backup_getid($restore->backup_unique_code,"user",$dbrec->userid);
+                                        if ($user) {
+                                            //echo "User ".$dbrec->userid." to user ".$user->new_id."<br />";   //Debug
+                                            $dbrec->userid = $user->new_id;
+                                        }
+
+                                        //Check if the record doesn't exist in DB!
+                                        $exist = get_record('post','userid', $dbrec->userid,
+                                                                   'subject', $dbrec->subject,
+                                                                   'created', $dbrec->created);
+                                        $newblogid = 0;
+                                        if (!$exist) {
+                                            //Not exist. Insert
+                                            $newblogid = insert_record('post',$dbrec);
+                                        }
+
+                                        //Going to restore related tags. Check they are enabled and we have inserted a blog
+                                        if ($CFG->usetags && $newblogid) {
+                                            //Look for tags in this blog
+                                            if (isset($info['BLOG']['#']['BLOG_TAGS']['0']['#']['BLOG_TAG'])) {
+                                                $tagsarr = $info['BLOG']['#']['BLOG_TAGS']['0']['#']['BLOG_TAG'];
+                                                //Iterate over tags
+                                                $tags = array();
+                                                for($i = 0; $i < sizeof($tagsarr); $i++) {
+                                                    $tag_info = $tagsarr[$i];
+                                                    ///traverse_xmlize($tag_info);                        //Debug
+                                                    ///print_object ($GLOBALS['traverse_array']);         //Debug
+                                                    ///$GLOBALS['traverse_array']="";                     //Debug
+
+                                                    $name = backup_todb($tag_info['#']['NAME']['0']['#']);
+                                                    $rawname = backup_todb($tag_info['#']['RAWNAME']['0']['#']);
+
+                                                    $tags[] = $rawname;  //Rawname is all we need
+                                                }
+                                                tag_set('post', $newblogid, $tags); //Add all the tags in one API call
+                                            }
+                                        }
+                                    }
+                                    //Do some output
+                                    $counter++;
+                                    if ($counter % 10 == 0) {
+                                        if (!defined('RESTORE_SILENTLY')) {
+                                            echo ".";
+                                            if ($counter % 200 == 0) {
+                                                echo "<br />";
+                                            }
+                                        }
+                                        backup_flush(300);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $status;
+    }
+
     //This function creates all the categories and questions
-    //from xml 
+    //from xml
     function restore_create_questions($restore,$xml_file) {
 
         global $CFG, $db;
@@ -2011,38 +3197,11 @@
         //categories/questions
         if ($info) {
             if ($info !== true) {
-                //Iterate over each category
-                foreach ($info as $category) {
-                    //Skip empty categories (some backups can contain them)
-                    if (!empty($category->id)) {
-                        $status = restore_question_categories($category,$restore);
-                    }
-                }
-
-                //Now we have to recode the parent field of each restored category
-                $categories = get_records_sql("SELECT old_id, new_id 
-                                               FROM {$CFG->prefix}backup_ids
-                                               WHERE backup_code = $restore->backup_unique_code AND
-                                                     table_name = 'question_categories'");
-                if ($categories) {
-                    foreach ($categories as $category) {
-                        $restoredcategory = get_record('question_categories','id',$category->new_id);
-                        $restoredcategory = addslashes_object($restoredcategory);
-                        if ($restoredcategory->parent != 0) {
-                            $idcat = backup_getid($restore->backup_unique_code,'question_categories',$restoredcategory->parent);
-                            if ($idcat->new_id) {
-                                $restoredcategory->parent = $idcat->new_id;
-                            } else {
-                                $restoredcategory->parent = 0;
-                            }
-                            update_record('question_categories', $restoredcategory);
-                        }
-                    }
-                }
+                $status = $status &&  restore_question_categories($info, $restore);
             }
         } else {
             $status = false;
-        }   
+        }
         return $status;
     }
 
@@ -2084,6 +3243,7 @@
                         //$GLOBALS['traverse_array']="";                                                              //Debug
 
                         //Now build the SCALE record structure
+                        $sca = new object();
                         $sca->courseid = backup_todb($info['SCALE']['#']['COURSEID']['0']['#']);
                         $sca->userid = backup_todb($info['SCALE']['#']['USERID']['0']['#']);
                         $sca->name = backup_todb($info['SCALE']['#']['NAME']['0']['#']);
@@ -2098,11 +3258,18 @@
                         } else {
                             $course_to_search = $restore->course_id;
                         }
-                        $sca_db = get_record("scale","scale",$sca->scale,"courseid",$course_to_search);
+
+                        // scale is not course unique, use get_record_sql to suppress warning
+                        //Going to compare LOB columns so, use the cross-db sql_compare_text() in both sides.
+                        $compare_scale_clause = sql_compare_text('scale')  . "=" .  sql_compare_text("'" . $sca->scale . "'");
+                        $sca_db = get_record_sql("SELECT * FROM {$CFG->prefix}scale
+                                                           WHERE $compare_scale_clause
+                                                           AND courseid = $course_to_search", true);
+
                         //If it doesn't exist, create
                         if (!$sca_db) {
                             $create_scale = true;
-                        } 
+                        }
                         //If we must create the scale
                         if ($create_scale) {
                             //Me must recode the courseid if it's <> 0 (common scale)
@@ -2133,121 +3300,145 @@
             }
         } else {
             $status = false;
-        }  
+        }
         return $status;
+    }
+
+    /**
+     * Recode group ID field, and set group ID based on restore options.
+     * @return object Group object with new_id field.
+     */
+    function restore_group_getid($restore, $groupid) {
+        //We have to recode the groupid field
+        $group = backup_getid($restore->backup_unique_code, 'groups', $groupid);
+        
+        if ($restore->groups == RESTORE_GROUPS_NONE or $restore->groups == RESTORE_GROUPINGS_ONLY) {
+            $group->new_id = 0;
+        }
+        return $group;
+    }
+
+    /**
+     * Recode grouping ID field, and set grouping ID based on restore options.
+     * @return object Group object with new_id field.
+     */
+    function restore_grouping_getid($restore, $groupingid) {
+        //We have to recode the groupid field
+        $grouping = backup_getid($restore->backup_unique_code, 'groupings', $groupingid);
+        
+        if ($restore->groups != RESTORE_GROUPS_GROUPINGS and $restore->groups != RESTORE_GROUPINGS_ONLY) {
+            $grouping->new_id = 0;
+        }
+        return $grouping;
     }
 
     //This function creates all the groups
     function restore_create_groups($restore,$xml_file) {
 
-        global $CFG, $db;
+        global $CFG;
 
-        $status = true;
-        $status2 = true;
         //Check it exists
         if (!file_exists($xml_file)) {
-            $status = false;
+            return false;
         }
         //Get info from xml
-        if ($status) {
+        if (!$groups = restore_read_xml_groups($restore,$xml_file)) {
             //groups will contain the old_id of every group
             //in backup_ids->info will be the real info (serialized)
-            $groups = restore_read_xml_groups($restore,$xml_file);
+            return false;
+
+        } else if ($groups === true) {
+            return true;
         }
-        //Now, if we have anything in groups, we have to restore that
-        //groups
-        if ($groups) {
-            if ($groups !== true) {
-                //Iterate over each group
-                foreach ($groups as $group) {
-                    //Get record from backup_ids
-                    $data = backup_getid($restore->backup_unique_code,"groups",$group->id);
-                    //Init variables
-                    $create_group = false;
 
-                    if ($data) {
-                        //Now get completed xmlized object
-                        $info = $data->info;
-                        //traverse_xmlize($info);                                                                     //Debug
-                        //print_object ($GLOBALS['traverse_array']);                                                  //Debug
-                        //$GLOBALS['traverse_array']="";                                                              //Debug
-                        //Now build the GROUP record structure
-                        $gro = new Object();
-                        ///$gro->courseid = backup_todb($info['GROUP']['#']['COURSEID']['0']['#']);
-                        $gro->name = backup_todb($info['GROUP']['#']['NAME']['0']['#']);
-                        $gro->description = backup_todb($info['GROUP']['#']['DESCRIPTION']['0']['#']);
-                        if (isset($info['GROUP']['#']['ENROLMENTKEY']['0']['#'])) {
-                            $gro->enrolmentkey = backup_todb($info['GROUP']['#']['ENROLMENTKEY']['0']['#']);
-                        } else { //if (! isset($gro->enrolment)) {
-                            $gro->enrolmentkey = backup_todb($info['GROUP']['#']['PASSWORD']['0']['#']);
-                        }
-                        $gro->lang = backup_todb($info['GROUP']['#']['LANG']['0']['#']);
-                        $gro->theme = backup_todb($info['GROUP']['#']['THEME']['0']['#']);
-                        $gro->picture = backup_todb($info['GROUP']['#']['PICTURE']['0']['#']);
-                        $gro->hidepicture = backup_todb($info['GROUP']['#']['HIDEPICTURE']['0']['#']);
-                        $gro->timecreated = backup_todb($info['GROUP']['#']['TIMECREATED']['0']['#']);
-                        $gro->timemodified = backup_todb($info['GROUP']['#']['TIMEMODIFIED']['0']['#']);
-                
-                        //Now search if that group exists (by name and description field) in 
-                        //restore->course_id course
-                        $gro_db = groups_group_matches($restore->course_id, $gro->name, $gro->description); 
-                        //If it doesn't exist, create
-                        if (!$gro_db) {
-                            $create_group = true;
-                        }
-                        //If we must create the group
-                        if ($create_group) {
-                            //Me must recode the courseid to the restore->course_id 
-                            $gro->courseid = $restore->course_id;
+        $status = true;
 
-                            //Check if the theme exists in destination server
-                            $themes = get_list_of_themes();
-                            if (!in_array($gro->theme, $themes)) {
-                                $gro->theme = '';
-                            }
+        //Iterate over each group
+        foreach ($groups as $group) {
+            //Get record from backup_ids
+            $data = backup_getid($restore->backup_unique_code,"groups",$group->id);
 
-                            //The structure is equal to the db, so insert the group
-                            $newid = groups_restore_group($restore->course_id, $gro);
-                        } else { 
-                            //get current group id
-                            $newid = $gro_db->id;
-                        }
-                        if ($newid) {
-                            //We have the newid, update backup_ids
-                            backup_putid($restore->backup_unique_code,"groups",
-                                         $group->id, $newid);
-                        }
-                        //Now restore members in the groups_members, only if
-                        //users are included
-                        if ($restore->users != 2) {
-                            $status2 = restore_create_groups_members($newid,$info,$restore);
-                        }
-                    }   
+            if ($data) {
+                //Now get completed xmlized object
+                $info = $data->info;
+                //traverse_xmlize($info);                                                                     //Debug
+                //print_object ($GLOBALS['traverse_array']);                                                  //Debug
+                //$GLOBALS['traverse_array']="";                                                              //Debug
+                //Now build the GROUP record structure
+                $gro = new Object();
+                $gro->courseid         = $restore->course_id;
+                $gro->name             = backup_todb($info['GROUP']['#']['NAME']['0']['#']);
+                $gro->description      = backup_todb($info['GROUP']['#']['DESCRIPTION']['0']['#']);
+                if (isset($info['GROUP']['#']['ENROLMENTKEY']['0']['#'])) {
+                    $gro->enrolmentkey = backup_todb($info['GROUP']['#']['ENROLMENTKEY']['0']['#']);
+                } else {
+                    $gro->enrolmentkey = backup_todb($info['GROUP']['#']['PASSWORD']['0']['#']);
                 }
-                //Now, restore group_files
-                if ($status && $status2) {
-                    $status2 = restore_group_files($restore); 
+                $gro->picture          = backup_todb($info['GROUP']['#']['PICTURE']['0']['#']);
+                $gro->hidepicture      = backup_todb($info['GROUP']['#']['HIDEPICTURE']['0']['#']);
+                $gro->timecreated      = backup_todb($info['GROUP']['#']['TIMECREATED']['0']['#']);
+                $gro->timemodified     = backup_todb($info['GROUP']['#']['TIMEMODIFIED']['0']['#']);
+
+                //Now search if that group exists (by name and description field) in
+                //restore->course_id course
+                //Going to compare LOB columns so, use the cross-db sql_compare_text() in both sides.
+                $description_clause = '';
+                if (!empty($gro->description)) { /// Only for groups having a description
+                    $literal_description = "'" . $gro->description . "'";
+                    $description_clause = " AND " .
+                                          sql_compare_text('description') . " = " .
+                                          sql_compare_text($literal_description);
+                }
+                if (!$gro_db = get_record_sql("SELECT *
+                                          FROM {$CFG->prefix}groups
+                                          WHERE courseid = $restore->course_id AND
+                                                name = '{$gro->name}'" . $description_clause, true)) {
+                    //If it doesn't exist, create
+                    $newid = insert_record('groups', $gro);
+
+                } else {
+                    //get current group id
+                    $newid = $gro_db->id;
+                }
+
+                if ($newid) {
+                    //We have the newid, update backup_ids
+                    backup_putid($restore->backup_unique_code,"groups", $group->id, $newid);
+                } else {
+
+                    $status = false;
+                    continue;
+                }
+
+                //Now restore members in the groups_members, only if
+                //users are included
+                if ($restore->users != 2) {
+                   if (!restore_create_groups_members($newid,$info,$restore)) {
+                        $status = false;
+                   }
                 }
             }
-        } else {
-            $status = false;
-        } 
-        return ($status && $status2);
+        }
+
+        //Now, restore group_files
+        if ($status) {
+            $status = restore_group_files($restore);
+        }
+
+        return $status;
     }
 
     //This function restores the groups_members
     function restore_create_groups_members($group_id,$info,$restore) {
 
-        global $CFG;
-
-        $status = true;
-
         if (! isset($info['GROUP']['#']['MEMBERS']['0']['#']['MEMBER'])) {
             //OK, some groups have no members.
-            return $status;
+            return true;
         }
         //Get the members array
         $members = $info['GROUP']['#']['MEMBERS']['0']['#']['MEMBER'];
+
+        $status = true;
 
         //Iterate over members
         for($i = 0; $i < sizeof($members); $i++) {
@@ -2262,14 +3453,25 @@
             $group_member->userid = backup_todb($mem_info['#']['USERID']['0']['#']);
             $group_member->timeadded = backup_todb($mem_info['#']['TIMEADDED']['0']['#']);
 
+            $newid = false;
+
             //We have to recode the userid field
-            $user = backup_getid($restore->backup_unique_code,"user",$group_member->userid);
-            if ($user) {
-                $group_member->userid = $user->new_id;
+            if (!$user = backup_getid($restore->backup_unique_code,"user",$group_member->userid)) {
+                debugging("group membership can not be restored, user id $group_member->userid not present in backup");
+                // do not not block the restore 
+                continue;
             }
 
+            $group_member->userid = $user->new_id;
+
             //The structure is equal to the db, so insert the groups_members
-            $newid = groups_restore_member($group_member);
+            if (record_exists("groups_members", 'groupid', $group_member->groupid, 'userid', $group_member->userid)) {
+                // user already member
+            } else if (!insert_record ("groups_members", $group_member)) {
+                $status = false;
+                continue;
+            }
+
             //Do some output
             if (($i+1) % 50 == 0) {
                 if (!defined('RESTORE_SILENTLY')) {
@@ -2279,127 +3481,121 @@
                     }
                 }
                 backup_flush(300);
-            }
-            
-            if (!$newid) {
-                $status = false;
             }
         }
 
         return $status;
     }
-    
+
     //This function creates all the groupings
     function restore_create_groupings($restore,$xml_file) {
 
-        global $CFG, $db;
-
-        $status = true;
-        $status2 = true;
         //Check it exists
         if (!file_exists($xml_file)) {
-            $status = false;
+            return false;
         }
         //Get info from xml
-        if ($status) {
-            //groupings will contain the old_id of every group
-            //in backup_ids->info will be the real info (serialized)
-            $groupings = restore_read_xml_groupings($restore,$xml_file);
+        if (!$groupings = restore_read_xml_groupings($restore,$xml_file)) {
+            return false;
+
+        } else if ($groupings === true) {
+            return true;
         }
-        //Now, if we have anything in groupings, we have to restore that grouping
-        if ($groupings) {
-            if ($groupings !== true) {
-                //Iterate over each group
-                foreach ($groupings as $grouping) {
-                    //Get record from backup_ids
-                    $data = backup_getid($restore->backup_unique_code,"groupings",$grouping->id);
-                    //Init variables
-                    $create_grouping = false;
-
-                    if ($data) {
-                        //Now get completed xmlized object
-                        $info = $data->info;
-                        //Now build the GROUPING record structure
-                        $gro = new Object();
-                        ///$gro->id = backup_todb($info['GROUPING']['#']['ID']['0']['#']);
-                        $gro->name = backup_todb($info['GROUPING']['#']['NAME']['0']['#']);
-                        $gro->description = backup_todb($info['GROUPING']['#']['DESCRIPTION']['0']['#']);
-                        $gro->timecreated = backup_todb($info['GROUPING']['#']['TIMECREATED']['0']['#']);
-                
-                        //Now search if that group exists (by name and description field) in 
-                        //restore->course_id course
-                        $gro_db = groups_grouping_matches($restore->course_id, $gro->name, $gro->description); 
-                        //If it doesn't exist, create
-                        if (!$gro_db) {
-                            $create_grouping = true;
-                        }
-                        //If we must create the group
-                        if ($create_grouping) {
-
-                            //The structure is equal to the db, so insert the grouping TODO: RESTORE.
-                            $newid = groups_create_grouping($restore->course_id, $gro);
-                        } else { 
-                            //get current group id
-                            $newid = $gro_db->id;
-                        }
-                        if ($newid) {
-                            //We have the newid, update backup_ids
-                            backup_putid($restore->backup_unique_code,"groupings",
-                                         $grouping->id, $newid);
-                        }
-                        //Now restore links from groupings to groups
-                        $status2 = restore_create_groupings_groups($newid,$info,$restore);
-                    }   
-                }
-                //(Now, restore grouping_files)
-            }
-        } else {
-            $status = false;
-        } 
-        return ($status && $status2);
-    }
-    
-    //This function restores the groups_members
-    function restore_create_groupings_groups($grouping_id,$info,$restore) {
-
-        global $CFG;
 
         $status = true;
 
-        //Get the members array
-        $members = $info['GROUPING']['#']['GROUPS']['0']['#']['GROUP'];
+        //Iterate over each group
+        foreach ($groupings as $grouping) {
+            if ($data = backup_getid($restore->backup_unique_code,"groupings",$grouping->id)) {
+                //Now get completed xmlized object
+                $info = $data->info;
+                //Now build the GROUPING record structure
+                $gro = new Object();
+                ///$gro->id = backup_todb($info['GROUPING']['#']['ID']['0']['#']);
+                $gro->courseid    = $restore->course_id;
+                $gro->name        = backup_todb($info['GROUPING']['#']['NAME']['0']['#']);
+                $gro->description = backup_todb($info['GROUPING']['#']['DESCRIPTION']['0']['#']);
+                $gro->configdata  = backup_todb($info['GROUPING']['#']['CONFIGDATA']['0']['#']);
+                $gro->timecreated = backup_todb($info['GROUPING']['#']['TIMECREATED']['0']['#']);
 
-        //Iterate over members
-        for($i = 0; $i < sizeof($members); $i++) {
-            $mem_info = $members[$i];
-            //Now, build the GROUPINGS_GROUPS record structure
-            $gro_member = new Object();
-            $gro_member->groupingid = $grouping_id;
-            $gro_member->groupid = backup_todb($mem_info['#']['GROUPID']['0']['#']);
-            $gro_member->timeadded = backup_todb($mem_info['#']['TIMEADDED']['0']['#']);
+                //Now search if that group exists (by name and description field) in
+                if ($gro_db = get_record('groupings', 'courseid', $restore->course_id, 'name', $gro->name, 'description', $gro->description)) {
+                    //get current group id
+                    $newid = $gro_db->id;
 
-            //We have to recode the userid field
-            ///$user = backup_getid($restore->backup_unique_code,"user",$group_member->userid);
-            $group = backup_getid($restore->backup_unique_code,"group",$gro_member->groupid);
-            if ($group) {
-                $gro_member->groupid = $group->new_id;
-            }
-
-            //The structure is equal to the db, so link the groups to the groupings. TODO: RESTORE.
-            $newid = groups_add_group_to_grouping($gro_member->groupid, $gro_member->groupingid);
-            //Do some output
-            if (($i+1) % 50 == 0) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    echo ".";
-                    if (($i+1) % 1000 == 0) {
-                        echo "<br />";
+                } else {
+                    //The structure is equal to the db, so insert the grouping
+                    if (!$newid = insert_record('groupings', $gro)) {
+                        $status = false;
+                        continue;
                     }
                 }
-                backup_flush(300);
+
+                //We have the newid, update backup_ids
+                backup_putid($restore->backup_unique_code,"groupings",
+                             $grouping->id, $newid);
             }
-            
-            if (!$newid) {
-                $status = false;
+        }
+
+
+        // now fix the defaultgroupingid in course
+        $course = get_record('course', 'id', $restore->course_id);
+        if ($course->defaultgroupingid) {
+            if ($grouping = restore_grouping_getid($restore, $course->defaultgroupingid)) { 
+                set_field('course', 'defaultgroupingid', $grouping->new_id, 'id', $course->id);
+            } else {
+                set_field('course', 'defaultgroupingid', 0, 'id', $course->id);
+            }
+        }
+
+        return $status;
+    }
+
+    //This function creates all the groupingsgroups
+    function restore_create_groupings_groups($restore,$xml_file) {
+
+        //Check it exists
+        if (!file_exists($xml_file)) {
+            return false;
+        }
+        //Get info from xml
+        if (!$groupingsgroups = restore_read_xml_groupings_groups($restore,$xml_file)) {
+            return false;
+
+        } else if ($groupingsgroups === true) {
+            return true;
+        }
+
+        $status = true;
+
+        //Iterate over each group
+        foreach ($groupingsgroups as $groupinggroup) {
+            if ($data = backup_getid($restore->backup_unique_code,"groupingsgroups",$groupinggroup->id)) {
+                //Now get completed xmlized object
+                $info = $data->info;
+                //Now build the GROUPING record structure
+                $gro_member = new Object();
+                $gro_member->groupingid = backup_todb($info['GROUPINGGROUP']['#']['GROUPINGID']['0']['#']);
+                $gro_member->groupid    = backup_todb($info['GROUPINGGROUP']['#']['GROUPID']['0']['#']);
+                $gro_member->timeadded  = backup_todb($info['GROUPINGGROUP']['#']['TIMEADDED']['0']['#']);
+
+                if (!$grouping = backup_getid($restore->backup_unique_code,"groupings",$gro_member->groupingid)) {
+                    $status = false;
+                    continue;
+                }
+
+                if (!$group = backup_getid($restore->backup_unique_code,"groups",$gro_member->groupid)) {
+                    $status = false;
+                    continue;
+                }
+
+                $gro_member->groupid    = $group->new_id;
+                $gro_member->groupingid = $grouping->new_id;
+                if (!get_record('groupings_groups', 'groupid', $gro_member->groupid, 'groupingid', $gro_member->groupingid)) {
+                    if (!insert_record('groupings_groups', $gro_member)) {
+                        $status = false;
+                    }
+                }
             }
         }
 
@@ -2459,8 +3655,11 @@
                         $eve->userid = backup_todb($info['EVENT']['#']['USERID']['0']['#']);
                         $eve->repeatid = backup_todb($info['EVENT']['#']['REPEATID']['0']['#']);
                         $eve->modulename = "";
+                        if (!empty($info['EVENT']['#']['MODULENAME'])) {
+                            $eve->modulename = backup_todb($info['EVENT']['#']['MODULENAME']['0']['#']);
+                        }
                         $eve->instance = 0;
-                        $eve->eventtype = backup_todb($info['EVENT']['#']['EVENTTYPE']['0']['#']);  
+                        $eve->eventtype = backup_todb($info['EVENT']['#']['EVENTTYPE']['0']['#']);
                         $eve->timestart = backup_todb($info['EVENT']['#']['TIMESTART']['0']['#']);
                         $eve->timeduration = backup_todb($info['EVENT']['#']['TIMEDURATION']['0']['#']);
                         $eve->visible = backup_todb($info['EVENT']['#']['VISIBLE']['0']['#']);
@@ -2486,19 +3685,6 @@
                                 $eve->userid = $adminid;
                             }
 
-                            //We must recode the repeatid if the event has it
-                            if (!empty($eve->repeatid)) {
-                                $repeat_rec = backup_getid($restore->backup_unique_code,"event_repeatid",$eve->repeatid);
-                                if ($repeat_rec) {    //Exists, so use it...
-                                    $eve->repeatid = $repeat_rec->new_id;
-                                } else {              //Doesn't exists, calculate the next and save it
-                                    $oldrepeatid = $eve->repeatid;
-                                    $max_rec = get_record_sql('SELECT 1, MAX(repeatid) AS repeatid FROM '.$CFG->prefix.'event');
-                                    $eve->repeatid = empty($max_rec) ? 1 : $max_rec->repeatid + 1;
-                                    backup_putid($restore->backup_unique_code,"event_repeatid", $oldrepeatid, $eve->repeatid);
-                                }
-                            }
- 
                             //We have to recode the groupid field
                             $group = backup_getid($restore->backup_unique_code,"groups",$eve->groupid);
                             if ($group) {
@@ -2510,6 +3696,22 @@
 
                             //The structure is equal to the db, so insert the event
                             $newid = insert_record ("event",$eve);
+
+                            //We must recode the repeatid if the event has it
+                            //The repeatid now refers to the id of the original event. (see Bug#5956)
+                            if ($newid && !empty($eve->repeatid)) {
+                                $repeat_rec = backup_getid($restore->backup_unique_code,"event_repeatid",$eve->repeatid);
+                                if ($repeat_rec) {    //Exists, so use it...
+                                    $eve->repeatid = $repeat_rec->new_id;
+                                } else {              //Doesn't exists, calculate the next and save it
+                                    $oldrepeatid = $eve->repeatid;
+                                    $eve->repeatid = $newid;
+                                    backup_putid($restore->backup_unique_code,"event_repeatid", $oldrepeatid, $eve->repeatid);
+                                }
+                                $eve->id = $newid;
+                                // update the record to contain the correct repeatid
+                                update_record('event',$eve);
+                            }
                         } else {
                             //get current event id
                             $newid = $eve_db->id;
@@ -2524,7 +3726,7 @@
             }
         } else {
             $status = false;
-        } 
+        }
         return $status;
     }
 
@@ -2534,25 +3736,26 @@
     //                     |------------> $CFG->wwwroot/file.php?file=/courseid (slasharguments off)
     //
     //Note: Inter-activities linking is being implemented as a final
-    //step in the restore execution, because we need to have it 
+    //step in the restore execution, because we need to have it
     //finished to know all the oldid, newid equivaleces
     function restore_decode_absolute_links($content) {
-                                     
-        global $CFG,$restore;    
+
+        global $CFG,$restore;
+        require_once($CFG->libdir.'/filelib.php');
+
+    /// MDL-14072: Prevent NULLs, empties and numbers to be processed by the
+    /// heavy interlinking. Just a few cpu cycles saved.
+        if ($content === NULL) {
+            return NULL;
+        } else if ($content === '') {
+            return '';
+        } else if (is_numeric($content)) {
+            return $content;
+        }
 
         //Now decode wwwroot and file.php calls
         $search = array ("$@FILEPHP@$");
-
-        //Check for the status of the slasharguments config variable
-        $slash = $CFG->slasharguments;
-        
-        //Build the replace string as needed
-        if ($slash == 1) {
-            $replace = array ($CFG->wwwroot."/file.php/".$restore->course_id);
-        } else {
-            $replace = array ($CFG->wwwroot."/file.php?file=/".$restore->course_id);
-        }
-    
+        $replace = array(get_file_url($restore->course_id));
         $result = str_replace($search,$replace,$content);
 
         if ($result != $content && debugging()) {                                  //Debug
@@ -2574,48 +3777,53 @@
 
         $counter = 0;
 
-        //First, we check to "users" exists and create is as necessary
+        // 'users' is the old users folder, 'user' is the new one, with a new hierarchy. Detect which one is here and treat accordingly 
         //in CFG->dataroot
-        $dest_dir = $CFG->dataroot."/users";
+        $dest_dir = $CFG->dataroot."/user";
         $status = check_dir_exists($dest_dir,true);
 
         //Now, we iterate over "user_files" records to check if that user dir must be
         //copied (and renamed) to the "users" dir.
         $rootdir = $CFG->dataroot."/temp/backup/".$restore->backup_unique_code."/user_files";
+        
         //Check if directory exists
-        if (is_dir($rootdir)) {
-            $list = list_directories ($rootdir);
-            if ($list) {
-                //Iterate
-                $counter = 0;
-                foreach ($list as $dir) {
-                    //Look for dir like username in backup_ids
-                    $data = get_record ("backup_ids","backup_code",$restore->backup_unique_code,
-                                                     "table_name","user",
-                                                     "old_id",$dir);
-                    //If thar user exists in backup_ids
-                    if ($data) {
-                        //Only it user has been created now
-                        //or if it existed previously, but he hasn't image (see bug 1123)
-                        if ((strpos($data->info,"new") !== false) or 
-                            (!check_dir_exists($dest_dir."/".$data->new_id,false))) {
-                            //Copy the old_dir to its new location (and name) !!
-                            //Only if destination doesn't exists
-                            if (!file_exists($dest_dir."/".$data->new_id)) {
-                                $status = backup_copy_file($rootdir."/".$dir,
-                                              $dest_dir."/".$data->new_id,true);
-                                $counter ++;
-                            }
-                            //Do some output
-                            if ($counter % 2 == 0) {
-                                if (!defined('RESTORE_SILENTLY')) {
-                                    echo ".";
-                                    if ($counter % 40 == 0) {
-                                        echo "<br />";
-                                    }
+        $userlist = array();
+
+        if (is_dir($rootdir) && ($list = list_directories ($rootdir))) {
+            $counter = 0;
+            foreach ($list as $dir) {
+                // If there are directories in this folder, we are in the new user hierarchy
+                if ($newlist = list_directories("$rootdir/$dir")) {
+                    foreach ($newlist as $olduserid) {
+                        $userlist[$olduserid] = "$rootdir/$dir/$olduserid";
+                    }
+                } else {
+                    $userlist[$dir] = "$rootdir/$dir";
+                }
+            }
+
+            foreach ($userlist as $olduserid => $backup_location) { 
+                //Look for dir like username in backup_ids
+                //If that user exists in backup_ids
+                if ($user = backup_getid($restore->backup_unique_code,"user",$olduserid)) {
+                    //Only if user has been created now or if it existed previously, but he hasn't got an image (see bug 1123)
+                    $newuserdir = make_user_directory($user->new_id, true); // Doesn't create the folder, just returns the location
+
+                    // restore images if new user or image does not exist yet
+                    if (!empty($user->new) or !check_dir_exists($newuserdir)) {
+                        if (make_user_directory($user->new_id)) { // Creates the folder
+                            $status = backup_copy_file($backup_location, $newuserdir, true);
+                            $counter ++;
+                        }
+                        //Do some output
+                        if ($counter % 2 == 0) {
+                            if (!defined('RESTORE_SILENTLY')) {
+                                echo ".";
+                                if ($counter % 40 == 0) {
+                                    echo "<br />";
                                 }
-                                backup_flush(300);
                             }
+                            backup_flush(300);
                         }
                     }
                 }
@@ -2673,7 +3881,7 @@
                                 }
                             }
                             backup_flush(300);
-                        } 
+                        }
                     }
                 }
             }
@@ -2693,7 +3901,7 @@
         global $CFG;
 
         $status = true;
- 
+
         $counter = 0;
 
         //First, we check to "course_id" exists and create is as necessary
@@ -2711,7 +3919,7 @@
                 //Iterate
                 $counter = 0;
                 foreach ($list as $dir) {
-                    //Copy the dir to its new location 
+                    //Copy the dir to its new location
                     //Only if destination file/dir doesn exists
                     if (!file_exists($dest_dir."/".$dir)) {
                         $status = backup_copy_file($rootdir."/".$dir,
@@ -2719,10 +3927,10 @@
                         $counter ++;
                     }
                     //Do some output
-                    if ($counter % 2 == 0) {       
+                    if ($counter % 2 == 0) {
                         if (!defined('RESTORE_SILENTLY')) {
                             echo ".";
-                            if ($counter % 40 == 0) {       
+                            if ($counter % 40 == 0) {
                                 echo "<br />";
                             }
                         }
@@ -2738,7 +3946,60 @@
             return $status;
         }
     }
-   
+
+    //This function restores the site files from the temp (site_files) directory to the
+    //dataroot/SITEID directory
+    function restore_site_files($restore) {
+
+        global $CFG;
+
+        $status = true;
+
+        $counter = 0;
+
+        //First, we check to "course_id" exists and create is as necessary
+        //in CFG->dataroot
+        $dest_dir = $CFG->dataroot."/".SITEID;
+        $status = check_dir_exists($dest_dir,true);
+
+        //Now, we iterate over "site_files" files to check if that file/dir must be
+        //copied to the "dest_dir" dir.
+        $rootdir = $CFG->dataroot."/temp/backup/".$restore->backup_unique_code."/site_files";
+        //Check if directory exists
+        if (is_dir($rootdir)) {
+            $list = list_directories_and_files ($rootdir);
+            if ($list) {
+                //Iterate
+                $counter = 0;
+                foreach ($list as $dir) {
+                    //Copy the dir to its new location
+                    //Only if destination file/dir doesn exists
+                    if (!file_exists($dest_dir."/".$dir)) {
+                        $status = backup_copy_file($rootdir."/".$dir,
+                                      $dest_dir."/".$dir,true);
+                        $counter ++;
+                    }
+                    //Do some output
+                    if ($counter % 2 == 0) {
+                        if (!defined('RESTORE_SILENTLY')) {
+                            echo ".";
+                            if ($counter % 40 == 0) {
+                                echo "<br />";
+                            }
+                        }
+                        backup_flush(300);
+                    }
+                }
+            }
+        }
+        //If status is ok and whe have dirs created, returns counter to inform
+        if ($status and $counter) {
+            return $counter;
+        } else {
+            return $status;
+        }
+    }
+
 
     //This function creates all the structures for every module in backup file
     //Depending what has been selected.
@@ -2766,11 +4027,13 @@
                 //Iterate over each module
                 foreach ($info as $mod) {
                     if (empty($restore->mods[$mod->modtype]->granular)  // We don't care about per instance, i.e. restore all instances.
-                        || (array_key_exists($mod->id,$restore->mods[$mod->modtype]->instances) 
+                        || (array_key_exists($mod->id,$restore->mods[$mod->modtype]->instances)
                             && !empty($restore->mods[$mod->modtype]->instances[$mod->id]->restore))) {
                         $modrestore = $mod->modtype."_restore_mods";
                         if (function_exists($modrestore)) {                                               //Debug
-                            $status = $status and $modrestore($mod,$restore); //bit operator & not reliable here!
+                             // we want to restore all mods even when one fails
+                             // incorrect code here ignored any errors during module restore in 1.6-1.8
+                            $status = $status && $modrestore($mod,$restore);
                         } else {
                             //Something was wrong. Function should exist.
                             $status = false;
@@ -2790,7 +4053,7 @@
     //This function creates all the structures for every log in backup file
     //Depending what has been selected.
     function restore_create_logs($restore,$xml_file) {
-            
+
         global $CFG,$db;
 
         //Number of records to get in every chunk
@@ -2799,10 +4062,10 @@
         $counter = 0;
         //To count all the recods to restore
         $count_logs = 0;
-        
+
         $status = true;
-        //Check it exists 
-        if (!file_exists($xml_file)) { 
+        //Check it exists
+        if (!file_exists($xml_file)) {
             $status = false;
         }
         //Get info from xml
@@ -2811,7 +4074,7 @@
             //in backup_ids->info will be the real info (serialized)
             $count_logs = restore_read_xml_logs($restore,$xml_file);
         }
- 
+
         //Now, if we have records in count_logs, we have to restore that logs
         //from backup_ids. This piece of code makes calls to:
         // - restore_log_course() if it's a course log
@@ -2822,7 +4085,7 @@
             while ($counter < $count_logs) {
                 //Get a chunk of records
                 //Take old_id twice to avoid adodb limitation
-                $logs = get_records_select("backup_ids","table_name = 'log' AND backup_code = '$restore->backup_unique_code'","old_id","old_id,old_id",$counter,$recordset_size);
+                $logs = get_records_select("backup_ids","table_name = 'log' AND backup_code = '$restore->backup_unique_code'","old_id","old_id",$counter,$recordset_size);
                 //We have logs
                 if ($logs) {
                     //Iterate
@@ -2836,6 +4099,7 @@
                             //print_object ($GLOBALS['traverse_array']);                                                  //Debug
                             //$GLOBALS['traverse_array']="";                                                              //Debug
                             //Now build the LOG record structure
+                            $dblog = new object();
                             $dblog->time = backup_todb($info['LOG']['#']['TIME']['0']['#']);
                             $dblog->userid = backup_todb($info['LOG']['#']['USERID']['0']['#']);
                             $dblog->ip = backup_todb($info['LOG']['#']['IP']['0']['#']);
@@ -3065,10 +4329,10 @@
 
         $status = true;
         $toinsert = false;
-        
+
         //echo "<hr />Before transformations<br />";                                        //Debug
         //print_object($log);                                                           //Debug
-        //Depending of the action, we recode different things                           
+        //Depending of the action, we recode different things
         switch ($log->action) {
         case "view":
             //recode the info field (it's the user id)
@@ -3111,7 +4375,7 @@
             $log->info = "";
             $toinsert = true;
         case "update":
-            //We split the url by ampersand char 
+            //We split the url by ampersand char
             $first_part = strtok($log->url,"&");
             //Get data after the = char. It's the user being updated
             $userid = substr(strrchr($first_part,"="),1);
@@ -3210,7 +4474,21 @@
                 } else {
                     $status = false;
                }
+               // MDL-14326 remove empty course modules instance's (credit goes to John T. Macklin from Remote Learner)
+               $course_modules_inst_zero = get_records_sql("SELECT id, course, instance
+                                           FROM {$CFG->prefix}course_modules
+                                           WHERE id = '$cm_module->new_id' AND
+                                                 instance = '0'");
+                                                 
+                    if($course_modules_inst_zero){ // Clean up the invalid instances
+                         foreach($course_modules_inst_zero as $course_modules_inst){
+                             delete_records('course_modules', 'id',$course_modules_inst->id);
+                         }
+                    }
+
             }
+        /// Finally, calculate modinfo cache.
+            rebuild_course_cache($restore->course_id);
         }
 
 
@@ -3241,7 +4519,7 @@
         function getContents() {
             return trim($this->content);
         }
- 
+
         //This is the startTag handler we use where we are reading the info zone (todo="INFO")
         function startElementInfo($parser, $tagName, $attrs) {
             //Refresh properties
@@ -3249,7 +4527,7 @@
             $this->tree[$this->level] = $tagName;
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into INFO zone
             //if ($this->tree[2] == "INFO")                                                             //Debug
@@ -3263,7 +4541,7 @@
             $this->tree[$this->level] = $tagName;
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into INFO zone
             //if ($this->tree[2] == "INFO")                                                             //Debug
@@ -3278,7 +4556,7 @@
             $this->tree[$this->level] = $tagName;
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into COURSE_HEADER zone
             //if ($this->tree[3] == "HEADER")                                                           //Debug
@@ -3287,26 +4565,36 @@
 
         //This is the startTag handler we use where we are reading the blocks zone (todo="BLOCKS")
         function startElementBlocks($parser, $tagName, $attrs) {
-            //Refresh properties     
+            //Refresh properties
             $this->level++;
-            $this->tree[$this->level] = $tagName;   
-            
+            $this->tree[$this->level] = $tagName;
+
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into BLOCKS zone
             //if ($this->tree[3] == "BLOCKS")                                                         //Debug
             //    echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;".$tagName."&gt;<br />\n";   //Debug
+
+            //If we are under a BLOCK tag under a BLOCKS zone, accumule it
+            if (isset($this->tree[4]) and isset($this->tree[3])) {  //
+                if ($this->tree[4] == "BLOCK" and $this->tree[3] == "BLOCKS") {
+                    if (!isset($this->temp)) {
+                        $this->temp = "";
+                    }
+                    $this->temp .= "<".$tagName.">";
+                }
+            }
         }
 
         //This is the startTag handler we use where we are reading the sections zone (todo="SECTIONS")
         function startElementSections($parser, $tagName, $attrs) {
-            //Refresh properties     
+            //Refresh properties
             $this->level++;
-            $this->tree[$this->level] = $tagName;   
+            $this->tree[$this->level] = $tagName;
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into SECTIONS zone
             //if ($this->tree[3] == "SECTIONS")                                                         //Debug
@@ -3315,12 +4603,12 @@
 
         //This is the startTag handler we use where we are reading the optional format data zone (todo="FORMATDATA")
         function startElementFormatData($parser, $tagName, $attrs) {
-            //Refresh properties     
+            //Refresh properties
             $this->level++;
-            $this->tree[$this->level] = $tagName;   
+            $this->tree[$this->level] = $tagName;
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Accumulate all the data inside this tag
             if (isset($this->tree[3]) && $this->tree[3] == "FORMATDATA") {
@@ -3329,7 +4617,7 @@
                 }
                 $this->temp .= "<".$tagName.">";
             }
-            
+
             //Check if we are into FORMATDATA zone
             //if ($this->tree[3] == "FORMATDATA")                                                         //Debug
             //    echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;".$tagName."&gt;<br />\n";   //Debug
@@ -3338,12 +4626,12 @@
         //This is the startTag handler we use where we are reading the metacourse zone (todo="METACOURSE")
         function startElementMetacourse($parser, $tagName, $attrs) {
 
-            //Refresh properties     
+            //Refresh properties
             $this->level++;
-            $this->tree[$this->level] = $tagName;   
-            
+            $this->tree[$this->level] = $tagName;
+
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into METACOURSE zone
             //if ($this->tree[3] == "METACOURSE")                                                         //Debug
@@ -3358,7 +4646,33 @@
             $this->tree[$this->level] = $tagName;
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
+
+            //Check if we are into GRADEBOOK zone
+            //if ($this->tree[3] == "GRADEBOOK")                                                         //Debug
+            //    echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;".$tagName."&gt;<br />\n";  //Debug
+
+            //If we are under a GRADE_PREFERENCE, GRADE_LETTER or GRADE_CATEGORY tag under a GRADEBOOK zone, accumule it
+            if (isset($this->tree[5]) and isset($this->tree[3])) {
+                if (($this->tree[5] == "GRADE_ITEM" || $this->tree[5] == "GRADE_CATEGORY" || $this->tree[5] == "GRADE_LETTER" || $this->tree[5] == "GRADE_OUTCOME" || $this->tree[5] == "GRADE_OUTCOMES_COURSE" || $this->tree[5] == "GRADE_CATEGORIES_HISTORY" || $this->tree[5] == "GRADE_GRADES_HISTORY" || $this->tree[5] == "GRADE_TEXT_HISTORY" || $this->tree[5] == "GRADE_ITEM_HISTORY" || $this->tree[5] == "GRADE_OUTCOME_HISTORY") && ($this->tree[3] == "GRADEBOOK")) {
+
+                    if (!isset($this->temp)) {
+                        $this->temp = "";
+                    }
+                    $this->temp .= "<".$tagName.">";
+                }
+            }
+        }
+
+        //This is the startTag handler we use where we are reading the gradebook zone (todo="GRADEBOOK")
+        function startElementOldGradebook($parser, $tagName, $attrs) {
+
+            //Refresh properties
+            $this->level++;
+            $this->tree[$this->level] = $tagName;
+
+            //Output something to avoid browser timeouts...
+            //backup_flush();
 
             //Check if we are into GRADEBOOK zone
             //if ($this->tree[3] == "GRADEBOOK")                                                         //Debug
@@ -3374,15 +4688,15 @@
                 }
             }
         }
-        
-        
+
+
         //This is the startTag handler we use where we are reading the user zone (todo="USERS")
         function startElementUsers($parser, $tagName, $attrs) {
-            //Refresh properties     
+            //Refresh properties
             $this->level++;
-            $this->tree[$this->level] = $tagName;   
+            $this->tree[$this->level] = $tagName;
 
-            //Check if we are into USERS zone  
+            //Check if we are into USERS zone
             //if ($this->tree[3] == "USERS")                                                            //Debug
             //    echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;".$tagName."&gt;<br />\n";   //Debug
         }
@@ -3394,7 +4708,7 @@
             $this->tree[$this->level] = $tagName;
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into MESSAGES zone
             //if ($this->tree[3] == "MESSAGES")                                                          //Debug
@@ -3402,7 +4716,7 @@
 
             //If we are under a MESSAGE tag under a MESSAGES zone, accumule it
             if (isset($this->tree[4]) and isset($this->tree[3])) {
-                if (($this->tree[4] == "MESSAGE" || $this->tree[5] == "CONTACT" ) and ($this->tree[3] == "MESSAGES")) {
+                if (($this->tree[4] == "MESSAGE" || (isset($this->tree[5]) && $this->tree[5] == "CONTACT" )) and ($this->tree[3] == "MESSAGES")) {
                     if (!isset($this->temp)) {
                         $this->temp = "";
                     }
@@ -3410,6 +4724,31 @@
                 }
             }
         }
+
+        //This is the startTag handler we use where we are reading the blogs zone (todo="BLOGS")
+        function startElementBlogs($parser, $tagName, $attrs) {
+            //Refresh properties
+            $this->level++;
+            $this->tree[$this->level] = $tagName;
+
+            //Output something to avoid browser timeouts...
+            //backup_flush();
+
+            //Check if we are into BLOGS zone
+            //if ($this->tree[3] == "BLOGS")                                                          //Debug
+            //    echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;".$tagName."&gt;<br />\n";  //Debug
+
+            //If we are under a BLOG tag under a BLOGS zone, accumule it
+            if (isset($this->tree[4]) and isset($this->tree[3])) {
+                if ($this->tree[4] == "BLOG" and $this->tree[3] == "BLOGS") {
+                    if (!isset($this->temp)) {
+                        $this->temp = "";
+                    }
+                    $this->temp .= "<".$tagName.">";
+                }
+            }
+        }
+
         //This is the startTag handler we use where we are reading the questions zone (todo="QUESTIONS")
         function startElementQuestions($parser, $tagName, $attrs) {
             //Refresh properties
@@ -3421,7 +4760,7 @@
             //}                                                                                        //Debug
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into QUESTION_CATEGORIES zone
             //if ($this->tree[3] == "QUESTION_CATEGORIES")                                              //Debug
@@ -3440,7 +4779,7 @@
 
         //This is the startTag handler we use where we are reading the scales zone (todo="SCALES")
         function startElementScales($parser, $tagName, $attrs) {
-            //Refresh properties          
+            //Refresh properties
             $this->level++;
             $this->tree[$this->level] = $tagName;
 
@@ -3449,7 +4788,7 @@
             //}                                                                                        //Debug
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into SCALES zone
             //if ($this->tree[3] == "SCALES")                                                           //Debug
@@ -3476,7 +4815,7 @@
             //}                                                                                        //Debug
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into GROUPS zone
             //if ($this->tree[3] == "GROUPS")                                                           //Debug
@@ -3492,8 +4831,8 @@
                 }
             }
         }
-        
-        function startElementGroupings($parser, $tagName, $attrs) { //TODO:
+
+        function startElementGroupings($parser, $tagName, $attrs) {
             //Refresh properties
             $this->level++;
             $this->tree[$this->level] = $tagName;
@@ -3503,7 +4842,7 @@
             //}                                                                                        //Debug
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into GROUPINGS zone
             //if ($this->tree[3] == "GROUPINGS")                                                           //Debug
@@ -3512,6 +4851,33 @@
             //If we are under a GROUPING tag under a GROUPINGS zone, accumule it
             if (isset($this->tree[4]) and isset($this->tree[3])) {
                 if (($this->tree[4] == "GROUPING") and ($this->tree[3] == "GROUPINGS")) {
+                    if (!isset($this->temp)) {
+                        $this->temp = "";
+                    }
+                    $this->temp .= "<".$tagName.">";
+                }
+            }
+        }
+
+        function startElementGroupingsGroups($parser, $tagName, $attrs) {
+            //Refresh properties
+            $this->level++;
+            $this->tree[$this->level] = $tagName;
+
+            //if ($tagName == "GROUPINGGROUP" && $this->tree[3] == "GROUPINGSGROUPS") {                                 //Debug
+            //    echo "<P>GROUPINGSGROUP: ".strftime ("%X",time()),"-";                                        //Debug
+            //}                                                                                        //Debug
+
+            //Output something to avoid browser timeouts...
+            backup_flush();
+
+            //Check if we are into GROUPINGSGROUPS zone
+            //if ($this->tree[3] == "GROUPINGSGROUPS")                                                           //Debug
+            //    echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;".$tagName."&gt;<br />\n";   //Debug
+
+            //If we are under a GROUPINGGROUP tag under a GROUPINGSGROUPS zone, accumule it
+            if (isset($this->tree[4]) and isset($this->tree[3])) {
+                if (($this->tree[4] == "GROUPINGGROUP") and ($this->tree[3] == "GROUPINGSGROUPS")) {
                     if (!isset($this->temp)) {
                         $this->temp = "";
                     }
@@ -3531,7 +4897,7 @@
             //}                                                                                        //Debug
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into EVENTS zone
             //if ($this->tree[3] == "EVENTS")                                                           //Debug
@@ -3559,7 +4925,7 @@
             //}                                                                                           //Debug
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into MODULES zone
             //if ($this->tree[3] == "MODULES")                                                          //Debug
@@ -3587,7 +4953,7 @@
             //}                                                                                           //Debug
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             //Check if we are into LOGS zone
             //if ($this->tree[3] == "LOGS")                                                             //Debug
@@ -3610,11 +4976,11 @@
             $this->tree[$this->level] = $tagName;
 
             //Output something to avoid browser timeouts...
-            backup_flush();
+            //backup_flush();
 
             echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;".$tagName."&gt;<br />\n";   //Debug
         }
- 
+
         //This is the endTag handler we use where we are reading the info zone (todo="INFO")
         function endElementInfo($parser, $tagName) {
             //Check if we are into INFO zone
@@ -3646,8 +5012,11 @@
                         case "ORIGINAL_WWWROOT":
                             $this->info->original_wwwroot = $this->getContents();
                             break;
-                        case "MNET_EXTERNALUSERS":
-                            $this->info->mnet_externalusers = $this->getContents();
+                        case "ORIGINAL_SITE_IDENTIFIER_HASH":
+                            $this->info->original_siteidentifier = $this->getContents();
+                            break;
+                        case "MNET_REMOTEUSERS":
+                            $this->info->mnet_remoteusers = $this->getContents();
                             break;
                     }
                 }
@@ -3669,8 +5038,17 @@
                             case "COURSEFILES":
                                 $this->info->backup_course_files = $this->getContents();
                                 break;
+                            case "SITEFILES":
+                                $this->info->backup_site_files = $this->getContents();
+                                break;
+                            case "GRADEBOOKHISTORIES":
+                                $this->info->gradebook_histories = $this->getContents();
+                                break;
                             case "MESSAGES":
                                 $this->info->backup_messages = $this->getContents();
+                                break;
+                            case "BLOGS":
+                                $this->info->backup_blogs = $this->getContents();
                                 break;
                             case 'BLOCKFORMAT':
                                 $this->info->backup_block_format = $this->getContents();
@@ -3721,8 +5099,8 @@
             $this->level--;
             $this->content = "";
 
-        }     
-        
+        }
+
         function endElementRoles($parser, $tagName) {
             //Check if we are into INFO zone
             if ($this->tree[2] == "ROLES") {
@@ -3730,24 +5108,24 @@
                 if ($this->tree[3] == "ROLE") {
                     if ($this->level == 4) {
                         switch ($tagName) {
-                            case "NAME":
-                                $this->info->tempname = $this->getContents();
-                                
-                                break;
-                            case "SHORTNAME":
-                                $this->info->tempshortname = $this->getContents();
-                                break;
                             case "ID": // this is the old id
                                 $this->info->tempid = $this->getContents();
+                                $this->info->roles[$this->info->tempid]->id = $this->info->tempid;
+                                break;
+                            case "NAME":
+                                $this->info->roles[$this->info->tempid]->name = $this->getContents();;
+                                break;
+                            case "SHORTNAME":
+                                $this->info->roles[$this->info->tempid]->shortname = $this->getContents();;
+                                break;
+                            case "NAMEINCOURSE": // custom name of the role in course
+                                $this->info->roles[$this->info->tempid]->nameincourse = $this->getContents();;
                                 break;
                         }
                     }
                     if ($this->level == 6) {
                         switch ($tagName) {
                             case "NAME":
-                                $this->info->roles[$this->info->tempid]->name = $this->info->tempname;
-                                $this->info->roles[$this->info->tempid]->shortname = $this->info->tempshortname;
-                                
                                 $this->info->tempcapname = $this->getContents();
                                 $this->info->roles[$this->info->tempid]->capabilities[$this->info->tempcapname]->name = $this->getContents();
                                 break;
@@ -3836,9 +5214,6 @@
                         case "STARTDATE":
                             $this->info->course_startdate = $this->getContents();
                             break;
-                        case "ENROLPERIOD":
-                            $this->info->course_enrolperiod = $this->getContents();
-                            break;
                         case "NUMSECTIONS":
                             $this->info->course_numsections = $this->getContents();
                             break;
@@ -3856,6 +5231,9 @@
                             break;
                         case "GROUPMODEFORCE":
                             $this->info->course_groupmodeforce = $this->getContents();
+                            break;
+                        case "DEFAULTGROUPINGID":
+                            $this->info->course_defaultgroupingid = $this->getContents();
                             break;
                         case "LANG":
                             $this->info->course_lang = $this->getContents();
@@ -3887,6 +5265,27 @@
                         case "METACOURSE":
                             $this->info->course_metacourse = $this->getContents();
                             break;
+                        case "EXPIRENOTIFY":
+                            $this->info->course_expirynotify = $this->getContents();
+                            break;
+                        case "NOTIFYSTUDENTS":
+                            $this->info->course_notifystudents = $this->getContents();
+                            break;
+                        case "EXPIRYTHRESHOLD":
+                            $this->info->course_expirythreshold = $this->getContents();
+                            break;
+                        case "ENROLLABLE":
+                            $this->info->course_enrollable = $this->getContents();
+                            break;
+                        case "ENROLSTARTDATE":
+                            $this->info->course_enrolstartdate = $this->getContents();
+                            break;
+                        case "ENROLENDDATE":
+                            $this->info->course_enrolenddate = $this->getContents();
+                            break;
+                        case "ENROLPERIOD":
+                            $this->info->course_enrolperiod = $this->getContents();
+                            break;
                     }
                 }
                 if ($this->tree[4] == "CATEGORY") {
@@ -3901,7 +5300,7 @@
                         }
                     }
                 }
-                
+
                 if ($this->tree[4] == "ROLES_ASSIGNMENTS") {
                     if ($this->level == 6) {
                         switch ($tagName) {
@@ -3914,9 +5313,9 @@
                             case "ID":
                                 $this->info->tempid = $this->getContents();
                             break;
-                        }      
+                        }
                     }
-                    
+
                     if ($this->level == 8) {
                         switch ($tagName) {
                             case "USERID":
@@ -3946,11 +5345,11 @@
                             case "SORTORDER":
                                 $this->info->roleassignments[$this->info->tempid]->assignments[$this->info->tempuser]->sortorder = $this->getContents();
                             break;
-                        
+
                         }
                     }
                 } /// ends role_assignments
-                
+
                 if ($this->tree[4] == "ROLES_OVERRIDES") {
                     if ($this->level == 6) {
                         switch ($tagName) {
@@ -3959,13 +5358,13 @@
                             break;
                             case "SHORTNAME":
                                 $this->info->tempshortname = $this->getContents();
-                            break;                            
+                            break;
                             case "ID":
                                 $this->info->tempid = $this->getContents();
                             break;
-                        }      
+                        }
                     }
-                    
+
                     if ($this->level == 8) {
                         switch ($tagName) {
                             case "NAME":
@@ -3985,7 +5384,7 @@
                             break;
                         }
                     }
-                } /// ends role_overrides    
+                } /// ends role_overrides
             }
 
             //Stop parsing if todo = COURSE_HEADER and tagName = HEADER (en of the tag, of course)
@@ -4008,6 +5407,13 @@
                 //if (trim($this->content))                                                                     //Debug
                 //    echo "C".str_repeat("&nbsp;",($this->level+2)*2).$this->getContents()."<br />\n";           //Debug
                 //echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;/".$tagName."&gt;<br />\n";          //Debug
+
+                // Collect everything into $this->temp
+                if (!isset($this->temp)) {
+                    $this->temp = "";
+                }
+                $this->temp .= htmlspecialchars(trim($this->content))."</".$tagName.">";    
+
                 //Dependig of different combinations, do different things
                 if ($this->level == 4) {
                     switch ($tagName) {
@@ -4015,6 +5421,37 @@
                             //We've finalized a block, get it
                             $this->info->instances[] = $this->info->tempinstance;
                             unset($this->info->tempinstance);
+
+                            //Also, xmlize INSTANCEDATA and save to db
+                            //Prepend XML standard header to info gathered
+                            $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                            //Call to xmlize for this portion of xml data (one BLOCK)
+                            //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                                //Debug
+                            $data = xmlize($xml_data,0);         
+                            //echo strftime ("%X",time())."<p>";                                                          //Debug
+                            //traverse_xmlize($data);                                                                     //Debug
+                            //print_object ($GLOBALS['traverse_array']);                                                  //Debug
+                            //$GLOBALS['traverse_array']="";                                                              //Debug
+                            //Check for instancedata, is exists, then save to DB
+                            if (isset($data['BLOCK']['#']['INSTANCEDATA']['0']['#'])) {
+                                //Get old id
+                                $oldid = $data['BLOCK']['#']['ID']['0']['#'];
+                                //Get instancedata
+                                
+                                if ($data = $data['BLOCK']['#']['INSTANCEDATA']['0']['#']) {
+                                    //Restore code calls this multiple times - so might already have the newid
+                                    if ($newid = backup_getid($this->preferences->backup_unique_code,'block_instance',$oldid)) {
+                                        $newid = $newid->new_id;
+                                    } else {
+                                        $newid = null;
+                                    }
+                                    //Save to DB, we will use it later
+                                    $status = backup_putid($this->preferences->backup_unique_code,'block_instance',$oldid,$newid,$data);
+                                }
+                            }
+                            //Reset temp
+                            unset($this->temp);
+
                             break;
                         default:
                             die($tagName);
@@ -4048,7 +5485,7 @@
                         default:
                             break;
                     }
-                } 
+                }
 
                 if ($this->tree[5] == "ROLES_ASSIGNMENTS") {
                     if ($this->level == 7) {
@@ -4064,17 +5501,17 @@
                             break;
                         }
                     }
-                    
+
                     if ($this->level == 9) {
 
                         switch ($tagName) {
                             case "USERID":
                                 $this->info->tempinstance->roleassignments[$this->info->tempid]->name = $this->info->tempname;
-                                
+
                                 $this->info->tempinstance->roleassignments[$this->info->tempid]->shortname = $this->info->tempshortname;
-                                
+
                                 $this->info->tempuser = $this->getContents();
-                                
+
                                 $this->info->tempinstance->roleassignments[$this->info->tempid]->assignments[$this->info->tempuser]->userid = $this->getContents();
                             break;
                             case "HIDDEN":
@@ -4098,11 +5535,11 @@
                             case "SORTORDER":
                                 $this->info->tempinstance->roleassignments[$this->info->tempid]->assignments[$this->info->tempuser]->sortorder = $this->getContents();
                             break;
-                        
+
                         }
                     }
                 } /// ends role_assignments
-                
+
                 if ($this->tree[5] == "ROLES_OVERRIDES") {
                     if ($this->level == 7) {
                         switch ($tagName) {
@@ -4111,17 +5548,17 @@
                             break;
                             case "SHORTNAME":
                                 $this->info->tempshortname = $this->getContents();
-                            break;                            
+                            break;
                             case "ID":
                                 $this->info->tempid = $this->getContents(); // temp roleid
                             break;
-                        }      
+                        }
                     }
-                    
+
                     if ($this->level == 9) {
                         switch ($tagName) {
                             case "NAME":
-                            
+
                                 $this->info->tempinstance->roleoverrides[$this->info->tempid]->name = $this->info->tempname;
                                 $this->info->tempinstance->roleoverrides[$this->info->tempid]->shortname = $this->info->tempshortname;
                                 $this->info->tempname = $this->getContents(); // change to name of capability
@@ -4138,9 +5575,9 @@
                             break;
                         }
                     }
-                } /// ends role_overrides                                          
+                } /// ends role_overrides
             }
-            
+
             //Stop parsing if todo = BLOCKS and tagName = BLOCKS (en of the tag, of course)
             //Speed up a lot (avoid parse all)
             //WARNING: ONLY EXIT IF todo = BLOCKS (thus tree[3] = "BLOCKS") OTHERWISE
@@ -4190,21 +5627,41 @@
                 if ($this->level == 6) {
                     switch ($tagName) {
                         case "MOD":
+                            if (!isset($this->info->tempmod->groupmode)) {
+                                $this->info->tempmod->groupmode = 0;
+                            }
+                            if (!isset($this->info->tempmod->groupingid)) {
+                                $this->info->tempmod->groupingid = 0;
+                            }
+                            if (!isset($this->info->tempmod->groupmembersonly)) {
+                                $this->info->tempmod->groupmembersonly = 0;
+                            }
+                            if (!isset($this->info->tempmod->idnumber)) {
+                                $this->info->tempmod->idnumber = null;
+                            }
+
                             //We've finalized a mod, get it
-                            $this->info->tempsection->mods[$this->info->tempmod->id]->type = 
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->type =
                                 $this->info->tempmod->type;
-                            $this->info->tempsection->mods[$this->info->tempmod->id]->instance = 
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->instance =
                                 $this->info->tempmod->instance;
-                            $this->info->tempsection->mods[$this->info->tempmod->id]->added = 
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->added =
                                 $this->info->tempmod->added;
-                            $this->info->tempsection->mods[$this->info->tempmod->id]->score = 
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->score =
                                 $this->info->tempmod->score;
-                            $this->info->tempsection->mods[$this->info->tempmod->id]->indent = 
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->indent =
                                 $this->info->tempmod->indent;
-                            $this->info->tempsection->mods[$this->info->tempmod->id]->visible = 
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->visible =
                                 $this->info->tempmod->visible;
-                            $this->info->tempsection->mods[$this->info->tempmod->id]->groupmode = 
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->groupmode =
                                 $this->info->tempmod->groupmode;
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->groupingid =
+                                $this->info->tempmod->groupingid;
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->groupmembersonly =
+                                $this->info->tempmod->groupmembersonly;
+                            $this->info->tempsection->mods[$this->info->tempmod->id]->idnumber =
+                                $this->info->tempmod->idnumber;
+
                             unset($this->info->tempmod);
                     }
                 }
@@ -4234,13 +5691,22 @@
                         case "GROUPMODE":
                             $this->info->tempmod->groupmode = $this->getContents();
                             break;
+                        case "GROUPINGID":
+                            $this->info->tempmod->groupingid = $this->getContents();
+                            break;
+                        case "GROUPMEMBERSONLY":
+                            $this->info->tempmod->groupmembersonly = $this->getContents();
+                            break;
+                        case "IDNUMBER":
+                            $this->info->tempmod->idnumber = $this->getContents();
+                            break;
                         default:
-                        break;
+                            break;
                     }
                 }
-                
+
                 if (isset($this->tree[7]) && $this->tree[7] == "ROLES_ASSIGNMENTS") {
-                    
+
                     if ($this->level == 9) {
                         switch ($tagName) {
                             case "NAME":
@@ -4252,18 +5718,18 @@
                             case "ID":
                                 $this->info->tempid = $this->getContents(); // temp roleid
                             break;
-                        }      
+                        }
 
                     }
                     if ($this->level == 11) {
                         switch ($tagName) {
                             case "USERID":
                                 $this->info->tempsection->mods[$this->info->tempmod->id]->roleassignments[$this->info->tempid]->name = $this->info->tempname;
-                                
+
                                 $this->info->tempsection->mods[$this->info->tempmod->id]->roleassignments[$this->info->tempid]->shortname = $this->info->tempshortname;
-                                
+
                                 $this->info->tempuser = $this->getContents();
-                                
+
                                 $this->info->tempsection->mods[$this->info->tempmod->id]->roleassignments[$this->info->tempid]->assignments[$this->info->tempuser]->userid = $this->getContents();
                             break;
                             case "HIDDEN":
@@ -4287,11 +5753,11 @@
                             case "SORTORDER":
                                 $this->info->tempsection->mods[$this->info->tempmod->id]->roleassignments[$this->info->tempid]->assignments[$this->info->tempuser]->sortorder = $this->getContents();
                             break;
-                        
+
                         }
                     }
                 } /// ends role_assignments
-                
+
                 if (isset($this->tree[7]) && $this->tree[7] == "ROLES_OVERRIDES") {
                     if ($this->level == 9) {
                         switch ($tagName) {
@@ -4300,17 +5766,17 @@
                             break;
                             case "SHORTNAME":
                                 $this->info->tempshortname = $this->getContents();
-                            break;                            
+                            break;
                             case "ID":
                                 $this->info->tempid = $this->getContents(); // temp roleid
                             break;
-                        }      
+                        }
                     }
-                    
+
                     if ($this->level == 11) {
                         switch ($tagName) {
                             case "NAME":
-                            
+
                                 $this->info->tempsection->mods[$this->info->tempmod->id]->roleoverrides[$this->info->tempid]->name = $this->info->tempname;
                                 $this->info->tempsection->mods[$this->info->tempmod->id]->roleoverrides[$this->info->tempid]->shortname = $this->info->tempshortname;
                                 $this->info->tempname = $this->getContents(); // change to name of capability
@@ -4327,10 +5793,10 @@
                             break;
                         }
                     }
-                } /// ends role_overrides    
-           
+                } /// ends role_overrides
+
             }
-            
+
             //Stop parsing if todo = SECTIONS and tagName = SECTIONS (en of the tag, of course)
             //Speed up a lot (avoid parse all)
             if ($tagName == "SECTIONS") {
@@ -4351,7 +5817,7 @@
                 if (!isset($this->temp)) {
                     $this->temp = '';
                 }
-                $this->temp .= htmlspecialchars(trim($this->content))."</".$tagName.">";            
+                $this->temp .= htmlspecialchars(trim($this->content))."</".$tagName.">";
             }
 
             if($tagName=='FORMATDATA') {
@@ -4360,10 +5826,10 @@
                     //Prepend XML standard header to info gathered
                     $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
                     $this->temp='';
-                    
+
                     //Call to xmlize for this portion of xml data (the FORMATDATA block)
                     $this->info->format_data = xmlize($xml_data,0);
-                }         
+                }
                 //Stop parsing at end of FORMATDATA
                 $this->finished=true;
             }
@@ -4427,6 +5893,206 @@
 
         //This is the endTag handler we use where we are reading the gradebook zone (todo="GRADEBOOK")
         function endElementGradebook($parser, $tagName) {
+            //Check if we are into GRADEBOOK zone
+            if ($this->tree[3] == "GRADEBOOK") {
+                //if (trim($this->content))                                                             //Debug
+                //    echo "C".str_repeat("&nbsp;",($this->level+2)*2).$this->getContents()."<br />\n"; //Debug
+                //echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;/".$tagName."&gt;<br />\n";//Debug
+                //Acumulate data to info (content + close tag)
+                //Reconvert: strip htmlchars again and trim to generate xml data
+                if (!isset($this->temp)) {
+                    $this->temp = "";
+                }
+                $this->temp .= htmlspecialchars(trim($this->content))."</".$tagName.">";
+                // We have finished outcome, grade_category or grade_item, reset accumulated
+                // data because they are close tags
+                if ($this->level == 4) {
+                    $this->temp = "";
+                }
+                //If we've finished a grade item, xmlize it an save to db
+                if (($this->level == 5) and ($tagName == "GRADE_ITEM")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one PREFERENCE)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    $item_id = $data["GRADE_ITEM"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+
+                    $status = backup_putid($this->preferences->backup_unique_code, 'grade_items', $item_id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+
+                    unset($this->temp);
+                }
+
+                //If we've finished a grade_category, xmlize it an save to db
+                if (($this->level == 5) and ($tagName == "GRADE_CATEGORY")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one CATECORY)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    $category_id = $data["GRADE_CATEGORY"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+                    $status = backup_putid($this->preferences->backup_unique_code, 'grade_categories' ,$category_id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+                    unset($this->temp);
+                }
+                
+                if (($this->level == 5) and ($tagName == "GRADE_LETTER")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one CATECORY)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    $letter_id = $data["GRADE_LETTER"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+                    $status = backup_putid($this->preferences->backup_unique_code, 'grade_letters' ,$letter_id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+                    unset($this->temp);
+                }
+
+                //If we've finished a grade_outcome, xmlize it an save to db
+                if (($this->level == 5) and ($tagName == "GRADE_OUTCOME")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one CATECORY)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    $outcome_id = $data["GRADE_OUTCOME"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+                    $status = backup_putid($this->preferences->backup_unique_code, 'grade_outcomes' ,$outcome_id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+                    unset($this->temp);
+                }
+
+                //If we've finished a grade_outcomes_course, xmlize it an save to db
+                if (($this->level == 5) and ($tagName == "GRADE_OUTCOMES_COURSE")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one CATECORY)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    $outcomes_course_id = $data["GRADE_OUTCOMES_COURSE"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+                    $status = backup_putid($this->preferences->backup_unique_code, 'grade_outcomes_courses' ,$outcomes_course_id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+                    unset($this->temp);
+                }
+
+                if (($this->level == 5) and ($tagName == "GRADE_CATEGORIES_HISTORY")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one PREFERENCE)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    $id = $data["GRADE_CATEGORIES_HISTORY"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+
+                    $status = backup_putid($this->preferences->backup_unique_code, 'grade_categories_history', $id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+
+                    unset($this->temp);
+                }
+
+                if (($this->level == 5) and ($tagName == "GRADE_GRADES_HISTORY")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one PREFERENCE)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    $id = $data["GRADE_GRADES_HISTORY"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+
+                    $status = backup_putid($this->preferences->backup_unique_code, 'grade_grades_history', $id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+
+                    unset($this->temp);
+                }
+
+                if (($this->level == 5) and ($tagName == "GRADE_ITEM_HISTORY")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one PREFERENCE)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    $id = $data["GRADE_ITEM_HISTORY"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+
+                    $status = backup_putid($this->preferences->backup_unique_code, 'grade_items_history', $id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+
+                    unset($this->temp);
+                }
+
+                if (($this->level == 5) and ($tagName == "GRADE_OUTCOME_HISTORY")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one PREFERENCE)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    $id = $data["GRADE_OUTCOME_HISTORY"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+
+                    $status = backup_putid($this->preferences->backup_unique_code, 'grade_outcomes_history', $id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+
+                    unset($this->temp);
+                }
+            }
+
+            //Stop parsing if todo = GRADEBOOK and tagName = GRADEBOOK (en of the tag, of course)
+            //Speed up a lot (avoid parse all)
+            if ($tagName == "GRADEBOOK" and $this->level == 3) {
+                $this->finished = true;
+                $this->counter = 0;
+            }
+
+            //Clear things
+            $this->tree[$this->level] = "";
+            $this->level--;
+            $this->content = "";
+
+        }
+
+        //This is the endTag handler we use where we are reading the gradebook zone (todo="GRADEBOOK")
+        function endElementOldGradebook($parser, $tagName) {
             //Check if we are into GRADEBOOK zone
             if ($this->tree[3] == "GRADEBOOK") {
                 //if (trim($this->content))                                                             //Debug
@@ -4528,10 +6194,10 @@
             $this->content = "";
 
         }
-        
+
         //This is the endTag handler we use where we are reading the users zone (todo="USERS")
         function endElementUsers($parser, $tagName) {
-            global $CFG;  
+            global $CFG;
             //Check if we are into USERS zone
             if ($this->tree[3] == "USERS") {
                 //if (trim($this->content))                                                                     //Debug
@@ -4543,19 +6209,19 @@
                         case "USER":
                             //Increment counter
                             $this->counter++;
-                            //Save to db, only save if record not already exist    
+                            //Save to db, only save if record not already exist
                             // if there already is an new_id for this entry, just use that new_id?
                             $newuser = backup_getid($this->preferences->backup_unique_code,"user",$this->info->tempuser->id);
                             if (isset($newuser->new_id)) {
                                 $newid = $newuser->new_id;
                             } else {
-                                $newid = null;  
+                                $newid = null;
                             }
-                            
+
                             backup_putid($this->preferences->backup_unique_code,"user",$this->info->tempuser->id,
                                             $newid,$this->info->tempuser);
-                            
-                            //Do some output   
+
+                            //Do some output
                             if ($this->counter % 10 == 0) {
                                 if (!defined('RESTORE_SILENTLY')) {
                                     echo ".";
@@ -4571,148 +6237,150 @@
                             break;
                     }
                 }
+
                 if ($this->level == 5) {
                     switch ($tagName) {
-                        case "ID": 
+                        case "ID":
                             $this->info->users[$this->getContents()] = $this->getContents();
                             $this->info->tempuser->id = $this->getContents();
                             break;
-                        case "AUTH": 
+                        case "AUTH":
                             $this->info->tempuser->auth = $this->getContents();
                             break;
-                        case "CONFIRMED": 
+                        case "CONFIRMED":
                             $this->info->tempuser->confirmed = $this->getContents();
                             break;
-                        case "POLICYAGREED": 
+                        case "POLICYAGREED":
                             $this->info->tempuser->policyagreed = $this->getContents();
                             break;
-                        case "DELETED": 
+                        case "DELETED":
                             $this->info->tempuser->deleted = $this->getContents();
                             break;
-                        case "USERNAME": 
+                        case "USERNAME":
                             $this->info->tempuser->username = $this->getContents();
                             break;
-                        case "PASSWORD": 
+                        case "PASSWORD":
                             $this->info->tempuser->password = $this->getContents();
                             break;
-                        case "IDNUMBER": 
+                        case "IDNUMBER":
                             $this->info->tempuser->idnumber = $this->getContents();
                             break;
-                        case "FIRSTNAME": 
+                        case "FIRSTNAME":
                             $this->info->tempuser->firstname = $this->getContents();
                             break;
-                        case "LASTNAME": 
+                        case "LASTNAME":
                             $this->info->tempuser->lastname = $this->getContents();
                             break;
-                        case "EMAIL": 
+                        case "EMAIL":
                             $this->info->tempuser->email = $this->getContents();
                             break;
-                        case "EMAILSTOP": 
+                        case "EMAILSTOP":
                             $this->info->tempuser->emailstop = $this->getContents();
                             break;
-                        case "ICQ": 
+                        case "ICQ":
                             $this->info->tempuser->icq = $this->getContents();
                             break;
-                        case "SKYPE": 
+                        case "SKYPE":
                             $this->info->tempuser->skype = $this->getContents();
                             break;
-                        case "AIM": 
+                        case "AIM":
                             $this->info->tempuser->aim = $this->getContents();
                             break;
-                        case "YAHOO": 
+                        case "YAHOO":
                             $this->info->tempuser->yahoo = $this->getContents();
                             break;
-                        case "MSN": 
+                        case "MSN":
                             $this->info->tempuser->msn = $this->getContents();
                             break;
-                        case "PHONE1": 
+                        case "PHONE1":
                             $this->info->tempuser->phone1 = $this->getContents();
                             break;
-                        case "PHONE2": 
+                        case "PHONE2":
                             $this->info->tempuser->phone2 = $this->getContents();
                             break;
-                        case "INSTITUTION": 
+                        case "INSTITUTION":
                             $this->info->tempuser->institution = $this->getContents();
                             break;
-                        case "DEPARTMENT": 
+                        case "DEPARTMENT":
                             $this->info->tempuser->department = $this->getContents();
                             break;
-                        case "ADDRESS": 
+                        case "ADDRESS":
                             $this->info->tempuser->address = $this->getContents();
                             break;
-                        case "CITY": 
+                        case "CITY":
                             $this->info->tempuser->city = $this->getContents();
                             break;
-                        case "COUNTRY": 
+                        case "COUNTRY":
                             $this->info->tempuser->country = $this->getContents();
                             break;
-                        case "LANG": 
+                        case "LANG":
                             $this->info->tempuser->lang = $this->getContents();
                             break;
-                        case "THEME": 
+                        case "THEME":
                             $this->info->tempuser->theme = $this->getContents();
                             break;
-                        case "TIMEZONE": 
+                        case "TIMEZONE":
                             $this->info->tempuser->timezone = $this->getContents();
                             break;
-                        case "FIRSTACCESS": 
+                        case "FIRSTACCESS":
                             $this->info->tempuser->firstaccess = $this->getContents();
                             break;
-                        case "LASTACCESS": 
+                        case "LASTACCESS":
                             $this->info->tempuser->lastaccess = $this->getContents();
                             break;
-                        case "LASTLOGIN": 
+                        case "LASTLOGIN":
                             $this->info->tempuser->lastlogin = $this->getContents();
                             break;
-                        case "CURRENTLOGIN": 
+                        case "CURRENTLOGIN":
                             $this->info->tempuser->currentlogin = $this->getContents();
                             break;
-                        case "LASTIP": 
+                        case "LASTIP":
                             $this->info->tempuser->lastip = $this->getContents();
                             break;
-                        case "SECRET": 
+                        case "SECRET":
                             $this->info->tempuser->secret = $this->getContents();
                             break;
-                        case "PICTURE": 
+                        case "PICTURE":
                             $this->info->tempuser->picture = $this->getContents();
                             break;
-                        case "URL": 
+                        case "URL":
                             $this->info->tempuser->url = $this->getContents();
                             break;
-                        case "DESCRIPTION": 
+                        case "DESCRIPTION":
                             $this->info->tempuser->description = $this->getContents();
                             break;
-                        case "MAILFORMAT": 
+                        case "MAILFORMAT":
                             $this->info->tempuser->mailformat = $this->getContents();
                             break;
-                        case "MAILDIGEST": 
+                        case "MAILDIGEST":
                             $this->info->tempuser->maildigest = $this->getContents();
                             break;
-                        case "MAILDISPLAY": 
+                        case "MAILDISPLAY":
                             $this->info->tempuser->maildisplay = $this->getContents();
                             break;
-                        case "HTMLEDITOR": 
+                        case "HTMLEDITOR":
                             $this->info->tempuser->htmleditor = $this->getContents();
                             break;
-                        case "AJAX": 
+                        case "AJAX":
                             $this->info->tempuser->ajax = $this->getContents();
                             break;
-                        case "AUTOSUBSCRIBE": 
+                        case "AUTOSUBSCRIBE":
                             $this->info->tempuser->autosubscribe = $this->getContents();
                             break;
-                        case "TRACKFORUMS": 
+                        case "TRACKFORUMS":
                             $this->info->tempuser->trackforums = $this->getContents();
                             break;
-                        case "MNETHOSTURL": 
+                        case "MNETHOSTURL":
                             $this->info->tempuser->mnethosturl = $this->getContents();
                             break;
-                        case "TIMEMODIFIED": 
+                        case "TIMEMODIFIED":
                             $this->info->tempuser->timemodified = $this->getContents();
                             break;
                         default:
                             break;
                     }
                 }
+
                 if ($this->level == 6 && $this->tree[5]!="ROLES_ASSIGNMENTS" && $this->tree[5]!="ROLES_OVERRIDES") {
                     switch ($tagName) {
                         case "ROLE":
@@ -4725,59 +6393,106 @@
                             $this->info->tempuser->user_preferences[$this->info->tempuserpreference->name] = $this->info->tempuserpreference;
                             unset($this->info->tempuserpreference);
                             break;
-                    }
-                }
-                              
-                if ($this->level == 7) {
-                    switch ($tagName) {
-                        case "TYPE":
-                            $this->info->temprole->type = $this->getContents();
+                        case "USER_CUSTOM_PROFILE_FIELD":
+                            //We've finalized a user_custom_profile_field, get it
+                            $this->info->tempuser->user_custom_profile_fields[] = $this->info->tempusercustomprofilefield;
+                            unset($this->info->tempusercustomprofilefield);
                             break;
-                        case "AUTHORITY":
-                            $this->info->temprole->authority = $this->getContents();
-                            break;
-                        case "TEA_ROLE":
-                            $this->info->temprole->tea_role = $this->getContents();
-                            break;
-                        case "EDITALL":
-                            $this->info->temprole->editall = $this->getContents();
-                            break;
-                        case "TIMESTART":
-                            $this->info->temprole->timestart = $this->getContents();
-                            break;
-                        case "TIMEEND":
-                            $this->info->temprole->timeend = $this->getContents();
-                            break;
-                        case "TIMEMODIFIED":
-                            $this->info->temprole->timemodified = $this->getContents();
-                            break;
-                        case "TIMESTART":
-                            $this->info->temprole->timestart = $this->getContents();
-                            break;
-                        case "TIMEEND":
-                            $this->info->temprole->timeend = $this->getContents();
-                            break;
-                        case "TIME":
-                            $this->info->temprole->time = $this->getContents();
-                            break;
-                        case "TIMEACCESS":
-                            $this->info->temprole->timeaccess = $this->getContents();
-                            break;
-                        case "ENROL":
-                            $this->info->temprole->enrol = $this->getContents();
-                            break;
-                        case "NAME":
-                            $this->info->tempuserpreference->name = $this->getContents();
-                            break;
-                        case "VALUE":
-                            $this->info->tempuserpreference->value = $this->getContents();
+                        case "USER_TAG":
+                            //We've finalized a user_tag, get it
+                            $this->info->tempuser->user_tags[] = $this->info->tempusertag;
+                            unset($this->info->tempusertag);
                             break;
                         default:
                             break;
-                    
                     }
                 }
-                                           
+
+                if ($this->level == 7 && $this->tree[5]!="ROLES_ASSIGNMENTS" && $this->tree[5]!="ROLES_OVERRIDES") {
+                /// If we are reading roles
+                    if($this->tree[6] == 'ROLE') {
+                        switch ($tagName) {
+                            case "TYPE":
+                                $this->info->temprole->type = $this->getContents();
+                                break;
+                            case "AUTHORITY":
+                                $this->info->temprole->authority = $this->getContents();
+                                break;
+                            case "TEA_ROLE":
+                                $this->info->temprole->tea_role = $this->getContents();
+                                break;
+                            case "EDITALL":
+                                $this->info->temprole->editall = $this->getContents();
+                                break;
+                            case "TIMESTART":
+                                $this->info->temprole->timestart = $this->getContents();
+                                break;
+                            case "TIMEEND":
+                                $this->info->temprole->timeend = $this->getContents();
+                                break;
+                            case "TIMEMODIFIED":
+                                $this->info->temprole->timemodified = $this->getContents();
+                                break;
+                            case "TIMESTART":
+                                $this->info->temprole->timestart = $this->getContents();
+                                break;
+                            case "TIMEEND":
+                                $this->info->temprole->timeend = $this->getContents();
+                                break;
+                            case "TIME":
+                                $this->info->temprole->time = $this->getContents();
+                                break;
+                            case "TIMEACCESS":
+                                $this->info->temprole->timeaccess = $this->getContents();
+                                break;
+                            case "ENROL":
+                                $this->info->temprole->enrol = $this->getContents();
+                                break;
+                            default:
+                                break;
+                        }
+                /// If we are reading user_preferences
+                    } else if ($this->tree[6] == 'USER_PREFERENCE') {
+                        switch ($tagName) {
+                            case "NAME":
+                                $this->info->tempuserpreference->name = $this->getContents();
+                                break;
+                            case "VALUE":
+                                $this->info->tempuserpreference->value = $this->getContents();
+                                break;
+                            default:
+                                break;
+                        }
+                /// If we are reading user_custom_profile_fields
+                    } else if ($this->tree[6] == 'USER_CUSTOM_PROFILE_FIELD') {
+                        switch ($tagName) {
+                            case "FIELD_NAME":
+                                $this->info->tempusercustomprofilefield->field_name = $this->getContents();
+                                break;
+                            case "FIELD_TYPE":
+                                $this->info->tempusercustomprofilefield->field_type = $this->getContents();
+                                break;
+                            case "FIELD_DATA":
+                                $this->info->tempusercustomprofilefield->field_data = $this->getContents();
+                                break;
+                            default:
+                                break;
+                        }
+                /// If we are reading user_tags
+                    } else if ($this->tree[6] == 'USER_TAG') {
+                        switch ($tagName) {
+                            case "NAME":
+                                $this->info->tempusertag->name = $this->getContents();
+                                break;
+                            case "RAWNAME":
+                                $this->info->tempusertag->rawname = $this->getContents();
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+
                 if ($this->tree[5] == "ROLES_ASSIGNMENTS") {
 
                     if ($this->level == 7) {
@@ -4793,17 +6508,17 @@
                             break;
                         }
                     }
-                    
+
                     if ($this->level == 9) {
 
                         switch ($tagName) {
                             case "USERID":
                                 $this->info->tempuser->roleassignments[$this->info->tempid]->name = $this->info->tempname;
-                                
+
                                 $this->info->tempuser->roleassignments[$this->info->tempid]->shortname = $this->info->tempshortname;
-                                
+
                                 $this->info->tempuserid = $this->getContents();
-                                
+
                                 $this->info->tempuser->roleassignments[$this->info->tempid]->assignments[$this->info->tempuserid]->userid = $this->getContents();
                             break;
                             case "HIDDEN":
@@ -4827,11 +6542,11 @@
                             case "SORTORDER":
                                 $this->info->tempuser->roleassignments[$this->info->tempid]->assignments[$this->info->tempuserid]->sortorder = $this->getContents();
                             break;
-                        
+
                         }
                     }
                 } /// ends role_assignments
-                
+
                 if ($this->tree[5] == "ROLES_OVERRIDES") {
                     if ($this->level == 7) {
                         switch ($tagName) {
@@ -4840,17 +6555,17 @@
                             break;
                             case "SHORTNAME":
                                 $this->info->tempshortname = $this->getContents();
-                            break;                            
+                            break;
                             case "ID":
                                 $this->info->tempid = $this->getContents(); // temp roleid
                             break;
-                        }      
+                        }
                     }
-                    
+
                     if ($this->level == 9) {
                         switch ($tagName) {
                             case "NAME":
-                            
+
                                 $this->info->tempuser->roleoverrides[$this->info->tempid]->name = $this->info->tempname;
                                 $this->info->tempuser->roleoverrides[$this->info->tempid]->shortname = $this->info->tempshortname;
                                 $this->info->tempname = $this->getContents(); // change to name of capability
@@ -4867,8 +6582,8 @@
                             break;
                         }
                     }
-                } /// ends role_overrides                                                          
-                           
+                } /// ends role_overrides
+
             } // closes if this->tree[3]=="users"
 
             //Stop parsing if todo = USERS and tagName = USERS (en of the tag, of course)
@@ -4877,7 +6592,7 @@
                 $this->finished = true;
                 $this->counter = 0;
             }
-            
+
             //Clear things
             $this->tree[$this->level] = "";
             $this->level--;
@@ -4920,7 +6635,7 @@
                     }
                     $this->counter++;
                     //Save to db
-                    $status = backup_putid($this->preferences->backup_unique_code, $table,$message_id, 
+                    $status = backup_putid($this->preferences->backup_unique_code, $table,$message_id,
                                            null,$data);
                     //Create returning info
                     $this->info = $this->counter;
@@ -4943,7 +6658,7 @@
                     $contact_id = $data["CONTACT"]["#"]["ID"]["0"]["#"];
                     $this->counter++;
                     //Save to db
-                    $status = backup_putid($this->preferences->backup_unique_code, 'message_contacts' ,$contact_id, 
+                    $status = backup_putid($this->preferences->backup_unique_code, 'message_contacts' ,$contact_id,
                                            null,$data);
                     //Create returning info
                     $this->info = $this->counter;
@@ -4966,7 +6681,59 @@
 
         }
 
-        //This is the endTag handler we use where we are reading the questions zone (todo="QUESTIONS")  
+        //This is the endTag handler we use where we are reading the blogs zone (todo="BLOGS")
+        function endElementBlogs($parser, $tagName) {
+            //Check if we are into BLOGS zone
+            if ($this->tree[3] == "BLOGS") {
+                //if (trim($this->content))                                                             //Debug
+                //    echo "C".str_repeat("&nbsp;",($this->level+2)*2).$this->getContents()."<br />\n"; //Debug
+                //echo $this->level.str_repeat("&nbsp;",$this->level*2)."&lt;/".$tagName."&gt;<br />\n";//Debug
+                //Acumulate data to info (content + close tag)
+                //Reconvert: strip htmlchars again and trim to generate xml data
+                if (!isset($this->temp)) {
+                    $this->temp = "";
+                }
+                $this->temp .= htmlspecialchars(trim($this->content))."</".$tagName.">";
+                //If we've finished a blog, xmlize it an save to db
+                if (($this->level == 4) and ($tagName == "BLOG")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one BLOG)
+                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                    //Debug
+                    $data = xmlize($xml_data,0);
+                    //echo strftime ("%X",time())."<p>";                                              //Debug
+                    //traverse_xmlize($data);                                                         //Debug
+                    //print_object ($GLOBALS['traverse_array']);                                      //Debug
+                    //$GLOBALS['traverse_array']="";                                                  //Debug
+                    //Now, save data to db. We'll use it later
+                    //Get id from data
+                    $blog_id = $data["BLOG"]["#"]["ID"]["0"]["#"];
+                    $this->counter++;
+                    //Save to db
+                    $status = backup_putid($this->preferences->backup_unique_code, 'blog', $blog_id,
+                                           null,$data);
+                    //Create returning info
+                    $this->info = $this->counter;
+                    //Reset temp
+                    unset($this->temp);
+                }
+            }
+
+            //Stop parsing if todo = BLOGS and tagName = BLOGS (end of the tag, of course)
+            //Speed up a lot (avoid parse all)
+            if ($tagName == "BLOGS" and $this->level == 3) {
+                $this->finished = true;
+                $this->counter = 0;
+            }
+
+            //Clear things
+            $this->tree[$this->level] = "";
+            $this->level--;
+            $this->content = "";
+
+        }
+
+        //This is the endTag handler we use where we are reading the questions zone (todo="QUESTIONS")
         function endElementQuestions($parser, $tagName) {
             //Check if we are into QUESTION_CATEGORIES zone
             if ($this->tree[3] == "QUESTION_CATEGORIES") {
@@ -4997,6 +6764,7 @@
                     $status = backup_putid($this->preferences->backup_unique_code,"question_categories",$category_id,
                                      null,$data);
                     //Create returning info
+                    $ret_info = new object();
                     $ret_info->id = $category_id;
                     $this->info[] = $ret_info;
                     //Reset temp
@@ -5048,6 +6816,7 @@
                     $status = backup_putid($this->preferences->backup_unique_code,"scale",$scale_id,
                                      null,$data);
                     //Create returning info
+                    $ret_info = new object();
                     $ret_info->id = $scale_id;
                     $this->info[] = $ret_info;
                     //Reset temp
@@ -5120,9 +6889,9 @@
 
         }
 
-        //This is the endTag handler we use where we are reading the groups zone (todo="GROUPINGS")
-        function endElementGroupings($parser, $tagName) { //TODO:
-            //Check if we are into GROUPS zone
+        //This is the endTag handler we use where we are reading the groupings zone (todo="GROUPINGS")
+        function endElementGroupings($parser, $tagName) {
+            //Check if we are into GROUPINGS zone
             if ($this->tree[3] == "GROUPINGS") {
                 //Acumulate data to info (content + close tag)
                 //Reconvert: strip htmlchars again and trim to generate xml data
@@ -5164,6 +6933,50 @@
 
         }
 
+        //This is the endTag handler we use where we are reading the groupingsgroups zone (todo="GROUPINGGROUPS")
+        function endElementGroupingsGroups($parser, $tagName) {
+            //Check if we are into GROUPINGSGROUPS zone
+            if ($this->tree[3] == "GROUPINGSGROUPS") {
+                //Acumulate data to info (content + close tag)
+                //Reconvert: strip htmlchars again and trim to generate xml data
+                if (!isset($this->temp)) {
+                    $this->temp = "";
+                }
+                $this->temp .= htmlspecialchars(trim($this->content))."</".$tagName.">";
+                //If we've finished a group, xmlize it an save to db
+                if (($this->level == 4) and ($tagName == "GROUPINGGROUP")) {
+                    //Prepend XML standard header to info gathered
+                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                    //Call to xmlize for this portion of xml data (one GROUPING)
+                    $data = xmlize($xml_data,0);
+                    //Now, save data to db. We'll use it later
+                    //Get id and from data
+                    $groupinggroup_id = $data["GROUPINGGROUP"]["#"]["ID"]["0"]["#"];
+                    //Save to db
+                    $status = backup_putid($this->preferences->backup_unique_code,"groupingsgroups",$groupinggroup_id,
+                                     null,$data);
+                    //Create returning info
+                    $ret_info = new Object();
+                    $ret_info->id = $groupinggroup_id;
+                    $this->info[] = $ret_info;
+                    //Reset temp
+                    unset($this->temp);
+                }
+            }
+
+            //Stop parsing if todo = GROUPINGS and tagName = GROUPING (en of the tag, of course)
+            //Speed up a lot (avoid parse all)
+            if ($tagName == "GROUPINGSGROUPS" and $this->level == 3) {
+                $this->finished = true;
+            }
+
+            //Clear things
+            $this->tree[$this->level] = "";
+            $this->level--;
+            $this->content = "";
+
+        }
+
         //This is the endTag handler we use where we are reading the events zone (todo="EVENTS")
         function endElementEvents($parser, $tagName) {
             //Check if we are into EVENTS zone
@@ -5195,6 +7008,7 @@
                     $status = backup_putid($this->preferences->backup_unique_code,"event",$event_id,
                                      null,$data);
                     //Create returning info
+                    $ret_info = new object();
                     $ret_info->id = $event_id;
                     $this->info[] = $ret_info;
                     //Reset temp
@@ -5234,7 +7048,7 @@
                     $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
                     //Call to xmlize for this portion of xml data (one MOD)
                     //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                                  //Debug
-                    $data = xmlize($xml_data,0);         
+                    $data = xmlize($xml_data,0);
                     //echo strftime ("%X",time())."<p>";                                                            //Debug
                     //traverse_xmlize($data);                                                                     //Debug
                     //print_object ($GLOBALS['traverse_array']);                                                  //Debug
@@ -5250,6 +7064,7 @@
                                      null,$data);
                         //echo "<p>id: ".$mod_id."-".$mod_type." len.: ".strlen($sla_mod_temp)." to_db: ".$status."<p>";   //Debug
                         //Create returning info
+                        $ret_info = new object();
                         $ret_info->id = $mod_id;
                         $ret_info->modtype = $mod_type;
                         $this->info[] = $ret_info;
@@ -5354,10 +7169,10 @@
             $this->content .= $data;
         }
     }
-    
+
     //This function executes the MoodleParser
     function restore_read_xml ($xml_file,$todo,$preferences) {
-        
+
         $status = true;
 
         $xml_parser = xml_parser_create('UTF-8');
@@ -5367,55 +7182,46 @@
         xml_set_object($xml_parser,$moodle_parser);
         //Depending of the todo we use some element_handler or another
         if ($todo == "INFO") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementInfo", "endElementInfo");
         } else if ($todo == "ROLES") {
-            // Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementRoles", "endElementRoles");
         } else if ($todo == "COURSE_HEADER") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementCourseHeader", "endElementCourseHeader");
         } else if ($todo == 'BLOCKS') {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementBlocks", "endElementBlocks");
         } else if ($todo == "SECTIONS") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementSections", "endElementSections");
         } else if ($todo == 'FORMATDATA') {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementFormatData", "endElementFormatData");
         } else if ($todo == "METACOURSE") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementMetacourse", "endElementMetacourse");
         } else if ($todo == "GRADEBOOK") {
-            //Define handlers to that zone
-            xml_set_element_handler($xml_parser, "startElementGradebook", "endElementGradebook");
+            if ($preferences->backup_version > 2007090500) {
+                xml_set_element_handler($xml_parser, "startElementGradebook", "endElementGradebook");
+            } else {
+                xml_set_element_handler($xml_parser, "startElementOldGradebook", "endElementOldGradebook");
+            }
         } else if ($todo == "USERS") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementUsers", "endElementUsers");
         } else if ($todo == "MESSAGES") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementMessages", "endElementMessages");
+        } else if ($todo == "BLOGS") {
+            xml_set_element_handler($xml_parser, "startElementBlogs", "endElementBlogs");
         } else if ($todo == "QUESTIONS") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementQuestions", "endElementQuestions");
         } else if ($todo == "SCALES") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementScales", "endElementScales");
         } else if ($todo == "GROUPS") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementGroups", "endElementGroups");
         } else if ($todo == "GROUPINGS") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementGroupings", "endElementGroupings");
+        } else if ($todo == "GROUPINGSGROUPS") {
+            xml_set_element_handler($xml_parser, "startElementGroupingsGroups", "endElementGroupingsGroups");
         } else if ($todo == "EVENTS") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementEvents", "endElementEvents");
         } else if ($todo == "MODULES") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementModules", "endElementModules");
         } else if ($todo == "LOGS") {
-            //Define handlers to that zone
             xml_set_element_handler($xml_parser, "startElementLogs", "endElementLogs");
         } else {
             //Define default handlers (must no be invoked when everything become finished)
@@ -5425,11 +7231,20 @@
         $fp = fopen($xml_file,"r")
             or $status = false;
         if ($status) {
-            while ($data = fread($fp, 4096) and !$moodle_parser->finished)
-                    xml_parse($xml_parser, $data, feof($fp))
-                            or die(sprintf("XML error: %s at line %d",
-                            xml_error_string(xml_get_error_code($xml_parser)),
-                                    xml_get_current_line_number($xml_parser)));
+            // MDL-9290 performance improvement on reading large xml
+            $lasttime = time(); // crmas
+            while ($data = fread($fp, 4096) and !$moodle_parser->finished) {
+             
+                if ((time() - $lasttime) > 5) {
+                    $lasttime = time();
+                    backup_flush(1);
+                }
+             
+                xml_parse($xml_parser, $data, feof($fp))
+                        or die(sprintf("XML error: %s at line %d",
+                        xml_error_string(xml_get_error_code($xml_parser)),
+                                xml_get_current_line_number($xml_parser)));
+            }
             fclose($fp);
         }
         //Get info from parser
@@ -5448,26 +7263,26 @@
     /**
      * @param string $errorstr passed by reference, if silent is true,
      * errorstr will be populated and this function will return false rather than calling error() or notify()
-     * @param boolean $noredirect (optional) if this is passed, this function will not print continue, or 
+     * @param boolean $noredirect (optional) if this is passed, this function will not print continue, or
      * redirect to the next step in the restore process, instead will return $backup_unique_code
      */
     function restore_precheck($id,$file,&$errorstr,$noredirect=false) {
-        
+
         global $CFG, $SESSION;
 
         //Prepend dataroot to variable to have the absolute path
         $file = $CFG->dataroot."/".$file;
-        
+
         if (!defined('RESTORE_SILENTLY')) {
             //Start the main table
             echo "<table cellpadding=\"5\">";
             echo "<tr><td>";
-            
+
             //Start the mail ul
             echo "<ul>";
         }
 
-        //Check the file exists 
+        //Check the file exists
         if (!is_file($file)) {
             if (!defined('RESTORE_SILENTLY')) {
                 error ("File not exists ($file)");
@@ -5476,7 +7291,7 @@
                 return false;
             }
         }
-        
+
         //Check the file name ends with .zip
         if (!substr($file,-4) == ".zip") {
             if (!defined('RESTORE_SILENTLY')) {
@@ -5486,10 +7301,10 @@
                 return false;
             }
         }
-        
+
         //Now calculate the unique_code for this restore
         $backup_unique_code = time();
-        
+
         //Now check and create the backup dir (if it doesn't exist)
         if (!defined('RESTORE_SILENTLY')) {
             echo "<li>".get_string("creatingtemporarystructures").'</li>';
@@ -5499,15 +7314,15 @@
         if ($status) {
             $status = clear_backup_dir($backup_unique_code);
         }
-        
+
         //Now delete old data and directories under dataroot/temp/backup
-        if ($status) {   
+        if ($status) {
             if (!defined('RESTORE_SILENTLY')) {
                 echo "<li>".get_string("deletingolddata").'</li>';
             }
             $status = backup_delete_old_data();
         }
-        
+
         //Now copy he zip file to dataroot/temp/backup/backup_unique_code
         if ($status) {
             if (!defined('RESTORE_SILENTLY')) {
@@ -5522,7 +7337,7 @@
                 }
             }
         }
-        
+
         //Now unzip the file
         if ($status) {
             if (!defined('RESTORE_SILENTLY')) {
@@ -5546,7 +7361,7 @@
             }
             $status = blackboard_convert($CFG->dataroot."/temp/backup/".$backup_unique_code);
         }
-        
+
         //Now check for the moodle.xml file
         if ($status) {
             $xml_file  = $CFG->dataroot."/temp/backup/".$backup_unique_code."/moodle.xml";
@@ -5566,10 +7381,10 @@
                 }
             }
         }
-        
+
         $info = "";
         $course_header = "";
-        
+
         //Now read the info tag (all)
         if ($status) {
             if (!defined('RESTORE_SILENTLY')) {
@@ -5579,27 +7394,33 @@
             $info = restore_read_xml_info ($xml_file);
             //Reading course_header from file
             $course_header = restore_read_xml_course_header ($xml_file);
+
+            if(!is_object($course_header)){
+                // ensure we fail if there is no course header
+                $course_header = false;
+            }
         }
-        
+
         if (!defined('RESTORE_SILENTLY')) {
             //End the main ul
             echo "</ul>\n";
-            
+
             //End the main table
             echo "</td></tr>";
             echo "</table>";
         }
-        
+
         //We compare Moodle's versions
         if ($CFG->version < $info->backup_moodle_version && $status) {
+            $message = new object();
             $message->serverversion = $CFG->version;
             $message->serverrelease = $CFG->release;
             $message->backupversion = $info->backup_moodle_version;
             $message->backuprelease = $info->backup_moodle_release;
             print_simple_box(get_string('noticenewerbackup','',$message), "center", "70%", '', "20", "noticebox");
-            
+
         }
-        
+
         //Now we print in other table, the backup and the course it contains info
         if ($info and $course_header and $status) {
             //First, the course info
@@ -5613,13 +7434,13 @@
                 }
             }
         }
-        
+
         //Save course header and info into php session
         if ($status) {
             $SESSION->info = $info;
             $SESSION->course_header = $course_header;
         }
-        
+
         //Finally, a little form to continue
         //with some hidden fields
         if ($status) {
@@ -5634,13 +7455,17 @@
             }
             else {
                 if (empty($noredirect)) {
-                    redirect($CFG->wwwroot.'/backup/restore.php?backup_unique_code='.$backup_unique_code.'&launch=form&file='.$file.'&id='.$id);
+                    // in 2.0 we must not print "Continue" redirect link here, because ppl click on it and the execution gets interrupted on next page!!!
+                    // imo RESTORE_SILENTLY is an ugly hack :-P
+                    $sillystr = get_string('donotclickcontinue');
+                    redirect($CFG->wwwroot.'/backup/restore.php?backup_unique_code='.$backup_unique_code.'&launch=form&file='.$file.'&id='.$id, $sillystr, 0);
+
                 } else {
                     return $backup_unique_code;
                 }
             }
         }
-        
+
         if (!$status) {
             if (!defined('RESTORE_SILENTLY')) {
                 error ("An error has ocurred");
@@ -5657,13 +7482,14 @@
         $restore->backup_unique_code=$backup_unique_code;
         $restore->users = 2; // yuk
         $restore->course_files = $SESSION->restore->restore_course_files;
+        $restore->site_files = $SESSION->restore->restore_site_files;
         if ($allmods = get_records("modules")) {
             foreach ($allmods as $mod) {
                 $modname = $mod->name;
                 $var = "restore_".$modname;
                 //Now check that we have that module info in the backup file
                 if (isset($SESSION->info->mods[$modname]) && $SESSION->info->mods[$modname]->backup == "true") {
-                    $restore->$var = 1; 
+                    $restore->$var = 1;
                 }
             }
         }
@@ -5677,11 +7503,11 @@
                 $restore[$newkey] = backup_to_restore_array($value,$key);
             }
         }
-        else if (is_object($backup)) { 
+        else if (is_object($backup)) {
             $tmp = get_object_vars($backup);
             foreach ($tmp as $key => $value) {
                 $newkey = str_replace('backup','restore',$key);
-                $restore->$newkey = backup_to_restore_array($value,$key);   
+                $restore->$newkey = backup_to_restore_array($value,$key);
             }
         }
         else {
@@ -5691,26 +7517,28 @@
         return $restore;
     }
 
-    /** 
+    /**
      * compatibility function
-     * checks for per-instance backups AND 
+     * checks for per-instance backups AND
      * older per-module backups
      * and returns whether userdata has been selected.
      */
     function restore_userdata_selected($restore,$modname,$modid) {
         // check first for per instance array
         if (!empty($restore->mods[$modname]->granular)) { // supports per instance
-            return array_key_exists($modid,$restore->mods[$modname]->instances) 
+            return array_key_exists($modid,$restore->mods[$modname]->instances)
                 && !empty($restore->mods[$modname]->instances[$modid]->userinfo);
         }
+
+        //print_object($restore->mods[$modname]);
         return !empty($restore->mods[$modname]->userinfo);
     }
 
     function restore_execute(&$restore,$info,$course_header,&$errorstr) {
-      
+
         global $CFG, $USER;
-        $status = true;        
-        
+        $status = true;
+
         //Checks for the required files/functions to restore every module
         //and include them
         if ($allmods = get_records("modules") ) {
@@ -5718,7 +7546,7 @@
                 $modname = $mod->name;
                 $modfile = "$CFG->dirroot/mod/$modname/restorelib.php";
                 //If file exists and we have selected to restore that type of module
-                if ((file_exists($modfile)) and ($restore->mods[$modname]->restore)) {
+                if ((file_exists($modfile)) and !empty($restore->mods[$modname]) and ($restore->mods[$modname]->restore)) {
                     include_once($modfile);
                 }
             }
@@ -5728,14 +7556,14 @@
             //Start the main table
             echo "<table cellpadding=\"5\">";
             echo "<tr><td>";
-            
+
             //Start the main ul
             echo "<ul>";
         }
-        
+
         //Localtion of the xml file
         $xml_file = $CFG->dataroot."/temp/backup/".$restore->backup_unique_code."/moodle.xml";
-        
+
         //If we've selected to restore into new course
         //create it (course)
         //Saving conversion id variables into backup_tables
@@ -5752,7 +7580,7 @@
                     return false;
                 }
             }
-            
+
             //Print course fullname and shortname and category
             if ($status) {
                 if (!defined('RESTORE_SILENTLY')) {
@@ -5776,7 +7604,7 @@
             $course = get_record("course","id",$restore->course_id);
             if ($course) {
                 if (!defined('RESTORE_SILENTLY')) {
-                    echo "<li>".get_string("usingexistingcourse"); 
+                    echo "<li>".get_string("usingexistingcourse");
                     echo "<ul>";
                     echo "<li>".get_string("from").": ".$course_header->course_fullname." (".$course_header->course_shortname.")".'</li>';
                     echo "<li>".get_string("to").": ". format_string($course->fullname) ." (".format_string($course->shortname).")".'</li>';
@@ -5792,7 +7620,7 @@
                     if (!defined('RESTORE_SILENTLY')) {
                         echo "<li>".get_string("deletingolddata").'</li>';
                     }
-                    $status = remove_course_contents($restore->course_id,false) and 
+                    $status = remove_course_contents($restore->course_id,false) and
                         delete_dir_contents($CFG->dataroot."/".$restore->course_id,"backupdata");
                     if ($status) {
                         //Now , this situation is equivalent to the "restore to new course" one (we
@@ -5817,54 +7645,8 @@
                 }
             }
         }
-        
-        //Now create the course_sections and their associated course_modules
-        if ($status) {
-            //Into new course
-            if ($restore->restoreto == 2) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    echo "<li>".get_string("creatingsections");
-                }
-                if (!$status = restore_create_sections($restore,$xml_file)) {
-                    if (!defined('RESTORE_SILENTLY')) {
-                        notify("Error creating sections in the existing course.");
-                    } else {
-                        $errorstr = "Error creating sections in the existing course.";
-                        return false;
-                    }
-                }
-                if (!defined('RESTORE_SILENTLY')) {
-                    echo '</li>';
-                }
-                //Into existing course
-            } else if ($restore->restoreto == 0 or $restore->restoreto == 1) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    echo "<li>".get_string("checkingsections");
-                }
-                if (!$status = restore_create_sections($restore,$xml_file)) {
-                    if (!defined('RESTORE_SILENTLY')) {
-                        notify("Error creating sections in the existing course.");
-                    } else {
-                        $errorstr = "Error creating sections in the existing course.";
-                        return false;
-                    } 
-                }
-                if (!defined('RESTORE_SILENTLY')) {
-                    echo '</li>';
-                }
-                //Error
-            } else {
-                if (!defined('RESTORE_SILENTLY')) {
-                    notify("Neither a new course or an existing one was specified.");
-                    $status = false;
-                } else {
-                    $errorstr = "Neither a new course or an existing one was specified.";
-                    return false;
-                }
-            }
-        }
 
-        //Now create users as needed 
+        //Now create users as needed
         if ($status and ($restore->users == 0 or $restore->users == 1)) {
             if (!defined('RESTORE_SILENTLY')) {
                 echo "<li>".get_string("creatingusers")."<br />";
@@ -5877,7 +7659,7 @@
                     return false;
                 }
             }
-            
+
             //Now print info about the work done
             if ($status) {
                 $recs = get_records_sql("select old_id, new_id from {$CFG->prefix}backup_ids
@@ -5896,7 +7678,7 @@
                         $record = backup_getid($restore->backup_unique_code,"user",$rec->old_id);
                         if (strpos($record->info,"new") !== false) {
                             $new_count++;
-                        } 
+                        }
                         if (strpos($record->info,"exists") !== false) {
                             $exists_count++;
                         }
@@ -5931,12 +7713,115 @@
                     } // no need to return false here, it's recoverable.
                 }
             }
-            
+
             if (!defined('RESTORE_SILENTLY')) {
                 echo "</li>";
             }
         }
-        
+
+
+        //Now create groups as needed
+        if ($status and ($restore->groups == RESTORE_GROUPS_ONLY or $restore->groups == RESTORE_GROUPS_GROUPINGS)) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo "<li>".get_string("creatinggroups");
+            }
+            if (!$status = restore_create_groups($restore,$xml_file)) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    notify("Could not restore groups!");
+                } else {
+                    $errorstr = "Could not restore groups!";
+                    return false;
+                }
+            }
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '</li>';
+            }
+        }
+
+        //Now create groupings as needed
+        if ($status and ($restore->groups == RESTORE_GROUPINGS_ONLY or $restore->groups == RESTORE_GROUPS_GROUPINGS)) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo "<li>".get_string("creatinggroupings");
+            }
+            if (!$status = restore_create_groupings($restore,$xml_file)) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    notify("Could not restore groupings!");
+                } else {
+                    $errorstr = "Could not restore groupings!";
+                    return false;
+                }
+            }
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '</li>';
+            }
+        }
+
+        //Now create groupingsgroups as needed
+        if ($status and $restore->groups == RESTORE_GROUPS_GROUPINGS) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo "<li>".get_string("creatinggroupingsgroups");
+            }
+            if (!$status = restore_create_groupings_groups($restore,$xml_file)) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    notify("Could not restore groups in groupings!");
+                } else {
+                    $errorstr = "Could not restore groups in groupings!";
+                    return false;
+                }
+            }
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '</li>';
+            }
+        }
+
+
+        //Now create the course_sections and their associated course_modules
+        //we have to do this after groups and groupings are restored, because we need the new groupings id
+        if ($status) {
+            //Into new course
+            if ($restore->restoreto == 2) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo "<li>".get_string("creatingsections");
+                }
+                if (!$status = restore_create_sections($restore,$xml_file)) {
+                    if (!defined('RESTORE_SILENTLY')) {
+                        notify("Error creating sections in the existing course.");
+                    } else {
+                        $errorstr = "Error creating sections in the existing course.";
+                        return false;
+                    }
+                }
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo '</li>';
+                }
+                //Into existing course
+            } else if ($restore->restoreto == 0 or $restore->restoreto == 1) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo "<li>".get_string("checkingsections");
+                }
+                if (!$status = restore_create_sections($restore,$xml_file)) {
+                    if (!defined('RESTORE_SILENTLY')) {
+                        notify("Error creating sections in the existing course.");
+                    } else {
+                        $errorstr = "Error creating sections in the existing course.";
+                        return false;
+                    }
+                }
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo '</li>';
+                }
+                //Error
+            } else {
+                if (!defined('RESTORE_SILENTLY')) {
+                    notify("Neither a new course or an existing one was specified.");
+                    $status = false;
+                } else {
+                    $errorstr = "Neither a new course or an existing one was specified.";
+                    return false;
+                }
+            }
+        }
+
         //Now create metacourse info
         if ($status and $restore->metacourse) {
             //Only to new courses!
@@ -5957,10 +7842,10 @@
                 }
             }
         }
-        
+
 
         //Now create categories and questions as needed
-        if ($status and ($restore->mods['quiz']->restore)) {
+        if ($status) {
             include_once("$CFG->dirroot/question/restorelib.php");
             if (!defined('RESTORE_SILENTLY')) {
                 echo "<li>".get_string("creatingcategoriesandquestions");
@@ -6026,7 +7911,35 @@
                     echo "<ul>";
                     echo "<li>".get_string("filesfolders").": ".$status.'</li>';
                     echo "</ul>";
-                }       
+                }
+            }
+            if (!defined('RESTORE_SILENTLY')) {
+                echo "</li>";
+            }
+        }
+
+
+        //Now create site files as needed
+        if ($status and ($restore->site_files)) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo "<li>".get_string('copyingsitefiles');
+            }
+            if (!$status = restore_site_files($restore)) {
+                if (empty($status)) {
+                    notify("Could not restore site files!");
+                } else {
+                    $errorstr = "Could not restore site files!";
+                    return false;
+                }
+            }
+            //If all is ok (and we have a counter)
+            if ($status and ($status !== true)) {
+                //Inform about user dirs created from backup
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo "<ul>";
+                    echo "<li>".get_string("filesfolders").": ".$status.'</li>';
+                    echo "</ul>";
+                }
             }
             if (!defined('RESTORE_SILENTLY')) {
                 echo "</li>";
@@ -6043,6 +7956,24 @@
                     notify("Could not restore messages!");
                 } else {
                     $errorstr = "Could not restore messages!";
+                    return false;
+                }
+            }
+            if (!defined('RESTORE_SILENTLY')) {
+                echo "</li>";
+            }
+        }
+
+        //Now create blogs as needed
+        if ($status and ($restore->blogs)) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo "<li>".get_string("creatingblogsinfo");
+            }
+            if (!$status = restore_create_blogs($restore,$xml_file)) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    notify("Could not restore blogs!");
+                } else {
+                    $errorstr = "Could not restore blogs!";
                     return false;
                 }
             }
@@ -6069,42 +8000,6 @@
             }
         }
 
-        //Now create groups as needed
-        if ($status) {
-            if (!defined('RESTORE_SILENTLY')) {
-                echo "<li>".get_string("creatinggroups");
-            }
-            if (!$status = restore_create_groups($restore,$xml_file)) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    notify("Could not restore groups!");
-                } else {
-                    $errorstr = "Could not restore groups!";
-                    return false;
-                }
-            }
-            if (!defined('RESTORE_SILENTLY')) {
-                echo '</li>';
-            }
-        }
-
-        //Now create groupings as needed
-        if ($status) {
-            if (!defined('RESTORE_SILENTLY')) {
-                echo "<li>".get_string("creatinggroupings");
-            }
-            if (!$status = restore_create_groupings($restore,$xml_file)) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    notify("Could not restore groupings!");
-                } else {
-                    $errorstr = "Could not restore groupings!";
-                    return false;
-                }
-            }
-            if (!defined('RESTORE_SILENTLY')) {
-                echo '</li>';
-            }
-        }
-        
         //Now create events as needed
         if ($status) {
             if (!defined('RESTORE_SILENTLY')) {
@@ -6127,30 +8022,12 @@
         if ($status) {
             if (!defined('RESTORE_SILENTLY')) {
                 echo "<li>".get_string("creatingcoursemodules");
-            } 
+            }
             if (!$status = restore_create_modules($restore,$xml_file)) {
                 if (!defined('RESTORE_SILENTLY')) {
                     notify("Could not restore modules!");
                 } else {
                     $errorstr = "Could not restore modules!";
-                    return false;
-                }
-            }
-            if (!defined('RESTORE_SILENTLY')) {
-                echo '</li>';
-            }
-        }
-
-        //Now create gradebook as needed -- AFTER modules!!!
-        if ($status) {
-            if (!defined('RESTORE_SILENTLY')) {
-                echo "<li>".get_string("creatinggradebook");
-            } 
-            if (!$status = restore_create_gradebook($restore,$xml_file)) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    notify("Could not restore gradebook!");
-                } else {
-                    $errorstr = "Could not restore gradebook!";
                     return false;
                 }
             }
@@ -6218,9 +8095,11 @@
             if (!defined('RESTORE_SILENTLY')) {
                 echo '</li>';
             }
-        }    
+        }
 
         //Now, if all is OK, adjust the instance field in course_modules !!
+        //this also calculates the final modinfo information so, after this,
+        //code needing it can be used (like role_assignments. MDL-13740)
         if ($status) {
             if (!defined('RESTORE_SILENTLY')) {
                 echo "<li>".get_string("checkinginstances");
@@ -6293,36 +8172,80 @@
             }
         }
 
+        //Now create gradebook as needed -- AFTER modules and blocks!!!
+        if ($status) {
+            if ($restore->backup_version > 2007090500) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo "<li>".get_string("creatinggradebook");
+                }
+                if (!$status = restore_create_gradebook($restore,$xml_file)) {
+                    if (!defined('RESTORE_SILENTLY')) {
+                        notify("Could not restore gradebook!");
+                    } else {
+                        $errorstr = "Could not restore gradebook!";
+                        return false;
+                    }
+                }
+
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo '</li>';
+                }
+
+            } else {
+                // for moodle versions before 1.9, those grades need to be converted to use the new gradebook
+                // this code needs to execute *after* the course_modules are sorted out
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo "<li>".get_string("migratinggrades");
+                }
+
+            /// force full refresh of grading data before migration == crete all items first
+                if (!$status = restore_migrate_old_gradebook($restore,$xml_file)) {
+                    if (!defined('RESTORE_SILENTLY')) {
+                        notify("Could not migrate gradebook!");
+                    } else {
+                        $errorstr = "Could not migrade gradebook!";
+                        return false;
+                    }
+                }
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo '</li>';
+                }
+            }
+        /// force full refresh of grading data after all items are created
+            grade_force_full_regrading($restore->course_id);
+            grade_grab_course_grades($restore->course_id);
+        }
+
         /*******************************************************************************
          ************* Restore of Roles and Capabilities happens here ******************
          *******************************************************************************/
-        $status = restore_create_roles($restore, $xml_file);
-        $status = restore_roles_settings($restore, $xml_file);
+         // try to restore roles even when restore is going to fail - teachers might have
+         // at least some role assigned - this is not correct though
+        $status = restore_create_roles($restore, $xml_file) && $status;
+        $status = restore_roles_settings($restore, $xml_file) && $status;
 
         //Now if all is OK, update:
-        //   - course modinfo field 
+        //   - course modinfo field
         //   - categories table
         //   - add user as teacher
         if ($status) {
             if (!defined('RESTORE_SILENTLY')) {
                 echo "<li>".get_string("checkingcourse");
-            } 
-            //modinfo field
-            rebuild_course_cache($restore->course_id);
+            }
             //categories table
-            $course = get_record("course","id",$restore->course_id); 
+            $course = get_record("course","id",$restore->course_id);
             fix_course_sortorder();
             // Check if the user has course update capability in the newly restored course
             // there is no need to load his capabilities again, because restore_roles_settings
-            // would have loaded it anyway, if there is any assignments. 
+            // would have loaded it anyway, if there is any assignments.
             // fix for MDL-6831
             $newcontext = get_context_instance(CONTEXT_COURSE, $restore->course_id);
             if (!has_capability('moodle/course:manageactivities', $newcontext)) {
-                // fix for MDL-9065, use the new config setting if exists         
+                // fix for MDL-9065, use the new config setting if exists
                 if ($CFG->creatornewroleid) {
                     role_assign($CFG->creatornewroleid, $USER->id, 0, $newcontext->id);
                 } else {
-                    if ($legacyteachers = get_roles_with_capability('moodle/legacy:editingteacher', CAP_ALLOW, get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+                    if ($legacyteachers = get_roles_with_capability('moodle/legacy:editingteacher', CAP_ALLOW, get_context_instance(CONTEXT_SYSTEM))) {
                         if ($legacyteacher = array_shift($legacyteachers)) {
                             role_assign($legacyteacher->id, $USER->id, 0, $newcontext->id);
                         }
@@ -6354,14 +8277,22 @@
             }
         }
 
-        if ($status = restore_close_html($restore)){
-            echo '<li>Closing the Restorelog.html file.</li>';
+        // this is not a critical check - the result can be ignored
+        if (restore_close_html($restore)){
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '<li>Closing the Restorelog.html file.</li>';
+            }
+        }
+        else {
+            if (!defined('RESTORE_SILENTLY')) {
+                notify("Could not close the restorelog.html file");
+            }
         }
 
         if (!defined('RESTORE_SILENTLY')) {
             //End the main ul
             echo "</ul>";
-            
+
             //End the main table
             echo "</td></tr>";
             echo "</table>";
@@ -6373,18 +8304,18 @@
     function restore_open_html($restore,$course_header) {
 
         global $CFG;
-        
+
         $status = true;
 
-        //Open file for writing    
+        //Open file for writing
         //First, we check the course_id backup data folder exists and create it as necessary in CFG->dataroot
         if (!$dest_dir = make_upload_directory("$restore->course_id/backupdata")) {   // Backup folder
             error("Could not create backupdata folder.  The site administrator needs to fix the file permissions");
         }
         $status = check_dir_exists($dest_dir,true);
-        $restorelog_file = fopen("$dest_dir/restorelog.html","a"); 
+        $restorelog_file = fopen("$dest_dir/restorelog.html","a");
         //Add the stylesheet
-        $stylesheetshtml = '';      
+        $stylesheetshtml = '';
         foreach ($CFG->stylesheets as $stylesheet) {
             $stylesheetshtml .= '<link rel="stylesheet" type="text/css" href="'.$stylesheet.'" />'."\n";
         }
@@ -6396,7 +8327,7 @@
         fwrite ($restorelog_file," \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">  ");
         fwrite ($restorelog_file,"<html dir=\"ltr\".$languagehtml.");
         fwrite ($restorelog_file,"<head>");
-        fwrite ($restorelog_file,$stylesheetshtml);        
+        fwrite ($restorelog_file,$stylesheetshtml);
         fwrite ($restorelog_file,"<title>".$course_header->course_shortname." Restored </title>");
         fwrite ($restorelog_file,"</head><body><br/><h1>The following changes were made during the Restoration of this Course.</h1><br/><br/>");
         fwrite ($restorelog_file,"The Course ShortName is now - ".$course_header->course_shortname." The FullName is now - ".$course_header->course_fullname."<br/><br/>");
@@ -6417,10 +8348,10 @@
     function restore_close_html($restore) {
 
         global $CFG;
-        
+
         $status = true;
 
-        //Open file for writing    
+        //Open file for writing
         //First, check that course_id/backupdata folder exists in CFG->dataroot
         $dest_dir = $CFG->dataroot."/".$restore->course_id."/backupdata";
         $status = check_dir_exists($dest_dir, true, true);
@@ -6428,27 +8359,27 @@
         //Write the footer to close the logging file
         fwrite ($restorelog_file,"<br/>This file was written to directly by each modules restore process.");
         fwrite ($restorelog_file,"<br/><br/>Log complete.</body></html>");
-       
+
         if ($status) {
             return $restorelog_file;
         } else {
             return false;
         }
     }
-    
+
 /********************** Roles and Capabilities Related Functions *******************************/
-    
-    /* Yu: Note recovering of role assignments/overrides need to take place after 
-       users have been recovered, i.e. after we get their new_id, and after all 
+
+    /* Yu: Note recovering of role assignments/overrides need to take place after
+       users have been recovered, i.e. after we get their new_id, and after all
        roles have been recreated or mapped. Contexts can be created on the fly.
        The current order of restore is Restore (old) -> restore roles -> restore assignment/overrides
        the order of restore among different contexts, i.e. course, mod, blocks, users should not matter
        once roles and users have been restored.
      */
-        
+
     /**
      * This function restores all the needed roles for this course
-     * i.e. roles with an assignment in any of the mods or blocks, 
+     * i.e. roles with an assignment in any of the mods or blocks,
      * roles assigned on any user (e.g. parent role) and roles
      * assigned at course levle
      * This function should check for duplicate roles first
@@ -6460,7 +8391,7 @@
         }
         $info = restore_read_xml_roles($xmlfile);
 
-        $sitecontext = get_context_instance(CONTEXT_SYSTEM, SITEID);
+        $sitecontext = get_context_instance(CONTEXT_SYSTEM);
 
         // the following code creates new roles
         // but we could use more intelligent detection, and role mapping
@@ -6472,31 +8403,32 @@
         }
         // $info->roles will be empty for backups pre 1.7
         if (isset($info->roles) && $info->roles) {
-            
+
             foreach ($info->roles as $oldroleid=>$roledata) {
-                if (empty($restore->rolesmapping)) {                   
+
+                if (empty($restore->rolesmapping)) {
                     // if this is empty altogether, we came from import or there's no roles used in course at all
                     // in this case, write the same oldid as this is the same site
                     // no need to do mapping
                     $status = backup_putid($restore->backup_unique_code,"role",$oldroleid,
-                                     $oldroleid); // adding a new id                           
+                                     $oldroleid); // adding a new id
                     continue;  // do not create additonal roles;
                 }
             // first we check if the roles are in the mappings
             // if so, we just do a mapping i.e. update oldids table
                 if (isset($rolemappings[$oldroleid]) && $rolemappings[$oldroleid]) {
                     $status = backup_putid($restore->backup_unique_code,"role",$oldroleid,
-                                     $rolemappings[$oldroleid]); // adding a new id     
-              
+                                     $rolemappings[$oldroleid]); // adding a new id
+
                 } else {
-            
+
                     // code to make new role name/short name if same role name or shortname exists
                     $fullname = $roledata->name;
                     $shortname = $roledata->shortname;
                     $currentfullname = "";
                     $currentshortname = "";
                     $counter = 0;
-                      
+
                     do {
                         if ($counter) {
                             $suffixfull = " ".get_string("copyasnoun")." ".$counter;
@@ -6506,37 +8438,53 @@
                             $suffixshort = "";
                         }
                         $currentfullname = $fullname.$suffixfull;
-                        // Limit the size of shortname - database column accepts <= 15 chars
-                        $currentshortname = substr($shortname, 0, 15 - strlen($suffixshort)).$suffixshort;
+                        // Limit the size of shortname - database column accepts <= 100 chars
+                        $currentshortname = substr($shortname, 0, 100 - strlen($suffixshort)).$suffixshort;
                         $coursefull  = get_record("role","name",addslashes($currentfullname));
                         $courseshort = get_record("role","shortname",addslashes($currentshortname));
                         $counter++;
                     } while ($coursefull || $courseshort);
 
                     $roledata->name = $currentfullname;
-                    $roledata->shortname= $currentshortname;           
-            
+                    $roledata->shortname= $currentshortname;
+
                     // done finding a unique name
-            
+
                     $newroleid = create_role(addslashes($roledata->name),addslashes($roledata->shortname),'');
                     $status = backup_putid($restore->backup_unique_code,"role",$oldroleid,
                                      $newroleid); // adding a new id
                     foreach ($roledata->capabilities as $capability) {
-                
+
                         $roleinfo = new object();
                         $roleinfo = (object)$capability;
                         $roleinfo->contextid = $sitecontext->id;
                         $roleinfo->capability = $capability->name;
                         $roleinfo->roleid = $newroleid;
-                
+
                         insert_record('role_capabilities', $roleinfo);
+                    }
+                }
+            /// Now, restore role nameincourse (only if the role had nameincourse in backup)
+                if (!empty($roledata->nameincourse)) {
+                    $newrole = backup_getid($restore->backup_unique_code, 'role', $oldroleid); /// Look for target role
+                    $coursecontext = get_context_instance(CONTEXT_COURSE, $restore->course_id); /// Look for target context
+                    if (!empty($newrole->new_id) && !empty($coursecontext)) {
+                    /// Check the role hasn't any custom name in context
+                        if (!record_exists('role_names', 'roleid', $newrole->new_id, 'contextid', $coursecontext->id)) {
+                            $rolename = new object();
+                            $rolename->roleid = $newrole->new_id;
+                            $rolename->contextid = $coursecontext->id;
+                            $rolename->name = addslashes($roledata->nameincourse);
+
+                            insert_record('role_names', $rolename);
+                        }
                     }
                 }
             }
         }
         return true;
     }
-    
+
     /**
      * this function restores role assignments and role overrides
      * in course/user/block/mod level, it passed through
@@ -6544,7 +8492,7 @@
      */
     function restore_roles_settings($restore, $xmlfile) {
         // data pulls from course, mod, user, and blocks
-        
+
         /*******************************************************
          * Restoring from course level assignments *
          *******************************************************/
@@ -6552,24 +8500,24 @@
             echo "<li>".get_string("creatingcourseroles").'</li>';
         }
         $course = restore_read_xml_course_header($xmlfile);
-        
+
         if (!isset($restore->rolesmapping)) {
             $isimport = true; // course import from another course, or course with no role assignments
         } else {
             $isimport = false; // course restore with role assignments
         }
-        
+
         if (!empty($course->roleassignments) && !$isimport) {
             $courseassignments = $course->roleassignments;
 
-            foreach ($courseassignments as $oldroleid => $courseassignment) {    
+            foreach ($courseassignments as $oldroleid => $courseassignment) {
                 restore_write_roleassignments($restore, $courseassignment->assignments, "course", CONTEXT_COURSE, $course->course_id, $oldroleid);
             }
         }
         /*****************************************************
          * Restoring from course level overrides *
-         *****************************************************/     
-        
+         *****************************************************/
+
         if (!empty($course->roleoverrides) && !$isimport) {
             $courseoverrides = $course->roleoverrides;
             foreach ($courseoverrides as $oldroleid => $courseoverride) {
@@ -6580,26 +8528,26 @@
                 }
             }
         }
-      
+
         /*******************************************************
          * Restoring role assignments/overrdies                *
          * from module level assignments                       *
-         *******************************************************/     
-        
+         *******************************************************/
+
         if (!defined('RESTORE_SILENTLY')) {
             echo "<li>".get_string("creatingmodroles").'</li>';
         }
         $sections = restore_read_xml_sections($xmlfile);
         $secs = $sections->sections;
-         
+
         foreach ($secs as $section) {
             if (isset($section->mods)) {
                 foreach ($section->mods as $modid=>$mod) {
                     if (isset($mod->roleassignments) && !$isimport) {
                         foreach ($mod->roleassignments as $oldroleid=>$modassignment) {
-                            restore_write_roleassignments($restore, $modassignment->assignments, "course_modules", CONTEXT_MODULE, $modid, $oldroleid);                       
-                        }  
-                    } 
+                            restore_write_roleassignments($restore, $modassignment->assignments, "course_modules", CONTEXT_MODULE, $modid, $oldroleid);
+                        }
+                    }
                     // role overrides always applies, in import or backup/restore
                     if (isset($mod->roleoverrides)) {
                         foreach ($mod->roleoverrides as $oldroleid=>$modoverride) {
@@ -6613,23 +8561,23 @@
         /*************************************************
          * Restoring assignments from blocks level       *
          * role assignments/overrides                    *
-         *************************************************/ 
+         *************************************************/
 
         if ($restore->restoreto != 1) { // skip altogether if restoring to exisitng course by adding
             if (!defined('RESTORE_SILENTLY')) {
                 echo "<li>".get_string("creatingblocksroles").'</li>';
             }
-            $blocks = restore_read_xml_blocks($xmlfile);
+            $blocks = restore_read_xml_blocks($restore, $xmlfile);
             if (isset($blocks->instances)) {
                 foreach ($blocks->instances as $instance) {
                     if (isset($instance->roleassignments) && !$isimport) {
                         foreach ($instance->roleassignments as $oldroleid=>$blockassignment) {
                             restore_write_roleassignments($restore, $blockassignment->assignments, "block_instance", CONTEXT_BLOCK, $instance->id, $oldroleid);
-                      
+
                         }
                     }
                     // likewise block overrides should always be restored like mods
-                    if (isset($instance->roleoverrides)) {                    
+                    if (isset($instance->roleoverrides)) {
                         foreach ($instance->roleoverrides as $oldroleid=>$blockoverride) {
                             restore_write_roleoverrides($restore, $blockoverride->overrides, "block_instance", CONTEXT_BLOCK, $instance->id, $oldroleid);
                         }
@@ -6640,7 +8588,7 @@
         /************************************************
          * Restoring assignments from userid level      *
          * role assignments/overrides                   *
-         ************************************************/     
+         ************************************************/
         if (!defined('RESTORE_SILENTLY')) {
             echo "<li>".get_string("creatinguserroles").'</li>';
         }
@@ -6651,32 +8599,32 @@
                 $rec = backup_getid($restore->backup_unique_code,"user",$userid);
                 if (isset($rec->info->roleassignments)) {
                     foreach ($rec->info->roleassignments as $oldroleid=>$userassignment) {
-                       restore_write_roleassignments($restore, $userassignment->assignments, "user", CONTEXT_USER, $userid, $oldroleid);  
+                       restore_write_roleassignments($restore, $userassignment->assignments, "user", CONTEXT_USER, $userid, $oldroleid);
                     }
                 }
                 if (isset($rec->info->roleoverrides)) {
                     foreach ($rec->info->roleoverrides as $oldroleid=>$useroverride) {
-                       restore_write_roleoverrides($restore, $useroverride->overrides, "user", CONTEXT_USER, $userid, $oldroleid);  
+                       restore_write_roleoverrides($restore, $useroverride->overrides, "user", CONTEXT_USER, $userid, $oldroleid);
                     }
                 }
             }
         }
-        
+
         return true;
     }
-    
+
     // auxillary function to write role assignments read from xml to db
     function restore_write_roleassignments($restore, $assignments, $table, $contextlevel, $oldid, $oldroleid) {
- 
+
         $role = backup_getid($restore->backup_unique_code, "role", $oldroleid);
-        
+
         foreach ($assignments as $assignment) {
 
             $olduser = backup_getid($restore->backup_unique_code,"user",$assignment->userid);
             //Oh dear, $olduser... can be an object, $obj->string or bool!
             if (!$olduser || (is_string($olduser->info) && $olduser->info == "notincourse")) { // it's possible that user is not in the course
-                continue;  
-            }        
+                continue;
+            }
             $assignment->userid = $olduser->new_id; // new userid here
             $oldmodifier = backup_getid($restore->backup_unique_code,"user",$assignment->modifierid);
             $assignment->modifierid = !empty($oldmodifier->new_id) ? $oldmodifier->new_id : 0; // new modifier id here
@@ -6691,100 +8639,98 @@
 
             $newcontext = get_context_instance($contextlevel, $oldinstance->new_id);
             $assignment->contextid = $newcontext->id; // new context id
-            // might already have same assignment           
-            role_assign($assignment->roleid, $assignment->userid, 0, $assignment->contextid, $assignment->timestart, $assignment->timeend, $assignment->hidden, $assignment->enrol);
-            
-        }  
+            // might already have same assignment
+            role_assign($assignment->roleid, $assignment->userid, 0, $assignment->contextid, $assignment->timestart, $assignment->timeend, $assignment->hidden, $assignment->enrol, $assignment->timemodified);
+
+        }
     }
-    
+
     // auxillary function to write role assignments read from xml to db
     function restore_write_roleoverrides($restore, $overrides, $table, $contextlevel, $oldid, $oldroleid) {
-        
+
         // it is possible to have an override not relevant to this course context.
         // should be ignored(?)
         if (!$role = backup_getid($restore->backup_unique_code, "role", $oldroleid)) {
             return null;
         }
-        
-        foreach ($overrides as $override) {            
+
+        foreach ($overrides as $override) {
             $override->capability = $override->name;
             $oldmodifier = backup_getid($restore->backup_unique_code,"user",$override->modifierid);
-            $override->modifierid = $oldmodifier->new_id?$oldmodifier->new_id:0; // new modifier id here
+            $override->modifierid = !empty($oldmodifier->new_id)?$oldmodifier->new_id:0; // new modifier id here
             $override->roleid = $role->new_id; // restored new role id
-            
+
             // hack to make the correct contextid for course level imports
             if ($contextlevel == CONTEXT_COURSE) {
                 $oldinstance->new_id = $restore->course_id;
             } else {
                 $oldinstance = backup_getid($restore->backup_unique_code,$table,$oldid);
             }
-            
+
             $newcontext = get_context_instance($contextlevel, $oldinstance->new_id);
-            $override->contextid = $newcontext->id; // new context id                 
-            // might already have same override
-            if (!get_record('role_capabilities', 'capability', $override->capability, 'roleid', $override->roleid, 'contextid', $override->contextid)) {
-                insert_record('role_capabilities', $override);
-            }
-        }  
+            $override->contextid = $newcontext->id; // new context id
+            // use assign capability instead so we can add context to context_rel
+            assign_capability($override->capability, $override->permission, $override->roleid, $override->contextid);
+        }
     }
     //write activity date changes to the html log file, and update date values in the the xml array
-    function restore_log_date_changes($recordtype, &$restore, &$xml, $TAGS, $NAMETAG='NAME') { 
+    function restore_log_date_changes($recordtype, &$restore, &$xml, $TAGS, $NAMETAG='NAME') {
 
-        global $CFG; 
-        $openlog = false; 
-     
-        // loop through time fields in $TAGS 
-        foreach ($TAGS as $TAG) { 
+        global $CFG;
+        $openlog = false;
 
-            // check $TAG has a sensible value 
-            if (!empty($xml[$TAG][0]['#']) && is_string($xml[$TAG][0]['#']) && is_numeric($xml[$TAG][0]['#'])) { 
+        // loop through time fields in $TAGS
+        foreach ($TAGS as $TAG) {
 
-                if ($openlog==false) { 
+            // check $TAG has a sensible value
+            if (!empty($xml[$TAG][0]['#']) && is_string($xml[$TAG][0]['#']) && is_numeric($xml[$TAG][0]['#'])) {
+
+                if ($openlog==false) {
                     $openlog = true; // only come through here once
 
-                    // open file for writing 
-                    $course_dir = "$CFG->dataroot/$restore->course_id/backupdata"; 
-                    check_dir_exists($course_dir, true); 
+                    // open file for writing
+                    $course_dir = "$CFG->dataroot/$restore->course_id/backupdata";
+                    check_dir_exists($course_dir, true);
                     $restorelog = fopen("$course_dir/restorelog.html", "a");
-                 
-                    // start output for this record 
-                    $msg = new stdClass(); 
-                    $msg->recordtype = $recordtype; 
-                    $msg->recordname = $xml[$NAMETAG][0]['#']; 
-                    fwrite ($restorelog, get_string("backupdaterecordtype", "moodle", $msg)); 
-                } 
 
-                // write old date to $restorelog 
-                $value = $xml[$TAG][0]['#']; 
-                $date = usergetdate($value); 
+                    // start output for this record
+                    $msg = new stdClass();
+                    $msg->recordtype = $recordtype;
+                    $msg->recordname = $xml[$NAMETAG][0]['#'];
+                    fwrite ($restorelog, get_string("backupdaterecordtype", "moodle", $msg));
+                }
 
-                $msg = new stdClass(); 
-                $msg->TAG = $TAG; 
-                $msg->weekday = $date['weekday']; 
-                $msg->mday = $date['mday']; 
-                $msg->month = $date['month']; 
-                $msg->year = $date['year']; 
-                fwrite ($restorelog, get_string("backupdateold", "moodle", $msg)); 
+                // write old date to $restorelog
+                $value = $xml[$TAG][0]['#'];
+                $date = usergetdate($value);
 
-                // write new date to $restorelog 
-                $value += $restore->course_startdateoffset; 
-                $date = usergetdate($value); 
+                $msg = new stdClass();
+                $msg->TAG = $TAG;
+                $msg->weekday = $date['weekday'];
+                $msg->mday = $date['mday'];
+                $msg->month = $date['month'];
+                $msg->year = $date['year'];
+                fwrite ($restorelog, get_string("backupdateold", "moodle", $msg));
 
-                $msg = new stdClass(); 
-                $msg->TAG = $TAG; 
-                $msg->weekday = $date['weekday']; 
-                $msg->mday = $date['mday']; 
-                $msg->month = $date['month']; 
-                $msg->year = $date['year']; 
-                fwrite ($restorelog, get_string("backupdatenew", "moodle", $msg)); 
+                // write new date to $restorelog
+                $value += $restore->course_startdateoffset;
+                $date = usergetdate($value);
 
-                // update $value in $xml tree for calling module 
-                $xml[$TAG][0]['#'] = "$value"; 
-            } 
+                $msg = new stdClass();
+                $msg->TAG = $TAG;
+                $msg->weekday = $date['weekday'];
+                $msg->mday = $date['mday'];
+                $msg->month = $date['month'];
+                $msg->year = $date['year'];
+                fwrite ($restorelog, get_string("backupdatenew", "moodle", $msg));
+
+                // update $value in $xml tree for calling module
+                $xml[$TAG][0]['#'] = "$value";
+            }
         }
         // close the restore log, if it was opened
         if ($openlog) {
-           fclose($restorelog); 
+           fclose($restorelog);
         }
     }
 ?>

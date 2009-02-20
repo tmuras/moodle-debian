@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.7.2.2 2007/02/25 20:21:44 stronk7 Exp $
+<?php // $Id: index.php,v 1.9.2.1 2008/05/02 04:07:29 dongsheng Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -53,8 +53,8 @@
     require_once('../../config.php');
     require_once($CFG->libdir.'/adminlib.php');
     require_once($CFG->libdir.'/ddllib.php'); // Install/upgrade related db functions
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('xmldbeditor', $adminroot);
+
+    admin_externalpage_setup('xmldbeditor');
 
 /// Add other used libraries
     require_once($CFG->libdir . '/xmlize.php');
@@ -79,7 +79,7 @@
     }
 
     require_login();
-    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
 
 /// Body of the script, based on action, we delegate the work
     $action = optional_param ('action', 'main_view', PARAM_ALPHAEXT);
@@ -105,10 +105,10 @@
                         $standard_javascript = $CFG->javascript;  // Save original javascript file
                         $CFG->javascript = $CFG->dirroot.'/'.$CFG->admin.'/xmldb/javascript.php';  //Use our custom javascript code
                     /// Go with standard admin header
-                        admin_externalpage_print_header($adminroot);
+                        admin_externalpage_print_header();
                         print_heading($xmldb_action->getTitle());
                         echo $xmldb_action->getOutput();
-                        admin_externalpage_print_footer($adminroot);
+                        admin_externalpage_print_footer();
                         break;
                     case ACTION_GENERATE_XML:
                         header('Content-type: application/xhtml+xml');

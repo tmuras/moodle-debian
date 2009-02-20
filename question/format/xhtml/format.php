@@ -1,6 +1,9 @@
 <?php 
 // Based on default.php, included by ../import.php
-
+/**
+ * @package questionbank
+ * @subpackage importexport
+ */
 class qformat_xhtml extends qformat_default {
 
     function provide_export() {
@@ -20,7 +23,7 @@ function writequestion( $question ) {
     // question reflects database fields for general question and specific to type
 
     // if a category switch, just ignore
-    if ($question-qtype=='category') {
+    if ($question->qtype=='category') {
         return '';
     }
 

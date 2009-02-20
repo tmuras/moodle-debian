@@ -1,4 +1,4 @@
-<?php //$Id: forgot_password_form.php,v 1.6.2.1 2007/02/22 22:25:20 skodak Exp $
+<?php //$Id: forgot_password_form.php,v 1.7.2.1 2007/11/23 22:12:35 skodak Exp $
 
 require_once $CFG->libdir.'/formslib.php';
 
@@ -19,10 +19,10 @@ class login_forgot_password_form extends moodleform {
         $this->add_action_buttons(true, get_string('ok'));
     }
 
-    function validation($data) {
+    function validation($data, $files) {
         global $CFG;
 
-        $errors = array();
+        $errors = parent::validation($data, $files);
 
         if ((!empty($data['username']) and !empty($data['email'])) or (empty($data['username']) and empty($data['email']))) {
             $errors['username'] = get_string('usernameoremail');
@@ -57,11 +57,7 @@ class login_forgot_password_form extends moodleform {
             }
         }
 
-        if (0 == count($errors)){
-            return true;
-        } else {
-            return $errors;
-        }
+        return $errors;
     }
 
 }

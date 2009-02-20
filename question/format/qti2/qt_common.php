@@ -12,6 +12,8 @@
  * @param int courseid
  * @return array containing filenames
  * @calledfrom type/<typename>/editquestion.php 
+ * @package questionbank
+ * @subpackage importexport
  */
 function get_course_media_files($courseid) 
 {
@@ -35,7 +37,7 @@ function get_course_media_files($courseid)
  * @param string $file the filename
  * @return boolean
  */
-function is_image_by_extentsion($file) {
+function is_image_by_extension($file) {
     $extensionsregex = '/\.(gif|jpg|jpeg|jpe|png|tif|tiff|bmp|xbm|rgb|svf)$/';
     if (preg_match($extensionsregex, $file)) {
         return true;
@@ -100,10 +102,9 @@ function get_media_tag($file, $courseid = 0, $alt = 'media file', $width = 0, $h
     // if it's a moodle library file, it will be served through file.php
     if (substr(strtolower($file), 0, 7) == 'http://') {
         $media = $file;
-    } else if ($CFG->slasharguments) {        // Use this method if possible for better caching
-        $media = "{$CFG->wwwroot}/file.php/$courseid/$file";
     } else {
-        $media = "{$CFG->wwwroot}/file.php?file=/$courseid/$file";
+        require_once($CFG->libdir.'/filelib.php');
+        $media = get_file_url("$courseid/$file");
     }
 
     $ismultimedia = false;

@@ -1,4 +1,4 @@
-<?php // $Id: XMLDBTable.class.php,v 1.19 2007/01/04 02:52:46 martinlanghoff Exp $
+<?php // $Id: XMLDBTable.class.php,v 1.22 2007/10/10 05:25:14 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -434,6 +434,8 @@ class XMLDBTable extends XMLDBObject {
      */
     function arr2XMLDBTable($xmlarr) {
 
+        global $CFG;
+
         $result = true;
 
     /// Debug the table
@@ -451,6 +453,8 @@ class XMLDBTable extends XMLDBObject {
         }
         if (isset($xmlarr['@']['COMMENT'])) {
             $this->comment = trim($xmlarr['@']['COMMENT']);
+        } else if (!empty($CFG->xmldbdisablecommentchecking)) {
+            $this->comment = '';
         } else {
             $this->errormsg = 'Missing COMMENT attribute';
             $this->debug($this->errormsg);
@@ -494,6 +498,7 @@ class XMLDBTable extends XMLDBObject {
                 $result = false;
             }
         /// Check previous & next are ok (duplicates and existing fields)
+            $this->fixPrevNext($this->fields);
             if ($result && !$this->checkPreviousNextValues($this->fields)) {
                 $this->errormsg = 'Some FIELDS previous/next values are incorrect';
                 $this->debug($this->errormsg);
@@ -538,6 +543,7 @@ class XMLDBTable extends XMLDBObject {
                 $result = false;
             }
         /// Check previous & next are ok (duplicates and existing keys)
+            $this->fixPrevNext($this->keys);
             if ($result && !$this->checkPreviousNextValues($this->keys)) {
                 $this->errormsg = 'Some KEYS previous/next values are incorrect';
                 $this->debug($this->errormsg);
@@ -581,6 +587,7 @@ class XMLDBTable extends XMLDBObject {
                 $result = false;
             }
         /// Check previous & next are ok (duplicates and existing INDEXES)
+            $this->fixPrevNext($this->indexes);
             if ($result && !$this->checkPreviousNextValues($this->indexes)) {
                 $this->errormsg = 'Some INDEXES previous/next values are incorrect';
                 $this->debug($this->errormsg);

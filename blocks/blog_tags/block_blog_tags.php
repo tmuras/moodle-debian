@@ -1,14 +1,14 @@
-<?PHP //$Id: block_blog_tags.php,v 1.18.4.2 2007/05/15 18:23:54 skodak Exp $
+<?PHP //$Id: block_blog_tags.php,v 1.28.2.7 2008/07/17 04:22:11 scyrma Exp $
 
 define('BLOGDEFAULTTIMEWITHIN', 90);
 define('BLOGDEFAULTNUMBEROFTAGS', 20);
-define('BLOGDEFAULTSORT', 'text');
+define('BLOGDEFAULTSORT', 'name');
 
 require_once($CFG->dirroot .'/blog/lib.php');
 
 class block_blog_tags extends block_base {
     function init() {
-        $this->version = 2006032000;
+        $this->version = 2007101509;
         $this->title = get_string('blocktagstitle', 'blog');
     }
 
@@ -21,7 +21,7 @@ class block_blog_tags extends block_base {
     }
 
     function applicable_formats() {
-        return array('all' => true, 'my' => false);
+        return array('all' => true, 'my' => false, 'tag' => false);
     }
 
     function instance_allow_config() {
@@ -38,12 +38,11 @@ class block_blog_tags extends block_base {
         }
     }
 
-
     function get_content() {
 
         global $CFG, $SITE, $COURSE, $USER;
 
-        if (empty($CFG->bloglevel)) {
+        if (empty($CFG->usetags) || empty($CFG->bloglevel)) {
             $this->content->text = '';
             return $this->content;
         }
@@ -71,19 +70,23 @@ class block_blog_tags extends block_base {
         $this->content->text = '';
         $this->content->footer = '';
 
-
         /// Get a list of tags
 
-        $timewithin = $this->config->timewithin * 24 * 60 * 60; /// convert to seconds
+        $timewithin = time() - $this->config->timewithin * 24 * 60 * 60; /// convert to seconds
 
-        $sql  = 'SELECT t.id, t.type, t.text, COUNT(DISTINCT bt.id) as ct ';
-        $sql .= "FROM {$CFG->prefix}tags t, {$CFG->prefix}blog_tag_instance bt, {$CFG->prefix}post p ";
-        $sql .= 'WHERE t.id = bt.tagid ';
-        $sql .= 'AND p.id = bt.entryid ';
-        $sql .= 'AND (p.publishstate = \'site\' or p.publishstate=\'public\') ';
-        $sql .= "AND bt.timemodified > {$timewithin} ";
-        $sql .= 'GROUP BY t.id, t.type, t.text ';
-        $sql .= 'ORDER BY ct DESC, t.text ASC';
+        $sql  = 'SELECT t.id, t.tagtype, t.rawname, t.name, COUNT(DISTINCT ti.id) AS ct ';
+        $sql .= "FROM {$CFG->prefix}tag t, {$CFG->prefix}tag_instance ti, {$CFG->prefix}post p ";
+        $sql .= 'WHERE t.id = ti.tagid ';
+        $sql .= 'AND p.id = ti.itemid ';
+        $sql .= 'AND ti.itemtype = \'post\' ';
+
+        // admins should be able to read all tags      
+        if (!has_capability('moodle/user:readuserblogs', get_context_instance(CONTEXT_SYSTEM))) {
+            $sql .= 'AND (p.publishstate = \'site\' or p.publishstate=\'public\') ';
+        }
+        $sql .= "AND ti.timemodified > {$timewithin} ";
+        $sql .= 'GROUP BY t.id, t.tagtype, t.name, t.rawname ';
+        $sql .= 'ORDER BY ct DESC, t.name ASC';
 
         if ($tags = get_records_sql($sql, 0, $this->config->numberoftags)) {
 
@@ -111,7 +114,7 @@ class block_blog_tags extends block_base {
                     $size = 20 - ( (int)((($currenttag - 1) / $totaltags) * 20) );
                 }
 
-                $tag->class = "$tag->type s$size";
+                $tag->class = "$tag->tagtype s$size";
                 $etags[] = $tag;
 
             }
@@ -132,7 +135,7 @@ class block_blog_tags extends block_base {
 
                     case BLOG_GROUP_LEVEL:
                         $filtertype = 'group';
-                        $filterselect = get_and_set_current_group($COURSE, groupmode($COURSE));
+                        $filterselect = groups_get_course_group($COURSE);
                     break;
 
                     case BLOG_COURSE_LEVEL:
@@ -159,7 +162,7 @@ class block_blog_tags extends block_base {
                 $this->content->text .= '<li><a href="'.$link.'" '.
                                         'class="'.$tag->class.'" '.
                                         'title="'.get_string('numberofentries','blog',$tag->ct).'">'.
-                                        $tag->text.'</a></li> ';
+                                        tag_display_name($tag) .'</a></li> ';
             }
             $this->content->text .= "\n</ul>\n";
 
@@ -186,7 +189,7 @@ class block_blog_tags extends block_base {
 
     /// set up sort select field
         $sort = array();
-        $sort['text'] = get_string('tagtext', 'blog');
+        $sort['name'] = get_string('tagtext', 'blog');
         $sort['id']   = get_string('tagdatelastused', 'blog');
 
 
@@ -197,9 +200,7 @@ class block_blog_tags extends block_base {
         } else {
             notice(get_string('blockconfigbad'), str_replace('blockaction=', 'dummy=', qualified_me()));
         }
-
     }
-
 }
 
 function blog_tags_sort($a, $b) {

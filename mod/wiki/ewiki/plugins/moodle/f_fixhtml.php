@@ -1,4 +1,4 @@
-<?php // $Id: f_fixhtml.php,v 1.5 2007/01/15 17:42:06 sam_marshall Exp $
+<?php // $Id: f_fixhtml.php,v 1.7 2007/05/08 16:12:10 poltawski Exp $
 
 /*
    This filter plugin implements minimal html tag balancing, and can also
@@ -98,6 +98,7 @@ function ewiki_html_tag_balancer(&$html) {
 
             #-- cdata
             if($tname=='![cdata[') {
+                $tname = strtoupper($tname); // Needs to be uppercase for XHTML compliance
                 // LEAVE THE POOR THING ALONE!
             }
             #-- standalone tag

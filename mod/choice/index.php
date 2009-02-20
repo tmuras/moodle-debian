@@ -1,4 +1,4 @@
-<?php  // $Id: index.php,v 1.27 2006/09/02 11:44:04 skodak Exp $
+<?php  // $Id: index.php,v 1.32.2.6 2008/02/26 23:19:05 skodak Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -15,22 +15,28 @@
 
     $strchoice = get_string("modulename", "choice");
     $strchoices = get_string("modulenameplural", "choice");
+    $navlinks = array();
+    $navlinks[] = array('name' => $strchoices, 'link' => '', 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
 
-    print_header_simple("$strchoices", "",
-                 "$strchoices", "", "", true, "", navmenu($course));
+    print_header_simple("$strchoices", "", $navigation, "", "", true, "", navmenu($course));
 
 
     if (! $choices = get_all_instances_in_course("choice", $course)) {
-        notice("There are no choices", "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strchoices), "../../course/view.php?id=$course->id");
     }
 
-    if ( !empty($USER->id) and $allanswers = get_records("choice_answers", "userid", $USER->id)) {
+    $sql = "SELECT cha.*
+              FROM {$CFG->prefix}choice ch, {$CFG->prefix}choice_answers cha
+             WHERE cha.choiceid = ch.id AND
+                   ch.course = $course->id AND cha.userid = $USER->id";
+
+    $answers = array () ;
+    if (isloggedin() and !isguestuser() and $allanswers = get_records_sql($sql)) {
         foreach ($allanswers as $aa) {
             $answers[$aa->choiceid] = $aa;
         }
-
-    } else {
-        $answers = array () ;
+        unset($allanswers);
     }
 
 
@@ -89,6 +95,5 @@
     print_table($table);
 
     print_footer($course);
- 
-?>
 
+?>

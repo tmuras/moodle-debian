@@ -1,4 +1,4 @@
-<?php // $Id: XMLDBField.class.php,v 1.9 2006/10/28 15:18:40 stronk7 Exp $
+<?php // $Id: XMLDBField.class.php,v 1.12.2.2 2008/01/02 16:47:34 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -45,7 +45,7 @@ class XMLDBField extends XMLDBObject {
         parent::XMLDBObject($name);
         $this->type = NULL;
         $this->length = NULL;
-        $this->unsigned = false;
+        $this->unsigned = true;
         $this->notnull = false;
         $this->default = NULL;
         $this->sequence = false;
@@ -93,7 +93,7 @@ class XMLDBField extends XMLDBObject {
                 $this->enumvalues[] = $value;
             }
         }
-        $this->default = $default;
+        $this->setDefault($default);
 
         $this->previous = $previous;
     }
@@ -230,6 +230,13 @@ class XMLDBField extends XMLDBObject {
      * Set the field default
      */
     function setDefault($default) {
+    /// Check, warn and auto-fix '' (empty) defaults for CHAR NOT NULL columns, changing them
+    /// to NULL so XMLDB will apply the proper default
+        if ($this->type == XMLDB_TYPE_CHAR && $this->notnull && $default === '') {
+            $this->errormsg = 'XMLDB has detected one CHAR NOT NULL column (' . $this->name . ") with '' (empty string) as DEFAULT value. This type of columns must have one meaningful DEFAULT declared or none (NULL). XMLDB have fixed it automatically changing it to none (NULL). The process will continue ok and proper defaults will be created accordingly with each DB requirements. Please fix it in source (XML and/or upgrade script) to avoid this message to be displayed.";
+            $this->debug($this->errormsg);
+            $default = NULL;
+        }
         $this->default = $default;
     }
 
@@ -346,7 +353,7 @@ class XMLDBField extends XMLDBObject {
         }
 
         if (isset($xmlarr['@']['DEFAULT'])) {
-            $this->default = trim($xmlarr['@']['DEFAULT']);
+            $this->setDefault(trim($xmlarr['@']['DEFAULT']));
         }
 
         if (isset($xmlarr['@']['ENUM'])) {
@@ -363,7 +370,7 @@ class XMLDBField extends XMLDBObject {
         }
 
         if (isset($xmlarr['@']['ENUMVALUES'])) {
-            $enumvalues = strtolower(trim($xmlarr['@']['ENUMVALUES']));
+            $enumvalues = trim($xmlarr['@']['ENUMVALUES']);
             if (!$this->enum) {
                 $this->errormsg = 'Wrong ENUMVALUES attribute (not ENUM)';
                 $this->debug($this->errormsg);
@@ -782,9 +789,10 @@ class XMLDBField extends XMLDBObject {
         } else {
             $result .= 'null, ';
         }
-    /// Unsigned
+    /// Unsigned (only applicable to numbers)
         $unsigned = $this->getUnsigned();
-        if (!empty($unsigned)) {
+        if (!empty($unsigned) &&
+           ($this->getType() == XMLDB_TYPE_INTEGER || $this->getType() == XMLDB_TYPE_NUMBER || $this->getType() == XMLDB_TYPE_FLOAT)) {
             $result .= 'XMLDB_UNSIGNED' . ', ';
         } else {
             $result .= 'null, ';

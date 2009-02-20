@@ -1,4 +1,4 @@
-<?php //$Id: restorelib.php,v 1.60 2006/12/19 07:00:14 vyshane Exp $
+<?php //$Id: restorelib.php,v 1.60.4.5 2008/04/30 01:45:45 dongsheng Exp $
     //This php script contains all the stuff to backup/restore
     //forum mods
 
@@ -143,7 +143,7 @@
                     $sd->format   = $defaultformat;
                     $sd->mailnow  = false;
                     //Insert dicussion/post data
-                    $sdid = forum_add_discussion($sd, $sd->intro);
+                    $sdid = forum_add_discussion($sd, $sd->intro, $forum);
                     //Now, mark the initial post of the discussion as mailed!
                     if ($sdid) {
                         set_field ('forum_posts','mailed', '1', 'discussion', $sdid);
@@ -272,6 +272,7 @@
             $olduserid = backup_todb($dis_info['#']['USERID']['0']['#']);
 
             //Now, build the FORUM_DISCUSSIONS record structure
+            $discussion = new object();
             $discussion->forum = $forum_id;
             $discussion->course = $restore->course_id;
             $discussion->name = backup_todb($dis_info['#']['NAME']['0']['#']);
@@ -293,7 +294,7 @@
             }
 
             //We have to recode the groupid field
-            $group = backup_getid($restore->backup_unique_code, 'groups', $discussion->groupid);
+            $group = restore_group_getid($restore, $discussion->groupid);
             if ($group) {
                 $discussion->groupid = $group->new_id;
             }
@@ -748,6 +749,17 @@
                 }
             }
             break;
+        case "stop tracking":
+            if ($log->cmid) {
+                //Get the new_id of the module (to recode the url and info fields)
+                $mod = backup_getid($restore->backup_unique_code,$log->module,$log->info);
+                if ($mod) {
+                    $log->url = "view.php?f=".$mod->new_id;
+                    $log->info = $mod->new_id;
+                    $status = true;
+                }
+            }
+            break;
         case "update":
             if ($log->cmid) {
                 //Get the new_id of the module (to recode the info field)
@@ -774,6 +786,14 @@
             $log->url = "index.php?id=".$log->course;
             $status = true;
             break;
+        case "subscribeall":
+            $log->url = "index.php?id=".$log->course;
+            $status = true;
+            break;
+        case "unsubscribeall":
+            $log->url = "index.php?id=".$log->course;
+            $status = true;
+            break;
         case "subscribe":
             if ($log->cmid) {
                 //Get the new_id of the module (to recode the info and url field)
@@ -786,6 +806,7 @@
             }
             break;
         case "view subscriber":
+        case "view subscribers":
             if ($log->cmid) {
                 //Get the new_id of the module (to recode the info and field)
                 $mod = backup_getid($restore->backup_unique_code,$log->module,$log->info);
@@ -841,6 +862,7 @@
             }
             break;
         case "delete discussi":
+        case "delete discussion":
             if ($log->cmid) {
                 //Get the new_id of the module (to recode the info field)
                 $mod = backup_getid($restore->backup_unique_code,$log->module,$log->info);
@@ -906,6 +928,16 @@
                     $log->url = "discuss.php?d=".$dis->new_id;
                     $status = true;
                 }
+            }
+            break;
+        case "user report":
+            //Extract mode from url
+            $mode = substr(strrchr($log->url,"="),1);
+            //Get new user id
+            if ($use = backup_getid($restore->backup_unique_code, 'user', $log->info)) {
+                $log->url = 'user.php?course=' . $log->course . '&id=' . $use->new_id . '&mode=' . $mode;
+                $log->info = $use->new_id;
+                $status = true;
             }
             break;
         case "search":

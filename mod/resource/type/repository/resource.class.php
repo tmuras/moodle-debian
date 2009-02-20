@@ -1,4 +1,4 @@
-<?php // $Id: resource.class.php,v 1.17.2.3 2007/05/16 21:26:16 skodak Exp $
+<?php // $Id: resource.class.php,v 1.21.2.3 2008/12/10 07:09:49 dongsheng Exp $
 
 /**
 * Extend the base resource class for repository resources
@@ -106,7 +106,7 @@ function set_parameters() {
                                        'value'   => $USER->icq),
             'userphone1'      => array('langstr' => get_string('phone').' 1',
                                        'value'   => $USER->phone1),
-            'userphone2'      => array('langstr' => get_string('phone').' 2',
+            'userphone2'      => array('langstr' => get_string('phone2').' 2',
                                        'value'   => $USER->phone2),
             'userinstitution' => array('langstr' => get_string('institution'),
                                        'value'   => $USER->institution),
@@ -244,8 +244,7 @@ function display() {
             $resourcetype = "html";
         }
     }
-
-
+    $navigation = build_navigation($this->navlinks, $cm);
 
 /// Form the parse string
     if (!empty($resource->alltext)) {
@@ -263,7 +262,7 @@ function display() {
 
     $inpopup = optional_param('inpopup', 0, PARAM_BOOL);
 
-       $fullurl =  $resource->reference. '&amp;HIVE_SESSION='.$SESSION->HIVE_SESSION;
+   $fullurl =  $resource->reference. '&amp;HIVE_SESSION='.$SESSION->HIVE_SESSION;
     if (!empty($querystring)) {
         $urlpieces = parse_url($resource->reference);
         if (empty($urlpieces['query'])) {
@@ -278,7 +277,8 @@ function display() {
         if ($inpopup) {
             print_header($pagetitle, $course->fullname);
         } else {
-            print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name), "", "", true, update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
+            print_header($pagetitle, $course->fullname, $navigation, "", "", true,
+                    update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
         }
         notify('You do not have access to HarvestRoad Hive. This resource is unavailable.');
         if ($inpopup) {
@@ -296,7 +296,8 @@ function display() {
         if ($inpopup) {
             print_header($pagetitle, $course->fullname);
         } else {
-            print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name), "", "", true, update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
+            print_header($pagetitle, $course->fullname, $navigation, "", "", true,
+                    update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
         }
         notify(get_string('notallowedlocalfileaccess', 'resource', ''));
         if ($inpopup) {
@@ -310,8 +311,8 @@ function display() {
     /// Check whether this is supposed to be a popup, but was called directly
 
     if ($resource->popup and !$inpopup) {    /// Make a page and a pop-up window
-
-        print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name), "", "", true, update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
+        print_header($pagetitle, $course->fullname, $navigation, "", "", true,
+                update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm));
 
 
         echo "\n<script type=\"text/javascript\">";
@@ -369,11 +370,12 @@ function display() {
     /// If we are in a frameset, just print the top of it
 
     if (!empty($frameset) and $frameset == "top") {
-        print_header($pagetitle, $course->fullname, "$this->navigation ".format_string($resource->name), "", "", true, update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm, "parent"));
+        print_header($pagetitle, $course->fullname, $navigation, "", "", true,
+                update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm, "parent"));
 
         echo '<div class="summary">'.format_text($resource->summary, FORMAT_HTML, $formatoptions).'</div>';
         if (!empty($localpath)) {  // Show some help
-            echo '<div align="right" class="helplink">';
+            echo '<div class="mdl-right helplink">';
             link_to_popup_window ('/mod/resource/type/file/localpath.php', get_string('localfile', 'resource'), get_string('localfilehelp','resource'), 400, 500, get_string('localfilehelp', 'resource'));
             echo '</div>';
         }
@@ -390,7 +392,8 @@ function display() {
         if ($inpopup) {
             print_header($pagetitle);
         } else {
-            print_header($pagetitle, $course->fullname, "$this->navigation <a $CFG->frametarget title=\"$strdirectlink\" href=\"$fullurl\"> ".format_string($resource->name,true)."</a>", "", "", true, update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm, "self"));
+            print_header($pagetitle, $course->fullname, $navigation, "", "", true,
+                    update_module_button($cm->id, $course->id, $this->strresource), navmenu($course, $cm, "self"));
 
         }
 
@@ -486,7 +489,7 @@ function display() {
 
     } else {              // Display the resource on it's own
         if (!empty($localpath)) {   // Show a link to help work around browser security
-            echo '<div align="right" class="helplink">';
+            echo '<div class="mdl-right helplink">';
             link_to_popup_window ('/mod/resource/type/file/localpath.php', get_string('localfile', 'resource'), get_string('localfilehelp','resource'), 400, 500, get_string('localfilehelp', 'resource'));
             echo '</div>';
             echo "<center><p>(<a href=\"$fullurl\">$fullurl</a>)</p></center>";

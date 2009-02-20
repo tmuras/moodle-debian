@@ -1,4 +1,4 @@
-<?php // $Id: graph.php,v 1.4 2006/08/25 08:51:50 vyshane Exp $
+<?php // $Id: graph.php,v 1.4.8.2 2008/11/30 12:05:04 skodak Exp $
       // Produces a graph of log accesses
 
     require_once("../../../config.php");
@@ -14,12 +14,11 @@
         error("Course is misconfigured");
     }
 
-    require_login($course->id);
+    require_login($course);
     $context = get_context_instance(CONTEXT_COURSE, $course->id);
 
-    if (! (has_capability('moodle/site:viewreports', $context)
-                or ($course->showreports and $USER->id == $user)) ) {
-        error("Sorry, you aren't allowed to see this.");
+    if (!$course->showreports or $USER->id != $user) {
+        require_capability('coursereport/log:view', $context);
     }
 
     if ($user) {

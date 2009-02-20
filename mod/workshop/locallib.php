@@ -1,4 +1,4 @@
-<?php  // $Id: locallib.php,v 1.42 2007/01/10 08:29:42 toyomoyo Exp $
+<?php  // $Id: locallib.php,v 1.43.2.2 2008/07/10 09:48:47 scyrma Exp $
 
 /// Library of extra functions and module workshop 
 
@@ -332,7 +332,7 @@ function workshop_count_student_submissions_for_assessment($workshop, $user) {
             // check group membership, if necessary
             if ($groupid) {
                 // check user's group
-                if (!ismember($groupid, $submission->userid)) {
+                if (!groups_is_member($groupid, $submission->userid)) {
                     continue; // skip this user
                 }
             }
@@ -1217,7 +1217,7 @@ function workshop_list_student_submissions($workshop, $user) {
                 // check group membership, if necessary
                 if ($groupid) {
                     // check user's group
-                    if (!ismember($groupid, $submission->userid)) {
+                    if (!groups_is_member($groupid, $submission->userid)) {
                         continue; // skip this submission
                   }
                 }
@@ -1393,7 +1393,7 @@ function workshop_list_submissions_for_admin($workshop, $order) {
             // check group membership, if necessary
             if ($groupid) {
                 // check user's group
-                if (!ismember($groupid, $user->id)) {
+                if (!groups_is_member($groupid, $user->id)) {
                     continue; // skip this user
                 }
             }
@@ -1502,7 +1502,7 @@ function workshop_list_submissions_for_admin($workshop, $order) {
             // check group membership, if necessary
             if ($groupid) {
                 // check user's group
-                if (!ismember($groupid, $user->id)) {
+                if (!groups_is_member($groupid, $user->id)) {
                     continue; // skip this user
                 }
             }
@@ -1737,7 +1737,7 @@ function workshop_list_unassessed_student_submissions($workshop, $user) {
             // check group membership, if necessary
             if ($groupid) {
                 // check user's group
-                if (!ismember($groupid, $submission->userid)) {
+                if (!groups_is_member($groupid, $submission->userid)) {
                     continue; // skip this user
                 }
             }
@@ -2053,7 +2053,7 @@ function workshop_print_assessment($workshop, $assessment = false, $allowchanges
     <form id="assessmentform" method="post" action="assessments.php">
     <div>
     <input type="hidden" name="id" value="<?php echo $cm->id ?>" />
-    <input type="hidden" name="aid" value="<?php echo $assessment->id ?>" />
+    <input type="hidden" name="aid" value="<?php echo @$assessment->id ?>" />
     <input type="hidden" name="action" value="updateassessment" />
     <input type="hidden" name="returnto" value="<?php echo $returnto ?>" />
     <input type="hidden" name="elementno" value="" />
@@ -2069,11 +2069,11 @@ function workshop_print_assessment($workshop, $assessment = false, $allowchanges
     } else {
         print_string('assessment', 'workshop');
     }
-    echo '</b><br />'.userdate($assessment->timecreated)."</div></td>\n";
+    echo '</b><br />'.userdate(@$assessment->timecreated)."</div></td>\n";
     echo "</tr>\n";
     
     // only show the grade if grading strategy > 0 and the grade is positive
-    if ($showgrades and $workshop->gradingstrategy and $assessment->grade >= 0) { 
+    if ($assessment and $showgrades and $workshop->gradingstrategy and $assessment->grade >= 0) { 
         echo "<tr valign=\"top\">\n
             <td colspan=\"2\" align=\"center\">
             <b>".get_string("thegradeis", "workshop").": ".
@@ -2594,7 +2594,7 @@ function workshop_print_assessment($workshop, $assessment = false, $allowchanges
     
     $timenow = time();
     // now show the grading grade if available...
-    if ($assessment->timegraded) {
+    if ($assessment and $assessment->timegraded) {
         echo "<tr valign=\"top\">\n";
         echo "<td colspan=\"2\" class=\"workshopassessmentheading\" align=\"center\"><b>".
             get_string('gradeforstudentsassessment', 'workshop')."</b></td>\n";
@@ -2805,7 +2805,7 @@ function workshop_print_league_table($workshop) {
         foreach ($submissions as $submission) {
             if ($groupid) {
                 // check submission's group
-                if (!ismember($groupid, $submission->userid)) {
+                if (!groups_is_member($groupid, $submission->userid)) {
                     continue; // skip this submission
                 }
             }
@@ -2858,18 +2858,15 @@ function workshop_print_submission($workshop, $submission) {
         $filearea = workshop_file_area_name($workshop, $submission);
         if ($basedir = workshop_file_area($workshop, $submission)) {
             if ($files = get_directory_list($basedir)) {
+                require_once($CFG->libdir .'/filelib.php');
                 foreach ($files as $file) {
                     $icon = mimeinfo("icon", $file);
-                    if ($CFG->slasharguments) {
-                        $ffurl = "file.php/$filearea/$file";
-                    } else {
-                        $ffurl = "file.php?file=/$filearea/$file";
-                    }
+                    $ffurl = get_file_url("$filearea/$file");
                     echo "<tr><td><b>".get_string("attachment", "workshop")." $n:</b> \n";
                     // removed target=\"uploadedfile\" as it does not validate
                     // MDL-7861
                     echo "<img src=\"$CFG->pixpath/f/$icon\" class=\"icon\" alt=\"".get_string('file')."\" />".
-                        "&nbsp;<a href=\"$CFG->wwwroot/$ffurl\">$file</a></td></tr>";
+                        "&nbsp;<a href=\"$ffurl\">$file</a></td></tr>";
                     $n++;
                 }
             }

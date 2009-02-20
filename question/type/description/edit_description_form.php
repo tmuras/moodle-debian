@@ -5,7 +5,8 @@
  * @copyright &copy; 2007 Jamie Pratt
  * @author Jamie Pratt me@jamiep.org
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package questions
+ * @package questionbank
+ * @subpackage questiontypes
  */
 
 /**
@@ -25,11 +26,8 @@ class question_edit_description_form extends question_edit_form {
         $mform->addElement('hidden', 'defaultgrade', 0);
     }
 
-
     function qtype() {
         return 'description';
     }
-
-
 }
 ?>

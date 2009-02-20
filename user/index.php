@@ -1,4 +1,4 @@
-<?PHP // $Id: index.php,v 1.162.2.15 2007/07/04 08:30:53 skodak Exp $
+<?PHP // $Id: index.php,v 1.194.2.18 2008/12/01 20:46:13 skodak Exp $
 
 //  Lists all the users within a given course
 
@@ -10,16 +10,15 @@
     define('DEFAULT_PAGE_SIZE', 20);
     define('SHOW_ALL_PAGE_SIZE', 5000);
 
-    $group        = optional_param('group', -1, PARAM_INT);                   // Group to show
     $page         = optional_param('page', 0, PARAM_INT);                     // which page to show
     $perpage      = optional_param('perpage', DEFAULT_PAGE_SIZE, PARAM_INT);  // how many per page
     $mode         = optional_param('mode', NULL);                             // '0' for less details, '1' for more
-    $accesssince  = optional_param('accesssince',0,PARAM_INT);               // filter by last access. -1 = never
+    $accesssince  = optional_param('accesssince',0,PARAM_INT);                // filter by last access. -1 = never
     $search       = optional_param('search','',PARAM_CLEAN);
-    $roleid       = optional_param('roleid', 0, PARAM_INT);                 // optional roleid
+    $roleid       = optional_param('roleid', 0, PARAM_INT);                   // optional roleid, -1 means all site users on frontpage
 
-    $contextid    = optional_param('contextid', 0, PARAM_INT);                 // one of this or
-    $courseid     = optional_param('id', 0, PARAM_INT);                        // this are required
+    $contextid    = optional_param('contextid', 0, PARAM_INT);                // one of this or
+    $courseid     = optional_param('id', 0, PARAM_INT);                       // this are required
 
     if ($contextid) {
         if (! $context = get_context_instance_by_id($contextid)) {
@@ -43,22 +42,36 @@
     require_login($course);
 
     $sitecontext = get_context_instance(CONTEXT_SYSTEM);
+    $frontpagectx = get_context_instance(CONTEXT_COURSE, SITEID);
 
-    if (!has_capability('moodle/course:viewparticipants', $context)) {
-        print_error('nopermissions');
+    if ($context->id != $frontpagectx->id) {
+        require_capability('moodle/course:viewparticipants', $context);
+    } else {
+        require_capability('moodle/site:viewparticipants', $sitecontext);
+        // override the default on frontpage
+        $roleid = optional_param('roleid', -1, PARAM_INT);
     }
 
+    /// front page course is different
     $rolenames = array();
     $avoidroles = array();
 
     if ($roles = get_roles_used_in_context($context, true)) {
-        // We should ONLY allow roles with moodle/course:view because otherwise we get little niggly issues 
+        // We should ONLY allow roles with moodle/course:view because otherwise we get little niggly issues
         // like MDL-8093
-        // We should further exclude "admin" users (those with "doanything" at site level) because 
+        // We should further exclude "admin" users (those with "doanything" at site level) because
         // Otherwise they appear in every participant list
 
         $canviewroles    = get_roles_with_capability('moodle/course:view', CAP_ALLOW, $context);
         $doanythingroles = get_roles_with_capability('moodle/site:doanything', CAP_ALLOW, $sitecontext);
+
+        if ($context->id == $frontpagectx->id) {
+            //we want admins listed on frontpage too
+            foreach ($doanythingroles as $dar) {
+                $canviewroles[$dar->id] = $dar;
+            }
+            $doanythingroles = array();
+        }
 
         foreach ($roles as $role) {
             if (!isset($canviewroles[$role->id])) {   // Avoid this role (eg course creator)
@@ -71,16 +84,19 @@
                 unset($roles[$role->id]);
                 continue;
             }
-        }
-
-        foreach ($roles as $role) {
-            $rolenames[$role->id] = strip_tags(format_string($role->name));   // Used in menus etc later on
+            $rolenames[$role->id] = strip_tags(role_get_name($role, $context));   // Used in menus etc later on
         }
     }
 
+    if ($context->id == $frontpagectx->id and $CFG->defaultfrontpageroleid) {
+        // default frontpage role is assigned to all site users
+        unset($rolenames[$CFG->defaultfrontpageroleid]);
+    }
+
     // no roles to display yet?
-    if (empty($rolenames)) {    
-        if (has_capability('moodle/user:assign', $context)) {
+    // frontpage course is an exception, on the front page course we should display all users
+    if (empty($rolenames) && $context->id != $frontpagectx->id) {
+        if (has_capability('moodle/role:assign', $context)) {
             redirect($CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?contextid='.$context->id);
         } else {
             error ('No participants found for this course');
@@ -114,11 +130,11 @@
         $fullmode = false;
     }
 
-/// Check to see if groups are being used in this forum
+/// Check to see if groups are being used in this course
 /// and if so, set $currentgroup to reflect the current group
 
-    $groupmode    = groupmode($course);   // Groups are being used
-    $currentgroup = get_and_set_current_group($course, $groupmode, $group);
+    $groupmode    = groups_get_course_groupmode($course);   // Groups are being used
+    $currentgroup = groups_get_course_group($course, true);
 
     if (!$currentgroup) {      // To make some other functions work better later
         $currentgroup  = NULL;
@@ -127,30 +143,27 @@
     $isseparategroups = ($course->groupmode == SEPARATEGROUPS and $course->groupmodeforce and
                          !has_capability('moodle/site:accessallgroups', $context));
 
-    if ($isseparategroups and (!$currentgroup) ) { 
-        print_header("$course->shortname: ".get_string('participants'), $course->fullname,
-                     "<a href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</a> -> ".
-                     get_string('participants'), "", "", true, "&nbsp;", navmenu($course));
-        print_heading(get_string("notingroup", "forum"));
+    if ($isseparategroups and (!$currentgroup) ) {
+        $navlinks = array();
+        $navlinks[] = array('name' => get_string('participants'), 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
+
+        print_header("$course->shortname: ".get_string('participants'), $course->fullname, $navigation, "", "", true, "&nbsp;", navmenu($course));
+        print_heading(get_string("notingroup"));
         print_footer($course);
         exit;
     }
 
     // Should use this variable so that we don't break stuff every time a variable is added or changed.
-    $baseurl = $CFG->wwwroot.'/user/index.php?contextid='.$context->id.'&amp;roleid='.$roleid.'&amp;id='.$course->id.'&amp;group='.$currentgroup.'&amp;perpage='.$perpage.'&amp;accesssince='.$accesssince.'&amp;search='.s($search);
+    $baseurl = $CFG->wwwroot.'/user/index.php?contextid='.$context->id.'&amp;roleid='.$roleid.'&amp;id='.$course->id.'&amp;perpage='.$perpage.'&amp;accesssince='.$accesssince.'&amp;search='.s($search);
 
 /// Print headers
 
-    if ($course->id != SITEID) {
-        print_header("$course->shortname: ".get_string('participants'), $course->fullname,
-                     "<a href=\"../course/view.php?id=$course->id\">$course->shortname</a> -> ".
-                     get_string('participants'), "", "", true, "&nbsp;", navmenu($course));
-    } else {
-        print_header("$course->shortname: ".get_string('participants'), $course->fullname,
-                     get_string('participants'), "", "", true, "&nbsp;", navmenu($course));
-    }
+    $navlinks = array();
+    $navlinks[] = array('name' => get_string('participants'), 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
 
-
+    print_header("$course->shortname: ".get_string('participants'), $course->fullname, $navigation, "", "", true, "&nbsp;", navmenu($course));
 
 /// setting up tags
     if ($course->id == SITEID) {
@@ -175,6 +188,10 @@
         $hiddenfields = array_flip(explode(',', $CFG->hiddenuserfields));
     }
 
+    if (isset($hiddenfields['lastaccess'])) {
+        // do not allow access since filtering
+        $accesssince = 0;
+    }
 
 /// Print settings and things in a table across the top
 
@@ -187,57 +204,74 @@
         foreach ($mycourses as $mycourse) {
             $courselist[$mycourse->id] = format_string($mycourse->shortname);
         }
+        if (has_capability('moodle/site:viewparticipants', $sitecontext)) {
+            unset($courselist[SITEID]);
+            $courselist = array(SITEID => format_string($SITE->shortname)) + $courselist;
+        }
         popup_form($CFG->wwwroot.'/user/index.php?roleid='.$roleid.'&amp;sifirst=&amp;silast=&amp;id=',
                    $courselist, 'courseform', $course->id, '', '', '', false, 'self', get_string('mycourses'));
         echo '</td>';
     }
 
     echo '<td class="left">';
-    setup_and_print_groups($course, $groupmode, $baseurl);
+    groups_print_course_menu($course, $baseurl);
     echo '</td>';
 
-    // get minimum lastaccess for this course and display a dropbox to filter by lastaccess going back this far.
-    // this might not work anymore because you always going to get yourself as the most recent entry? added $USER!=$user ch
-    $minlastaccess = get_field_sql('SELECT min(timeaccess) FROM '.$CFG->prefix.'user_lastaccess WHERE courseid = '.$course->id.' AND timeaccess != 0 AND userid!='.$USER->id);
-    $lastaccess0exists = record_exists('user_lastaccess','courseid',$course->id,'timeaccess',0);
-    $now = usergetmidnight(time());
-    $timeaccess = array();
-
-    // makes sense for this to go first.
-    $timeoptions[0] = get_string('selectperiod');
-
-    // days
-    for ($i = 1; $i < 7; $i++) {
-        if (strtotime('-'.$i.' days',$now) >= $minlastaccess) {
-            $timeoptions[strtotime('-'.$i.' days',$now)] = get_string('numdays','moodle',$i);
+    if (!isset($hiddenfields['lastaccess'])) {
+        // get minimum lastaccess for this course and display a dropbox to filter by lastaccess going back this far.
+        // we need to make it diferently for normal courses and site course
+        if ($context->id != $frontpagectx->id) {
+            $minlastaccess = get_field_sql('SELECT min(timeaccess)
+                                              FROM '.$CFG->prefix.'user_lastaccess
+                                             WHERE courseid = '.$course->id.'
+                                               AND timeaccess != 0');
+            $lastaccess0exists = record_exists('user_lastaccess', 'courseid', $course->id, 'timeaccess', 0);
+        } else {
+            $minlastaccess = get_field_sql('SELECT min(lastaccess)
+                                              FROM '.$CFG->prefix.'user
+                                             WHERE lastaccess != 0');
+            $lastaccess0exists = record_exists('user','lastaccess',0);
         }
-    }
-    // weeks
-    for ($i = 1; $i < 10; $i++) {
-        if (strtotime('-'.$i.' weeks',$now) >= $minlastaccess) {
-            $timeoptions[strtotime('-'.$i.' weeks',$now)] = get_string('numweeks','moodle',$i);
-        }
-    }
-    // months
-    for ($i = 2; $i < 12; $i++) {
-        if (strtotime('-'.$i.' months',$now) >= $minlastaccess) {
-            $timeoptions[strtotime('-'.$i.' months',$now)] = get_string('nummonths','moodle',$i);
-        }
-    }
-    // try a year
-    if (strtotime('-1 year',$now) >= $minlastaccess) {
-        $timeoptions[strtotime('-1 year',$now)] = get_string('lastyear');
-    }
 
-    if (!empty($lastaccess0exists)) {
-        $timeoptions[-1] = get_string('never');
-    }
+        $now = usergetmidnight(time());
+        $timeaccess = array();
 
-    if (count($timeoptions) > 1) {
-        echo '<td class="left">';
-        $baseurl = preg_replace('/&amp;accesssince='.$accesssince.'/','',$baseurl);
-        popup_form($baseurl.'&amp;accesssince=',$timeoptions,'timeoptions',$accesssince, '', '', '', false, 'self', get_string('usersnoaccesssince'));
-        echo '</td>';
+        // makes sense for this to go first.
+        $timeoptions[0] = get_string('selectperiod');
+
+        // days
+        for ($i = 1; $i < 7; $i++) {
+            if (strtotime('-'.$i.' days',$now) >= $minlastaccess) {
+                $timeoptions[strtotime('-'.$i.' days',$now)] = get_string('numdays','moodle',$i);
+            }
+        }
+        // weeks
+        for ($i = 1; $i < 10; $i++) {
+            if (strtotime('-'.$i.' weeks',$now) >= $minlastaccess) {
+                $timeoptions[strtotime('-'.$i.' weeks',$now)] = get_string('numweeks','moodle',$i);
+            }
+        }
+        // months
+        for ($i = 2; $i < 12; $i++) {
+            if (strtotime('-'.$i.' months',$now) >= $minlastaccess) {
+                $timeoptions[strtotime('-'.$i.' months',$now)] = get_string('nummonths','moodle',$i);
+            }
+        }
+        // try a year
+        if (strtotime('-1 year',$now) >= $minlastaccess) {
+            $timeoptions[strtotime('-1 year',$now)] = get_string('lastyear');
+        }
+
+        if (!empty($lastaccess0exists)) {
+            $timeoptions[-1] = get_string('never');
+        }
+
+        if (count($timeoptions) > 1) {
+            echo '<td class="left">';
+            $baseurl = preg_replace('/&amp;accesssince='.$accesssince.'/','',$baseurl);
+            popup_form($baseurl.'&amp;accesssince=',$timeoptions,'timeoptions',$accesssince, '', '', '', false, 'self', get_string('usersnoaccesssince'));
+            echo '</td>';
+        }
     }
 
 
@@ -248,14 +282,14 @@
     echo '</td></tr></table>';
 
     if ($currentgroup and (!$isseparategroups or has_capability('moodle/site:accessallgroups', $context))) {    /// Display info about the group
-        if ($group = groups_get_group($currentgroup)) { //TODO:
+        if ($group = groups_get_group($currentgroup)) {
             if (!empty($group->description) or (!empty($group->picture) and empty($group->hidepicture))) {
                 echo '<table class="groupinfobox"><tr><td class="left side picture">';
                 print_group_picture($group, $course->id, true, false, false);
                 echo '</td><td class="content">';
                 echo '<h3>'.$group->name;
                 if (has_capability('moodle/course:managegroups', $context)) {
-                    echo '&nbsp;<a title="'.get_string('editgroupprofile').'" href="'.groups_group_edit_url($course->id, $group->id).'">';
+                    echo '&nbsp;<a title="'.get_string('editgroupprofile').'" href="'.$CFG->wwwroot.'/group/group.php?id='.$group->id.'&amp;courseid='.$group->courseid.'">';
                     echo '<img src="'.$CFG->pixpath.'/t/edit.gif" alt="'.get_string('editgroupprofile').'" />';
                     echo '</a>';
                 }
@@ -265,7 +299,6 @@
             }
         }
     }
-
 
     /// Define a table showing a list of users in the current role selection
 
@@ -299,8 +332,10 @@
     $table->define_columns($tablecolumns);
     $table->define_headers($tableheaders);
     $table->define_baseurl($baseurl);
-    
-    $table->sortable(true, 'lastaccess', SORT_DESC);
+
+    if (!isset($hiddenfields['lastaccess'])) {
+        $table->sortable(true, 'lastaccess', SORT_DESC);
+    }
 
     $table->set_attribute('cellspacing', '0');
     $table->set_attribute('id', 'participants');
@@ -323,19 +358,55 @@
     } else {
         $listofcontexts = '('.$sitecontext->id.')'; // must be site
     }
-    if ($roleid) {
+    if ($roleid > 0) {
         $selectrole = " AND r.roleid = $roleid ";
     } else {
         $selectrole = " ";
     }
-    $select = 'SELECT u.id, u.username, u.firstname, u.lastname, u.email, u.city, u.country, u.picture, u.lang, u.timezone, u.emailstop, u.maildisplay, ul.timeaccess AS lastaccess, r.hidden '; // s.lastaccess
-    $select .= $course->enrolperiod?', r.timeend ':'';
 
-    $from   = "FROM {$CFG->prefix}user u INNER JOIN
-    {$CFG->prefix}role_assignments r on u.id=r.userid LEFT OUTER JOIN
-    {$CFG->prefix}user_lastaccess ul on (r.userid=ul.userid and ul.courseid = $course->id)"; 
-    
-    $hiddensql = has_capability('moodle/role:viewhiddenassigns', $context)? '':' AND r.hidden = 0 ';   
+    if ($context->id != $frontpagectx->id) {
+        $select = 'SELECT DISTINCT u.id, u.username, u.firstname, u.lastname,
+                      u.email, u.city, u.country, u.picture,
+                      u.lang, u.timezone, u.emailstop, u.maildisplay, u.imagealt,
+                      COALESCE(ul.timeaccess, 0) AS lastaccess,
+                      r.hidden,
+                      ctx.id AS ctxid, ctx.path AS ctxpath,
+                      ctx.depth AS ctxdepth, ctx.contextlevel AS ctxlevel ';
+        $select .= $course->enrolperiod?', r.timeend ':'';
+    } else {
+        if ($roleid >= 0) {
+            $select = 'SELECT u.id, u.username, u.firstname, u.lastname,
+                          u.email, u.city, u.country, u.picture,
+                          u.lang, u.timezone, u.emailstop, u.maildisplay, u.imagealt,
+                          u.lastaccess, r.hidden,
+                          ctx.id AS ctxid, ctx.path AS ctxpath,
+                          ctx.depth AS ctxdepth, ctx.contextlevel AS ctxlevel ';
+        } else {
+            $select = 'SELECT u.id, u.username, u.firstname, u.lastname,
+                          u.email, u.city, u.country, u.picture,
+                          u.lang, u.timezone, u.emailstop, u.maildisplay, u.imagealt,
+                          u.lastaccess,
+                          ctx.id AS ctxid, ctx.path AS ctxpath,
+                          ctx.depth AS ctxdepth, ctx.contextlevel AS ctxlevel ';
+        }
+    }
+
+    if ($context->id != $frontpagectx->id or $roleid >= 0) {
+        $from   = "FROM {$CFG->prefix}user u
+                LEFT OUTER JOIN {$CFG->prefix}context ctx
+                    ON (u.id=ctx.instanceid AND ctx.contextlevel = ".CONTEXT_USER.")
+                JOIN {$CFG->prefix}role_assignments r
+                    ON u.id=r.userid
+                LEFT OUTER JOIN {$CFG->prefix}user_lastaccess ul
+                    ON (r.userid=ul.userid and ul.courseid = $course->id) ";
+    } else {
+        // on frontpage and we want all registered users
+        $from = "FROM {$CFG->prefix}user u
+                LEFT OUTER JOIN {$CFG->prefix}context ctx
+                    ON (u.id=ctx.instanceid AND ctx.contextlevel = ".CONTEXT_USER.") ";
+    }
+
+    $hiddensql = has_capability('moodle/role:viewhiddenassigns', $context)? '':' AND r.hidden = 0 ';
 
     // exclude users with roles we are avoiding
     if ($avoidroles) {
@@ -345,18 +416,31 @@
     } else {
         $adminroles = '';
     }
-    
+
     // join on 2 conditions
     // otherwise we run into the problem of having records in ul table, but not relevant course
     // and user record is not pulled out
-    $where  = "WHERE (r.contextid = $context->id OR r.contextid in $listofcontexts)
-        AND u.deleted = 0 $selectrole
-        AND (ul.courseid = $course->id OR ul.courseid IS NULL)
-        AND u.username != 'guest'
-        $adminroles
-        $hiddensql ";
-        $where .= get_lastaccess_sql($accesssince);
 
+    if ($context->id != $frontpagectx->id) {
+        $where  = "WHERE (r.contextid = $context->id OR r.contextid in $listofcontexts)
+            AND u.deleted = 0 $selectrole
+            AND (ul.courseid = $course->id OR ul.courseid IS NULL)
+            AND u.username != 'guest'
+            $adminroles
+            $hiddensql ";
+            $where .= get_course_lastaccess_sql($accesssince);
+    } else {
+        if ($roleid >= 0) {
+            $where = "WHERE (r.contextid = $context->id OR r.contextid in $listofcontexts)
+                AND u.deleted = 0 $selectrole
+                AND u.username != 'guest'";
+                $where .= get_user_lastaccess_sql($accesssince);
+        } else {
+            $where = "WHERE u.deleted = 0
+                AND u.username != 'guest'";
+                $where .= get_user_lastaccess_sql($accesssince);
+        }
+    }
     $wheresearch = '';
 
     if (!empty($search)) {
@@ -378,47 +462,111 @@
         $where .= ' AND '.$table->get_sql_where();
     }
 
+    /// Always add r.hidden to sort in order to guarantee hiddens to "win"
+    /// in the resolution of duplicates later - MDL-13935
+    /// Only exception is frontpage that doesn't have such r.hidden info
+    /// because it retrieves ALL users (without role checking) - MDL-14034
     if ($table->get_sql_sort()) {
         $sort = ' ORDER BY '.$table->get_sql_sort();
+        if ($context->id != $frontpagectx->id or $roleid >= 0) {
+            $sort .= ', r.hidden DESC';
+        }
     } else {
         $sort = '';
+        if ($context->id != $frontpagectx->id or $roleid >= 0) {
+            $sort .= ' ORDER BY r.hidden DESC';
+        }
     }
 
     $matchcount = count_records_sql('SELECT COUNT(distinct u.id) '.$from.$where.$wheresearch);
 
-    $table->initialbars($totalcount > $perpage);
+    $table->initialbars(true);
     $table->pagesize($perpage, $matchcount);
 
-    $userlist = get_records_sql($select.$from.$where.$wheresearch.$sort,
+    $userlist = get_recordset_sql($select.$from.$where.$wheresearch.$sort,
             $table->get_page_start(),  $table->get_page_size());
 
-    /// If there are multiple Roles in the course, then show a drop down menu for switching
-
-    if (count($rolenames) > 1) {
-        echo '<div class="rolesform">';
-        echo get_string('currentrole', 'role').': ';
-        $rolenames = array(0 => get_string('all')) + $rolenames;
-        popup_form("$CFG->wwwroot/user/index.php?contextid=$context->id&amp;sifirst=&amp;silast=&amp;roleid=", $rolenames,
-                   'rolesform', $roleid, '');
+    if ($context->id == $frontpagectx->id) {
+        $strallsiteusers = get_string('allsiteusers', 'role');
+        if ($CFG->defaultfrontpageroleid) {
+            if ($fprole = get_record('role', 'id', $CFG->defaultfrontpageroleid)) {
+                $fprole = role_get_name($fprole, $frontpagectx);
+                $strallsiteusers = "$strallsiteusers ($fprole)";
+            }
+        }
+        $rolenames = array(-1 => $strallsiteusers) + $rolenames;
     }
 
-    if ($roleid) {
+    /// If there are multiple Roles in the course, then show a drop down menu for switching
+    if (count($rolenames) > 1) {
+        echo '<div class="rolesform">';
+        echo '<label for="rolesform_jump">'.get_string('currentrole', 'role').'&nbsp;</label>';
+        if ($context->id != $frontpagectx->id) {
+            $rolenames = array(0 => get_string('all')) + $rolenames;
+        } else {
+            if (!$CFG->defaultfrontpageroleid) {
+                // we do not want "All users with role" - we already have all users in defualt frontpage role option
+                $rolenames = array(0 => get_string('userswithrole', 'role')) + $rolenames;
+            }
+        }
+        popup_form("$CFG->wwwroot/user/index.php?contextid=$context->id&amp;sifirst=&amp;silast=&amp;roleid=", $rolenames,
+                   'rolesform', $roleid, '');
+        echo '</div>';
+
+    } else if (count($rolenames) == 1) {
+        // when all users with the same role - print its name
+        echo '<div class="rolesform">';
+        echo get_string('role').': ';
+        $rolename = reset($rolenames);
+        echo $rolename;
+        echo '</div>';
+    }
+
+    if ($roleid > 0) {
         if (!$currentrole = get_record('role','id',$roleid)) {
             error('That role does not exist');
         }
         $a->number = $totalcount;
-        $a->role = $currentrole->name;
+        // MDL-12217, use course specific rolename
+        if (isset($rolenames[$currentrole->id])){
+            $a->role = $rolenames[$currentrole->id];
+        }else{
+            $a->role = $currentrole->name;//safety net
+        }
         $heading = format_string(get_string('xuserswiththerole', 'role', $a));
+
+        if ($currentgroup and $group) {
+            $a->group = $group->name;
+            $heading .= ' ' . format_string(get_string('ingroup', 'role', $a));
+        }
+
+        if ($accesssince) {
+            $a->timeperiod = $timeoptions[$accesssince];
+            $heading .= ' ' . format_string(get_string('inactiveformorethan', 'role', $a));
+        }
+
+        $heading .= ": $a->number";
         if (user_can_assign($context, $roleid)) {
             $heading .= ' <a href="'.$CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?roleid='.$roleid.'&amp;contextid='.$context->id.'">';
             $heading .= '<img src="'.$CFG->pixpath.'/i/edit.gif" class="icon" alt="" /></a>';
         }
         print_heading($heading, 'center', 3);
     } else {
-        if ($matchcount < $totalcount) {
-            print_heading(get_string('allparticipants').': '.$matchcount.'/'.$totalcount, '', 3);
+        if ($course->id != SITEID && has_capability('moodle/role:assign', $context)) {
+            $editlink  = ' <a href="'.$CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?contextid='.$context->id.'">';
+            $editlink .= '<img src="'.$CFG->pixpath.'/i/edit.gif" class="icon" alt="" /></a>';
         } else {
-            print_heading(get_string('allparticipants').': '.$matchcount, '', 3);
+            $editlink = '';
+        }
+        if ($course->id == SITEID and $roleid < 0) {
+            $strallparticipants = get_string('allsiteusers', 'role');
+        } else {
+            $strallparticipants = get_string('allparticipants');
+        }
+        if ($matchcount < $totalcount) {
+            print_heading($strallparticipants.': '.$matchcount.'/'.$totalcount . $editlink, '', 3);
+        } else {
+            print_heading($strallparticipants.': '.$matchcount . $editlink, '', 3);
         }
     }
 
@@ -454,7 +602,7 @@
         echo '<form action="action_redir.php" method="post" id="participantsform" onsubmit="return checksubmit(this);">';
         echo '<div>';
         echo '<input type="hidden" name="sesskey" value="'.$USER->sesskey.'" />';
-        echo '<input type="hidden" name="returnto" value="'.s($_SERVER['REQUEST_URI']).'" />';
+        echo '<input type="hidden" name="returnto" value="'.s(me()).'" />';
     }
 
     if ($CFG->longtimenosee > 0 && $CFG->longtimenosee < 1000 && $totalcount > 0) {
@@ -510,7 +658,14 @@
             }
 
             if ($matchcount > 0) {
-                foreach ($userlist as $user) {
+                $usersprinted = array();
+                while ($user = rs_fetch_next_record($userlist)) {
+                    if (in_array($user->id, $usersprinted)) { /// Prevent duplicates by r.hidden - MDL-13935
+                        continue;
+                    }
+                    $usersprinted[] = $user->id; /// Add new user to the array of users printed
+
+                    $user = make_context_subobj($user);
                     print_user($user, $course, $bulkoperations);
                 }
 
@@ -524,15 +679,22 @@
         $timeformat = get_string('strftimedate');
 
 
-        if (!empty($userlist))  {
-            foreach ($userlist as $user) {
-                if ($user->hidden) {        
-                // if the assignment is hidden, display icon
-                    $hidden = "<img src=\"{$CFG->pixpath}/t/hide.gif\" alt=\"".get_string('hiddenassign')."\" class=\"hide-show-image\"/>";
-                } else {
-                    $hidden = '';  
+        if ($userlist)  {
+            $usersprinted = array();
+            while ($user = rs_fetch_next_record($userlist)) {
+                if (in_array($user->id, $usersprinted)) { /// Prevent duplicates by r.hidden - MDL-13935
+                    continue;
                 }
-                
+                $usersprinted[] = $user->id; /// Add new user to the array of users printed
+
+                $user = make_context_subobj($user);
+                if ( !empty($user->hidden) ) {
+                // if the assignment is hidden, display icon
+                    $hidden = " <img src=\"{$CFG->pixpath}/t/show.gif\" title=\"".get_string('userhashiddenassignments', 'role')."\" alt=\"".get_string('hiddenassign')."\" class=\"hide-show-image\"/>";
+                } else {
+                    $hidden = '';
+                }
+
                 if ($user->lastaccess) {
                     $lastaccess = format_time(time() - $user->lastaccess, $datestring);
                 } else {
@@ -550,18 +712,22 @@
                         $country = $countries[$user->country];
                     }
                 }
-                
-                $usercontext = get_context_instance(CONTEXT_USER, $user->id);
-                
-                if ($piclink = ($USER->id == $user->id || has_capability('moodle/user:viewdetails', $context) ||has_capability('moodle/user:viewdetails', $context))) {
+
+                if (!isset($user->context)) {
+                    $usercontext = get_context_instance(CONTEXT_USER, $user->id);
+                } else {
+                    $usercontext = $user->context;
+                }
+
+                if ($piclink = ($USER->id == $user->id || has_capability('moodle/user:viewdetails', $context) || has_capability('moodle/user:viewdetails', $usercontext))) {
                     $profilelink = '<strong><a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.$course->id.'">'.fullname($user).'</a></strong>';
                 } else {
-                    $profilelink = '<strong>'.fullname($user).'</strong>';   
+                    $profilelink = '<strong>'.fullname($user).'</strong>';
                 }
-                               
+
                 $data = array (
-                        print_user_picture($user->id, $course->id, $user->picture, false, true, $piclink),
-                        $profilelink);
+                        print_user_picture($user, $course->id, $user->picture, false, true, $piclink),
+                        $profilelink . $hidden);
 
                 if (!isset($hiddenfields['city'])) {
                     $data[] = $user->city;
@@ -596,17 +762,26 @@
         echo '<input type="button" onclick="checkall()" value="'.get_string('selectall').'" /> ';
         echo '<input type="button" onclick="checknone()" value="'.get_string('deselectall').'" /> ';
         $displaylist = array();
-        // fix for MDL-8885, only show this if user has capability
-        if (has_capability('moodle/site:readallmessages', $context) && !empty($CFG->messaging)) {
-            $displaylist['messageselect.php'] = get_string('messageselectadd');
+        $displaylist['messageselect.php'] = get_string('messageselectadd');
+        if (!empty($CFG->enablenotes) && has_capability('moodle/notes:manage', $context) && $context->id != $frontpagectx->id) {
+            $displaylist['addnote.php'] = get_string('addnewnote', 'notes');
+            $displaylist['groupaddnote.php'] = get_string('groupaddnewnote', 'notes');
         }
-        if ($course->enrolperiod) {
+
+        if ($context->id != $frontpagectx->id) {
             $displaylist['extendenrol.php'] = get_string('extendenrol');
+            $displaylist['groupextendenrol.php'] = get_string('groupextendenrol');
         }
+
         helpbutton("participantswithselectedusers", get_string("withselectedusers"));
         choose_from_menu ($displaylist, "formaction", "", get_string("withselectedusers"), "if(checksubmit(this.form))this.form.submit();", "");
         echo '<input type="hidden" name="id" value="'.$course->id.'" />';
-        echo '<input type="submit" value="' . get_string('ok') . '" />';
+        echo '<div id="noscriptparticipantsform" style="display: inline;">';
+        echo '<input type="submit" value="'.get_string('ok').'" /></div>';
+        echo '<script type="text/javascript">'.
+               "\n//<![CDATA[\n".
+               'document.getElementById("noscriptparticipantsform").style.display = "none";'.
+               "\n//]]>\n".'</script>';
         echo '</div>';
         echo '</div>';
         echo '</form>';
@@ -628,17 +803,30 @@
 
     print_footer($course);
 
+    if ($userlist) {
+        rs_close($userlist);
+    }
 
 
-
-function get_lastaccess_sql($accesssince='') {
+function get_course_lastaccess_sql($accesssince='') {
     if (empty($accesssince)) {
         return '';
     }
     if ($accesssince == -1) { // never
         return ' AND ul.timeaccess = 0';
     } else {
-        return ' AND ul.timeaccess != 0 AND timeaccess < '.$accesssince;
+        return ' AND ul.timeaccess != 0 AND ul.timeaccess < '.$accesssince;
+    }
+}
+
+function get_user_lastaccess_sql($accesssince='') {
+    if (empty($accesssince)) {
+        return '';
+    }
+    if ($accesssince == -1) { // never
+        return ' AND u.lastaccess = 0';
+    } else {
+        return ' AND u.lastaccess != 0 AND u.lastaccess < '.$accesssince;
     }
 }
 

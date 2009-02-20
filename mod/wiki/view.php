@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.66.2.3 2007/03/02 01:29:10 toyomoyo Exp $
+<?php  // $Id: view.php,v 1.76.2.6 2008/09/29 22:37:06 stronk7 Exp $
 /// Extended by Michael Schneider
 /// This page prints a particular instance of wiki
 
@@ -8,17 +8,17 @@
     require_once("lib.php");
     #require_once("$CFG->dirroot/course/lib.php"); // For side-blocks    
     require_once($CFG->libdir . '/ajax/ajaxlib.php');
-    require_js(array('yui_yahoo','yui_connection'));
+    require_js(array('yui_yahoo', 'yui_event', 'yui_connection'));
 
     $ewiki_action = optional_param('ewiki_action', '', PARAM_ALPHA);     // Action on Wiki-Page
     $id           = optional_param('id', 0, PARAM_INT);                  // Course Module ID, or
     $wid          = optional_param('wid', 0, PARAM_INT);                 // Wiki ID
-    $page         = optional_param('page', false);       // Wiki Page Name
+    $page         = optional_param('page', false);                       // Wiki Page Name
     $q            = optional_param('q',"", PARAM_PATH);                  // Search Context
     $userid       = optional_param('userid', 0, PARAM_INT);              // User wiki.
     $groupid      = optional_param('groupid', 0, PARAM_INT);             // Group wiki.
-    $canceledit   = optional_param('canceledit','', PARAM_ALPHA);          // Editing has been cancelled
-    $cacheme      = optional_param('allowcache', 1, PARAM_INT);   // Set this to 0 to try and disable page caching.
+    $canceledit   = optional_param('canceledit','', PARAM_ALPHA);        // Editing has been cancelled
+    $cacheme      = optional_param('allowcache', 1, PARAM_INT);          // Set this to 0 to try and disable page caching.
     
     // Only want to add edit log entries if we have made some changes ie submitted a form
     $editsave = optional_param('thankyou', '');
@@ -29,7 +29,7 @@
         if(count($actions)==2) {
             $pagename=$actions[1];
         } else {
-        	    $pagename=$actions[0];
+            $pagename=$actions[0];
         }
     } else {
         $actions=array('');
@@ -63,9 +63,12 @@
 
     require_course_login($course, true, $cm);
     
-    /// Add the course module 'groupmode' to the wiki object, for easy access.
+    /// Add the course module info to the wiki object, for easy access.
     $wiki->groupmode = $cm->groupmode;
-
+    $wiki->groupingid = $cm->groupingid;
+    $wiki->groupmembersonly = $cm->groupmembersonly;
+    $wiki->cmid = $cm->id;
+    
     /// Default format:
     $moodle_format=FORMAT_MOODLE;
 
@@ -273,11 +276,14 @@
     $strwikis = get_string("modulenameplural", "wiki");
     $strwiki  = get_string("modulename", "wiki");
 
+    $navlinks = array();
+/// Add page name if not main page
+    if ($ewiki_title != $wiki->name) {
+        $navlinks[] = array('name' => format_string($ewiki_title), 'link' => '', 'type' => 'title');
+    }
 
-    print_header_simple($ewiki_title?$ewiki_title:format_string($wiki->name), "",
-                "<a href=\"index.php?id=$course->id\">$strwikis</a>".
-                    (($ewiki_title!=$wiki->name) ? " -> <a href=\"view.php?id=$moodleID\">".format_string($wiki->name,true)."</a>":"").
-                    ($ewiki_title?" -> $ewiki_title":""),
+    $navigation = build_navigation($navlinks, $cm);
+    print_header_simple($ewiki_title?$ewiki_title:format_string($wiki->name), "", $navigation,
                 "", "", $cacheme, update_module_button($cm->id, $course->id, $strwiki),
                 navmenu($course, $cm));
 
@@ -432,7 +438,7 @@
 <form id='overridelock' method='post' action='overridelock.php'>
   <div>
   <input type='hidden' name='sesskey' value='$sesskey' />
-  <input type='hidden' name='id' value='$id' />
+  <input type='hidden' name='id' value='$cm->id' />
   <input type='hidden' name='page' value='$pageesc' />
   $stroverrideinfo
   <input type='submit' value='$stroverridebutton' />
@@ -441,11 +447,12 @@
 ";
             }
         } else {
-       		// OK, the page is now locked to us. Put in the AJAX for keeping the lock
-            $strlockcancelled=get_string('lockcancelled','wiki');
-            $strnojslockwarning=get_string('nojslockwarning','wiki');
-            $intervalms=WIKI_LOCK_RECONFIRM*1000;
-            print "
+            if (ajaxenabled()) {
+                // OK, the page is now locked to us. Put in the AJAX for keeping the lock
+                $strlockcancelled=addslashes(get_string('lockcancelled','wiki'));
+                $strnojslockwarning=get_string('nojslockwarning','wiki');
+                $intervalms=WIKI_LOCK_RECONFIRM*1000;
+                print "
 <script type='text/javascript'>
 var intervalID;
 function handleResponse(o) {
@@ -468,6 +475,7 @@ intervalID=setInterval(function() {
 $strnojslockwarning
 </p></noscript>
 ";
+            }
             // Print editor etc
             print $content;
         }

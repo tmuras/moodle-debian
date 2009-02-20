@@ -1,4 +1,4 @@
-<?PHP // $Id: config.php,v 1.4.12.2 2007/03/28 02:49:39 moodler Exp $
+<?PHP // $Id: config.php,v 1.6 2007/03/28 02:52:01 moodler Exp $
 
 ////////////////////////////////////////////////////////////////////////////////
 /// This file contains a few configuration variables that control 

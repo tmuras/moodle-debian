@@ -1,4 +1,4 @@
-<?php  // $Id: format.php,v 1.2 2006/03/01 07:36:08 gustav_delius Exp $ 
+<?php  // $Id: format.php,v 1.3.4.1 2007/11/02 16:21:07 tjhunt Exp $ 
 /// Modified by Tom Robb 12 June 2003 to include percentage and comment insertion
 /// facility.
 
@@ -25,7 +25,10 @@
 ////////////////////////////////////////////////////////////////////////////
 
 // Based on format.php, included by ../../import.php
-
+/**
+ * @package questionbank
+ * @subpackage importexport
+ */
 class qformat_missingword extends qformat_default {
 
     function provide_import() {

@@ -1,4 +1,4 @@
-<?php // $Id: save.php,v 1.22 2006/08/14 05:55:44 moodler Exp $
+<?php // $Id: save.php,v 1.26.2.2 2008/05/25 14:25:06 skodak Exp $
 
     require_once('../../config.php');
     require_once('lib.php');
@@ -30,6 +30,12 @@
     }
 
     add_to_log($course->id, "survey", "submit", "view.php?id=$cm->id", "$survey->id", "$cm->id");
+
+    $strsurveysaved = get_string('surveysaved', 'survey');
+
+    $navigation = build_navigation('', $cm);
+    print_header_simple("$strsurveysaved", "", $navigation, "");
+
 
     if (survey_already_done($survey->id, $USER->id)) {
         notice(get_string("alreadysubmitted", "survey"), $_SERVER["HTTP_REFERER"]);
@@ -84,13 +90,6 @@
     }
 
 // Print the page and finish up.
-
-    $strsurveys = get_string("modulenameplural", "survey");
-    $strsurveysaved = get_string("surveysaved", "survey");
-
-    print_header_simple("$strsurveysaved", "",
-        "<a href=\"index.php?id=$course->id\">$strsurveys</a> -> ".format_string($survey->name)." -> $strsurveysaved", "");
-
 
     notice(get_string("thanksforanswers","survey", $USER->firstname), "$CFG->wwwroot/course/view.php?id=$course->id");
 

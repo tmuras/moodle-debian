@@ -1,4 +1,4 @@
-<?php // $Id: edit_key_save.class.php,v 1.3 2006/09/20 21:00:53 skodak Exp $
+<?php // $Id: edit_key_save.class.php,v 1.5 2007/10/10 05:25:24 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -240,9 +240,12 @@ class edit_key_save extends XMLDBAction {
             }
         /// Prepare the output
             $site = get_site();
-            print_header("$site->shortname: XMLDB",
-                         "$site->fullname",
-                         "<a href=\"../index.php\">" . $this->str['administration'] . "</a> -> <a href=\"index.php\">XMLDB</a>");
+            $navlinks = array();
+            $navlinks[] = array('name' => $this->str['administration'], 'link' => '../index.php', 'type' => 'misc');
+            $navlinks[] = array('name' => 'XMLDB', 'link' => 'index.php', 'type' => 'misc');
+            $navigation = build_navigation($navlinks);
+            print_header("$site->shortname: XMLDB", "$site->fullname", $navigation);
+
             notice ('<p>' .implode(', ', $errors) . '</p>
                      <p>' . $tempkey->readableInfo(),
                     'index.php?action=edit_key&amp;key=' .$key->getName() . '&amp;table=' . $table->getName() . '&amp;dir=' . urlencode(str_replace($CFG->dirroot, '', $dirpath)));

@@ -1,4 +1,4 @@
-<?php //$Id: restore.php,v 1.40.6.2 2007/02/14 20:59:14 skodak Exp $
+<?php //$Id: restore.php,v 1.44.2.4 2008/12/11 04:37:11 dongsheng Exp $
     //This script is used to configure and execute the restore proccess.
 
     //Define some globals for all the script
@@ -23,7 +23,19 @@
     $method = optional_param( 'method' );
     $backup_unique_code = optional_param('backup_unique_code',0,PARAM_INT);
 
-    //Check login       
+    //Get and check course
+    if (! $course = get_record("course", "id", $id)) {
+        error("Course ID was incorrect (can't find it)");
+    }
+    // To some reasons, course_startdateoffset value was lost during restoring
+    // See MDL-17469
+    if (!empty($course->startdate) && !empty($SESSION->course_header->course_startdate)) {
+        $SESSION->restore->course_startdateoffset = $course->startdate - $SESSION->course_header->course_startdate;
+    } else {
+        $SESSION->restore->course_startdateoffset = 0;
+    }
+
+    //Check login
     require_login();
 
 /// With method=manual, we come from the FileManager so we delete all the backup/restore/import session structures
@@ -50,17 +62,19 @@
     }
 
     if (!empty($id)) {
+        require_login($id);
         if (!has_capability('moodle/site:restore', get_context_instance(CONTEXT_COURSE, $id))) {
             if (empty($to)) {
                 error("You need to be a teacher or admin user to use this page.", "$CFG->wwwroot/login/index.php");
             } else {
-                if (!has_capability('moodle/site:restore', get_context_instance(CONTEXT_COURSE, $to))) {
+                if (!has_capability('moodle/site:restore', get_context_instance(CONTEXT_COURSE, $to))
+                    && !has_capability('moodle/site:import',  get_context_instance(CONTEXT_COURSE, $to))) {
                     error("You need to be a teacher or admin user to use this page.", "$CFG->wwwroot/login/index.php");
                 }
             }
         }
     } else {
-        if (!has_capability('moodle/site:restore', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+        if (!has_capability('moodle/site:restore', get_context_instance(CONTEXT_SYSTEM))) {
             error("You need to be an admin user to use this page.", "$CFG->wwwroot/login/index.php");
         }
     }
@@ -72,7 +86,7 @@
 
     //Check necessary functions exists. Thanks to gregb@crowncollege.edu
     backup_required_functions();
-    
+
     //Check backup_version
     if ($file) {
         $linkto = "restore.php?id=".$id."&amp;file=".$file;
@@ -90,9 +104,13 @@
     $stradministration = get_string("administration");
 
     //If no file has been selected from the FileManager, inform and end
+    $navlinks = array();
+    $navlinks[] = array('name' => $stradministration, 'link' => "$CFG->wwwroot/$CFG->admin/index.php", 'type' => 'misc');
+    $navlinks[] = array('name' => $strcourserestore, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+
     if (!$file) {
-        print_header("$site->shortname: $strcourserestore", $site->fullname,
-                     "<a href=\"$CFG->wwwroot/$CFG->admin/index.php\">$stradministration</a> -> $strcourserestore");
+        print_header("$site->shortname: $strcourserestore", $site->fullname, $navigation);
         print_heading(get_string("nofilesselected"));
         print_continue("$CFG->wwwroot/$CFG->admin/index.php");
         print_footer();
@@ -101,35 +119,32 @@
 
     //If cancel has been selected, inform and end
     if ($cancel) {
-        print_header("$site->shortname: $strcourserestore", $site->fullname,
-                     "<a href=\"$CFG->wwwroot/$CFG->admin/index.php\">$stradministration</a> -> $strcourserestore");
+        print_header("$site->shortname: $strcourserestore", $site->fullname, $navigation);
         print_heading(get_string("restorecancelled"));
-        print_continue("$CFG->wwwroot/$CFG->admin/index.php");
+        print_continue("$CFG->wwwroot/course/view.php?id=".$id);
         print_footer();
         exit;
     }
 
     //We are here, so me have a file.
 
-    //Get and check course
-    if (! $course = get_record("course", "id", $id)) {
-        error("Course ID was incorrect (can't find it)");
-    }
-
     //Print header
-    if (has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
-        print_header("$site->shortname: $strcourserestore", $site->fullname,
-                     "<a href=\"$CFG->wwwroot/$CFG->admin/index.php\">$stradministration</a> ->
-                      $strcourserestore -> ".basename($file));
+    if (has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))) {
+        $navlinks[] = array('name' => basename($file), 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
+
+        print_header("$site->shortname: $strcourserestore", $site->fullname, $navigation);
     } else {
-        print_header("$course->shortname: $strcourserestore", $course->fullname,
-                     "<a href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</a> ->
-                     $strcourserestore");
+        $navlinks = array();
+        $navlinks[] = array('name' => $course->shortname, 'link' => "$CFG->wwwroot/course/view.php?id=$course->id", 'type' => 'misc');
+        $navlinks[] = array('name' => $strcourserestore, 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
+        print_header("$course->shortname: $strcourserestore", $course->fullname, $navigation);
     }
     //Print form
     print_heading("$strcourserestore".((empty($to) ? ': '.basename($file) : '')));
     print_simple_box_start('center');
-    
+
     //Adjust some php variables to the execution of this script
     @ini_set("max_execution_time","3000");
     raise_memory_limit("192M");
@@ -150,7 +165,7 @@
         include_once("restore_check.html");
         //To avoid multiple restore executions...
         $SESSION->cancontinue = true;
-    } else if ($launch == "execute") { 
+    } else if ($launch == "execute") {
         //Prevent multiple restore executions...
         if (empty($SESSION->cancontinue)) {
             error("Multiple restore execution not allowed!");
@@ -161,7 +176,7 @@
     }
     print_simple_box_end();
 
-    //Print footer  
+    //Print footer
     print_footer();
 
 ?>

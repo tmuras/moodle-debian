@@ -21,6 +21,12 @@ require_once $CFG->dirroot.'/mnet/remote_client.php';
 // Content type for output is not html:
 header('Content-type: text/xml; charset=utf-8');
 
+// PHP 5.2.2: $HTTP_RAW_POST_DATA not populated bug:
+// http://bugs.php.net/bug.php?id=41293
+if (empty($HTTP_RAW_POST_DATA)) {
+    $HTTP_RAW_POST_DATA = file_get_contents('php://input');
+}
+
 if (!empty($CFG->mnet_rpcdebug)) {
     trigger_error("HTTP_RAW_POST_DATA");
     trigger_error($HTTP_RAW_POST_DATA);
@@ -126,8 +132,6 @@ function mnet_server_strip_wrappers($HTTP_RAW_POST_DATA) {
 
         if (false == $host_record_exists) {
             exit(mnet_server_fault(7020, 'wrong-wwwroot', $crypt_parser->remote_wwwroot));
-        } elseif (isset($_SERVER['REMOTE_ADDR']) && $_SERVER['REMOTE_ADDR'] != $MNET_REMOTE_CLIENT->ip_address) {
-            exit(mnet_server_fault(7017, 'wrong-ip'));
         }
 
         if ($crypt_parser->payload_encrypted) {
@@ -158,6 +162,7 @@ function mnet_server_strip_wrappers($HTTP_RAW_POST_DATA) {
                     if ($isOpen) {
                         // It's an older code, sir, but it checks out
                         $push_current_key = true;
+                        break;
                     }
                 }
             }
@@ -185,7 +190,7 @@ function mnet_server_strip_wrappers($HTTP_RAW_POST_DATA) {
         if($push_current_key) {
             // NOTE: Here, we use the 'mnet_server_fault_xml' to avoid
             // get_string being called on our public_key
-            exit(mnet_server_fault_xml(7025, $MNET->public_key));
+            exit(mnet_server_fault_xml(7025, $MNET->public_key, $keyresource));
         }
 
         /**
@@ -201,20 +206,27 @@ function mnet_server_strip_wrappers($HTTP_RAW_POST_DATA) {
 
         // Does the signature match the data and the public cert?
         $signature_verified = openssl_verify($payload, base64_decode($sig_parser->signature), $certificate);
-        if ($signature_verified == 1) {
-            $MNET_REMOTE_CLIENT->touch();
-            // Parse the XML
-        } elseif ($signature_verified == 0) {
-            $currkey = mnet_get_public_key($MNET_REMOTE_CLIENT->wwwroot);
+
+        if ($signature_verified == 0) {
+            // $signature was not generated for $payload using $certificate
+            // Get the key the remote peer is currently publishing:
+            $currkey = mnet_get_public_key($MNET_REMOTE_CLIENT->wwwroot, $MNET_REMOTE_CLIENT->application->xmlrpc_server_url);
+            // If the key the remote peer is currently publishing is different to $certificate
             if($currkey != $certificate) {
-                // Has the server updated its certificate since our last 
-                // handshake?
-                if(!$MNET_REMOTE_CLIENT->refresh_key()) {
+                // If we can't get the server's new key through trusted means, exit.
+                if(!$MNET_REMOTE_CLIENT->refresh_key()){
                     exit(mnet_server_fault(7026, 'verifysignature-invalid'));
                 }
-            } else {
-                exit(mnet_server_fault(710, 'verifysignature-invalid'));
+                // If we did manage to re-key, try to verify the signature again against the new public key.
+                $certificate = $MNET_REMOTE_CLIENT->public_key;
+                $signature_verified = openssl_verify($payload, base64_decode($sig_parser->signature), $certificate);
             }
+        }
+
+        if ($signature_verified == 1) {
+            $MNET_REMOTE_CLIENT->touch();
+        } elseif ($signature_verified == 0) {
+            exit(mnet_server_fault(710, 'verifysignature-invalid'));
         } else {
             exit(mnet_server_fault(711, 'verifysignature-error'));
         }
@@ -249,11 +261,12 @@ function mnet_server_fault($code, $text, $param = null) {
 /**
  * Return the proper XML-RPC content to report an error.
  *
- * @param  int    $code   The ID code of the error message
- * @param  string $text   The error message
- * @return string $text   The XML text of the error message
+ * @param  int      $code   The ID code of the error message
+ * @param  string   $text   The error message
+ * @param  resource $privatekey The private key that should be used to sign the response
+ * @return string   $text   The XML text of the error message
  */
-function mnet_server_fault_xml($code, $text) {
+function mnet_server_fault_xml($code, $text, $privatekey = null) {
     global $MNET_REMOTE_CLIENT, $CFG;
     // Replace illegal XML chars - is this already in a lib somewhere?
     $text = str_replace(array('<','>','&','"',"'"), array('&lt;','&gt;','&amp;','&quot;','&apos;'), $text);
@@ -270,14 +283,14 @@ function mnet_server_fault_xml($code, $text) {
             <member>
                <name>faultString</name>
                <value><string>'.$text.'</string></value>
-               </member>
-            </struct>
-         </value>
-      </fault>
-   </methodResponse>');
+            </member>
+         </struct>
+      </value>
+   </fault>
+</methodResponse>', $privatekey);
 
     if (!empty($CFG->mnet_rpcdebug)) {
-        trigger_error("XMLRPC Error Response");
+        trigger_error("XMLRPC Error Response $code: $text");
         trigger_error(print_r($return,1));
     }
 
@@ -315,14 +328,15 @@ function mnet_server_dummy_method($methodname, $argsarray, $functionname) {
 /**
  * Package a response in any required envelope, and return it to the client
  *
- * @param   string  $response      The XMLRPC response string
- * @return  string                 The encoded response string
+ * @param   string   $response      The XMLRPC response string
+ * @param   resource $privatekey    The private key to sign the response with
+ * @return  string                  The encoded response string
  */
-function mnet_server_prepare_response($response) {
+function mnet_server_prepare_response($response, $privatekey = null) {
     global $MNET_REMOTE_CLIENT;
 
     if ($MNET_REMOTE_CLIENT->request_was_signed) {
-        $response = mnet_sign_message($response);
+        $response = mnet_sign_message($response, $privatekey);
     }
 
     if ($MNET_REMOTE_CLIENT->request_was_encrypted) {
@@ -350,7 +364,7 @@ function mnet_server_dispatch($payload) {
     //            xmlrpc_decode_request($xml,                   &$method)
     $params     = xmlrpc_decode_request($payload, $method);
 
-    // $method is something like: "mod/forum/lib/forum_add_instance"
+    // $method is something like: "mod/forum/lib.php/forum_add_instance"
     // $params is an array of parameters. A parameter might itself be an array.
 
     // Whitelist characters that are permitted in a method name
@@ -360,8 +374,12 @@ function mnet_server_dispatch($payload) {
         exit(mnet_server_fault(713, 'nosuchfunction'));
     }
 
-    $callstack  = explode('/', $method);
-    // callstack will look like array('mod', 'forum', 'lib', 'forum_add_instance');
+    if(preg_match("/^system\./", $method)) {
+        $callstack  = explode('.', $method);
+    } else {
+        $callstack  = explode('/', $method);
+        // callstack will look like array('mod', 'forum', 'lib.php', 'forum_add_instance');
+    }
 
     /**
      * What has the site administrator chosen as his dispatcher setting?
@@ -458,7 +476,7 @@ function mnet_server_dispatch($payload) {
         }
 
     ////////////////////////////////////// STRICT MOD/*
-    } elseif ($callstack[0] == 'mod' || 'promiscuous' == $CFG->mnet_dispatcher_mode) {
+    } elseif ($callstack[0] == 'mod' || 'dangerous' == $CFG->mnet_dispatcher_mode) {
         list($base, $module, $filename, $functionname) = $callstack;
 
     ////////////////////////////////////// STRICT MOD/*
@@ -468,18 +486,24 @@ function mnet_server_dispatch($payload) {
             $response = mnet_server_prepare_response($response);
             echo $response;
 
-    ////////////////////////////////////// PROMISCUOUS
-        } elseif ('promiscuous' == $CFG->mnet_dispatcher_mode && $MNET_REMOTE_CLIENT->plaintext_is_ok()) {
+    ////////////////////////////////////// DANGEROUS
+        } elseif ('dangerous' == $CFG->mnet_dispatcher_mode && $MNET_REMOTE_CLIENT->plaintext_is_ok()) {
 
             $functionname = array_pop($callstack);
-            $filename     = array_pop($callstack);
 
             if ($MNET_REMOTE_CLIENT->plaintext_is_ok()) {
 
-                // The call stack holds the path to any include file
-                $includefile = $CFG->dirroot.'/'.implode('/',$callstack).'/'.$filename.'.php';
+                $filename = clean_param(implode('/',$callstack), PARAM_PATH);
+                if (0 == preg_match("/php$/", $filename)) {
+                    // Filename doesn't end in 'php'; possible attack?
+                    // Generate error response - unable to locate function
+                    exit(mnet_server_fault(7012, 'nosuchfunction'));
+                } 
 
-                $response = mnet_server_invoke_function($includefile, $functionname, $method, $payload);
+                // The call stack holds the path to any include file
+                $includefile = $CFG->dirroot.'/'.$filename;
+
+                $response = mnet_server_invoke_method($includefile, $functionname, $method, $payload);
                 echo $response;
             }
 
@@ -528,7 +552,8 @@ function mnet_system($method, $params, $hostinfo) {
                 WHERE
                     s2r.rpcid = rpc.id AND
                     h2s.serviceid = s2r.serviceid AND 
-                    h2s.hostid in ('.$id_list .')
+                    h2s.hostid in ('.$id_list .') AND
+                    h2s.publish =\'1\'
                 ORDER BY
                     rpc.xmlrpc_path ASC';
 
@@ -549,6 +574,7 @@ function mnet_system($method, $params, $hostinfo) {
                     s2r.rpcid = rpc.id AND
                     h2s.serviceid = s2r.serviceid AND 
                     h2s.hostid in ('.$id_list .') AND
+                    h2s.publish =\'1\' AND
                     svc.id = h2s.serviceid AND
                     svc.name = \''.$params[0].'\'
                 ORDER BY
@@ -577,6 +603,7 @@ function mnet_system($method, $params, $hostinfo) {
                 rpc.xmlrpc_path = \''.$params[0].'\' AND
                 s2r.rpcid = rpc.id AND
                 h2s.serviceid = s2r.serviceid AND 
+                h2s.publish =\'1\' AND
                 h2s.hostid in ('.$id_list .')';
 
         $result = get_records_sql($query);
@@ -604,6 +631,7 @@ function mnet_system($method, $params, $hostinfo) {
             WHERE
                 rpc.xmlrpc_path = \''.$params[0].'\' AND
                 s2r.rpcid = rpc.id AND
+                h2s.publish =\'1\' AND
                 h2s.serviceid = s2r.serviceid AND 
                 h2s.hostid in ('.$id_list .')';
 
@@ -625,6 +653,7 @@ function mnet_system($method, $params, $hostinfo) {
                 '.$CFG->prefix.'mnet_service s
             WHERE
                 h2s.serviceid = s.id AND
+               (h2s.publish =\'1\' OR h2s.subscribe =\'1\') AND
                 h2s.hostid in ('.$id_list .')
             ORDER BY
                 s.name ASC';
@@ -727,7 +756,8 @@ function mnet_keyswap($function, $params) {
 
     if (!empty($CFG->mnet_register_allhosts)) {
         $mnet_peer = new mnet_peer();
-        $keyok = $mnet_peer->bootstrap($params[0], $params[1]);
+        @list($wwwroot, $pubkey, $application) = each($params);
+        $keyok = $mnet_peer->bootstrap($wwwroot, $pubkey, $application);
         if ($keyok) {
             $mnet_peer->commit();
         }

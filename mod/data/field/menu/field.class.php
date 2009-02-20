@@ -1,4 +1,4 @@
-<?php // $Id: field.class.php,v 1.11 2006/12/13 20:26:12 skodak Exp $
+<?php // $Id: field.class.php,v 1.12.2.1 2008/04/19 21:20:56 skodak Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -55,6 +55,47 @@ class data_field_menu extends data_field_base {
         $str .= '</div>';
 
         return $str;
+    }
+    
+    function display_search_field($content = '') {
+        global $CFG;
+
+        $usedoptions = array();
+        $sql = "SELECT DISTINCT content
+                  FROM {$CFG->prefix}data_content
+                 WHERE fieldid={$this->field->id} AND content IS NOT NULL";
+        if ($used = get_records_sql($sql)) {
+            foreach ($used as $data) {
+                $value = $data->content;
+                if ($value === '') {
+                    continue;
+                }
+                $usedoptions[$value] = $value;
+            }
+        }
+
+        $options = array();
+        foreach (explode("\n",$this->field->param1) as $option) {
+            $option = trim($option);
+            if (!isset($usedoptions[$option])) {
+                continue;
+            }
+            $options[$option] = $option;
+        }
+        if (!$options) {
+            // oh, nothing to search for
+            return '';
+        }
+
+        return choose_from_menu($options, 'f_'.$this->field->id, stripslashes($content), '&nbsp;', '', 0, true);    
+    }
+
+     function parse_search_field() {
+            return optional_param('f_'.$this->field->id, '', PARAM_NOTAGS);
+     }
+
+    function generate_sql($tablealias, $value) {
+        return " ({$tablealias}.fieldid = {$this->field->id} AND {$tablealias}.content = '$value') "; 
     }
 
 }

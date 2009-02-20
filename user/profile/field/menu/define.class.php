@@ -1,4 +1,4 @@
-<?php  //$Id: define.class.php,v 1.2.2.1 2007/04/04 04:38:47 nicolasconnault Exp $
+<?php  //$Id: define.class.php,v 1.3.2.1 2007/11/23 22:12:38 skodak Exp $
 
 class profile_define_menu extends profile_define_base {
 
@@ -12,7 +12,7 @@ class profile_define_menu extends profile_define_base {
         $form->setType('defaultdata', PARAM_MULTILANG);
     }
 
-    function define_validate_specific($data) {
+    function define_validate_specific($data, $files) {
         $err = array();
 
         $data->param1 = str_replace("\r", '', $data->param1);

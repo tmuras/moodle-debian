@@ -1,4 +1,4 @@
-<?php // $Id: access.php,v 1.5.4.1 2007/03/05 11:38:20 skodak Exp $
+<?php // $Id: access.php,v 1.6.2.1 2008/07/24 21:58:08 skodak Exp $
 
 $enrol_authorize_capabilities = array(
 
@@ -14,7 +14,7 @@ $enrol_authorize_capabilities = array(
     'enrol/authorize:uploadcsv' => array(
         'riskbitmask' => RISK_XSS,
         'captype' => 'write',
-        'contextlevel' => CONTEXT_USER,
+        'contextlevel' => CONTEXT_SYSTEM,
         'legacy' => array(
             'admin' => CAP_ALLOW
         )

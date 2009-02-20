@@ -1,4 +1,4 @@
-<?php // $Id: downloads.php,v 1.16 2007/01/09 10:08:51 skodak Exp $
+<?php // $Id: downloads.php,v 1.16.4.2 2008/12/10 06:30:24 dongsheng Exp $
     require_once("../../config.php"); 
     require_once($CFG->libdir.'/filelib.php');
 
@@ -216,7 +216,7 @@ function ewiki_page_filedownload($id, $data, $action, $def_sec="") {
                "orderby"=>$orderby, "section" => $sec)) .
                '">' . $title . "</a>";
          }
-         $o .= '<div align="center" class="darker">'.implode(" &middot; ", $oa).'</div><br />';
+         $o .= '<div class="mdl-align darker">'.implode(" &middot; ", $oa).'</div><br />';
       }
    }
 

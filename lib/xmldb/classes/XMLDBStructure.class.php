@@ -1,4 +1,4 @@
-<?php // $Id: XMLDBStructure.class.php,v 1.9 2006/10/28 15:18:41 stronk7 Exp $
+<?php // $Id: XMLDBStructure.class.php,v 1.12 2007/10/10 05:25:14 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -330,6 +330,8 @@ class XMLDBStructure extends XMLDBObject {
      */
     function arr2XMLDBStructure($xmlarr) {
 
+        global $CFG;
+
         $result = true;
 
     /// Debug the structure
@@ -354,6 +356,8 @@ class XMLDBStructure extends XMLDBObject {
         }
         if (isset($xmlarr['XMLDB']['@']['COMMENT'])) {
             $this->comment = trim($xmlarr['XMLDB']['@']['COMMENT']);
+        } else if (!empty($CFG->xmldbdisablecommentchecking)) {
+            $this->comment = '';
         } else {
             $this->errormsg = 'Missing COMMENT attribute';
             $this->debug($this->errormsg);
@@ -391,6 +395,7 @@ class XMLDBStructure extends XMLDBObject {
                 $result = false;
             }
         /// Check previous & next are ok (duplicates and existing tables)
+            $this->fixPrevNext($this->tables);
             if ($result && !$this->checkPreviousNextValues($this->tables)) {
                 $this->errormsg = 'Some TABLES previous/next values are incorrect';
                 $this->debug($this->errormsg);
@@ -431,6 +436,7 @@ class XMLDBStructure extends XMLDBObject {
                 $result = false;
             }
         /// Check previous & next are ok (duplicates and existing statements)
+            $this->fixPrevNext($this->statements);
             if ($result && !$this->checkPreviousNextValues($this->statements)) {
                 $this->errormsg = 'Some STATEMENTS previous/next values are incorrect';
                 $this->debug($this->errormsg);

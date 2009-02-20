@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.111.2.5 2007/04/05 03:36:08 nicolasconnault Exp $
+<?php // $Id: index.php,v 1.121.2.8 2008/12/13 02:19:41 mudrd8mz Exp $
 
 //  Manage all uploaded files in a course file area
 
@@ -39,19 +39,18 @@
     require_capability('moodle/course:managefiles', get_context_instance(CONTEXT_COURSE, $course->id));
 
     function html_footer() {
-        global $course, $choose, $adminroot;
+        global $COURSE, $choose;
 
         echo '</td></tr></table>';
 
-        if ($course->id == SITEID) {
-                admin_externalpage_print_footer($adminroot);
-        } else {
-            print_footer($course);
-        }
+        print_footer($COURSE);
     }
 
     function html_header($course, $wdir, $formfield=""){
         global $CFG, $ME, $choose;
+
+        $navlinks = array();
+        // $navlinks[] = array('name' => $course->shortname, 'link' => "../course/view.php?id=$course->id", 'type' => 'misc');
 
         if ($course->id == SITEID) {
             $strfiles = get_string("sitefiles");
@@ -60,20 +59,25 @@
         }
 
         if ($wdir == "/") {
-            $fullnav = "$strfiles";
+            $navlinks[] = array('name' => $strfiles, 'link' => null, 'type' => 'misc');
         } else {
             $dirs = explode("/", $wdir);
             $numdirs = count($dirs);
             $link = "";
-            $navigation = "";
+            $navlinks[] = array('name' => $strfiles,
+                                'link' => $ME."?id=$course->id&amp;wdir=/&amp;choose=$choose",
+                                'type' => 'misc');
+
             for ($i=1; $i<$numdirs-1; $i++) {
-               $navigation .= " -> ";
-               $link .= "/".urlencode($dirs[$i]);
-               $navigation .= "<a href=\"".$ME."?id=$course->id&amp;wdir=$link&amp;choose=$choose\">".$dirs[$i]."</a>";
+                $link .= "/".urlencode($dirs[$i]);
+                $navlinks[] = array('name' => $dirs[$i],
+                                    'link' => $ME."?id=$course->id&amp;wdir=$link&amp;choose=$choose",
+                                    'type' => 'misc');
             }
-            $fullnav = "<a href=\"".$ME."?id=$course->id&amp;wdir=/&amp;choose=$choose\">$strfiles</a> $navigation -> ".$dirs[$numdirs-1];
+            $navlinks[] = array('name' => $dirs[$numdirs-1], 'link' => null, 'type' => 'misc');
         }
 
+        $navigation = build_navigation($navlinks);
 
         if ($choose) {
             print_header();
@@ -105,7 +109,20 @@
             <?php
 
             }
-            $fullnav = str_replace('->', '&raquo;', format_string($course->shortname) . " -> $fullnav");
+            $fullnav = '';
+            $i = 0;
+            foreach ($navlinks as $navlink) {
+                // If this is the last link do not link
+                if ($i == count($navlinks) - 1) {
+                    $fullnav .= $navlink['name'];
+                } else {
+                    $fullnav .= '<a href="'.$navlink['link'].'">'.$navlink['name'].'</a>';
+                }
+                $fullnav .= ' -> ';
+                $i++;
+            }
+            $fullnav = substr($fullnav, 0, -4);
+            $fullnav = str_replace('->', '&raquo;', format_string($course->shortname) . " -> " . $fullnav);
             echo '<div id="nav-bar">'.$fullnav.'</div>';
 
             if ($course->id == SITEID and $wdir != "/backupdata") {
@@ -117,22 +134,18 @@
             if ($course->id == SITEID) {
 
                 if ($wdir == "/backupdata") {
-                    $adminroot = admin_get_root();
-                    admin_externalpage_setup('frontpagerestore', $adminroot);
-                    admin_externalpage_print_header($adminroot);
+                    admin_externalpage_setup('frontpagerestore');
+                    admin_externalpage_print_header();
                 } else {
-                    $adminroot = admin_get_root();
-                    admin_externalpage_setup('sitefiles', $adminroot);
-                    admin_externalpage_print_header($adminroot);
+                    admin_externalpage_setup('sitefiles');
+                    admin_externalpage_print_header();
 
                     print_heading(get_string("publicsitefileswarning"), "center", 2);
-                    
+
                 }
 
             } else {
-                print_header("$course->shortname: $strfiles", $course->fullname,
-                             "<a href=\"../course/view.php?id=$course->id\">$course->shortname".
-                             "</a> -> $fullnav", $formfield);
+                print_header("$course->shortname: $strfiles", $course->fullname, $navigation,  $formfield);
             }
         }
 
@@ -198,7 +211,7 @@
 
                 echo "<p>$struploadafile ($strmaxsize) --> <b>$wdir</b></p>";
                 echo "<form enctype=\"multipart/form-data\" method=\"post\" action=\"index.php\">";
-                echo "<div>";             
+                echo "<div>";
                 echo "<table><tr><td colspan=\"2\">";
                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
@@ -211,7 +224,7 @@
                 echo "</div>";
                 echo "</form>";
                 echo "<form action=\"index.php\" method=\"get\">";
-                echo "<div>";             
+                echo "<div>";
                 echo ' <input type="hidden" name="choose" value="'.$choose.'" />';
                 echo " <input type=\"hidden\" name=\"id\" value=\"$id\" />";
                 echo " <input type=\"hidden\" name=\"wdir\" value=\"$wdir\" />";
@@ -461,7 +474,7 @@
                 }
 
                 if (!zip_files($files,"$basedir$wdir/$name")) {
-                    error(get_string("zipfileserror","error"));
+                    print_error("zipfileserror","error");
                 }
 
                 clearfilelist();
@@ -519,7 +532,7 @@
                 $file = basename($file);
 
                 if (!unzip_file("$basedir$wdir/$file")) {
-                    error(get_string("unzipfileserror","error"));
+                    print_error("unzipfileserror","error");
                 }
 
                 echo "<div style=\"text-align:center\"><form action=\"index.php\" method=\"get\">";
@@ -654,7 +667,7 @@ function printfilelist($filelist) {
 
     foreach ($filelist as $file) {
         if (is_dir($basedir.'/'.$file)) {
-            echo "<img src=\"$CFG->pixpath/f/folder.gif\" class=\"icon\" alt=\"$strfolder\" /> $file<br />";
+            echo '<img src="'. $CFG->pixpath .'/f/folder.gif" class="icon" alt="'. $strfolder .'" /> '. htmlspecialchars($file) .'<br />';
             $subfilelist = array();
             $currdir = opendir($basedir.'/'.$file);
             while (false !== ($subfile = readdir($currdir))) {
@@ -666,7 +679,7 @@ function printfilelist($filelist) {
 
         } else {
             $icon = mimeinfo("icon", $file);
-            echo "<img src=\"$CFG->pixpath/f/$icon\"  class=\"icon\" alt=\"$strfile\" /> $file<br />";
+            echo '<img src="'. $CFG->pixpath .'/f/'. $icon .'" class="icon" alt="'. $strfile .'" /> '. htmlspecialchars($file) .'<br />';
         }
     }
 }
@@ -734,7 +747,7 @@ function displaydir ($wdir) {
     echo "<hr/>";
     echo "<table border=\"0\" cellspacing=\"2\" cellpadding=\"2\" width=\"640\" class=\"files\">";
     echo "<tr>";
-    echo "<th scope=\"col\"></th>";
+    echo "<th class=\"header\" scope=\"col\"></th>";
     echo "<th class=\"header name\" scope=\"col\">$strname</th>";
     echo "<th class=\"header size\" scope=\"col\">$strsize</th>";
     echo "<th class=\"header date\" scope=\"col\">$strmodified</th>";
@@ -767,7 +780,7 @@ function displaydir ($wdir) {
                 $fileurl  = rawurlencode($wdir."/".$dir);
                 $filesafe = rawurlencode($dir);
                 $filesize = display_size(get_directory_size("$fullpath/$dir"));
-                $filedate = userdate(filemtime($filename), "%d %b %Y, %I:%M %p");
+                $filedate = userdate(filemtime($filename), get_string("strftimedatetime"));
                 print_cell("center", "<input type=\"checkbox\" name=\"file$count\" value=\"$fileurl\" />", 'checkbox');
                 print_cell("left", "<a href=\"index.php?id=$id&amp;wdir=$fileurl&amp;choose=$choose\"><img src=\"$CFG->pixpath/f/folder.gif\" class=\"icon\" alt=\"$strfolder\" />&nbsp;".htmlspecialchars($dir)."</a>", 'name');
                 print_cell("right", $filesize, 'size');
@@ -791,7 +804,7 @@ function displaydir ($wdir) {
             $fileurl     = trim($wdir, "/")."/$file";
             $filesafe    = rawurlencode($file);
             $fileurlsafe = rawurlencode($fileurl);
-            $filedate    = userdate(filemtime($filename), "%d %b %Y, %I:%M %p");
+            $filedate    = userdate(filemtime($filename), get_string("strftimedatetime"));
 
             $selectfile = trim($fileurl, "/");
 
@@ -799,11 +812,8 @@ function displaydir ($wdir) {
 
             print_cell("center", "<input type=\"checkbox\" name=\"file$count\" value=\"$fileurl\" />", 'checkbox');
             echo "<td align=\"left\" style=\"white-space:nowrap\" class=\"name\">";
-            if ($CFG->slasharguments) {
-                $ffurl = str_replace('//', '/', "/file.php/$id/$fileurl");
-            } else {
-                $ffurl = str_replace('//', '/', "/file.php?file=/$id/$fileurl");
-            }
+
+            $ffurl = get_file_url($id.'/'.$fileurl);
             link_to_popup_window ($ffurl, "display",
                                   "<img src=\"$CFG->pixpath/f/$icon\" class=\"icon\" alt=\"$strfile\" />&nbsp;".htmlspecialchars($file),
                                   480, 640);
@@ -851,7 +861,16 @@ function displaydir ($wdir) {
                    "zip" => "$strcreateziparchive"
                );
     if (!empty($count)) {
+
         choose_from_menu ($options, "action", "", "$strwithchosenfiles...", "javascript:getElementById('dirform').submit()");
+        echo '<div id="noscriptgo" style="display: inline;">';
+        echo '<input type="submit" value="'.get_string('go').'" />';
+        echo '<script type="text/javascript">'.
+               "\n//<![CDATA[\n".
+               'document.getElementById("noscriptgo").style.display = "none";'.
+               "\n//]]>\n".'</script>';
+        echo '</div>';
+
     }
     echo "</td></tr></table>";
     echo "</div>";

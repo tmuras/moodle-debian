@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.11 2005/03/27 11:36:53 stronk7 Exp $
+<?php // $Id: index.php,v 1.15.2.5 2008/02/05 21:39:53 skodak Exp $
 
     require_once('../../config.php');
     require_once('lib.php');
@@ -22,12 +22,16 @@
 
 /// Print the header
 
-    print_header_simple($strchats, '', $strchats, '', '', true, '', navmenu($course));
+    $navlinks = array();
+    $navlinks[] = array('name' => $strchats, 'link' => '', 'type' => 'activity');
+    $navigation = build_navigation($navlinks);
+
+    print_header_simple($strchats, '', $navigation, '', '', true, '', navmenu($course));
 
 /// Get all the appropriate data
 
     if (! $chats = get_all_instances_in_course('chat', $course)) {
-        notice('There are no chats', "../../course/view.php?id=$course->id");
+        notice(get_string('thereareno', 'moodle', $strchats), "../../course/view.php?id=$course->id");
         die();
     }
 

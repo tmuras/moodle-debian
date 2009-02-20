@@ -1,4 +1,4 @@
-<?php // $Id: new_table.class.php,v 1.3 2006/09/20 21:00:51 skodak Exp $
+<?php // $Id: new_table.class.php,v 1.6 2007/10/10 05:25:29 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -88,15 +88,14 @@ class new_table extends XMLDBAction {
             $field->setType(XMLDB_TYPE_INTEGER);
             $field->setLength(10);
             $field->setNotNull(true);
+            $field->setUnsigned(true);
             $field->setSequence(true);
-            $field->setComment('id of the table, please edit me');
             $field->setLoaded(true);
             $field->setChanged(true);
 
             $key = new XMLDBKey('primary');
             $key->setType(XMLDB_KEY_PRIMARY);
             $key->setFields(array('id'));
-            $key->setComment('primary key of the table, please edit me');
             $key->setLoaded(true);
             $key->setChanged(true);
 

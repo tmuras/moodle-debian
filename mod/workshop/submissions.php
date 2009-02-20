@@ -1,4 +1,4 @@
-<?php  // $Id: submissions.php,v 1.56 2007/01/10 08:29:42 toyomoyo Exp $
+<?php  // $Id: submissions.php,v 1.60.2.3 2008/07/10 09:48:48 scyrma Exp $
 
 /*************************************************
     ACTIONS handled are:
@@ -51,9 +51,8 @@
     $strsubmissions = get_string("submissions", "workshop");
 
     // ... print the header and...
-    print_header_simple(format_string($workshop->name), "",
-                 "<a href=\"index.php?id=$course->id\">$strworkshops</a> ->
-                  <a href=\"view.php?id=$cm->id\">".format_string($workshop->name,true)."</a> -> $strsubmissions",
+    $navigation = build_navigation($strsubmissions, $cm);
+    print_header_simple(format_string($workshop->name), "", $navigation,
                   "", "", true);
 
     //...get the action or set up an suitable default
@@ -239,7 +238,7 @@
             error("Edit submission: Userids do not match");
         }
         if (($submission->timecreated < ($timenow - $CFG->maxeditingtime)) and ($workshop->assessmentstart < $timenow)) {
-            error(get_string('notallowed', 'workshop'));
+            print_error('notallowed', 'workshop');
         }
         ?>
         <form id="editform" enctype="multipart/form-data" action="submissions.php" method="post">
@@ -265,18 +264,15 @@
                         "workshop")."\" onclick=\"getElementById('editform').action.value='removeattachments';
                         getElementById('editform').submit();\"/></div></td></tr>\n";
                     $n = 1;
+                    require_once($CFG->libdir .'/filelib.php');
                     foreach ($files as $file) {
                         $icon = mimeinfo("icon", $file);
-                        if ($CFG->slasharguments) {
-                            $ffurl = "file.php/$filearea/$file";
-                        } else {
-                            $ffurl = "file.php?file=/$filearea/$file";
-                        }
+                        $ffurl = get_file_url("$filearea/$file");
                         // removed target=\"uploadedfile\" 
                         // as it does not validate MDL_7861
                         echo "<tr><td>".get_string("attachment", "workshop")." $n: <img src=\"$CFG->pixpath/f/$icon\"
                             class=\"icon\" alt=\"".get_string('file')."\" />".
-                            "&nbsp;<a href=\"$CFG->wwwroot/$ffurl\">$file</a></td></tr>\n";
+                            "&nbsp;<a href=\"$ffurl\">$file</a></td></tr>\n";
                     }
                 } else {
                     echo "<tr><td><b>".get_string("noattachments", "workshop")."</b></td></tr>\n";

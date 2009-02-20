@@ -1,15 +1,14 @@
-<?php  // $Id: reviewquestion.php,v 1.16 2006/08/25 16:03:57 tjhunt Exp $
+<?php  // $Id: reviewquestion.php,v 1.16.10.9 2009/01/16 04:47:35 tjhunt Exp $
 /**
-* This page prints a review of a particular question attempt
-*
-* @version $Id: reviewquestion.php,v 1.16 2006/08/25 16:03:57 tjhunt Exp $
-* @author Martin Dougiamas and many others. This has recently been completely
-*         rewritten by Alex Smith, Julian Sedding and Gustav Delius as part of
-*         the Serving Mathematics project
-*         {@link http://maths.york.ac.uk/serving_maths}
-* @license http://www.gnu.org/copyleft/gpl.html GNU Public License
-* @package quiz
-*/
+ * This page prints a review of a particular question attempt
+ *
+ * @author Martin Dougiamas and many others. This has recently been completely
+ *         rewritten by Alex Smith, Julian Sedding and Gustav Delius as part of
+ *         the Serving Mathematics project
+ *         {@link http://maths.york.ac.uk/serving_maths}
+ * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
+ * @package quiz
+ */
 
     require_once('../../config.php');
     require_once('locallib.php');
@@ -64,17 +63,18 @@
         if (!$attempt->timefinish) {
             redirect('attempt.php?q='.$quiz->id);
         }
+        require_capability('mod/quiz:reviewmyattempts', $context);
         // If not even responses are to be shown in review then we
         // don't allow any review
         if (!($quiz->review & QUIZ_REVIEW_RESPONSES)) {
-            error(get_string("noreview", "quiz"));
+            print_error("noreview", "quiz");
         }
         if ((time() - $attempt->timefinish) > 120) { // always allow review right after attempt
             if ((!$quiz->timeclose or time() < $quiz->timeclose) and !($quiz->review & QUIZ_REVIEW_OPEN)) {
-                error(get_string("noreviewuntil", "quiz", userdate($quiz->timeclose)));
+                print_error("noreviewuntil", "quiz", '', userdate($quiz->timeclose));
             }
             if ($quiz->timeclose and time() >= $quiz->timeclose and !($quiz->review & QUIZ_REVIEW_CLOSED)) {
-                error(get_string("noreview", "quiz"));
+                print_error("noreview", "quiz");
             }
         }
         if ($attempt->userid != $USER->id) {
@@ -87,24 +87,19 @@
 /// Print the page header
 
     $strquizzes = get_string('modulenameplural', 'quiz');
-    $strreviewquestion  = get_string('reviewquestion', 'quiz');
-
-    print_header();
-
-    echo '<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>'; // for overlib
-
-/// Print heading
-    print_heading(format_string($question->name));
 
     $question->maxgrade = get_field('quiz_question_instances', 'grade', 'quiz', $quiz->id, 'question', $question->id);
     // Some of the questions code is optimised to work with several questions
     // at once so it wants the question to be in an array. 
-    $key = $question->id;
-    $questions[$key] = &$question;
+    $questions = array($question->id => &$question);
     // Add additional questiontype specific information to the question objects.
     if (!get_question_options($questions)) {
         error("Unable to load questiontype specific question information");
     }
+
+    $baseurl = $CFG->wwwroot . '/mod/quiz/reviewquestion.php?question=' . $question->id . '&amp;number=' . $number . '&amp;attempt=';
+    $quiz->thispageurl = $baseurl . $attempt->id;
+    $quiz->cmid = $cm->id;
 
     $session = get_record('question_sessions', 'attemptid', $attempt->uniqueid, 'questionid', $question->id);
     $state->sumpenalty = $session->sumpenalty;
@@ -116,12 +111,22 @@
     $options->validation = ($state->event == QUESTION_EVENTVALIDATE);
     $options->history = (has_capability('mod/quiz:viewreports', $context) and !$attempt->preview) ? 'all' : 'graded';
 
-/// Print infobox
+    $questionids = array($question->id);
+    $states = array($question->id => &$state);
+    $headtags = get_html_head_contributions($questionids, $questions, $states);
+    print_header('', '', '', '', $headtags);
+
+    echo '<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>'; // for overlib
+
+/// Print heading
+    print_heading(format_string($question->name));
+
+    /// Print infobox
     $table->align  = array("right", "left");
     if ($attempt->userid <> $USER->id) {
         // Print user picture and name
         $student = get_record('user', 'id', $attempt->userid);
-        $picture = print_user_picture($student->id, $course->id, $student->picture, false, true);
+        $picture = print_user_picture($student, $course->id, $student->picture, false, true);
         $table->data[] = array($picture, fullname($student, true));
     }
     // print quiz name
@@ -132,7 +137,7 @@
         foreach ($attempts as $at) {
             $attemptlist .= ($at->id == $attempt->id)
                 ? '<b>'.$at->attempt.'</b>, '
-                : '<a href="reviewquestion.php?attempt='.$at->id.'&amp;question='.$question->id.'&amp;number='.$number.'">'.$at->attempt.'</a>, ';
+                : '<a href="' . $baseurl . $at->id . '">'.$at->attempt.'</a>, ';
         }
         $table->data[] = array(get_string('attempts', 'quiz').':', trim($attemptlist, ' ,'));
     }

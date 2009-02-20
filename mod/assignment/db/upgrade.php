@@ -1,6 +1,6 @@
-<?php  //$Id: upgrade.php,v 1.1 2006/10/26 17:33:40 stronk7 Exp $
+<?php  //$Id: upgrade.php,v 1.7.2.5 2008/05/01 20:37:22 skodak Exp $
 
-// This file keeps track of upgrades to 
+// This file keeps track of upgrades to
 // the assignment module
 //
 // Sometimes, changes between versions involve
@@ -23,14 +23,41 @@ function xmldb_assignment_upgrade($oldversion=0) {
 
     $result = true;
 
-/// And upgrade begins here. For each one, you'll need one 
-/// block of code similar to the next one. Please, delete 
-/// this comment lines once this file start handling proper
-/// upgrade code.
+    if ($result && $oldversion < 2007091900) { /// MDL-11268
 
-/// if ($result && $oldversion < YYYYMMDD00) { //New version in version.php
-///     $result = result of "/lib/ddllib.php" function calls
-/// }
+    /// Changing nullability of field data1 on table assignment_submissions to null
+        $table = new XMLDBTable('assignment_submissions');
+        $field = new XMLDBField('data1');
+        $field->setAttributes(XMLDB_TYPE_TEXT, 'small', null, null, null, null, null, null, 'numfiles');
+
+    /// Launch change of nullability for field data1
+        $result = $result && change_field_notnull($table, $field);
+
+    /// Changing nullability of field data2 on table assignment_submissions to null
+        $field = new XMLDBField('data2');
+        $field->setAttributes(XMLDB_TYPE_TEXT, 'small', null, null, null, null, null, null, 'data1');
+
+    /// Launch change of nullability for field data2
+        $result = $result && change_field_notnull($table, $field);
+    }
+
+    if ($result && $oldversion < 2007091902) {
+        // add draft tracking default to existing upload assignments
+        $sql = "UPDATE {$CFG->prefix}assignment SET var4=1 WHERE assignmenttype='upload'";
+        $result = execute_sql($sql);
+    }
+
+//===== 1.9.0 upgrade line ======//
+
+    if ($result && $oldversion < 2007101511) {
+        notify('Processing assignment grades, this may take a while if there are many assignments...', 'notifysuccess');
+        // change grade typo to text if no grades MDL-13920
+        require_once $CFG->dirroot.'/mod/assignment/lib.php';
+        // too much debug output
+        $db->debug = false;
+        assignment_update_grades();
+        $db->debug = true;
+    }
 
     return $result;
 }

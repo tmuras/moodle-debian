@@ -1,4 +1,4 @@
-<?php  // $Id: subscribers.php,v 1.34.8.1 2007/05/15 18:27:00 skodak Exp $
+<?php  // $Id: subscribers.php,v 1.40.2.3 2008/12/11 07:02:10 tjhunt Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -34,29 +34,29 @@
     $strsubscribeall = get_string("subscribeall", "forum");
     $strsubscribenone = get_string("subscribenone", "forum");
     $strsubscribers = get_string("subscribers", "forum");
-    $strforums      = get_string("forums", "forum");
+    $strforums = get_string("forums", "forum");
 
-    $navigation = "<a href=\"index.php?id=$course->id\">$strforums</a> ->
-       <a href=\"view.php?f=$forum->id\">".format_string($forum->name,true)."</a> -> $strsubscribers";
+    $navigation = build_navigation($strsubscribers, $cm);
 
     if (has_capability('mod/forum:managesubscriptions', $context)) {
-        print_header_simple("$strsubscribers", "", "$navigation",
+        print_header_simple("$strsubscribers", "", $navigation,
             "", "", true, forum_update_subscriptions_button($course->id, $id));
         if ($edit != -1) {
             $USER->subscriptionsediting = $edit;
         }
     } else {
-        print_header_simple("$strsubscribers", "", "$navigation", "", "", true, '');
+        print_header_simple("$strsubscribers", "", $navigation, "", "", true, '');
         unset($USER->subscriptionsediting);
     }
 
 /// Check to see if groups are being used in this forum
-    $groupmode = groupmode($course, $cm);
-    $currentgroup = setup_and_print_groups($course, $groupmode, "subscribers.php?id=$forum->id");
+    groups_print_activity_menu($cm, "subscribers.php?id=$forum->id");
+    $currentgroup = groups_get_activity_group($cm);
+    $groupmode = groups_get_activity_groupmode($cm);
 
     if (empty($USER->subscriptionsediting)) {         /// Display an overview of subscribers
 
-        if (! $users = forum_subscribed_users($course, $forum, $currentgroup) ) {
+        if (! $users = forum_subscribed_users($course, $forum, $currentgroup, $context) ) {
 
             print_heading(get_string("nosubscribers", "forum"));
 
@@ -67,7 +67,7 @@
             echo '<table align="center" cellpadding="5" cellspacing="5">';
             foreach ($users as $user) {
                 echo '<tr><td>';
-                print_user_picture($user->id, $course->id, $user->picture);
+                print_user_picture($user, $course->id);
                 echo '</td><td>';
                 echo fullname($user);
                 echo '</td><td>';
@@ -93,12 +93,11 @@
     $strsubscribers = get_string("subscribers", "forum");
     $strforums      = get_string("forums", "forum");
 
+    $searchtext = optional_param('searchtext', '', PARAM_RAW);
     if ($frm = data_submitted()) {
 
 /// A form was submitted so process the input
-
         if (!empty($frm->add) and !empty($frm->addselect)) {
-
             foreach ($frm->addselect as $addsubscriber) {
                 if (! forum_subscribe($addsubscriber, $id)) {
                     error("Could not add subscriber with id $addsubscriber to this forum!");
@@ -111,47 +110,40 @@
                 }
             }
         } else if (!empty($frm->showall)) {
-            unset($frm->searchtext);
-            $frm->previoussearch = 0;
+            $searchtext = '';
         }
     }
 
-    $previoussearch = (!empty($frm->search) or (!empty($frm->previoussearch) && $frm->previoussearch == 1)) ;
-
 /// Get all existing subscribers for this forum.
-    if (!$subscribers = forum_subscribed_users($course, $forum, $currentgroup)) {
+    if (!$subscribers = forum_subscribed_users($course, $forum, $currentgroup, $context)) {
         $subscribers = array();
     }
 
-    $subscriberarray = array();
+/// Get all the potential subscribers excluding users already subscribed
+    $users = forum_get_potential_subscribers($context, $currentgroup, 'id,email,firstname,lastname', 'firstname ASC, lastname ASC');
+    if (!$users) {
+        $users = array();
+    }
     foreach ($subscribers as $subscriber) {
-        $subscriberarray[] = $subscriber->id;
-    }
-    $subscriberlist = implode(',', $subscriberarray);
-
-    unset($subscriberarray);
-
-/// Get search results excluding any users already subscribed
-
-    if (!empty($frm->searchtext) and $previoussearch) {
-        $searchusers = search_users($course->id, $currentgroup, $frm->searchtext, 'firstname ASC, lastname ASC', $subscriberlist);
+        unset($users[$subscriber->id]);
     }
 
-/// If no search results then get potential subscribers for this forum excluding users already subscribed
-    if (empty($searchusers)) {
-        if ($currentgroup) {
-            $users = get_group_users($currentgroup, 'firstname ASC, lastname ASC', $subscriberlist);
-        } else {
-             $users = get_course_users($course->id, 'firstname ASC, lastname ASC', $subscriberlist);
+/// This is yucky, but do the search in PHP, becuase the list we are using comes from get_users_by_capability,
+/// which does not allow searching in the database. Fortunately the list is only this list of users in this
+/// course, which is normally OK, except on the site course of a big site. But before you can enter a search
+/// term, you have already seen a page that lists everyone, since this code never does paging, so you have probably
+/// already crashed your server if you are going to. This will be fixed properly for Moodle 2.0: MDL-17550.
+    if ($searchtext) {
+        $searchusers = array();
+        $lcsearchtext = moodle_strtolower($searchtext);
+        foreach ($users as $userid => $user) {
+            if (strpos(moodle_strtolower($user->email), $lcsearchtext) !== false ||
+                    strpos(moodle_strtolower($user->firstname . ' ' . $user->lastname), $lcsearchtext) !== false) {
+                $searchusers[$userid] = $user;
+            }
+            unset($users[$userid]);
         }
-        if (!$users) {
-            $users = array();
-        }
-
     }
-
-    $searchtext = (isset($frm->searchtext)) ? $frm->searchtext : "";
-    $previoussearch = ($previoussearch) ? '1' : '0';
 
     print_simple_box_start('center');
 

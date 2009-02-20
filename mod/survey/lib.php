@@ -1,4 +1,4 @@
-<?php // $Id: lib.php,v 1.59.2.1 2007/06/25 09:20:55 moodler Exp $
+<?php // $Id: lib.php,v 1.63.2.6 2008/07/24 21:58:05 skodak Exp $
 
 // Graph size
 $SURVEY_GHEIGHT = 500;
@@ -132,44 +132,58 @@ function survey_user_complete($course, $user, $mod, $survey) {
     }
 }
 
-function survey_print_recent_activity($course, $isteacher, $timestart) {
+function survey_print_recent_activity($course, $viewfullnames, $timestart) {
     global $CFG;
 
-    $content = false;
-    $surveys = NULL;
+    $modinfo = get_fast_modinfo($course);
+    $ids = array();
+    foreach ($modinfo->cms as $cm) {
+        if ($cm->modname != 'survey') {
+            continue;
+        }
+        if (!$cm->uservisible) {
+            continue;
+        }
+        $ids[$cm->instance] = $cm->instance;
+    }
 
-    if (!$logs = get_records_select('log', 'time > \''.$timestart.'\' AND '.
-                                           'course = \''.$course->id.'\' AND '.
-                                           'module = \'survey\' AND '.
-                                           'action = \'submit\' ', 'time ASC')) {
+    if (!$ids) {
         return false;
     }
 
-    foreach ($logs as $log) {
-        //Create a temp valid module structure (course,id)
-        $tempmod->course = $log->course;
-        $tempmod->id = $log->info;
-        //Obtain the visible property from the instance
-        $modvisible = instance_is_visible($log->module,$tempmod);
-   
-        //Only if the mod is visible
-        if ($modvisible) {
-            $surveys[$log->id] = survey_log_info($log);
-            $surveys[$log->id]->time = $log->time;
-            $surveys[$log->id]->url = str_replace('&', '&amp;', $log->url);
-        }
+    $slist = implode(',', $ids); // there should not be hundreds of glossaries in one course, right?
+
+    if (!$rs = get_recordset_sql("SELECT sa.userid, sa.survey, MAX(sa.time) AS time,
+                                         u.firstname, u.lastname, u.email, u.picture
+                                    FROM {$CFG->prefix}survey_answers sa
+                                         JOIN {$CFG->prefix}user u ON u.id = sa.userid
+                                   WHERE sa.survey IN ($slist) AND sa.time > $timestart
+                                   GROUP BY sa.userid, sa.survey, u.firstname, u.lastname, u.email, u.picture
+                                   ORDER BY time ASC")) {
+        return false;
     }
 
-    if ($surveys) {
-        $content = true;
-        print_headline(get_string('newsurveyresponses', 'survey').':');
-        foreach ($surveys as $survey) {
-            print_recent_activity_note($survey->time, $survey, $survey->name,
-                                       $CFG->wwwroot.'/mod/survey/'.$survey->url);
-        }
+    $surveys = array();
+
+    while ($survey = rs_fetch_next_record($rs)) {
+        $cm = $modinfo->instances['survey'][$survey->survey];
+        $survey->name = $cm->name;
+        $survey->cmid = $cm->id;
+        $surveys[] = $survey;
+    } 
+    rs_close($rs);
+
+    if (!$surveys) {
+        return false;
+    }
+
+    print_headline(get_string('newsurveyresponses', 'survey').':');
+    foreach ($surveys as $survey) {
+        $url = $CFG->wwwroot.'/mod/survey/view.php?id='.$survey->cmid;
+        print_recent_activity_note($survey->time, $survey, $survey->name, $url, false, $viewfullnames);
     }
  
-    return $content;
+    return true;
 }
 
 function survey_get_participants($surveyid) {
@@ -213,25 +227,26 @@ function survey_log_info($log) {
                               AND u.id = '$log->userid'");
 }
 
-function survey_get_responses($surveyid, $groupid) {
+function survey_get_responses($surveyid, $groupid, $groupingid) {
     global $CFG;
 
     if ($groupid) {
-        $groupsdb = ', '. groups_members_from_sql();
-        $groupsql = 'AND'.groups_members_where_sql($groupid, 'u.id');
+        $groupsjoin = "INNER JOIN {$CFG->prefix}groups_members gm ON u.id = gm.userid AND gm.groupid = '$groupid' ";
+
+    } else if ($groupingid) {
+        $groupsjoin = "INNER JOIN {$CFG->prefix}groups_members gm ON u.id = gm.userid
+                       INNER JOIN {$CFG->prefix}groupings_groups gg ON gm.groupid = gg.groupid AND gg.groupingid = $groupingid ";
     } else {
-        $groupsdb = "";
-        $groupsql = "";
+        $groupsjoin = "";
     }
 
-    return get_records_sql("SELECT MAX(a.time) as time, 
-                                   u.id, u.firstname, u.lastname, u.picture
-                              FROM {$CFG->prefix}survey_answers a, 
-                                   {$CFG->prefix}user u   $groupsdb
-                             WHERE a.survey = $surveyid 
-                                   AND a.userid = u.id $groupsql
-                          GROUP BY u.id, u.firstname, u.lastname, u.picture
-                          ORDER BY time ASC");
+    return get_records_sql("SELECT u.id, u.firstname, u.lastname, u.picture, MAX(a.time) as time
+                            FROM {$CFG->prefix}survey_answers a
+                                INNER JOIN {$CFG->prefix}user u ON a.userid = u.id
+                                $groupsjoin
+                            WHERE a.survey = $surveyid
+                            GROUP BY u.id, u.firstname, u.lastname, u.picture
+                            ORDER BY time ASC");
 }
 
 function survey_get_analysis($survey, $user) {
@@ -298,8 +313,8 @@ function survey_already_done($survey, $user) {
    return record_exists("survey_answers", "survey", $survey, "userid", $user);
 }
 
-function survey_count_responses($surveyid, $groupid) {
-    if ($responses = survey_get_responses($surveyid, $groupid)) {
+function survey_count_responses($surveyid, $groupid, $groupingid) {
+    if ($responses = survey_get_responses($surveyid, $groupid, $groupingid)) {
         return count($responses);
     } else {
         return 0;
@@ -348,14 +363,15 @@ function survey_shorten_name ($name, $numwords) {
 
 
 function survey_print_multi($question) {
-    GLOBAL $USER, $db, $qnum, $checklist;
+    global $USER, $db, $qnum, $checklist;
 
     $stripreferthat = get_string("ipreferthat", "survey");
     $strifoundthat = get_string("ifoundthat", "survey");
-    echo "<br />\n";
-    echo "<span class='questiontext'><b>$question->text</b></span><br />";
-    echo "<div style=\"text-align:center\">";
-    echo "<table width=\"90%\" cellpadding=\"4\" cellspacing=\"1\" border=\"0\">";
+    $strdefault    = get_string('default');
+    $strresponses  = get_string('responses', 'survey');
+
+    print_heading($question->text, null, 3, 'questiontext');
+    echo "\n<table width=\"90%\" cellpadding=\"4\" cellspacing=\"1\" border=\"0\">";
 
     $options = explode( ",", $question->options);
     $numoptions = count($options);
@@ -366,20 +382,21 @@ function survey_print_multi($question) {
     } else {
         $P = "";
     }
-   
-    if ($oneanswer) { 
-        echo "<tr><td colspan=\"2\">$question->intro</td>";
-    } else {
-        echo "<tr><td colspan=\"3\">$question->intro</td>"; 
-    }
 
+    echo "<tr class=\"smalltext\"><th scope=\"row\">$strresponses</th>";
     while (list ($key, $val) = each ($options)) {
-        echo "<td class=\"smalltextcell\"><span class='smalltext'>$val</span></td>\n";
+        echo "<th scope=\"col\" class=\"hresponse\">$val</th>\n";
     }
-    echo "<td align=\"center\">&nbsp;</td></tr>\n";
+    echo "<th>&nbsp;</th></tr>\n";
+
+    if ($oneanswer) {
+        echo "<tr><th scope=\"col\" colspan=\"6\">$question->intro</th></tr>\n";
+    } else {
+        echo "<tr><th scope=\"col\" colspan=\"7\">$question->intro</th></tr>\n"; 
+    }
 
     $subquestions = get_records_list("survey_questions", "id", $question->multi);
-    
+
     foreach ($subquestions as $q) {
         $qnum++;
         $rowclass = survey_question_rowclass($qnum);
@@ -387,54 +404,61 @@ function survey_print_multi($question) {
             $q->text = get_string($q->text, "survey");
         }
 
-        echo "<tr class=\"$rowclass\">";
+        echo "<tr class=\"$rowclass rblock\">";
         if ($oneanswer) {
 
-            echo "<td class=\"qnumtopcell\"><b>$qnum</b></td>";
-            echo "<td valign=\"top\">$q->text</td>";
-            for ($i=1;$i<=$numoptions;$i++) {            
-                $screenreader = !empty($USER->screenreader)?"<label for=\"q$P" . $q->id . "_$i\">".$options[$i-1]."</label><br/>":'';
-                echo "<td class=\"screenreadertext\">".$screenreader."<input type=\"radio\" name=\"q$P$q->id\" id=\"q$P" . $q->id . "_$i\" value=\"$i\" alt=\"$i\" /></td>";
+            echo "<th scope=\"row\" class=\"optioncell\">";
+            echo "<b class=\"qnumtopcell\">$qnum</b> &nbsp; ";
+            echo $q->text ."</th>\n";
+            for ($i=1;$i<=$numoptions;$i++) {
+                $hiddentext = get_accesshide($options[$i-1]);
+                $id = "q$P" . $q->id . "_$i";
+                echo "<td><label for=\"$id\"><input type=\"radio\" name=\"q$P$q->id\" id=\"$id\" value=\"$i\" />$hiddentext</label></td>";
             }
-            echo "<td class=\"whitecell\"><input type=\"radio\" name=\"q$P$q->id\" value=\"0\" checked=\"checked\" alt=\"0\" /></td>";
+            $default = get_accesshide($strdefault, 'label', '', "for=\"q$P$q->id\"");
+            echo "<td class=\"whitecell\"><input type=\"radio\" name=\"q$P$q->id\" id=\"q$P" . $q->id . "_D\" value=\"0\" checked=\"checked\" />$default</td>";
             $checklist["q$P$q->id"] = $numoptions;
         
         } else { 
             // yu : fix for MDL-7501, possibly need to use user flag as this is quite ugly.
-            echo "<td class=\"qnummiddlecell\"><b>$qnum</b></td>";
+            echo "<th scope=\"row\" class=\"optioncell\">";
+            echo "<b class=\"qnumtopcell\">$qnum</b> &nbsp; ";
             $qnum++;
-            echo "<td class=\"preferthat\"><span class='smalltext'>$stripreferthat&nbsp;</span></td>";
-            echo "<td class=\"optioncell\">$q->text</td>";
+            echo "<span class=\"preferthat smalltext\">$stripreferthat</span> &nbsp; ";
+            echo "<span class=\"option\">$q->text</span></th>\n";
             for ($i=1;$i<=$numoptions;$i++) {
-                $screenreader = !empty($USER->screenreader)?"<label for=\"qP" . $q->id . "_$i\">".$options[$i-1]."</label><br/>":'';
-                echo "<td class=\"screenreadertext\">".$screenreader."<input type=\"radio\" name=\"qP$q->id\" id=\"qP" . $q->id . "_$i\" value=\"$i\" alt=\"$i\"/></td>";
+                $hiddentext = get_accesshide($options[$i-1]);
+                $id = "qP" . $q->id . "_$i";
+                echo "<td><label for=\"$id\"><input type=\"radio\" name=\"qP$q->id\" id=\"$id\" value=\"$i\" />$hiddentext</label></td>";
             }
-            echo "<td><input type=\"radio\" name=\"qP$q->id\" value=\"0\" checked=\"checked\" alt=\"0\" /></td>";
+            $default = get_accesshide($strdefault, 'label', '', "for=\"qP$q->id\"");
+            echo "<td><input type=\"radio\" name=\"qP$q->id\" id=\"qP$q->id\" value=\"0\" checked=\"checked\" />$default</td>";
             echo "</tr>";
 
-            echo "<tr class=\"$rowclass\">";
-            echo "<td class=\"qnumtopcell\"><b>$qnum</b></td>";
-            echo "<td class=\"foundthat\"><span class='smalltext'>$strifoundthat&nbsp;</span></td>";
-            echo "<td class=\"optioncell\">$q->text</td>";
+            echo "<tr class=\"$rowclass rblock\">";
+            echo "<th scope=\"row\" class=\"optioncell\">";
+            echo "<b class=\"qnumtopcell\">$qnum</b> &nbsp; ";
+            echo "<span class=\"foundthat smalltext\">$strifoundthat</span> &nbsp; ";
+            echo "<span class=\"option\">$q->text</span></th>\n";
             for ($i=1;$i<=$numoptions;$i++) {
-                $screenreader = !empty($USER->screenreader)?"<label for=\"q" . $q->id . "_$i\">".$options[$i-1]."</label><br/>":'';
-                echo "<td class=\"screenreadertext\">".$screenreader."<input type=\"radio\" name=\"q$q->id\" id=\"q" . $q->id . "_$i\" value=\"$i\" alt=\"$i\" /></td>";
+                $hiddentext = get_accesshide($options[$i-1]);
+                $id = "q" . $q->id . "_$i";
+                echo "<td><label for=\"$id\"><input type=\"radio\" name=\"q$q->id\" id=\"$id\" value=\"$i\" />$hiddentext</label></td>";
             }
-            echo "<td class=\"buttoncell\"><input type=\"radio\" name=\"q$q->id\" value=\"0\" checked=\"checked\" alt=\"0\" /></td>";
+            $default = get_accesshide($strdefault, 'label', '', "for=\"q$q->id\"");
+            echo "<td class=\"buttoncell\"><input type=\"radio\" name=\"q$q->id\" id=\"q$q->id\" value=\"0\" checked=\"checked\" />$default</td>";
             $checklist["qP$q->id"] = $numoptions;
             $checklist["q$q->id"] = $numoptions;            
         }
         echo "</tr>\n";
-        
     }
     echo "</table>";
-    echo "</div>";
 }
 
 
 
 function survey_print_single($question) {
-    GLOBAL $db, $qnum;
+    global $db, $qnum;
 
     $rowclass = survey_question_rowclass(0);
 
@@ -443,17 +467,17 @@ function survey_print_single($question) {
     echo "<br />\n";
     echo "<table width=\"90%\" cellpadding=\"4\" cellspacing=\"0\">\n";
     echo "<tr class=\"$rowclass\">";
-    echo "<td valign=\"top\"><b>$qnum</b></td>";
-    echo "<td class=\"questioncell\">$question->text</td>\n";
-    echo "<td class=\"questioncell\"><span class='smalltext'>\n";
+    echo "<th scope=\"row\" class=\"optioncell\"><label for=\"q$question->id\"><b class=\"qnumtopcell\">$qnum</b> &nbsp; ";
+    echo "<span class=\"questioncell\">$question->text</span></label></th>\n";
+    echo "<td class=\"questioncell smalltext\">\n";
 
 
     if ($question->type == 0) {           // Plain text field
-        echo "<textarea rows=\"3\" cols=\"30\" name=\"q$question->id\">$question->options</textarea>";
+        echo "<textarea rows=\"3\" cols=\"30\" name=\"q$question->id\" id=\"q$question->id\">$question->options</textarea>";
 
     } else if ($question->type > 0) {     // Choose one of a number
         $strchoose = get_string("choose");
-        echo "<select name=\"q$question->id\">";
+        echo "<select name=\"q$question->id\" id=\"q$question->id\">";
         echo "<option value=\"0\" selected=\"selected\">$strchoose...</option>";
         $options = explode( ",", $question->options);
         foreach ($options as $key => $val) {
@@ -467,7 +491,7 @@ function survey_print_single($question) {
         notify("This question type not supported yet");
     }
 
-    echo "</span></td></tr></table>";
+    echo "</td></tr></table>";
 
 }
 
@@ -498,6 +522,64 @@ function survey_get_view_actions() {
 
 function survey_get_post_actions() {
     return array('submit');
+}
+
+
+/**
+ * Implementation of the function for printing the form elements that control
+ * whether the course reset functionality affects the survey.
+ * @param $mform form passed by reference
+ */
+function survey_reset_course_form_definition(&$mform) {
+    $mform->addElement('header', 'surveyheader', get_string('modulenameplural', 'survey'));
+    $mform->addElement('checkbox', 'reset_survey_answers', get_string('deleteallanswers','survey'));
+    $mform->addElement('checkbox', 'reset_survey_analysis', get_string('deleteanalysis','survey'));
+    $mform->disabledIf('reset_survey_analysis', 'reset_survey_answers', 'checked');
+}
+
+/**
+ * Course reset form defaults.
+ */
+function survey_reset_course_form_defaults($course) {
+    return array('reset_survey_answers'=>1, 'reset_survey_analysis'=>1);
+}
+
+/**
+ * Actual implementation of the rest coures functionality, delete all the
+ * survey responses for course $data->courseid.
+ * @param $data the data submitted from the reset course.
+ * @return array status array
+ */
+function survey_reset_userdata($data) {
+    global $CFG;
+
+    $componentstr = get_string('modulenameplural', 'survey');
+    $status = array();
+
+    $surveyssql = "SELECT ch.id
+                     FROM {$CFG->prefix}survey ch
+                    WHERE ch.course={$data->courseid}";
+
+    if (!empty($data->reset_survey_answers)) {
+        delete_records_select('survey_answers', "survey IN ($surveyssql)");
+        delete_records_select('survey_analysis', "survey IN ($surveyssql)");
+        $status[] = array('component'=>$componentstr, 'item'=>get_string('deleteallanswers', 'survey'), 'error'=>false);
+    }
+
+    if (!empty($data->reset_survey_analysis)) {
+        delete_records_select('survey_analysis', "survey IN ($surveyssql)");
+        $status[] = array('component'=>$componentstr, 'item'=>get_string('deleteallanswers', 'survey'), 'error'=>false);
+    }
+
+    // no date shifting
+    return $status;
+}
+
+/**
+ * Returns all other caps used in module
+ */
+function survey_get_extra_capabilities() {
+    return array('moodle/site:accessallgroups');
 }
 
 ?>

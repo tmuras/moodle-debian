@@ -1,5 +1,5 @@
-<?PHP // $Id: stickyblocks.php,v 1.14 2007/01/11 08:33:51 moodler Exp $
-    
+<?PHP // $Id: stickyblocks.php,v 1.18.2.2 2008/05/02 04:07:28 dongsheng Exp $
+
     require_once('../config.php');
     require_once($CFG->dirroot.'/my/pagelib.php');
     require_once($CFG->dirroot.'/lib/pagelib.php');
@@ -10,7 +10,7 @@
     $pagetypes = array(PAGE_MY_MOODLE => array('id' => PAGE_MY_MOODLE,
                                               'lib' => '/my/pagelib.php',
                                               'name' => get_string('mymoodle','admin')),
-                       PAGE_COURSE_VIEW => array('id' => PAGE_COURSE_VIEW, 
+                       PAGE_COURSE_VIEW => array('id' => PAGE_COURSE_VIEW,
                                                 'lib' => '/lib/pagelib.php',
                                                 'name' => get_string('stickyblockscourseview','admin'))
                        // ... more?
@@ -23,43 +23,48 @@
     }
 
     require_login();
-  
-    require_capability('moodle/site:manageblocks', get_context_instance(CONTEXT_SYSTEM, SITEID));
+
+    require_capability('moodle/site:manageblocks', get_context_instance(CONTEXT_SYSTEM));
 
     // first thing to do is print the dropdown menu
 
     $strtitle = get_string('stickyblocks','admin');
     $strheading = get_string('adminhelpstickyblocks');
-    
-    
+
+
 
     if (!empty($pt)) {
 
         require_once($CFG->dirroot.$pagetypes[$pt]['lib']);
-        
+
         define('ADMIN_STICKYBLOCKS',$pt);
-        
+
         $PAGE = page_create_object($pt, SITEID);
         $blocks = blocks_setup($PAGE,BLOCKS_PINNED_TRUE);
         $blocks_preferred_width = bounded_number(180, blocks_preferred_width($blocks[BLOCK_POS_LEFT]), 210);
 
-        print_header($strtitle,$strtitle,'<a href="'.$CFG->wwwroot.'/'.$CFG->admin.'/index.php">'.
-                     get_string('administration').'</a> -> '.$strtitle);
-    
+        $navlinks = array(array('name' => get_string('administration'),
+                                'link' => "$CFG->wwwroot/$CFG->admin/index.php",
+                                'type' => 'misc'));
+        $navlinks[] = array('name' => $strtitle, 'link' => null, 'type' => 'misc');
+        $navigation = build_navigation($navlinks);
+        print_header($strtitle,$strtitle,$navigation);
+
         echo '<table border="0" cellpadding="3" cellspacing="0" width="100%" id="layout-table">';
         echo '<tr valign="top">';
 
         echo '<td valign="top" style="width: '.$blocks_preferred_width.'px;" id="left-column">';
-        
+        print_container_start();
         blocks_print_group($PAGE, $blocks, BLOCK_POS_LEFT);
+        print_container_end();
         echo '</td>';
         echo '<td valign="top" id="middle-column">';
+        print_container_start();
 
     } else {
         require_once($CFG->libdir.'/adminlib.php');
-        $adminroot = admin_get_root();
-        admin_externalpage_setup('stickyblocks', $adminroot);
-        admin_externalpage_print_header($adminroot);
+        admin_externalpage_setup('stickyblocks');
+        admin_externalpage_print_header();
     }
 
 
@@ -71,14 +76,17 @@
 
 
     if (!empty($pt)) {
+        print_container_end();
         echo '</td>';
-        echo '<td valign="top" style="width: '.$blocks_preferred_width.'px;" id="left-column">';
+        echo '<td valign="top" style="width: '.$blocks_preferred_width.'px;" id="right-column">';
+        print_container_start();
         blocks_print_group($PAGE, $blocks, BLOCK_POS_RIGHT);
+        print_container_end();
         echo '</td>';
         echo '</tr></table>';
         print_footer();
     } else {
-        admin_externalpage_print_footer($adminroot);
+        admin_externalpage_print_footer();
     }
 
 ?>

@@ -1,13 +1,14 @@
-<?php  // $Id: report.php,v 1.35 2007/02/02 02:27:04 mark-nielsen Exp $
+<?php  // $Id: report.php,v 1.39.2.3 2008/02/29 21:44:09 nicolasconnault Exp $
 /**
  * Displays the lesson statistics.
  *
- * @version $Id: report.php,v 1.35 2007/02/02 02:27:04 mark-nielsen Exp $
+ * @version $Id: report.php,v 1.39.2.3 2008/02/29 21:44:09 nicolasconnault Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
 
     require_once('../../config.php');
+    require_once('lib.php');
     require_once('locallib.php');
 
     $id     = required_param('id', PARAM_INT);    // Course Module ID
@@ -16,18 +17,30 @@
     $nothingtodisplay = false;
 
     list($cm, $course, $lesson) = lesson_get_basics($id);
-
-    if (! $students = get_records_sql("SELECT u.*
-                                 FROM {$CFG->prefix}user u,
-                                      {$CFG->prefix}lesson_attempts a
-                                 WHERE a.lessonid = '$lesson->id' and
-                                       u.id = a.userid
-                                 ORDER BY u.lastname")) {
+    
+    if (!empty($CFG->enablegroupings) && !empty($cm->groupingid)) {
+        $sql = "SELECT DISTINCT u.*
+                FROM {$CFG->prefix}lesson_attempts a 
+                    INNER JOIN {$CFG->prefix}user u ON u.id = a.userid
+                    INNER JOIN {$CFG->prefix}groups_members gm ON gm.userid = u.id
+                    INNER JOIN {$CFG->prefix}groupings_groups gg ON gm.groupid = {$cm->groupingid}
+                WHERE a.lessonid = '$lesson->id'
+                ORDER BY u.lastname";
+    } else {
+        $sql = "SELECT u.*
+                FROM {$CFG->prefix}user u,
+                     {$CFG->prefix}lesson_attempts a
+                WHERE a.lessonid = '$lesson->id' and
+                      u.id = a.userid
+                ORDER BY u.lastname";
+    }
+    
+    if (! $students = get_records_sql($sql)) {
         $nothingtodisplay = true;
     }
     
 // make sure people are where they should be
-    require_login($course->id, false);
+    require_login($course->id, false, $cm);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_capability('mod/lesson:manage', $context);
 
@@ -71,7 +84,10 @@
                 /// Remove seen branches and update the retry number    
                     delete_records('lesson_branch', 'userid', $userid, 'lessonid', $lesson->id, 'retry', $try);
                     execute_sql("UPDATE {$CFG->prefix}lesson_branch SET retry = retry - 1 WHERE userid = $userid AND lessonid = $lesson->id AND retry > $try", false);
-                
+
+                /// update central gradebook
+                    lesson_update_grades($lesson, $userid);
+
                     $modifier++;
                 }
             }
@@ -92,6 +108,12 @@
     }
 
     lesson_print_header($cm, $course, $lesson, $action);
+    
+    $course_context = get_context_instance(CONTEXT_COURSE, $course->id);
+    if (has_capability('gradereport/grader:view', $course_context) && has_capability('moodle/grade:viewall', $course_context)) {
+        echo '<div class="allcoursegrades"><a href="' . $CFG->wwwroot . '/grade/report/grader/index.php?id=' . $course->id . '">' 
+            . get_string('seeallcoursegrades', 'grades') . '</a></div>';
+    }
 
     if ($nothingtodisplay) {
         notify(get_string('nolessonattempts', 'lesson'));
@@ -262,12 +284,12 @@
         if ($numofattempts == 0) {
             $avescore = get_string("notcompleted", "lesson");
         } else {
-            $avescore = format_float($avescore/$numofattempts, 2, ".", ",");
+            $avescore = format_float($avescore/$numofattempts, 2);
         }
         if ($avetime == NULL) {
             $avetime = get_string("notcompleted", "lesson");
         } else {
-            $avetime = format_float($avetime/$numofattempts, 0, ".", ",");
+            $avetime = format_float($avetime/$numofattempts, 0);
             $avetime = format_time($avetime);
         }
         if ($hightime == NULL) {
@@ -315,6 +337,7 @@
     **************************************************************************/
     else if ($action == 'reportdetail') {
 
+        $formattextdefoptions = new stdClass;
         $formattextdefoptions->para = false;  //I'll use it widely in this page
 
         $userid = optional_param('userid', NULL, PARAM_INT); // if empty, then will display the general detailed view
@@ -675,38 +698,38 @@
                             }
                             break;
                         case LESSON_MATCHING:
-                            if ($n == 0 && $useranswer->correct) {
+                            if ($n == 0 && $useranswer != NULL && $useranswer->correct) {
                                 if ($answer->response == NULL && $useranswer != NULL) {
                                     $answerdata->response = get_string("thatsthecorrectanswer", "lesson");
                                 } else {
                                     $answerdata->response = $answer->response;
                                 }
-                            } elseif ($n == 1 && !$useranswer->correct) {
+                            } elseif ($n == 1 && $useranswer != NULL && !$useranswer->correct) {
                                 if ($answer->response == NULL && $useranswer != NULL) {
                                     $answerdata->response = get_string("thatsthewronganswer", "lesson");
                                 } else {
                                     $answerdata->response = $answer->response;
                                 }
                             } elseif ($n > 1) {
-                                if ($n == 2 && $useranswer->correct && $useranswer != NULL) {
+                                if ($n == 2 && $useranswer != NULL && $useranswer->correct) {
                                     if ($lesson->custom) {
                                         $answerdata->score = get_string("pointsearned", "lesson").": ".$answer->score;
                                     } else {
                                         $answerdata->score = get_string("receivedcredit", "lesson");
                                     }
-                                } elseif ($n == 3 && !$useranswer->correct && $useranswer != NULL) {
+                                } elseif ($n == 3 && $useranswer != NULL && !$useranswer->correct) {
                                     if ($lesson->custom) {
                                         $answerdata->score = get_string("pointsearned", "lesson").": ".$answer->score;
                                     } else {
                                         $answerdata->score = get_string("didnotreceivecredit", "lesson");
                                     }
                                 }
-                                $data = "<select disabled=\"disabled\"><option selected>".strip_tags(format_text($answer->answer,FORMAT_MOODLE,$formattextdefoptions))."</option></select>";
+                                $data = "<select disabled=\"disabled\"><option selected=\"selected\">".strip_tags(format_string($answer->answer))."</option></select>";
                                 if ($useranswer != NULL) {
                                     $userresponse = explode(",", $useranswer->useranswer);
-                                    $data .= "<select disabled=\"disabled\"><option selected>".strip_tags(format_string($answers[$userresponse[$i]]->response,FORMAT_PLAIN,$formattextdefoptions))."</option></select>";
+                                    $data .= "<select disabled=\"disabled\"><option selected=\"selected\">".strip_tags(format_string($answers[$userresponse[$i]]->response))."</option></select>";
                                 } else {
-                                    $data .= "<select disabled=\"disabled\"><option selected>".strip_tags(format_string($answer->response,FORMAT_PLAIN,$formattextdefoptions))."</option></select>";
+                                    $data .= "<select disabled=\"disabled\"><option selected=\"selected\">".strip_tags(format_string($answer->response))."</option></select>";
                                 }
 
                                 if ($n == 2) {

@@ -1,4 +1,4 @@
-<?php
+<?php // $Id: environment.php,v 1.12.2.5 2008/09/18 16:14:12 stronk7 Exp $
 /**
  * Info about the local environment, wrt RPC
  *
@@ -30,24 +30,30 @@ class mnet_environment {
 
         // Bootstrap the object data on first load.
         if (empty($CFG->mnet_localhost_id) ) {
-
-            $this->wwwroot    = $CFG->wwwroot;
-            if(empty($_SERVER['SERVER_ADDR'])) {
-                // SERVER_ADDR is only returned by Apache-like webservers
-                $my_hostname = mnet_get_hostname_from_uri($CFG->wwwroot);
-                $my_ip       = gethostbyname($my_hostname);  // Returns unmodified hostname on failure. DOH!
-                if($my_ip == $my_hostname) {
-                    $this->ip_address = 'UNKNOWN';
+            if (!$CFG->mnet_localhost_id = get_config(NULL, 'mnet_localhost_id')) {  // Double-check db
+                $this->wwwroot    = $CFG->wwwroot;
+                if (empty($_SERVER['SERVER_ADDR'])) {
+                    // SERVER_ADDR is only returned by Apache-like webservers
+                    $my_hostname = mnet_get_hostname_from_uri($CFG->wwwroot);
+                    $my_ip       = gethostbyname($my_hostname);  // Returns unmodified hostname on failure. DOH!
+                    if ($my_ip == $my_hostname) {
+                        $this->ip_address = 'UNKNOWN';
+                    } else {
+                        $this->ip_address = $my_ip;
+                    }
                 } else {
-                    $this->ip_address = $my_ip;
+                    $this->ip_address = $_SERVER['SERVER_ADDR'];
                 }
-            } else {
-                $this->ip_address = $_SERVER['SERVER_ADDR'];
-            }
-            $this->id         = insert_record('mnet_host', $this, true);
 
-            set_config('mnet_localhost_id', $this->id);
-            $this->get_keypair();
+                if ($existingrecord = get_record('mnet_host', 'ip_address', $this->ip_address)) {
+                    $this->id = $existingrecord->id;
+                } else {  // make a new one
+                    $this->id       = insert_record('mnet_host', $this, true);
+                }
+    
+                set_config('mnet_localhost_id', $this->id);
+                $this->get_keypair();
+            }
         } else {
             $hostobject = get_record('mnet_host','id', $CFG->mnet_localhost_id);
             if(is_object($hostobject)) {
@@ -73,9 +79,9 @@ class mnet_environment {
             $hostobject->wwwroot            = '';
             $hostobject->ip_address         = '';
             $hostobject->public_key         = '';
-            $hostobject->public_key_expires = '';
-            $hostobject->last_connect_time  = '0';
-            $hostobject->last_log_id        = '0';
+            $hostobject->public_key_expires = 0;
+            $hostobject->last_connect_time  = 0;
+            $hostobject->last_log_id        = 0;
             $hostobject->deleted            = 0;
             $hostobject->name               = 'All Hosts';
 
@@ -142,15 +148,29 @@ class mnet_environment {
     }
 
     function replace_keys() {
+    	global $CFG;
         $this->keypair = array();
         $this->keypair = mnet_generate_keypair();
         $this->public_key         = $this->keypair['certificate'];
+        $this->wwwroot = $CFG->wwwroot;
         $details                  = openssl_x509_parse($this->public_key);
         $this->public_key_expires = $details['validTo_time_t'];
-
+        if (empty($_SERVER['SERVER_ADDR'])) {
+            // SERVER_ADDR is only returned by Apache-like webservers
+            $my_hostname = mnet_get_hostname_from_uri($CFG->wwwroot);
+            $my_ip       = gethostbyname($my_hostname);  // Returns unmodified hostname on failure. DOH!
+            if ($my_ip == $my_hostname) {
+                $this->ip_address = 'UNKNOWN';
+            } else {
+                $this->ip_address = $my_ip;
+            }
+        } else {
+            $this->ip_address = $_SERVER['SERVER_ADDR'];
+        }
         set_config('openssl', implode('@@@@@@@@', $this->keypair), 'mnet');
 
         update_record('mnet_host', $this);
+        error_log('New public key has been generated. It expires ' . date('Y/m/d h:i:s', $this->public_key_expires));
     }
 
     function get_private_key() {
@@ -165,15 +185,6 @@ class mnet_environment {
         if (isset($this->keypair['publickey'])) return $this->keypair['publickey'];
         $this->keypair['publickey'] = openssl_pkey_get_public($this->keypair['certificate']);
         return $this->keypair['publickey'];
-    }
-
-    /**
-     * Note that the openssl_sign function computes the sha1 hash, and then
-     * signs the hash.
-     */
-    function sign_message($message) {
-        $bool = openssl_sign($message, $signature, $this->get_private_key());
-        return $signature;
     }
 }
 

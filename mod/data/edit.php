@@ -1,4 +1,4 @@
-<?php  // $Id: edit.php,v 1.21.2.4 2007/05/15 18:27:08 skodak Exp $
+<?php  // $Id: edit.php,v 1.32.2.4 2008/04/17 07:34:57 dongsheng Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -64,12 +64,12 @@
 
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
-/// If it's hidden then it's don't show anything.  :)
+/// If it's hidden then it doesn't show anything.  :)
     if (empty($cm->visible) and !has_capability('moodle/course:viewhiddenactivities', $context)) {
         $strdatabases = get_string("modulenameplural", "data");
-        $navigation = "<a href=\"index.php?id=$course->id\">$strdatabases</a> ->";
-        print_header_simple(format_string($data->name), "",
-                 "$navigation ".format_string($data->name), "", "", true, '', navmenu($course, $cm));
+
+        $navigation = build_navigation('', $cm);
+        print_header_simple(format_string($data->name), "", $navigation, "", "", true, '', navmenu($course, $cm));
         notice(get_string("activityiscurrentlyhidden"));
     }
 
@@ -82,7 +82,7 @@
 
     if ($rid) {    // So do you have access?
         if (!(has_capability('mod/data:manageentries', $context) or data_isowner($rid)) or !confirm_sesskey() ) {
-            error(get_string('noaccess','data'));
+            print_error('noaccess','data');
         }
     }
 
@@ -109,13 +109,15 @@
 /// Print the page header
     $strdata = get_string('modulenameplural','data');
 
-    print_header_simple($data->name, '', "<a href='index.php?id=$course->id'>$strdata</a> -> $data->name",
+    $navigation = build_navigation('', $cm);
+    print_header_simple($data->name, '', $navigation,
                         '', $meta, true, update_module_button($cm->id, $course->id, get_string('modulename', 'data')),
                         navmenu($course, $cm), '', '');
 
 /// Check to see if groups are being used here
-    $groupmode = groupmode($course, $cm);
-    $currentgroup = setup_and_print_groups($course, $groupmode, 'edit.php?d='.$data->id);
+    groups_print_activity_menu($cm, 'edit.php?d='.$data->id);
+    $currentgroup = groups_get_activity_group($cm);
+    $groupmode = groups_get_activity_groupmode($cm);
 
     print_heading(format_string($data->name));
 
@@ -125,6 +127,7 @@
     } else {
         $groupselect = "";
         $groupparam = "";
+        $currentgroup = 0;
     }
 
 /// Print the tabs
@@ -151,7 +154,7 @@
             if (!has_capability('mod/data:approve', $context)) {
                 $record->approved = 0;
             }
-            
+
             $record->groupid = $currentgroup;
             $record->timemodified = time();
             update_record('data_records',$record);
@@ -338,7 +341,7 @@
 
     // Print the stuff that need to come after the form fields.
     if (!$fields = get_records('data_fields', 'dataid', $data->id)) {
-        error(get_string('nofieldindatabase', 'data'));
+        print_error('nofieldindatabase', 'data');
     }
     foreach ($fields as $eachfield) {
         $field = data_get_field($eachfield, $data);

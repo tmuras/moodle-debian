@@ -1,10 +1,24 @@
-<?php  //$Id: editlib.php,v 1.4.2.2 2007/04/29 13:50:10 donal72 Exp $
+<?php  //$Id: editlib.php,v 1.11.2.10 2008/07/05 22:46:58 skodak Exp $
 
+function cancel_email_update($userid) {
+    unset_user_preference('newemail', $userid);
+    unset_user_preference('newemailkey', $userid);
+    unset_user_preference('newemailattemptsleft', $userid);
+}
 
-function useredit_load_preferences(&$user) {
-    if (!empty($user->id) and $preferences = get_user_preferences(null, null, $user->id)) {
-        foreach($preferences as $name=>$value) {
-            $user->{'preference_'.$name} = $value;
+function useredit_load_preferences(&$user, $reload=true) {
+    global $USER;
+
+    if (!empty($user->id)) {
+        if ($reload and $USER->id == $user->id) {
+            // reload preferences in case it was changed in other session
+            unset($USER->preference);
+        }
+        
+        if ($preferences = get_user_preferences(null, null, $user->id)) {
+            foreach($preferences as $name=>$value) {
+                $user->{'preference_'.$name} = $value;
+            }
         }
     }
 }
@@ -23,10 +37,10 @@ function useredit_update_picture(&$usernew, &$userform) {
     global $CFG;
 
     if (isset($usernew->deletepicture) and $usernew->deletepicture) {
-        $location = $CFG->dataroot.'/users/'.$usernew->id;
+        $location = make_user_directory($usernew->id, true);
         @remove_dir($location);
         set_field('user', 'picture', 0, 'id', $usernew->id);
-    } else if ($usernew->picture = save_profile_image($usernew->id, $userform->get_um(), 'users')) {
+    } else if ($usernew->picture = save_profile_image($usernew->id, $userform->get_um(), 'user')) {
         set_field('user', 'picture', 1, 'id', $usernew->id);
     }
 }
@@ -54,21 +68,45 @@ function useredit_update_trackforums($user, $usernew) {
     }
 }
 
+function useredit_update_interests($user, $csv_tag_names) {
+    tag_set('user', $user->id, explode(',', $csv_tag_names));
+}
+
 function useredit_shared_definition(&$mform) {
-    global $CFG;
+    global $CFG, $USER;
+
+    $user = get_record('user', 'id', $USER->id);
+    useredit_load_preferences($user, false);
 
     $strrequired = get_string('required');
 
-    $mform->addElement('text', 'firstname', get_string('firstname'), 'maxlength="100" size="30"');
+    $nameordercheck = new object();
+    $nameordercheck->firstname = 'a';
+    $nameordercheck->lastname  = 'b';
+    if (fullname($nameordercheck) == 'b a' ) {  // See MDL-4325
+        $mform->addElement('text', 'lastname',  get_string('lastname'),  'maxlength="100" size="30"');
+        $mform->addElement('text', 'firstname', get_string('firstname'), 'maxlength="100" size="30"');
+    } else {
+        $mform->addElement('text', 'firstname', get_string('firstname'), 'maxlength="100" size="30"');
+        $mform->addElement('text', 'lastname',  get_string('lastname'),  'maxlength="100" size="30"');
+    }
+
     $mform->addRule('firstname', $strrequired, 'required', null, 'client');
     $mform->setType('firstname', PARAM_NOTAGS);
 
-    $mform->addElement('text', 'lastname', get_string('lastname'), 'maxlength="100" size="30"');
     $mform->addRule('lastname', $strrequired, 'required', null, 'client');
     $mform->setType('lastname', PARAM_NOTAGS);
 
-    $mform->addElement('text', 'email', get_string('email'), 'maxlength="100" size="30"');
-    $mform->addRule('email', $strrequired, 'required', null, 'client');
+    // Do not show email field if change confirmation is pending
+    if ($CFG->emailchangeconfirmation && !empty($user->preference_newemail)) {
+        $notice = get_string('auth_emailchangepending', 'auth', $user);
+        $notice .= '<br /><a href="edit.php?cancelemailchange=1&amp;id='.$user->id.'">'
+                . get_string('auth_emailchangecancel', 'auth') . '</a>';
+        $mform->addElement('static', 'emailpending', get_string('email'), $notice);
+    } else {
+        $mform->addElement('text', 'email', get_string('email'), 'maxlength="100" size="30"');
+        $mform->addRule('email', $strrequired, 'required', null, 'client');
+    }
 
     $choices = array();
     $choices['0'] = get_string('emaildisplayno');
@@ -155,7 +193,7 @@ function useredit_shared_definition(&$mform) {
     $mform->setDefault('screenreader', 0);
     $mform->setAdvanced('screenreader');
 
-    $mform->addElement('text', 'city', get_string('city'), 'maxlength="100" size="25"');
+    $mform->addElement('text', 'city', get_string('city'), 'maxlength="20" size="21"');
     $mform->setType('city', PARAM_MULTILANG);
     $mform->addRule('city', $strrequired, 'required', null, 'client');
 
@@ -208,6 +246,13 @@ function useredit_shared_definition(&$mform) {
 
     }
 
+    if( !empty($CFG->usetags)) {
+        $mform->addElement('header', 'moodle_interests', get_string('interests'));
+        $mform->addElement('textarea', 'interests', get_string('interestslist'), 'cols="45" rows="3"');
+        $mform->setHelpButton('interests', array('interestslist', get_string('helpinterestslist'),
+                          false, true, false));
+    }
+
     /// Moodle optional fields
     $mform->addElement('header', 'moodle_optional', get_string('optional', 'form'));
     $mform->setAdvanced('moodle_optional');
@@ -230,7 +275,7 @@ function useredit_shared_definition(&$mform) {
     $mform->addElement('text', 'msn', get_string('msnid'), 'maxlength="50" size="25"');
     $mform->setType('msn', PARAM_CLEAN);
 
-    $mform->addElement('text', 'idnumber', get_string('idnumber'), 'maxlength="64" size="25"');
+    $mform->addElement('text', 'idnumber', get_string('idnumber'), 'maxlength="255" size="25"');
     $mform->setType('idnumber', PARAM_CLEAN);
 
     $mform->addElement('text', 'institution', get_string('institution'), 'maxlength="40" size="25"');
@@ -242,11 +287,13 @@ function useredit_shared_definition(&$mform) {
     $mform->addElement('text', 'phone1', get_string('phone'), 'maxlength="20" size="25"');
     $mform->setType('phone1', PARAM_CLEAN);
 
-    $mform->addElement('text', 'phone2', get_string('phone'), 'maxlength="20" size="25"');
+    $mform->addElement('text', 'phone2', get_string('phone2'), 'maxlength="20" size="25"');
     $mform->setType('phone2', PARAM_CLEAN);
 
     $mform->addElement('text', 'address', get_string('address'), 'maxlength="70" size="25"');
     $mform->setType('address', PARAM_MULTILANG);
+
+
 }
 
 ?>

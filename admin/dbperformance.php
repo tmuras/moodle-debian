@@ -1,4 +1,4 @@
-<?PHP  // $Id: dbperformance.php,v 1.8 2007/01/04 18:23:57 skodak Exp $
+<?PHP  // $Id: dbperformance.php,v 1.9.2.1 2008/05/02 04:07:27 dongsheng Exp $
        // dbperformance.php - shows latest ADOdb stats for the current server
 
     require_once('../config.php');
@@ -12,15 +12,17 @@
 
     require_login();
 
-    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
 
     $strdatabaseperformance = get_string("databaseperformance");
     $stradministration = get_string("administration");
     $site = get_site();
 
+    $navigation = build_navigation(array(
+        array('name'=>$stradministration, 'link'=>'index.php', 'type'=>'misc'),
+        array('name'=>$strdatabaseperformance, 'link'=>null, 'type'=>'misc')));
     if (!empty($topframe)) {
-        print_header("$site->shortname: $strdatabaseperformance", "$site->fullname", 
-                     "<a $CFG->frametarget href=\"index.php\">$stradministration</a> -> Database performance");
+        print_header("$site->shortname: $strdatabaseperformance", "$site->fullname", $navigation);
         exit;
     }
 

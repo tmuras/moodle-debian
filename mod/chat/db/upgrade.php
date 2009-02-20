@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.2 2007/01/21 23:49:23 stronk7 Exp $
+<?php  //$Id: upgrade.php,v 1.2.4.1 2008/05/01 20:38:48 skodak Exp $
 
 // This file keeps track of upgrades to 
 // the chat module
@@ -33,6 +33,8 @@ function xmldb_chat_upgrade($oldversion=0) {
     /// Launch change of precision for field lang
         $result = $result && change_field_precision($table, $field);
     }
+
+//===== 1.9.0 upgrade line ======//
 
     return $result;
 }

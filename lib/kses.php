@@ -383,7 +383,7 @@ function kses_bad_protocol($string, $allowed_protocols)
 ###############################################################################
 {
   $string = kses_no_null($string);
-  $string = preg_replace('/\xad+/', '', $string); # deals with Opera "feature"
+  $string = preg_replace('/([^\xc3-\xcf])\xad+/', '\\1', $string); # deals with Opera "feature" -- moodle utf8 fix 
   $string2 = $string.'a';
 
   while ($string != $string2)
@@ -469,10 +469,12 @@ function kses_bad_protocol_once($string, $allowed_protocols)
 # handling whitespace and HTML entities.
 ###############################################################################
 {
-  return preg_replace('/^((&[^;]*;|[\sA-Za-z0-9])*)'.
-                      '(:|&#0*58;|&#[Xx]3[Aa];)\s*/e',
-                      'kses_bad_protocol_once2("\\1", $allowed_protocols)',
-                      $string);
+  $string2 = preg_split('/:|&#58;|&#x3a;/i', $string, 2);
+  if(isset($string2[1]) && !preg_match('%/\?%',$string2[0]))
+  {
+    $string = kses_bad_protocol_once2($string2[0],$allowed_protocols).trim($string2[1]);
+  }
+  return $string;
 } # function kses_bad_protocol_once
 
 

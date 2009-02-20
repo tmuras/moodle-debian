@@ -1,4 +1,4 @@
-<?php  // $Id: index.php,v 1.184.2.5 2007/03/19 04:15:06 nicolasconnault Exp $
+<?php  // $Id: index.php,v 1.201.2.7 2008/09/19 06:22:43 nicolasconnault Exp $
        // index.php - the front page.
 
 ///////////////////////////////////////////////////////////////////////////
@@ -8,7 +8,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.org                                            //
 //                                                                       //
-// Copyright (C) 1999-2999  Martin Dougiamas  http://moodle.com          //
+// Copyright (C) 1999 onwards  Martin Dougiamas  http://moodle.com       //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
 // it under the terms of the GNU General Public License as published by  //
@@ -50,14 +50,22 @@
     define('BLOCK_R_MIN_WIDTH', $rmin);
     define('BLOCK_R_MAX_WIDTH', $rmax);
 
-   // check if major upgrade needed - also present in login/index.php
+    // check if major upgrade needed - also present in login/index.php
     if ((int)$CFG->version < 2006101100) { //1.7 or older
         @require_logout();
+        redirect("$CFG->wwwroot/$CFG->admin/");
+    }
+    // Trigger 1.9 accesslib upgrade?
+    if ((int)$CFG->version < 2007092000 
+        && isset($USER->id) 
+        && is_siteadmin($USER->id)) { // this test is expensive, but is only triggered during the upgrade
         redirect("$CFG->wwwroot/$CFG->admin/");
     }
 
     if ($CFG->forcelogin) {
         require_login();
+    } else {
+        user_accesstime_log();
     }
 
     if ($CFG->rolesactive) { // if already using roles system
@@ -77,7 +85,7 @@
     }
 
 
-    if (get_moodle_cookie() == '') {   
+    if (get_moodle_cookie() == '') {
         set_moodle_cookie('nobody');   // To help search for cookies on login page
     }
 
@@ -90,18 +98,17 @@
     } else {
         $currlang = current_language();
         $langs = get_list_of_languages();
-        $langlabel = '<span class="accesshide">'.get_string('language').':</span>';
+        $langlabel = get_accesshide(get_string('language'));
         $langmenu = popup_form($CFG->wwwroot .'/index.php?lang=', $langs, 'chooselang', $currlang, '', '', '', true, 'self', $langlabel);
     }
 
     $PAGE       = page_create_object(PAGE_COURSE_VIEW, SITEID);
     $pageblocks = blocks_setup($PAGE);
     $editing    = $PAGE->user_is_editing();
-    $preferred_width_left  = bounded_number(BLOCK_L_MIN_WIDTH, blocks_preferred_width($pageblocks[BLOCK_POS_LEFT]),  
+    $preferred_width_left  = bounded_number(BLOCK_L_MIN_WIDTH, blocks_preferred_width($pageblocks[BLOCK_POS_LEFT]),
                                             BLOCK_L_MAX_WIDTH);
-    $preferred_width_right = bounded_number(BLOCK_R_MIN_WIDTH, blocks_preferred_width($pageblocks[BLOCK_POS_RIGHT]), 
+    $preferred_width_right = bounded_number(BLOCK_R_MIN_WIDTH, blocks_preferred_width($pageblocks[BLOCK_POS_RIGHT]),
                                             BLOCK_R_MAX_WIDTH);
-
     print_header($SITE->fullname, $SITE->fullname, 'home', '',
                  '<meta name="description" content="'. s(strip_tags($SITE->summary)) .'" />',
                  true, '', user_login_string($SITE).$langmenu);
@@ -118,25 +125,16 @@
             case 'left':
     if (blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $editing) {
         echo '<td style="width: '.$preferred_width_left.'px;" id="left-column">';
-        if (!empty($THEME->roundcorners)) {
-            echo '<div class="bt"><div></div></div>';
-            echo '<div class="i1"><div class="i2"><div class="i3">';
-        }
+        print_container_start();
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
-        if (!empty($THEME->roundcorners)) {
-            echo '</div></div></div>';
-            echo '<div class="bb"><div></div></div>';
-        }
+        print_container_end();
         echo '</td>';
     }
             break;
             case 'middle':
-    echo '<td id="middle-column">';
+    echo '<td id="middle-column">'. skip_main_destination();
 
-    if (!empty($THEME->roundcorners)) {
-        echo '<div class="bt"><div></div></div>';
-        echo '<div class="i1"><div class="i2"><div class="i3">';
-    }
+    print_container_start();
 
 /// Print Section
     if ($SITE->numsections > 0) {
@@ -175,7 +173,7 @@
 
             get_all_mods($SITE->id, $mods, $modnames, $modnamesplural, $modnamesused);
             print_section($SITE, $section, $mods, $modnamesused, true);
-    
+
             if ($editing) {
                 print_section_add_menus($SITE, $section->section, $modnames);
             }
@@ -191,7 +189,7 @@
 
     foreach (explode(',',$frontpagelayout) as $v) {
         switch ($v) {     /// Display the main part of the front page.
-            case strval(FRONTPAGENEWS):
+            case FRONTPAGENEWS:
                 if ($SITE->newsitems) { // Print forums only when needed
                     require_once($CFG->dirroot .'/mod/forum/lib.php');
 
@@ -201,7 +199,7 @@
 
                     if (!empty($USER->id)) {
                         $SESSION->fromdiscussion = $CFG->wwwroot;
-                        if (forum_is_subscribed($USER->id, $newsforum->id)) {
+                        if (forum_is_subscribed($USER->id, $newsforum)) {
                             $subtext = get_string('unsubscribe', 'forum');
                         } else {
                             $subtext = get_string('subscribe', 'forum');
@@ -224,7 +222,7 @@
                 } else if ((!has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM)) and !isguest()) or (count_records('course') <= FRONTPAGECOURSELIMIT)) {
                     // admin should not see list of courses when there are too many of them
                     print_heading_block(get_string('availablecourses'));
-                    print_courses(0, true);
+                    print_courses(0);
                 }
             break;
 
@@ -253,30 +251,21 @@
         echo '<br />';
     }
 
-    if (!empty($THEME->roundcorners)) {
-        echo '</div></div></div>';
-        echo '<div class="bb"><div></div></div>';
-    }
+    print_container_end();
 
     echo '</td>';
             break;
             case 'right':
     // The right column
-    if (blocks_have_content($pageblocks, BLOCK_POS_RIGHT) || $editing || has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, SITEID))) {
+    if (blocks_have_content($pageblocks, BLOCK_POS_RIGHT) || $editing || $PAGE->user_allowed_editing()) {
         echo '<td style="width: '.$preferred_width_right.'px;" id="right-column">';
-        if (!empty($THEME->roundcorners)) {
-            echo '<div class="bt"><div></div></div>';
-            echo '<div class="i1"><div class="i2"><div class="i3">';
-        }
-        if (has_capability('moodle/course:update', get_context_instance(CONTEXT_COURSE, SITEID))) {
+        print_container_start();
+        if ($PAGE->user_allowed_editing()) {
             echo '<div style="text-align:center">'.update_course_icon($SITE->id).'</div>';
             echo '<br />';
         }
         blocks_print_group($PAGE, $pageblocks, BLOCK_POS_RIGHT);
-        if (!empty($THEME->roundcorners)) {
-            echo '</div></div></div>';
-            echo '<div class="bb"><div></div></div>';
-        }
+        print_container_end();
         echo '</td>';
     }
             break;

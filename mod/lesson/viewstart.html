@@ -1,42 +1,41 @@
-<?php  // $Id: viewstart.html,v 1.5 2007/02/02 03:58:45 mark-nielsen Exp $
+<?php  // $Id: viewstart.html,v 1.7 2007/07/24 07:13:14 mark-nielsen Exp $
 /**
  * Start of the HTML template for viewing pages
  *
- * @version $Id: viewstart.html,v 1.5 2007/02/02 03:58:45 mark-nielsen Exp $
+ * @version $Id: viewstart.html,v 1.7 2007/07/24 07:13:14 mark-nielsen Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
 ?>
 <!-- Start view start -->
-<table width="100%" border="0" cellpadding="0" cellspacing="0">
-    <tr valign="top">
+<table id="layout-table" cellpadding="0" cellspacing="0">
+    <tr>
         <!-- First Column -->
-        <td valign="top">
-            <?php print_menu_block($cm->id, $lesson); ?>
+        <?php if (lesson_blocks_have_content($lesson, $pageblocks, BLOCK_POS_LEFT)) { ?>
+        <td id="left-column" style="width: <?php echo $leftcolumnwidth; ?>px;">
+            <?php
+                lesson_print_menu_block($cm->id, $lesson);
+
+                if (!empty($CFG->showblocksonmodpages)) {
+                    if ((blocks_have_content($pageblocks, BLOCK_POS_LEFT) || $PAGE->user_is_editing())) {
+                        blocks_print_group($PAGE, $pageblocks, BLOCK_POS_LEFT);
+                    }
+                }
+            ?>
         </td>
+        <?php } ?>
         <!-- Start main column -->
-        <td style="width:100%;" align="center">
-            
+        <td id="middle-column" align="center">
+
             <?php if ($lesson->displayleft) { ?>
-            
+
             <a name="maincontent" id="maincontent" title="<?php print_string('anchortitle', 'lesson') ?>"></a>
-            
+
             <?php } ?>
 
-<?php if($lesson->slideshow && $page->qtype == LESSON_BRANCHTABLE) { // Starts the slideshow div ?>
-    
+<?php if ($lesson->slideshow && $page->qtype == LESSON_BRANCHTABLE) { // Starts the slideshow div ?>
+
             <div class="slideshow" style="background-color: <?php echo $lesson->bgcolor?>; height: <?php echo $lesson->height ?>px; width: <?php echo $lesson->width?>px;">
-                
+
 <?php } ?>
-
-<?php 
-    if ($attemptflag) {
-        print_heading(get_string('attempt', 'lesson', $retries + 1));
-    }
-
-    /// This calculates and prints the ongoing score
-    if ($lesson->ongoing and !empty($pageid)) {
-        lesson_print_ongoing_score($lesson);
-    }
-?>
 <!-- End view start -->

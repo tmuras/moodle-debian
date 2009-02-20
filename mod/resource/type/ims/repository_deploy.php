@@ -1,4 +1,4 @@
-<?php // $Id: repository_deploy.php,v 1.6 2007/01/04 23:38:19 skodak Exp $
+<?php // $Id: repository_deploy.php,v 1.7.2.2 2008/05/02 04:07:33 dongsheng Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -46,7 +46,7 @@
     require_once('repository_config.php');
     
     /// Security - Admin Only  
-    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM, SITEID));
+    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
         
     $file       = required_param ('file', PARAM_PATH);
     $all        = optional_param ('all', '', PARAM_ALPHA);
@@ -68,7 +68,7 @@
         
         $dirpath = "$CFG->repository/$file";
         $dir = opendir($dirpath);
-        while (false != ($filename = readdir($dir))) {
+        while (false !== ($filename = readdir($dir))) {
             if ($filename != '.' && $filename != '..') {
                 $path = $dirpath.'/'.$filename;
                 if (is_dir($path) && file_exists("$path/imsmanifest.xml")) {

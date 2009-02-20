@@ -3,21 +3,25 @@ require_once ($CFG->dirroot.'/course/moodleform_mod.php');
 
 class mod_glossary_mod_form extends moodleform_mod {
 
-	function definition() {
+    function definition() {
 
-		global $CFG, $COURSE;
-		$mform    =& $this->_form;
+        global $CFG, $COURSE;
+        $mform    =& $this->_form;
 
 //-------------------------------------------------------------------------------
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
         $mform->addElement('text', 'name', get_string('name'), array('size'=>'64'));
-		$mform->setType('name', PARAM_TEXT);
-		$mform->addRule('name', null, 'required', null, 'client');
+        if (!empty($CFG->formatstringstriptags)) {
+            $mform->setType('name', PARAM_TEXT);
+        } else {
+            $mform->setType('name', PARAM_CLEAN);
+        }
+        $mform->addRule('name', null, 'required', null, 'client');
 
-		$mform->addElement('htmleditor', 'intro', get_string('description'));
-		$mform->setType('intro', PARAM_RAW);
-		$mform->addRule('intro', get_string('required'), 'required', null, 'client');
+        $mform->addElement('htmleditor', 'intro', get_string('description'));
+        $mform->setType('intro', PARAM_RAW);
+        $mform->addRule('intro', get_string('required'), 'required', null, 'client');
         $mform->setHelpButton('intro', array('writing', 'questions', 'text'), false, 'editorhelpbutton');
 
         $mform->addElement('text', 'entbypage', get_string('entbypage', 'glossary'));
@@ -25,7 +29,7 @@ class mod_glossary_mod_form extends moodleform_mod {
         $mform->addRule('entbypage', null, 'required', null, 'client');
         $mform->addRule('entbypage', null, 'numeric', null, 'client');
 
-        if (has_capability('mod/glossary:manageentries', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+        if (has_capability('mod/glossary:manageentries', get_context_instance(CONTEXT_SYSTEM))) {
             $mform->addElement('checkbox', 'globalglossary', get_string('isglobal', 'glossary'));
             $mform->setHelpButton('globalglossary', array('globalglossary', get_string('globalglossary', 'glossary'), 'glossary'));
 
@@ -143,16 +147,17 @@ class mod_glossary_mod_form extends moodleform_mod {
         $mform->disabledIf('assesstimefinish', 'ratingtime');
 
 //-------------------------------------------------------------------------------
-        $this->standard_coursemodule_elements(false);
+        $this->standard_coursemodule_elements(array('groups'=>false, 'groupmembersonly'=>true));
 
 //-------------------------------------------------------------------------------
         // buttons
         $this->add_action_buttons();
-	}
+    }
 
-	function definition_after_data(){
-	    global $COURSE;
-		$mform    =& $this->_form;
+    function definition_after_data() {
+        parent::definition_after_data();
+        global $COURSE;
+        $mform    =& $this->_form;
         $mainglossaryel =& $mform->getElement('mainglossary');
         $mainglossary = get_record('glossary', 'mainglossary', 1, 'course', $COURSE->id);
         if ($mainglossary && ($mainglossary->id != $mform->getElementValue('instance'))){
@@ -165,10 +170,13 @@ class mod_glossary_mod_form extends moodleform_mod {
             $mainglossaryel->setPersistantFreeze(false);
 
         }
-	}
+    }
 
     function data_preprocessing(&$default_values){
-        
+        if (empty($default_values['scale'])){
+            $default_values['assessed'] = 0;
+        }        
+
         if (empty($default_values['assessed'])){
             $default_values['userating'] = 0;
             $default_values['ratingtime'] = 0;

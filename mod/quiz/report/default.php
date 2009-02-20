@@ -1,4 +1,4 @@
-<?php  // $Id: default.php,v 1.6 2006/04/05 05:53:22 gustav_delius Exp $ 
+<?php  // $Id: default.php,v 1.11.2.6 2008/02/29 21:44:08 nicolasconnault Exp $ 
 
 ////////////////////////////////////////////////////////////////////
 /// Default class for report plugins                            
@@ -27,14 +27,20 @@ class quiz_default_report {
         $strquizzes = get_string("modulenameplural", "quiz");
         $strquiz  = get_string("modulename", "quiz");
     /// Print the page header
-        print_header_simple(format_string($quiz->name), "",
-                     "<a href=\"index.php?id=$course->id\">$strquizzes</a>
-                      -> ".format_string($quiz->name),
+        $navigation = build_navigation('', $cm);
+        
+        print_header_simple(format_string($quiz->name), "", $navigation,
                      '', $meta, true, update_module_button($cm->id, $course->id, $strquiz), navmenu($course, $cm));
     /// Print the tabs    
         $currenttab = 'reports';
         $mode = $reportmode;
-        include('tabs.php');
+        require($CFG->dirroot . '/mod/quiz/tabs.php');
+        $course_context = get_context_instance(CONTEXT_COURSE, $course->id);
+        if (has_capability('gradereport/grader:view', $course_context) && has_capability('moodle/grade:viewall', $course_context)) {
+            echo '<div class="allcoursegrades"><a href="' . $CFG->wwwroot . '/grade/report/grader/index.php?id=' . $course->id . '">' 
+                . get_string('seeallcoursegrades', 'grades') . '</a></div>';
+        }
+
     }
 }
 

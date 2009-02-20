@@ -1,4 +1,4 @@
-<?php // $Id: report.php,v 1.4 2006/09/05 08:50:23 toyomoyo Exp $
+<?php // $Id: report.php,v 1.6.2.2 2008/11/29 14:30:56 skodak Exp $
       // Display all the interfaces for importing data into a specific course
 
     require_once('../config.php');
@@ -9,24 +9,35 @@
         error("That's an invalid course id");
     }
 
-    require_capability('moodle/site:viewreports', get_context_instance(CONTEXT_COURSE, $id));
+    require_login($course);
+
+    $context = get_context_instance(CONTEXT_COURSE, $course->id);
+    require_capability('moodle/site:viewreports', $context); // basic capability for listing of reports
 
     $strreports = get_string('reports');
 
-    print_header($course->fullname.': '.$strreports, $course->fullname.': '.$strreports, 
-                 '<a href="view.php?id='.$course->id.'">'.$course->shortname.'</a> -> '.$strreports);
+    $navlinks = array();
+    $navlinks[] = array('name' => $strreports, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+    print_header($course->fullname.': '.$strreports, $course->fullname.': '.$strreports, $navigation);
 
     $directories = get_list_of_plugins('course/report');
 
     foreach ($directories as $directory) {
         $pluginfile = $CFG->dirroot.'/course/report/'.$directory.'/mod.php';
         if (file_exists($pluginfile)) {
-            echo '<div class="plugin">';
-            //echo $pluginfile;
-            include_once($pluginfile);  // Fragment for listing
-            echo '</div>';
+            ob_start();
+            include($pluginfile);  // Fragment for listing
+            $html = ob_get_contents();
+            ob_end_clean();
+            // add div only if plugin accessible
+            if ($html !== '') {
+                echo '<div class="plugin">';
+                echo $html;
+                echo '</div>';
+            }
         }
     }
-    
+
     print_footer();
 ?>

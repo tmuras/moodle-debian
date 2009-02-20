@@ -1,4 +1,4 @@
-<?PHP // $Id: enrol_database.php,v 1.3.4.1 2007/02/23 06:43:03 moodler Exp $ 
+<?PHP // $Id: enrol_database.php,v 1.5.2.1 2007/11/21 11:04:52 thepurpleblob Exp $ 
       // enrol_database.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -17,10 +17,12 @@ $string['dbname'] = 'Database name';
 $string['dbtable'] = 'Database table';
 $string['defaultcourseroleid'] = 'The role that will be assigned by default if no other role is specified.';
 $string['description'] = 'You can use a external database (of nearly any kind) to control your enrolments. It is assumed your external database contains a field containing a course ID, and a field containing a user ID. These are compared against fields that you choose in the local course and user tables.';
+$string['disableunenrol'] = 'If set to yes users previously enrolled by the external database plugin will not be unenrolled by the same plugin regardless of the database contents.';
 $string['enrolname'] = 'External Database';
 $string['enrol_database_autocreation_settings'] = 'Auto-creation of new courses';
 $string['general_options'] = 'General Options';
 $string['host'] = 'Database server hostname.';
+$string['ignorehiddencourse'] = 'If set to yes users will not be enroled on courses that are set to be unavailable to students.';
 $string['localcoursefield'] = 'The name of the field in the course table that we are using to match entries in the remote database (eg idnumber).';
 $string['localrolefield'] = 'The name of the field in the roles table that we are using to match entries in the remote database (eg shortname).';
 $string['localuserfield'] = 'The name of the field in the user table that we are using to match entries in the remote database (eg idnumber).';

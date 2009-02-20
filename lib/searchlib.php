@@ -1,4 +1,4 @@
-<?php  // $Id: searchlib.php,v 1.10.2.3 2007/03/13 22:39:07 stronk7 Exp $
+<?php  // $Id: searchlib.php,v 1.13.6.1 2008/04/16 03:35:37 scyrma Exp $
 
 require_once($CFG->libdir.'/lexer.php');
 
@@ -293,7 +293,7 @@ class search_parser {
     // State entered when we've seen an ordinary, non-quoted word. Potentially
     // emits a token.
     function plainstring($content){
-        if (ctype_space($content)) { // State exit
+        if (trim($content) === '') { // State exit
             return true;
         }
         // Add the string to the parsed token array.

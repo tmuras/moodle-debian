@@ -1,4 +1,4 @@
-<?php // $Id: XMLDBFile.class.php,v 1.2.6.3 2007/03/26 03:40:38 nicolasconnault Exp $
+<?php // $Id: XMLDBFile.class.php,v 1.6.2.1 2008/09/29 17:09:42 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -74,11 +74,11 @@ class XMLDBFile extends XMLDBObject {
     function validateXMLStructure() {
 
     /// Going to perform complete DOM schema validation
-        if (extension_loaded('dom')) {
+        if (extension_loaded('dom') && method_exists(new DOMDocument(), 'load')) {
         /// Let's capture errors
-        if (function_exists('libxml_use_internal_errors')) {
-            libxml_use_internal_errors(true); // This function is PHP5 only (MDL-8730)
-        }
+            if (function_exists('libxml_use_internal_errors')) {
+                libxml_use_internal_errors(true); // This function is PHP5 only (MDL-8730)
+            }
 
         /// Create and load XML file
             $parser = new DOMDocument();
@@ -100,7 +100,7 @@ class XMLDBFile extends XMLDBObject {
             /// Add errors to structure
                 $structure->errormsg = 'XML Error: ';
                 foreach ($errors as $error) {
-                    $structure->errormsg .= sprintf("%s at line %d. ", 
+                    $structure->errormsg .= sprintf("%s at line %d. ",
                                                      trim($error->message, "\n\r\t ."),
                                                      $error->line);
                 }

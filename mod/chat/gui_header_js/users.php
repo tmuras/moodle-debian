@@ -1,4 +1,4 @@
-<?php  // $Id: users.php,v 1.11 2007/01/28 21:18:17 skodak Exp $
+<?php  // $Id: users.php,v 1.13.2.3 2008/06/18 03:13:40 dongsheng Exp $
 
     $nomoodlecookie = true;     // Session not needed!
 
@@ -18,7 +18,7 @@
     }
 
     //Get the user theme and enough info to be used in chat_format_message() which passes it along to
-    if (!$USER = get_record('user','id',$chatuser->userid,'','','','','id, lang, theme, username, timezone')) {
+    if (!$USER = get_record('user','id',$chatuser->userid)) { // no optimisation here, it would break again in future!
         error('User does not exist!');
     }
     $USER->description = '';
@@ -27,6 +27,10 @@
     course_setup($course);
 
     $courseid = $chatuser->course;
+
+    if (!$cm = get_coursemodule_from_instance('chat', $chatuser->chatid, $courseid)) {
+        error('Course Module ID was incorrect');
+    }
 
     if ($beep) {
         $message->chatid    = $chatuser->chatid;
@@ -50,8 +54,8 @@
 
     /// Get list of users
 
-    if (!$chatusers = chat_get_users($chatuser->chatid, $chatuser->groupid)) {
-        error(get_string('errornousers', 'chat'));
+    if (!$chatusers = chat_get_users($chatuser->chatid, $chatuser->groupid, $cm->groupingid)) {
+        print_error('errornousers', 'chat');
     }
 
     ob_start();
@@ -110,7 +114,7 @@
     $strbeep    = get_string('beep', 'chat');
 
 
-    echo '<div style="display: none"><a href="'.$refreshurl.'" name="refreshLink">Refresh link</a></div>';
+    echo '<div style="display: none"><a href="'.$refreshurl.'" id="refreshLink">Refresh link</a></div>';
     echo '<table width="100%">';
     foreach ($chatusers as $chatuser) {
         $lastping = $timenow - $chatuser->lastmessageping;
@@ -131,7 +135,8 @@
         echo '</td></tr>';
     }
     // added 2 </div>s, xhtml strict complaints
-    echo '</table></div></div></body></html>';
+    echo '</table>';
+    print_footer('empty');
 
     //
     // Support HTTP Keep-Alive by printing Content-Length

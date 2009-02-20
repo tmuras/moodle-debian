@@ -1,4 +1,4 @@
-<?php  // $Id: ipn.php,v 1.18.4.1 2007/02/28 05:36:18 nicolasconnault Exp $
+<?php  // $Id: ipn.php,v 1.22 2007/10/09 12:49:57 skodak Exp $
 
 /**
 * Listens for Instant Payment Notification from PayPal
@@ -147,9 +147,9 @@
             } else {
                 $cost = (float) $course->cost;
             }
-            $cost = format_float($cost, 2);
 
             if ($data->payment_gross < $cost) {
+                $cost = format_float($cost, 2);
                 email_paypal_error_to_admin("Amount paid is not enough ($data->payment_gross < $cost))", $data);
                 die;
 

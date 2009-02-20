@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.14 2007/01/12 12:20:21 tjhunt Exp $
+<?php  // $Id: questiontype.php,v 1.20.2.11 2009/01/15 07:29:00 tjhunt Exp $
 
 ///////////////////
 /// SHORTANSWER ///
@@ -10,6 +10,10 @@
 /// This class contains some special features in order to make the
 /// question type embeddable within a multianswer (cloze) question
 ///
+/**
+ * @package questionbank
+ * @subpackage questiontypes
+ */
 require_once("$CFG->dirroot/question/type/questiontype.php");
 
 class question_shortanswer_qtype extends default_questiontype {
@@ -18,25 +22,17 @@ class question_shortanswer_qtype extends default_questiontype {
         return 'shortanswer';
     }
 
-    function get_question_options(&$question) {
-        // Get additional information from database
-        // and attach it to the question object
-        if (!$question->options = get_record('question_shortanswer', 'question', $question->id)) {
-            notify('Error: Missing question options!');
-            return false;
-        }
+    function extra_question_fields() {
+        return array('question_shortanswer','answers','usecase');
+    }
 
-        if (!$question->options->answers = get_records('question_answers', 'question',
-                $question->id, 'id ASC')) {
-            notify('Error: Missing question answers!');
-            return false;
-        }
-        return true;
+    function questionid_column_name() {
+        return 'question';
     }
 
     function save_question_options($question) {
         $result = new stdClass;
-        
+
         if (!$oldanswers = get_records('question_answers', 'question', $question->id, 'id ASC')) {
             $oldanswers = array();
         }
@@ -46,50 +42,42 @@ class question_shortanswer_qtype extends default_questiontype {
 
         // Insert all the new answers
         foreach ($question->answer as $key => $dataanswer) {
-            if ($dataanswer != "") {
-                if ($oldanswer = array_shift($oldanswers)) {  // Existing answer, so reuse it
-                    $answer = $oldanswer;
-                    $answer->answer   = trim($dataanswer);
-                    $answer->fraction = $question->fraction[$key];
-                    $answer->feedback = $question->feedback[$key];
-                    if (!update_record("question_answers", $answer)) {
-                        $result->error = "Could not update quiz answer! (id=$answer->id)";
-                        return $result;
-                    }
-                } else {    // This is a completely new answer
-                    $answer = new stdClass;
-                    $answer->answer   = trim($dataanswer);
-                    $answer->question = $question->id;
-                    $answer->fraction = $question->fraction[$key];
-                    $answer->feedback = $question->feedback[$key];
-                    if (!$answer->id = insert_record("question_answers", $answer)) {
-                        $result->error = "Could not insert quiz answer!";
-                        return $result;
-                    }
+            // Check for, and ingore, completely blank answer from the form.
+            if (trim($dataanswer) == '' && $question->fraction[$key] == 0 &&
+                    html_is_blank($question->feedback[$key])) {
+                continue;
+            }
+
+            if ($oldanswer = array_shift($oldanswers)) {  // Existing answer, so reuse it
+                $answer = $oldanswer;
+                $answer->answer   = trim($dataanswer);
+                $answer->fraction = $question->fraction[$key];
+                $answer->feedback = $question->feedback[$key];
+                if (!update_record("question_answers", $answer)) {
+                    $result->error = "Could not update quiz answer! (id=$answer->id)";
+                    return $result;
                 }
-                $answers[] = $answer->id;
-                if ($question->fraction[$key] > $maxfraction) {
-                    $maxfraction = $question->fraction[$key];
+            } else {    // This is a completely new answer
+                $answer = new stdClass;
+                $answer->answer   = trim($dataanswer);
+                $answer->question = $question->id;
+                $answer->fraction = $question->fraction[$key];
+                $answer->feedback = $question->feedback[$key];
+                if (!$answer->id = insert_record("question_answers", $answer)) {
+                    $result->error = "Could not insert quiz answer!";
+                    return $result;
                 }
+            }
+            $answers[] = $answer->id;
+            if ($question->fraction[$key] > $maxfraction) {
+                $maxfraction = $question->fraction[$key];
             }
         }
 
-        if ($options = get_record("question_shortanswer", "question", $question->id)) {
-            $options->answers = implode(",",$answers);
-            $options->usecase = $question->usecase;
-            if (!update_record("question_shortanswer", $options)) {
-                $result->error = "Could not update quiz shortanswer options! (id=$options->id)";
-                return $result;
-            }
-        } else {
-            unset($options);
-            $options->question = $question->id;
-            $options->answers = implode(",",$answers);
-            $options->usecase = $question->usecase;
-            if (!insert_record("question_shortanswer", $options)) {
-                $result->error = "Could not insert quiz shortanswer options!";
-                return $result;
-            }
+        $question->answers = implode(',', $answers);
+        $parentresult = parent::save_question_options($question);
+        if($parentresult !== null) { // Parent function returns null if all is OK
+            return $parentresult;
         }
 
         // delete old answer records
@@ -109,17 +97,6 @@ class question_shortanswer_qtype extends default_questiontype {
         }
     }
 
-    /**
-    * Deletes question from the question-type specific tables
-    *
-    * @return boolean Success/Failure
-    * @param object $question  The question being deleted
-    */
-    function delete_question($questionid) {
-        delete_records("question_shortanswer", "question", $questionid);
-        return true;
-    }
-
     function print_question_formulation_and_controls(&$question, &$state, $cmoptions, $options) {
         global $CFG;
     /// This implementation is also used by question type 'numerical'
@@ -131,14 +108,14 @@ class question_shortanswer_qtype extends default_questiontype {
 
         /// Print question text and media
 
-        $questiontext =  format_text($question->questiontext,
-                         $question->questiontextformat,
-                         $formatoptions, $cmoptions->course);
-        $image = get_question_image($question, $cmoptions->course);
+        $questiontext = format_text($question->questiontext,
+                $question->questiontextformat,
+                $formatoptions, $cmoptions->course);
+        $image = get_question_image($question);
 
         /// Print input controls
 
-        if (isset($state->responses[''])) {
+        if (isset($state->responses['']) && $state->responses[''] != '') {
             $value = ' value="'.s($state->responses[''], true).'" ';
         } else {
             $value = ' value="" ';
@@ -165,19 +142,14 @@ class question_shortanswer_qtype extends default_questiontype {
                 }
             }
         }
-        
-        /// Removed correct answer, to be displayed later MDL-7496               
+
+        /// Removed correct answer, to be displayed later MDL-7496
         include("$CFG->dirroot/question/type/shortanswer/display.html");
     }
 
-    // ULPGC ecastro
     function check_response(&$question, &$state) {
-        $answers = &$question->options->answers;
-        $testedstate = clone($state);
-        $teststate   = clone($state);
-        foreach($answers as $aid => $answer) {
-            $teststate->responses[''] = trim($answer->answer);
-            if($this->compare_responses($question, $testedstate, $teststate)) {
+        foreach($question->options->answers as $aid => $answer) {
+            if ($this->test_response($question, $state, $answer)) {
                 return $aid;
             }
         }
@@ -186,18 +158,14 @@ class question_shortanswer_qtype extends default_questiontype {
 
     function compare_responses($question, $state, $teststate) {
         if (isset($state->responses['']) && isset($teststate->responses[''])) {
-            if ($question->options->usecase) {
-                return strcmp($state->responses[''], $teststate->responses['']) == 0;
-            } else {
-                $textlib = textlib_get_instance();
-                return strcmp($textlib->strtolower($state->responses['']),
-                        $textlib->strtolower($teststate->responses[''])) == 0;
-            }
+            return $state->responses[''] === $teststate->responses[''];
         }
         return false;
     }
 
     function test_response(&$question, $state, $answer) {
+        // Trim the response before it is saved in the database. See MDL-10709
+        $state->responses[''] = trim($state->responses['']);
         return $this->compare_string_with_wildcard(stripslashes_safe($state->responses['']),
                 $answer->answer, !$question->options->usecase);
     }
@@ -206,44 +174,30 @@ class question_shortanswer_qtype extends default_questiontype {
         // Break the string on non-escaped asterisks.
         $bits = preg_split('/(?<!\\\\)\*/', $pattern);
         // Escape regexp special characters in the bits.
-        $bits = array_map('preg_quote', $bits);
+        $excapedbits = array();
+        foreach ($bits as $bit) {
+            $excapedbits[] = preg_quote(str_replace('\*', '*', $bit));
+        }
         // Put it back together to make the regexp.
-        $regexp = '|^' . implode('.*', $bits) . '$|u';
-        
+        $regexp = '|^' . implode('.*', $excapedbits) . '$|u';
+
         // Make the match insensitive if requested to.
         if ($ignorecase) {
             $regexp .= 'i';
         }
-        
+
         return preg_match($regexp, trim($string));
     }
 
-    /// BACKUP FUNCTIONS ////////////////////////////
-
     /*
-     * Backup the data in the question
-     *
-     * This is used in question/backuplib.php
+     * Override the parent class method, to remove escaping from asterisks.
      */
-    function backup($bf,$preferences,$question,$level=6) {
-
-        $status = true;
-
-        $shortanswers = get_records('question_shortanswer', 'question', $question, 'id ASC');
-        //If there are shortanswers
-        if ($shortanswers) {
-            //Iterate over each shortanswer
-            foreach ($shortanswers as $shortanswer) {
-                $status = fwrite ($bf,start_tag("SHORTANSWER",$level,true));
-                //Print shortanswer contents
-                fwrite ($bf,full_tag("ANSWERS",$level+1,false,$shortanswer->answers));
-                fwrite ($bf,full_tag("USECASE",$level+1,false,$shortanswer->usecase));
-                $status = fwrite ($bf,end_tag("SHORTANSWER",$level,true));
-            }
-            //Now print question_answers
-            $status = question_backup_answers($bf,$preferences,$question);
+    function get_correct_responses(&$question, &$state) {
+        $response = parent::get_correct_responses($question, $state);
+        if (is_array($response)) {
+            $response[''] = addslashes(str_replace('\*', '*', stripslashes($response[''])));
         }
-        return $status;
+        return $response;
     }
 
 /// RESTORE FUNCTIONS /////////////////
@@ -255,66 +209,43 @@ class question_shortanswer_qtype extends default_questiontype {
      */
     function restore($old_question_id,$new_question_id,$info,$restore) {
 
-        $status = true;
+        $status = parent::restore($old_question_id, $new_question_id, $info, $restore);
 
-        //Get the shortanswers array
-        $shortanswers = $info['#']['SHORTANSWER'];
-
-        //Iterate over shortanswers
-        for($i = 0; $i < sizeof($shortanswers); $i++) {
-            $sho_info = $shortanswers[$i];
-
-            //Now, build the question_shortanswer record structure
-            $shortanswer = new stdClass;
-            $shortanswer->question = $new_question_id;
-            $shortanswer->answers = backup_todb($sho_info['#']['ANSWERS']['0']['#']);
-            $shortanswer->usecase = backup_todb($sho_info['#']['USECASE']['0']['#']);
+        if ($status) {
+            $extraquestionfields = $this->extra_question_fields();
+            $questionextensiontable = array_shift($extraquestionfields);
 
             //We have to recode the answers field (a list of answers id)
-            //Extracts answer id from sequence
-            $answers_field = "";
-            $in_first = true;
-            $tok = strtok($shortanswer->answers,",");
-            while ($tok) {
-                //Get the answer from backup_ids
-                $answer = backup_getid($restore->backup_unique_code,"question_answers",$tok);
-                if ($answer) {
-                    if ($in_first) {
-                        $answers_field .= $answer->new_id;
-                        $in_first = false;
-                    } else {
-                        $answers_field .= ",".$answer->new_id;
+            $questionextradata = get_record($questionextensiontable, $this->questionid_column_name(), $new_question_id);
+            if (isset($questionextradata->answers)) {
+                $answers_field = "";
+                $in_first = true;
+                $tok = strtok($questionextradata->answers, ",");
+                while ($tok) {
+                    // Get the answer from backup_ids
+                    $answer = backup_getid($restore->backup_unique_code,"question_answers",$tok);
+                    if ($answer) {
+                        if ($in_first) {
+                            $answers_field .= $answer->new_id;
+                            $in_first = false;
+                        } else {
+                            $answers_field .= ",".$answer->new_id;
+                        }
                     }
+                    // Check for next
+                    $tok = strtok(",");
                 }
-                //check for next
-                $tok = strtok(",");
-            }
-            //We have the answers field recoded to its new ids
-            $shortanswer->answers = $answers_field;
-
-            //The structure is equal to the db, so insert the question_shortanswer
-            $newid = insert_record ("question_shortanswer",$shortanswer);
-
-            //Do some output
-            if (($i+1) % 50 == 0) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    echo ".";
-                    if (($i+1) % 1000 == 0) {
-                        echo "<br />";
-                    }
-                }
-                backup_flush(300);
-            }
-
-            if (!$newid) {
-                $status = false;
+                // We have the answers field recoded to its new ids
+                $questionextradata->answers = $answers_field;
+                // Update the question
+                $status = $status && update_record($questionextensiontable, $questionextradata);
             }
         }
 
         return $status;
     }
-    
-    
+
+
         /**
     * Prints the score obtained and maximum score available plus any penalty
     * information
@@ -338,10 +269,10 @@ class question_shortanswer_qtype extends default_questiontype {
         maximum grade available and a warning if a penalty was applied for the
         attempt and displays the overall grade obtained counting all previous
         responses (and penalties) */
-        
+        global $QTYPES ;
         // MDL-7496 show correct answer after "Incorrect"
         $correctanswer = '';
-        if ($correctanswers = $this->get_correct_responses($question, $state)) {
+        if ($correctanswers =  $QTYPES[$question->qtype]->get_correct_responses($question, $state)) {
             if ($options->readonly && $options->correct_responses) {
                 $delimiter = '';
                 if ($correctanswers) {
@@ -350,9 +281,9 @@ class question_shortanswer_qtype extends default_questiontype {
                         $delimiter = ', ';
                     }
                 }
-            }         
+            }
         }
-      
+
         if (QUESTION_EVENTDUPLICATE == $state->event) {
             echo ' ';
             print_string('duplicateresponse', 'quiz');
@@ -376,16 +307,16 @@ class question_shortanswer_qtype extends default_questiontype {
                     // MDL-7496
                     if ($correctanswer) {
                         echo ('<div class="correctness">');
-                        print_string('correctansweris', 'quiz', s($correctanswer));
+                        print_string('correctansweris', 'quiz', s($correctanswer, true));
                         echo ('</div>');
                     }
                 } else {
                     echo ' incorrect">';
                     // MDL-7496
-                    print_string('incorrect', 'quiz');                   
+                    print_string('incorrect', 'quiz');
                     if ($correctanswer) {
                         echo ('<div class="correctness">');
-                        print_string('correctansweris', 'quiz', s($correctanswer));
+                        print_string('correctansweris', 'quiz', s($correctanswer, true));
                         echo ('</div>');
                     }
                 }
@@ -420,12 +351,34 @@ class question_shortanswer_qtype extends default_questiontype {
             }
         }
     }
-    
-    
-    
-    
-    
 
+    /**
+     * Runs all the code required to set up and save an essay question for testing purposes.
+     * Alternate DB table prefix may be used to facilitate data deletion.
+     */
+    function generate_test($name, $courseid = null) {
+        list($form, $question) = parent::generate_test($name, $courseid);
+        $question->category = $form->category;
+
+        $form->questiontext = "What is the purpose of life, the universe, and everything";
+        $form->generalfeedback = "Congratulations, you may have solved my biggest problem!";
+        $form->penalty = 0.1;
+        $form->usecase = false;
+        $form->defaultgrade = 1;
+        $form->noanswers = 3;
+        $form->answer = array('42', 'who cares?', 'Be happy');
+        $form->fraction = array(1, 0.6, 0.8);
+        $form->feedback = array('True, but what does that mean?', 'Well you do, dont you?', 'Yes, but thats not funny...');
+        $form->correctfeedback = 'Excellent!';
+        $form->incorrectfeedback = 'Nope!';
+        $form->partiallycorrectfeedback = 'Not bad';
+
+        if ($courseid) {
+            $course = get_record('course', 'id', $courseid);
+        }
+
+        return $this->save_question($question, $form, $course);
+    }
 }
 //// END OF CLASS ////
 

@@ -1,4 +1,4 @@
-<?php   /// $Id: enrol.php,v 1.15.2.1 2007/03/21 06:15:10 nicolasconnault Exp $
+<?php   /// $Id: enrol.php,v 1.25.2.10 2008/12/06 21:21:55 skodak Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -22,6 +22,7 @@
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
 
+require_once($CFG->dirroot.'/group/lib.php');
 
 /**
 * enrolment_plugin_manual is the default enrolment plugin
@@ -39,8 +40,8 @@ var $errormsg;
 * Prints the entry form/page for this enrolment
 *
 * This is only called from course/enrol.php
-* Most plugins will probably override this to print payment 
-* forms etc, or even just a notice to say that manual enrolment 
+* Most plugins will probably override this to print payment
+* forms etc, or even just a notice to say that manual enrolment
 * is disabled
 *
 * @param    course  current course object
@@ -53,7 +54,12 @@ function print_entry($course) {
 
 /// Automatically enrol into courses without password
 
-    $context = get_context_instance(CONTEXT_SYSTEM, SITEID);  
+    $context = get_context_instance(CONTEXT_SYSTEM);
+
+    $navlinks = array();
+    $navlinks[] = array('name' => $strcourses, 'link' => ".", 'type' => 'misc');
+    $navlinks[] = array('name' => $strloginto, 'link' => null, 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
 
     if ($course->password == '') {   // no password, so enrol
 
@@ -62,9 +68,9 @@ function print_entry($course) {
 
         } else if (empty($_GET['confirm']) && empty($_GET['cancel'])) {
 
-            print_header($strloginto, $course->fullname, "<a href=\".\">$strcourses</a> -> $strloginto");
+            print_header($strloginto, $course->fullname, $navigation);
             echo '<br />';
-            notice_yesno(get_string('enrolmentconfirmation'), "enrol.php?id=$course->id&amp;confirm=1", 
+            notice_yesno(get_string('enrolmentconfirmation'), "enrol.php?id=$course->id&amp;confirm=1",
                                                               "enrol.php?id=$course->id&amp;cancel=1");
             print_footer();
             exit;
@@ -74,6 +80,8 @@ function print_entry($course) {
             if (!enrol_into_course($course, $USER, 'manual')) {
                 print_error('couldnotassignrole');
             }
+            // force a refresh of mycourses
+            unset($USER->mycourses);
 
             if (!empty($SESSION->wantsurl)) {
                 $destination = $SESSION->wantsurl;
@@ -96,12 +104,13 @@ function print_entry($course) {
         }
     }
 
-    $teacher = get_teacher($course->id);
+    // if we get here we are going to display the form asking for the enrolment key
+    // and (hopefully) provide information about who to ask for it.
     if (!isset($password)) {
         $password = '';
     }
 
-    print_header($strloginto, $course->fullname, "<a href=\".\">$strcourses</a> -> $strloginto", "form.password");
+    print_header($strloginto, $course->fullname, $navigation, "form.password");
 
     print_course($course, "80%");
 
@@ -116,7 +125,7 @@ function print_entry($course) {
 /**
 * The other half to print_entry, this checks the form data
 *
-* This function checks that the user has completed the task on the 
+* This function checks that the user has completed the task on the
 * enrolment entry page and then enrolls them.
 *
 * @param    form    the form data submitted, as an object
@@ -137,7 +146,7 @@ function check_entry($form, $course) {
 
     $groupid = $this->check_group_entry($course->id, $form->password);
 
-    if (($form->password == $course->password) or ($groupid !== false) ) {
+    if ((stripslashes($form->password) == $course->password) or ($groupid !== false) ) {
 
         if (isguestuser()) { // only real user guest, do not use this for users with guest role
             $USER->enrolkey[$course->id] = true;
@@ -145,8 +154,10 @@ function check_entry($form, $course) {
 
         } else {  /// Update or add new enrolment
             if (enrol_into_course($course, $USER, 'manual')) {
+                // force a refresh of mycourses
+                unset($USER->mycourses);
                 if ($groupid !== false) {
-                    if (!add_user_to_group($groupid, $USER->id)) {
+                    if (!groups_add_member($groupid, $USER->id)) {
                         print_error('couldnotassigngroup');
                     }
                 }
@@ -164,8 +175,11 @@ function check_entry($form, $course) {
 
         redirect($destination);
 
+    } else if (!isset($CFG->enrol_manual_showhint) or $CFG->enrol_manual_showhint) {
+        $this->errormsg = get_string('enrolmentkeyhint', '', substr($course->password, 0, 1));
+
     } else {
-        $this->errormsg = get_string('enrolmentkeyhint', '', substr($course->password,0,1));
+        $this->errormsg = get_string('enrolmentkeyerror', 'enrol_manual');
     }
 }
 
@@ -177,28 +191,47 @@ function check_entry($form, $course) {
 * @param    password  the submitted enrolment key
 */
 function check_group_entry ($courseid, $password) {
-    $ingroup = false;
-    if (($groups = get_groups($courseid)) !== false) {
+
+    if ($groups = groups_get_all_groups($courseid)) {
         foreach ($groups as $group) {
-            if ( !empty($group->enrolmentkey) and ($password == $group->enrolmentkey) ) {
-                $ingroup = $group->id;
+            if ( !empty($group->enrolmentkey) and (stripslashes($password) == $group->enrolmentkey) ) {
+                return $group->id;
             }
         }
     }
-    return $ingroup;
+
+    return false;
 }
 
 
 /**
 * Prints a form for configuring the current enrolment plugin
 *
-* This function is called from admin/enrol.php, and outputs a 
+* This function is called from admin/enrol.php, and outputs a
 * full page with a form for defining the current enrolment plugin.
 *
-* @param    page  an object containing all the data for this page
+* @param    frm  an object containing all the data for this page
 */
-function config_form($page) {
-    
+function config_form($frm) {
+    global $CFG;
+
+    if (!isset( $frm->enrol_manual_keyholderrole )) {
+        $frm->enrol_manual_keyholderrole = '';
+    }
+
+    if (!isset($frm->enrol_manual_showhint)) {
+        $frm->enrol_manual_showhint = 1;
+    }
+
+    if (!isset($frm->enrol_manual_usepasswordpolicy)) {
+        $frm->enrol_manual_usepasswordpolicy = 0;
+    }
+
+    if (!isset($frm->enrol_manual_requirekey)) {
+        $frm->enrol_manual_requirekey = 0;
+    }
+
+    include ("$CFG->dirroot/enrol/manual/config.html");
 }
 
 
@@ -222,85 +255,63 @@ function process_config($config) {
 
 
 /**
-* This function is run by admin/cron.php every time 
-*
-* The cron function can perform regular checks for the current 
-* enrollment plugin.  For example it can check a foreign database,
-* all look for a file to pull data in from
-*
+* Notify users about enrolments that are going to expire soon!
+* This function is run by admin/cron.php
+* @return void
 */
 function cron() {
-    global $CFG;
+    global $CFG, $USER, $SITE;
 
-
-    // Delete all assignments from the database that have already expired
-    
-    $timenow = time();
-
-    if ($assignments = get_records_sql("SELECT ra.*, c.instanceid as courseid FROM 
-                                          {$CFG->prefix}role_assignments ra,
-                                          {$CFG->prefix}context c
-                                         WHERE ra.enrol = 'manual'
-                                           AND ra.timeend > 0 
-                                           AND ra.timeend < $timenow
-                                           AND ra.contextid = c.id 
-                                           AND c.contextlevel = ".CONTEXT_COURSE)) {
-        foreach ($assignments as $assignment) {
-            if ($course = get_record('course', 'id', $assignment->courseid)) {
-                if (empty($course->enrolperiod)) {   // This overrides student timeend
-                    continue;
-                }
-            }
-            role_unassign($assignment->roleid, $assignment->userid, 0, $assignment->contextid);
-        }
+    if (!isset($CFG->lastexpirynotify)) {
+        set_config('lastexpirynotify', 0);
     }
 
-
-
-    // Notify users about enrolments that are going to expire soon!
-
-    if (empty($CFG->lastexpirynotify)) {
-        $CFG->lastexpirynotify = 0;
+    // notify once a day only - TODO: add some tz handling here, maybe use timestamps
+    if ($CFG->lastexpirynotify == date('Ymd')) {
+        return;
     }
-    
-    if ($CFG->lastexpirynotify < date('Ymd') && 
-        ($courses = get_records_select('course', 'enrolperiod > 0 AND expirynotify > 0 AND expirythreshold > 0'))) {
+
+    if ($rs = get_recordset_select('course', 'enrolperiod > 0 AND expirynotify > 0 AND expirythreshold > 0')) {
+
+        $cronuser = clone($USER);
 
         $admin = get_admin();
 
-        $strexpirynotify = get_string('expirynotify');
-        foreach ($courses as $course) {
+        while($course = rs_fetch_next_record($rs)) {
             $a = new object();
-            $a->coursename = $course->shortname .'/'. $course->fullname;
-            $a->threshold = $course->expirythreshold / 86400;
-            $a->extendurl = $CFG->wwwroot . '/user/index.php?id=' . $course->id;
-            $a->current = array();
-            $a->past = array();
-            $a->current = $a->past = array();
-            $expiry = time() + $course->expirythreshold;
+            $a->coursename = $course->shortname .'/'. $course->fullname; // must be processed by format_string later
+            $a->threshold  = $course->expirythreshold / 86400;
+            $a->extendurl  = $CFG->wwwroot . '/user/index.php?id=' . $course->id;
+            $a->current    = array();
+            $a->past       = array();
 
-            /// Get all the role assignments for this course that have expired.
+            $expiry = time() + $course->expirythreshold;
+            $cname  = $course->fullname;
+
+            /// Get all the manual role assignments for this course that have expired.
 
             if (!$context = get_context_instance(CONTEXT_COURSE, $course->id)) {
                 continue;
             }
 
-            if ($oldenrolments = get_records_sql('
-                      SELECT u.* 
-                        FROM '.$CFG->prefix.'role_assignments ra, 
-                             '.$CFG->prefix.'user u
-                        WHERE ra.contextid = '.$context->id.'
-                          AND ra.timeend > 0 AND ra.timeend <= '.$expiry.'
-                          AND ra.userid = u.id ')) {
+            if ($oldenrolments = get_records_sql("
+                      SELECT u.*, ra.timeend
+                        FROM {$CFG->prefix}user u
+                             JOIN {$CFG->prefix}role_assignments ra ON (ra.userid = u.id)
+                        WHERE ra.contextid = $context->id
+                              AND ra.timeend > 0 AND ra.timeend <= $expiry
+                              AND ra.enrol = 'manual'")) {
 
-
-                if (!$teacher = get_teacher($course->id)) {
-                    $teacher = get_admin();
+                // inform user who can assign roles or admin
+                if ($teachers = get_users_by_capability($context, 'moodle/role:assign', '', '', '', '', '', '', false)) {
+                    $teachers = sort_by_roleassignment_authority($teachers, $context);
+                    $teacher  = reset($teachers);
+                } else {
+                    $teachers = array($admin);
+                    $teacher  = $admin;
                 }
 
                 $a->teacherstr = fullname($teacher, true);
-
-                $strexpirynotifystudentsemail = get_string('expirynotifystudentsemail', '', $a);
 
                 foreach ($oldenrolments as $user) {       /// Email all users about to expire
                     $a->studentstr = fullname($user, true);
@@ -309,30 +320,42 @@ function cron() {
                     } else {
                         $a->current[] = fullname($user) . " <$user->email>";
                         if ($course->notifystudents) {     // Send this guy notice
-                            email_to_user($user, $teacher, $SITE->fullname .' '. $strexpirynotify, 
+                            // setup global $COURSE properly - needed for languages
+                            $USER = $user;
+                            course_setup($course);
+                            $a->coursename = format_string($cname);
+                            $a->course     = $a->coursename;
+                            $strexpirynotifystudentsemail = get_string('expirynotifystudentsemail', '', $a);
+                            $strexpirynotify              = get_string('expirynotify');
+
+                            email_to_user($user, $teacher, format_string($SITE->fullname) .' '. $strexpirynotify,
                                           $strexpirynotifystudentsemail);
                         }
                     }
                 }
 
                 $a->current = implode("\n", $a->current);
-                $a->past = implode("\n", $a->past);
-
-                $strexpirynotifyemail = get_string('expirynotifyemail', '', $a);
+                $a->past    = implode("\n", $a->past);
 
                 if ($a->current || $a->past) {
-                    if ($teachers = get_users_by_capability($context, 'moodle/course:update', 
-                                                            'u.*,ra.hidden', 'r.sortorder ASC',
-                                                            '', '', '', '', false)) {
-                        foreach ($teachers as $teacher) {
-                            email_to_user($teacher, $admin, $a->coursename .' '. $strexpirynotify, $strexpirynotifyemail);
-                        }
+                    foreach ($teachers as $teacher) {
+                        // setup global $COURSE properly - needed for languages
+                        $USER = $teacher;
+                        course_setup($course);
+                        $a->coursename = format_string($cname);
+                        $strexpirynotifyemail = get_string('expirynotifyemail', '', $a);
+                        $strexpirynotify      = get_string('expirynotify');
+
+                        email_to_user($teacher, $admin, $a->coursename .' '. $strexpirynotify, $strexpirynotifyemail);
                     }
                 }
             }
-            set_config('lastexpirynotify', date('Ymd'));
         }
+        $USER = $cronuser;
+        course_setup($SITE);   // More environment
     }
+
+    set_config('lastexpirynotify', date('Ymd'));
 }
 
 
@@ -366,6 +389,60 @@ function get_access_icons($course) {
     return $str;
 }
 
+/**
+ * Prints the message telling you were to get the enrolment key
+ * appropriate for the prevailing circumstances
+ * A bit clunky because I didn't want to change the standard strings
+ */
+function print_enrolmentkeyfrom($course) {
+    global $CFG;
+    global $USER;
+
+    $context = get_context_instance(CONTEXT_SYSTEM);
+    $guest = has_capability('moodle/legacy:guest', $context, $USER->id, false);
+
+    // if a keyholder role is defined we list teachers in that role (if any exist)
+    $contactslisted = false;
+    $canseehidden = has_capability('moodle/role:viewhiddenassigns', $context);
+    if (!empty($CFG->enrol_manual_keyholderrole)) {
+        if ($contacts = get_role_users($CFG->enrol_manual_keyholderrole, get_context_instance(CONTEXT_COURSE, $course->id),true,'','u.lastname ASC',$canseehidden  )) {
+            // guest user has a slightly different message
+            if ($guest) {
+                print_string('enrolmentkeyfromguest', '', ':<br />' );
+            }
+            else {
+                print_string('enrolmentkeyfrom', '', ':<br />');
+            }
+            foreach ($contacts as $contact) {
+                $contactname = "<a href=\"../user/view.php?id=$contact->id&course=".SITEID."\">".fullname($contact)."</a>.";
+                echo "$contactname<br />";
+            }
+            $contactslisted = true;
+        }
+    }
+
+    // if no keyholder role is defined OR nobody is in that role we do this the 'old' way
+    // (show the first person with update rights)
+    if (!$contactslisted) {
+        if ($teachers = get_users_by_capability(get_context_instance(CONTEXT_COURSE, $course->id), 'moodle/course:update',
+            'u.*', 'u.id ASC', 0, 1, '', '', false, true)) {
+            $teacher = array_shift($teachers);
+        }
+        if (!empty($teacher)) {
+            $teachername = "<a href=\"../user/view.php?id=$teacher->id&course=".SITEID."\">".fullname($teacher)."</a>.";
+        } else {
+            $teachername = strtolower( get_string('defaultcourseteacher') ); //get_string('yourteacher', '', $course->teacher);
+        }
+
+        // guest user has a slightly different message
+        if ($guest) {
+            print_string('enrolmentkeyfromguest', '', $teachername );
+        }
+        else {
+            print_string('enrolmentkeyfrom', '', $teachername);
+        }
+    }
+}
 
 } /// end of class
 

@@ -15,7 +15,7 @@
  * @category   Zend
  * @package    Zend_Search_Lucene
  * @subpackage Storage
- * @copyright  Copyright (c) 2006 Zend Technologies USA Inc. (http://www.zend.com)
+ * @copyright  Copyright (c) 2005-2008 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
  */
 
@@ -31,7 +31,7 @@ require_once 'Zend/Search/Lucene/Exception.php';
  * @category   Zend
  * @package    Zend_Search_Lucene
  * @subpackage Storage
- * @copyright  Copyright (c) 2006 Zend Technologies USA Inc. (http://www.zend.com)
+ * @copyright  Copyright (c) 2005-2008 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
  */
 class Zend_Search_Lucene_Storage_File_Filesystem extends Zend_Search_Lucene_Storage_File
@@ -41,7 +41,8 @@ class Zend_Search_Lucene_Storage_File_Filesystem extends Zend_Search_Lucene_Stor
      *
      * @var resource
      */
-    private $_fileHandle;
+    protected $_fileHandle;
+
 
     /**
      * Class constructor.  Open the file.
@@ -53,12 +54,17 @@ class Zend_Search_Lucene_Storage_File_Filesystem extends Zend_Search_Lucene_Stor
     {
         global $php_errormsg;
 
-        $trackErrors = ini_get( "track_errors");
+        if (strpos($mode, 'w') === false  &&  !is_readable($filename)) {
+            // opening for reading non-readable file
+            throw new Zend_Search_Lucene_Exception('File \'' . $filename . '\' is not readable.');
+        }
+
+        $trackErrors = ini_get('track_errors');
         ini_set('track_errors', '1');
 
         $this->_fileHandle = @fopen($filename, $mode);
 
-        if ($this->_fileHandle===false) {
+        if ($this->_fileHandle === false) {
             ini_set('track_errors', $trackErrors);
             throw new Zend_Search_Lucene_Exception($php_errormsg);
         }
@@ -100,6 +106,17 @@ class Zend_Search_Lucene_Storage_File_Filesystem extends Zend_Search_Lucene_Stor
         return ftell($this->_fileHandle);
     }
 
+    /**
+     * Flush output.
+     *
+     * Returns true on success or false on failure.
+     *
+     * @return boolean
+     */
+    public function flush()
+    {
+        return fflush($this->_fileHandle);
+    }
 
     /**
      * Close File object
@@ -167,5 +184,40 @@ class Zend_Search_Lucene_Storage_File_Filesystem extends Zend_Search_Lucene_Stor
             fwrite($this->_fileHandle, $data, $length);
         }
     }
+
+    /**
+     * Lock file
+     *
+     * Lock type may be a LOCK_SH (shared lock) or a LOCK_EX (exclusive lock)
+     *
+     * @param integer $lockType
+     * @param boolean $nonBlockingLock
+     * @return boolean
+     */
+    public function lock($lockType, $nonBlockingLock = false)
+    {
+        if ($nonBlockingLock) {
+            return flock($this->_fileHandle, $lockType | LOCK_NB);
+        } else {
+            return flock($this->_fileHandle, $lockType);
+        }
+    }
+
+    /**
+     * Unlock file
+     *
+     * Returns true on success
+     *
+     * @return boolean
+     */
+    public function unlock()
+    {
+        if ($this->_fileHandle !== null ) {
+            return flock($this->_fileHandle, LOCK_UN);
+        } else {
+            return true;
+        }
+    }
 }
 
+?>

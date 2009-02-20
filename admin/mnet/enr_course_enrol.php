@@ -1,4 +1,4 @@
-<?PHP  // $Id: enr_course_enrol.php,v 1.6.2.1 2007/02/28 05:36:32 nicolasconnault Exp $
+<?PHP  // $Id: enr_course_enrol.php,v 1.8.4.2 2008/04/02 06:09:58 dongsheng Exp $
        // enrol_config.php - allows admin to edit all enrollment variables
        //                    Yes, enrol is correct English spelling.
 
@@ -7,11 +7,10 @@
     include_once($CFG->dirroot.'/mnet/xmlrpc/client.php');
 
     if (!confirm_sesskey()) {
-        error(get_string('confirmsesskeybad', 'error'));
+        print_error('confirmsesskeybad', 'error');
     }
 
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('mnetenrol', $adminroot);
+    admin_externalpage_setup('mnetenrol');
     $CFG->pagepath = 'admin/mnet';
 
     require_once("$CFG->dirroot/enrol/enrol.class.php");   /// Open the factory class
@@ -244,7 +243,6 @@
 $str = get_strings(array('enrolmentplugins', 'configuration', 'users', 'administration'));
 /// Get some language strings
 
-$strassignusers = get_string('assignusers', 'role');
 $strpotentialusers = get_string('potentialusers', 'role');
 $strexistingusers = get_string('existingusers', 'role');
 $straction = get_string('assignroles', 'role');
@@ -255,7 +253,7 @@ $strshowall = get_string('showall');
 $strparticipants = get_string('participants');
 $strsearchresults = get_string('searchresults');
 
-admin_externalpage_print_header($adminroot);
+admin_externalpage_print_header();
 
 print_box('<strong>' . s($mnet_peer->name) . ' : ' 
           . format_string($course->shortname) .' '. format_string($course->fullname) 
@@ -276,6 +274,6 @@ if (!empty($errors)) {
 }
 
 
-admin_externalpage_print_footer($adminroot);
+admin_externalpage_print_footer();
 
 ?>

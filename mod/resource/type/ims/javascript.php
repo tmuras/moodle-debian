@@ -9,6 +9,14 @@
 /// We use this globals to be able to generate the proper JavaScripts
     global $jsarg, $standard_javascript;
 
+/// Let's know if we are using a customcorners theme. It implies new calculations
+/// within the resizeiframe function.
+    if (!empty($THEME->customcorners)) {
+        $customcorners = 'true';
+    } else {
+        $customcorners = 'false';
+    }
+
 /// Load IMS needed JavaScript
 /// The dummy LMS API hack to stop some SCORM packages giving errors.
     echo "<script type=\"text/javascript\" src=\"$CFG->wwwroot/mod/resource/type/ims/dummyapi.js\"></script>\n";
@@ -16,17 +24,18 @@
     echo "    <script type=\"text/javascript\" src=\"$CFG->wwwroot/mod/resource/type/ims/resize.js\"></script>\n";
     echo "    <script type=\"text/javascript\">
         window.onresize = function() {
-            resizeiframe($jsarg);
+            resizeiframe($jsarg, $customcorners);
         };
         window.name='ims-cp-page';
 
-        // Set Interval until ims-contentframe or ims-contentframe-no-nav is available
+        // Set Interval until ims-containerdiv and (ims-contentframe or ims-contentframe-no-nav) is available
         function waiting() {
+            var cd   = document.getElementById('ims-containerdiv');
             var cf   = document.getElementById('ims-contentframe');
             var cfnv = document.getElementById('ims-contentframe-no-nav');
 
-            if (cf || cfnv) {
-                resizeiframe($jsarg);
+            if (cd && (cf || cfnv)) {
+                resizeiframe($jsarg, $customcorners);
                 clearInterval(ourInterval);
                 return true;
             }

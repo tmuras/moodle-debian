@@ -1,8 +1,11 @@
-<?php // $Id: index.php,v 1.39 2006/11/12 13:26:14 ethem Exp $
+<?php // $Id: index.php,v 1.40.2.1 2008/02/11 15:39:13 ethem Exp $
 
 /// Load libraries
     require_once('../../config.php');
+    require_once('const.php');
     require_once('locallib.php');
+    require_once('localfuncs.php');
+    require_once('authorizenetlib.php');
 
 /// Parameters
     $orderid  = optional_param('order', 0, PARAM_INT);
@@ -31,7 +34,11 @@
 
 /// Print header
     $strpaymentmanagement = get_string('paymentmanagement', 'enrol_authorize');
-    print_header_simple($strpaymentmanagement, "", "<a href=\"index.php\">$strpaymentmanagement</a>");
+    $navlinks = array();
+    $navlinks[] = array('name' => $strpaymentmanagement, 'link' => 'index.php', 'type' => 'misc');
+    $navigation = build_navigation($navlinks);
+
+    print_header_simple($strpaymentmanagement, "", $navigation);
 
 /// If orderid is empty, user wants to see all orders
     if (empty($orderid)) {

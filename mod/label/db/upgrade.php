@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.1 2006/10/26 17:33:42 stronk7 Exp $
+<?php  //$Id: upgrade.php,v 1.1.8.2 2008/07/11 02:54:54 moodler Exp $
 
 // This file keeps track of upgrades to 
 // the label module
@@ -31,6 +31,11 @@ function xmldb_label_upgrade($oldversion=0) {
 /// if ($result && $oldversion < YYYYMMDD00) { //New version in version.php
 ///     $result = result of "/lib/ddllib.php" function calls
 /// }
+
+//===== 1.9.0 upgrade line ======//
+    if ($oldversion < 2007101510) {
+        execute_sql("UPDATE {$CFG->prefix}log_display SET mtable = 'label' WHERE module = 'label'", 'false');
+    }
 
     return $result;
 }

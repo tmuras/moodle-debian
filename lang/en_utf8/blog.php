@@ -1,10 +1,9 @@
-<?PHP // $Id: blog.php,v 1.17 2006/12/29 20:36:05 skodak Exp $
+<?PHP // $Id: blog.php,v 1.17.6.6 2008/04/22 05:16:10 dongsheng Exp $
       // blog.php - created with Moodle 1.7 beta + (2006101003)
 
 
 $string['addnewentry'] = 'Add a new entry';
-$string['addotags'] = 'Add official tags';
-$string['addptags'] = 'Add user-defined tags';
+$string['backupblogshelp'] = 'If enabled then blogs will be included in SITE automated backups';
 $string['blockmenutitle'] = 'Blog Menu';
 $string['blocktagstitle'] = 'Blog Tags';
 $string['blocktitle'] = 'Blog tags block title';
@@ -34,10 +33,9 @@ $string['norighttodeletetag'] = 'You have no rights to delete this tag - $a';
 $string['notallowedtoedit'] = 'You are not allowed to edit this entry';
 $string['numberofentries'] = 'Entries: $a';
 $string['numberoftags'] = 'Number of tags to display';
-$string['otags'] = 'Official tags';
 $string['pagesize'] = 'Number of blog entries per Page';
+$string['permalink'] = 'Permalink';
 $string['personalblogs'] = 'Users can only see their own blog';
-$string['ptags'] = 'User defined tags (Comma separated)';
 $string['publishto'] = 'Publish to';
 $string['publishtonoone'] = 'Yourself (draft)';
 $string['publishtosite'] = 'Anyone on this site';

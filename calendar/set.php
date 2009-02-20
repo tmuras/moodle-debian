@@ -1,4 +1,4 @@
-<?php // $Id: set.php,v 1.17.6.2 2007/05/06 04:26:40 martinlanghoff Exp $
+<?php // $Id: set.php,v 1.21 2007/06/22 13:23:21 dwoolhead Exp $
 
 /////////////////////////////////////////////////////////////////////////////
 //                                                                         //
@@ -48,9 +48,18 @@
     $cal_d = optional_param('cal_d');
     $cal_m = optional_param('cal_m');
     $cal_y = optional_param('cal_y');
+    $action = optional_param('action');
+    $type = optional_param('type');
 
     // Initialize the session variables
     calendar_session_vars();
+
+    // Ensure course id passed if relevant
+    // Required due to changes in view/lib.php mainly (calendar_session_vars())
+    $courseid = '';
+    if (!empty($id)) {
+        $courseid = '&amp;course='.$id;
+    }
 
     switch($var) {
         case 'setuser':
@@ -101,13 +110,13 @@
             redirect(CALENDAR_URL.'event.php?action='.$action.'&amp;type='.$type.'&amp;id='.intval($id));
         break;
         case 'month':
-            redirect(CALENDAR_URL.'view.php?view=month&cal_d='.$cal_d.'&cal_m='.$cal_m.'&cal_y='.$cal_y);
+            redirect(CALENDAR_URL.'view.php?view=month'.$courseid.'&cal_d='.$cal_d.'&cal_m='.$cal_m.'&cal_y='.$cal_y);
         break;
         case 'upcoming':
-            redirect(CALENDAR_URL.'view.php?view=upcoming');
+            redirect(CALENDAR_URL.'view.php?view=upcoming'.$courseid);
         break;
         case 'day':
-            redirect(CALENDAR_URL.'view.php?view=day&cal_d='.$cal_d.'&cal_m='.$cal_m.'&cal_y='.$cal_y);
+            redirect(CALENDAR_URL.'view.php?view=day'.$courseid.'&cal_d='.$cal_d.'&cal_m='.$cal_m.'&cal_y='.$cal_y);
         break;
         case 'course':
             redirect($CFG->wwwroot.'/course/view.php?id='.intval($id));

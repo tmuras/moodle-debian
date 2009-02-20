@@ -1,4 +1,4 @@
-<?php // $Id: refresh.php,v 1.11 2007/01/28 21:43:39 skodak Exp $
+<?php // $Id: refresh.php,v 1.11.4.1 2008/05/08 03:41:10 jerome Exp $
 
     require('../config.php');
 
@@ -50,7 +50,7 @@
     if ($messages = get_records_select('message', "useridto = '$USER->id' AND useridfrom = '$userid'",
                                        'timecreated')) {
         foreach ($messages as $message) {
-            $time = userdate($message->timecreated, get_string('strftimedaytime'));
+            $time = userdate($message->timecreated, get_string('strftimedatetimeshort'));
 
             $options = new object();
             $options->para = false;

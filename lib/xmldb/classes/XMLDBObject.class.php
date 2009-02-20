@@ -1,4 +1,4 @@
-<?php // $Id: XMLDBObject.class.php,v 1.3.4.1 2007/03/27 20:30:22 stronk7 Exp $
+<?php // $Id: XMLDBObject.class.php,v 1.7.2.1 2008/08/15 11:09:51 tjhunt Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 2001-3001 Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -190,10 +190,46 @@ class XMLDBObject {
     }
 
     /**
+     * Reconstruct previous/next attributes.
+     */
+    function fixPrevNext(&$arr) {
+        global $CFG;
+
+        if (empty($CFG->xmldbreconstructprevnext)) {
+            return false;
+        }
+        $tweaked = false;
+
+        $prev = null;
+        foreach ($arr as $key=>$el) {
+            $prev_value = $arr[$key]->previous;
+            $next_value = $arr[$key]->next;
+
+            $arr[$key]->next     = null;
+            $arr[$key]->previous = null;
+            if ($prev !== null) {
+                $arr[$prev]->next    = $arr[$key]->name;
+                $arr[$key]->previous = $arr[$prev]->name;
+            }
+            $prev = $key;
+
+            if ($prev_value != $arr[$key]->previous or $next_value != $arr[$key]->next) {
+                $tweaked = true;
+            }
+        }
+
+        return $tweaked;
+    }
+
+    /**
      * This function will check that all the elements in one array
      * have a consistent info in their previous/next fields
      */
     function checkPreviousNextValues(&$arr) {
+        global $CFG;
+        if (!empty($CFG->xmldbdisablenextprevchecking)) {
+            return true;
+        }
         $result = true;
     /// Check that only one element has the previous not set
         if ($arr) {
@@ -204,6 +240,7 @@ class XMLDBObject {
                 }
             }
             if ($counter != 1) {
+                debugging('The number of tables with previous not set is different from 1', DEBUG_DEVELOPER);
                 $result = false;
             }
         }
@@ -216,6 +253,7 @@ class XMLDBObject {
                 }
             }
             if ($counter != 1) {
+                debugging('The number of tables with next not set is different from 1', DEBUG_DEVELOPER);
                 $result = false;
             }
         }
@@ -225,6 +263,7 @@ class XMLDBObject {
                 if ($element->getPrevious()) {
                     $i = $this->findObjectInArray($element->getPrevious(), $arr);
                     if ($i === NULL) {
+                        debugging('Table ' . $element->getName() . ' says PREVIOUS="' . $element->getPrevious() . '" but that other table does not exist.', DEBUG_DEVELOPER);
                         $result = false;
                     }
                 }
@@ -236,6 +275,7 @@ class XMLDBObject {
                 if ($element->getNext()) {
                     $i = $this->findObjectInArray($element->getNext(), $arr);
                     if ($i === NULL) {
+                        debugging('Table ' . $element->getName() . ' says NEXT="' . $element->getNext() . '" but that other table does not exist.', DEBUG_DEVELOPER);
                         $result = false;
                     }
                 }
@@ -247,6 +287,7 @@ class XMLDBObject {
             foreach($arr as $element) {
                 if (in_array($element->getPrevious(), $existarr)) {
                     $result = false;
+                    debugging('Table ' . $element->getName() . ' says PREVIOUS="' . $element->getPrevious() . '" but another table has already said that!', DEBUG_DEVELOPER);
                 } else {
                     $existarr[] = $element->getPrevious();
                 }
@@ -258,6 +299,7 @@ class XMLDBObject {
             foreach($arr as $element) {
                 if (in_array($element->getNext(), $existarr)) {
                     $result = false;
+                    debugging('Table ' . $element->getName() . ' says NEXT="' . $element->getNext() . '" but another table has already said that!', DEBUG_DEVELOPER);
                 } else {
                     $existarr[] = $element->getNext();
                 }
@@ -271,7 +313,11 @@ class XMLDBObject {
      * the previous/next rules
      */
     function orderElements($arr) {
+        global $CFG;
         $result = true;
+        if (!empty($CFG->xmldbdisablenextprevchecking)) {
+            return $arr;
+        }
     /// Create a new array
         $newarr = array();
         if (!empty($arr)) {

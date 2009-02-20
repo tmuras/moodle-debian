@@ -1,16 +1,16 @@
-<?PHP // $Id: modules.php,v 1.33.2.4 2007/02/22 18:47:18 stronk7 Exp $
+<?PHP // $Id: modules.php,v 1.44.2.8 2009/01/09 05:34:54 tjhunt Exp $
       // Allows the admin to manage activity modules
 
     require_once('../config.php');
     require_once('../course/lib.php');
     require_once($CFG->libdir.'/adminlib.php');
     require_once($CFG->libdir.'/tablelib.php');
+    require_once($CFG->libdir.'/ddllib.php');
 
     // defines
     define('MODULE_TABLE','module_administration_table');
 
-    $adminroot = admin_get_root();
-    admin_externalpage_setup('managemodules', $adminroot);
+    admin_externalpage_setup('managemodules');
 
     $show    = optional_param('show', '', PARAM_SAFEDIR);
     $hide    = optional_param('hide', '', PARAM_SAFEDIR);
@@ -30,36 +30,52 @@
     $stractivitymodule = get_string("activitymodule");
     $strshowmodulecourse = get_string('showmodulecourse');
 
-    admin_externalpage_print_header($adminroot);
-
-    print_heading($stractivities);
-
-    $coursesaffected = false;
-
-
 /// If data submitted, then process and store.
 
     if (!empty($hide) and confirm_sesskey()) {
         if (!$module = get_record("modules", "name", $hide)) {
             error("Module doesn't exist!");
         }
-        set_field("modules", "visible", "0", "id", $module->id);                               // Hide main module
-        set_field('course_modules', 'visibleold', '1', 'visible' ,'1', 'module', $module->id); // Remember the previous visible state so we can toggle this back if the module is unhidden.
-        set_field('course_modules', 'visibleold', '0', 'visible' ,'0', 'module', $module->id);
-        set_field("course_modules", "visible", "0", "module", $module->id);                    // Hide all related activity modules
-        $coursesaffected = true;
+        set_field("modules", "visible", "0", "id", $module->id); // Hide main module
+        // Remember the visibility status in visibleold
+        // and hide...
+        $sql = "UPDATE {$CFG->prefix}course_modules
+                SET visibleold=visible,
+                    visible=0
+                WHERE  module={$module->id}";
+        execute_sql($sql, false);
+        // clear the course modinfo cache for courses
+        // where we just deleted something
+        $sql = "UPDATE {$CFG->prefix}course
+                SET modinfo=''
+                WHERE id IN (SELECT DISTINCT course
+                             FROM {$CFG->prefix}course_modules
+                             WHERE visibleold=1 AND module={$module->id})";
+        execute_sql($sql, false);
+        admin_get_root(true, false);  // settings not required - only pages
     }
 
     if (!empty($show) and confirm_sesskey()) {
         if (!$module = get_record("modules", "name", $show)) {
             error("Module doesn't exist!");
         }
-        set_field("modules", "visible", "1", "id", $module->id);                               // Show main module
-        set_field('course_modules', 'visible', '1', 'visibleold', '1', 'module', $module->id); // Get the previous saved visible state for the course module.
-        $coursesaffected = true;
+        set_field("modules", "visible", "1", "id", $module->id); // Show main module
+        set_field('course_modules', 'visible', '1', 'visibleold',
+                  '1', 'module', $module->id); // Get the previous saved visible state for the course module.
+        // clear the course modinfo cache for courses
+        // where we just made something visible
+        $sql = "UPDATE {$CFG->prefix}course
+                SET modinfo=''
+                WHERE id IN (SELECT DISTINCT course
+                             FROM {$CFG->prefix}course_modules
+                             WHERE visible=1 AND module={$module->id})";
+        execute_sql($sql, false);
+        admin_get_root(true, false);  // settings not required - only pages
     }
 
     if (!empty($delete) and confirm_sesskey()) {
+        admin_externalpage_print_header();
+        print_heading($stractivities);
 
         $strmodulename = get_string("modulename", "$delete");
 
@@ -67,7 +83,7 @@
             notice_yesno(get_string("moduledeleteconfirm", "", $strmodulename),
                          "modules.php?delete=$delete&amp;confirm=1&amp;sesskey=$USER->sesskey",
                          "modules.php");
-            admin_externalpage_print_footer($adminroot);
+            admin_externalpage_print_footer();
             exit;
 
         } else {  // Delete everything!!
@@ -89,9 +105,30 @@
                 }
             }
 
+            // delete calendar events
+            if (!delete_records("event", "modulename", $delete)) {
+                notify("Error occurred while deleting all $strmodulename records in calendar event table");
+            }
+
+            // clear course.modinfo for courses
+            // that used this module...
+            $sql = "UPDATE {$CFG->prefix}course
+                    SET modinfo=''
+                    WHERE id IN (SELECT DISTINCT course
+                                 FROM {$CFG->prefix}course_modules
+                                 WHERE module={$module->id})";
+            execute_sql($sql, false);
+
             // Now delete all the course module records
             if (!delete_records("course_modules", "module", $module->id)) {
                 notify("Error occurred while deleting all $strmodulename records in course_modules table");
+            }
+            if ($coursemods) {
+                foreach ($coursemods as $coursemod) {
+                    if (!delete_context(CONTEXT_MODULE, $coursemod->id)) {
+                        notify("Could not delete the context for $strmodulename with id = $coursemod->id");
+                    }
+                }
             }
 
             // Then delete all the logs
@@ -109,23 +146,34 @@
                 notify("Error occurred while deleting the $strmodulename record from modules table");
             }
 
-            // Then the tables themselves
-
-            if ($tables = $db->Metatables()) {
-                $prefix = $CFG->prefix.$module->name;
-                foreach ($tables as $table) {
-                    if (strpos($table, $prefix) === 0) {
-                        if (!execute_sql("DROP TABLE $table", false)) {
-                            notify("ERROR: while trying to drop table $table");
-                        }
-                    }
-                }
+            // And the module configuration records
+            if (!execute_sql("DELETE FROM {$CFG->prefix}config WHERE name LIKE '{$module->name}_%'")) {
+                notify("Error occurred while deleting the $strmodulename records from the config table");
             }
+
+            // cleanup the gradebook
+            require_once($CFG->libdir.'/gradelib.php');
+            grade_uninstalled_module($module->name);
+
+            // Then the tables themselves
+            drop_plugin_tables($module->name, "$CFG->dirroot/mod/$module->name/db/install.xml", false);
+
             // Delete the capabilities that were defined by this module
             capabilities_cleanup('mod/'.$module->name);
 
-            // rebuild_course_cache();  // Because things have changed
-            $coursesaffected = true;
+            // remove entent handlers and dequeue pending events
+            events_uninstall('mod/'.$module->name);
+
+            // Perform any custom uninstall tasks
+            if (file_exists($CFG->dirroot . '/mod/' . $module->name . '/lib.php')) {
+                require_once($CFG->dirroot . '/mod/' . $module->name . '/lib.php');
+                $uninstallfunction = $module->name . '_uninstall';
+                if (function_exists($uninstallfunction)) {
+                    if (! $uninstallfunction() ) {
+                        notify('Encountered a problem running uninstall function for '. $module->name.'!');
+                    }
+                }
+            }
 
             $a->module = $strmodulename;
             $a->directory = "$CFG->dirroot/mod/$delete";
@@ -133,10 +181,8 @@
         }
     }
 
-    if ($coursesaffected) {
-        rebuild_course_cache();  // Because things have changed
-    }
-
+    admin_externalpage_print_header();
+    print_heading($stractivities);
 
 /// Get and sort the existing modules
 
@@ -152,7 +198,7 @@
         }
         $modulebyname[$strmodulename] = $module;
     }
-    ksort($modulebyname);
+    ksort($modulebyname, SORT_LOCALE_STRING);
 
 /// Print the table of all modules
     // construct the flexible table ready to display
@@ -171,7 +217,9 @@
 
         $delete = "<a href=\"modules.php?delete=$module->name&amp;sesskey=$USER->sesskey\">$strdelete</a>";
 
-        if (file_exists("$CFG->dirroot/mod/$module->name/config.html")) {
+        if (file_exists("$CFG->dirroot/mod/$module->name/settings.php")) {
+            $settings = "<a href=\"settings.php?section=modsetting$module->name\">$strsettings</a>";
+        } else if (file_exists("$CFG->dirroot/mod/$module->name/config.html")) {
             $settings = "<a href=\"module.php?module=$module->name\">$strsettings</a>";
         } else {
             $settings = "";
@@ -201,18 +249,23 @@
             $class = "";
         }
 
+        $extra = '';
+        if (!file_exists("$CFG->dirroot/mod/$module->name/lib.php")) {
+            $extra = ' <span class="notifyproblem">('.get_string('missingfromdisk').')</span>';
+        }
+
         $table->add_data(array(
-            '<span'.$class.'>'.$icon.' '.$modulename.'</span>', 
-            $countlink, 
-            '<span'.$class.'>'.$module->version.'</span>', 
-            $visible, 
-            $delete, 
+            '<span'.$class.'>'.$icon.' '.$modulename.$extra.'</span>',
+            $countlink,
+            '<span'.$class.'>'.$module->version.'</span>',
+            $visible,
+            $delete,
             $settings
         ));
     }
 
     $table->print_html();
 
-    admin_externalpage_print_footer($adminroot);
+    admin_externalpage_print_footer();
 
 ?>

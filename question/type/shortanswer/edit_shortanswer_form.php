@@ -5,7 +5,8 @@
  * @copyright &copy; 2007 Jamie Pratt
  * @author Jamie Pratt me@jamiep.org
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package questions
+ * @package questionbank
+ * @subpackage questiontypes
  */
 
 /**
@@ -28,17 +29,22 @@ class question_edit_shortanswer_form extends question_edit_form {
         $gradeoptions = $creategrades->gradeoptions;
         $repeated = array();
         $repeated[] =& $mform->createElement('header', 'answerhdr', get_string('answerno', 'qtype_shortanswer', '{no}'));
-        $repeated[] =& $mform->createElement('text', 'answer', get_string('answer', 'quiz'));
+        $repeated[] =& $mform->createElement('text', 'answer', get_string('answer', 'quiz'), array('size' => 54));
         $repeated[] =& $mform->createElement('select', 'fraction', get_string('grade'), $gradeoptions);
-        $repeated[] =& $mform->createElement('htmleditor', 'feedback', get_string('feedback', 'quiz'));
+        $repeated[] =& $mform->createElement('htmleditor', 'feedback', get_string('feedback', 'quiz'),
+                                array('course' => $this->coursefilesid));
 
         if (isset($this->question->options)){
             $countanswers = count($this->question->options->answers);
         } else {
             $countanswers = 0;
         }
-        $repeatsatstart = (QUESTION_NUMANS_START > ($countanswers + QUESTION_NUMANS_ADD))?
-                            QUESTION_NUMANS_START : ($countanswers + QUESTION_NUMANS_ADD);
+        if ($this->question->formoptions->repeatelements){
+            $repeatsatstart = (QUESTION_NUMANS_START > ($countanswers + QUESTION_NUMANS_ADD))?
+                                QUESTION_NUMANS_START : ($countanswers + QUESTION_NUMANS_ADD);
+        } else {
+            $repeatsatstart = $countanswers;
+        }
         $repeatedoptions = array();
         $mform->setType('answer', PARAM_RAW);
         $repeatedoptions['fraction']['default'] = 0;
@@ -63,18 +69,21 @@ class question_edit_shortanswer_form extends question_edit_form {
         }
         parent::set_data($question);
     }
-    function validation($data){
-        $errors = array();
+    function validation($data, $files) {
+        $errors = parent::validation($data, $files);
         $answers = $data['answer'];
         $answercount = 0;
         $maxgrade = false;
         foreach ($answers as $key => $answer) {
             $trimmedanswer = trim($answer);
-            if (!empty($trimmedanswer)){
+            if ($trimmedanswer !== ''){
                 $answercount++;
                 if ($data['fraction'][$key] == 1) {
                     $maxgrade = true;
                 }
+            } else if ($data['fraction'][$key] != 0 || !html_is_blank($data['feedback'][$key])) {
+                $errors["answer[$key]"] = get_string('answermustbegiven', 'qtype_shortanswer');
+                $answercount++;
             }
         }
         if ($answercount==0){

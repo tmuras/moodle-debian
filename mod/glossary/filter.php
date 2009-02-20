@@ -1,4 +1,4 @@
-<?php // $Id: filter.php,v 1.31.4.2 2007/03/30 07:02:57 toyomoyo Exp $
+<?php // $Id: filter.php,v 1.33.2.2 2008/11/12 17:02:23 sam_marshall Exp $
 
 function glossary_filter($courseid, $text) {
     global $CFG;
@@ -52,28 +52,26 @@ function glossary_filter($courseid, $text) {
    
 
     /// Pull out all the raw data from the database for entries, categories and aliases
-        $entries = get_records_select('glossary_entries', 
-                                      'glossaryid IN ('.$glossarylist.') AND usedynalink != 0 AND '.
-                                      'approved != 0 AND concept != \'\'','',
-                                      'id,glossaryid, concept,casesensitive,0 AS category,fullmatch');
+        $entries = get_records_select('glossary_entries',
+                                      'glossaryid IN ('.$glossarylist.') AND usedynalink != 0 AND approved != 0 ', '',
+                                      'id,glossaryid, concept, casesensitive, 0 AS category, fullmatch');
 
-        $categories = get_records_select('glossary_categories', 
+        $categories = get_records_select('glossary_categories',
                                          'glossaryid IN ('.$glossarylist.') AND usedynalink != 0', '',
-                                         'id,glossaryid,name AS concept, '.
-                                         '1 AS casesensitive, 1 AS category, 1 AS fullmatch');
-    
-        $aliases = get_records_sql('SELECT ga.id, ge.glossaryid, ga.alias as concept, ge.concept as originalconcept, 
-                                           casesensitive, 0 AS category, fullmatch 
-                                      FROM '.$CFG->prefix.'glossary_alias ga, 
+                                         'id,glossaryid,name AS concept, 1 AS casesensitive, 1 AS category, 1 AS fullmatch');
+
+        $aliases = get_records_sql('SELECT ga.id, ge.glossaryid, ga.alias as concept, ge.concept as originalconcept,
+                                           casesensitive, 0 AS category, fullmatch
+                                      FROM '.$CFG->prefix.'glossary_alias ga,
                                            '.$CFG->prefix.'glossary_entries ge
                                      WHERE ga.entryid = ge.id
                                        AND ge.glossaryid IN ('.$glossarylist.')
-                                       AND ge.usedynalink != 0 
-                                       AND ge.approved != 0
-                                       AND ge.concept != \'\'  ');
+                                       AND ge.usedynalink != 0
+                                       AND ge.approved != 0');
 
 
     /// Combine them into one big list
+        $concepts = array();
         if ($entries and $categories) {
             $concepts = array_merge($entries, $categories);
         } else if ($categories) {
@@ -81,11 +79,11 @@ function glossary_filter($courseid, $text) {
         } else if ($entries) {
             $concepts = $entries;
         }
-    
+
         if ($aliases) {
             $concepts = array_merge($concepts, $aliases);
         }
-    
+
         if (!empty($concepts)) {
             foreach ($concepts as $key => $concept) {
             /// Trim empty or unlinkable concepts
@@ -150,6 +148,17 @@ function glossary_filter($courseid, $text) {
         }
 
         $conceptlist = filter_remove_duplicates($conceptlist);
+    }
+    
+    global $GLOSSARY_EXCLUDECONCEPTS;
+    if(!empty($GLOSSARY_EXCLUDECONCEPTS)) {
+        $reducedconceptlist=array();
+        foreach($conceptlist as $concept) {
+            if(!in_array($concept->phrase,$GLOSSARY_EXCLUDECONCEPTS)) {
+                $reducedconceptlist[]=$concept;
+            }
+        }
+        return filter_phrases($text, $reducedconceptlist);
     }
 
     return filter_phrases($text, $conceptlist);   // Actually search for concepts!

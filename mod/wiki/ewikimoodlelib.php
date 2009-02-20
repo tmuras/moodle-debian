@@ -119,7 +119,7 @@ function ewiki_database_moodle($action, &$args, $sw1, $sw2) {
          }
 
          # Write
-         $result=insert_record(EWIKI_DB_TABLE_NAME,$args,false);
+         $result=insert_record(EWIKI_DB_TABLE_NAME,(object)$args,false);
 
          #$result = mysql_query("$COMMAND INTO " . EWIKI_DB_TABLE_NAME .
          #   " (" . $sql1 . ") VALUES (" . $sql2 . ")"
@@ -161,7 +161,7 @@ function ewiki_database_moodle($action, &$args, $sw1, $sw2) {
          }
          break;
 
-      /* Counts the number of Versions 
+      /* Counts the number of Versions
       */
       case "COUNTVERSIONS":
          $sql= "SELECT pagename AS id, count(*) as versioncount".
@@ -175,51 +175,53 @@ function ewiki_database_moodle($action, &$args, $sw1, $sw2) {
             $r[$key]=$val->versioncount;
          }
       break;
-      
-      /*  Returns an array of __all__ pages, where each entry is made up
-          of the fields from the database requested with the $args array,
-          e.g. array("flags","meta","lastmodified");
+
+      /*  Returns an array of the lastest versions of __all__ pages,
+          where each entry is made up of the fields from the database
+          requested with the $args array, e.g.
+          array("flags","meta","lastmodified");
       */
       case "GETALL":
          switch ($CFG->dbfamily) {
              case 'postgres':
-                 $sql= "SELECT pagename AS id, ".
+                 // All but the latest version eliminated by DISTINCT
+                 // ON (pagename)
+                 $sql= "SELECT DISTINCT ON (pagename) pagename AS id, ".
                       implode(", ", $args) .
                       " FROM ". $CFG->prefix.EWIKI_DB_TABLE_NAME .
                       " WHERE wiki = ".$wiki_entry->id.
-                      " GROUP BY pagename, ".implode(", ", $args);
+                      " ORDER BY pagename, version DESC";
                  break;
-             default:
+             case 'mysql':
+                 // All but the latest version eliminated by
+                 // mysql-specific GROUP BY-semantics
                  $sql= "SELECT pagename AS id, ".
                  implode(", ", $args) .
                       " FROM ". $CFG->prefix.EWIKI_DB_TABLE_NAME .
                       " WHERE wiki = ".$wiki_entry->id.
-                      " GROUP BY id, version " ;
+                      " GROUP BY id, version DESC " ;
+             default:
+                 // All but the latest version are here eliminated in
+                 // get_records_sql, since it will return an array
+                 // with only one result per id-field value. Note,
+                 // that for this to work the query needs to order the
+                 // records ascending by version, so later versions
+                 // will overwrite previous ones in
+                 // recordset_to_array. This is not pretty.
+                 $sql= "SELECT pagename AS id, ".
+                 implode(", ", $args) .
+                      " FROM ". $CFG->prefix.EWIKI_DB_TABLE_NAME .
+                      " WHERE wiki = ".$wiki_entry->id.
+                      " ORDER BY version";
          }
 
-         #print "$sql";
          $result=get_records_sql($sql);
          $r = new ewiki_dbquery_result($args);
 
-         $drop = "";
-         #while ($result && ($row = mysql_fetch_array($result, MYSQL_ASSOC))) {
-         #   $i = EWIKI_CASE_INSENSITIVE ? strtolower($row["id"]) : $row["id"];
-         #   if ($i != $drop) {
-         #      $drop = $i;
-         #      $r->add($row);
-         #   }
-         #}
-         #print "<pre>"; print_r($result); print "</pre>";
-         if(!$result) {
-           $result=array();
-         }
-         while(list($key, $val) = each($result)) {
-            $row=get_object_vars($val);
-            $i = EWIKI_CASE_INSENSITIVE ? strtolower($row["id"]) : $row["id"];
-            if ($i != $drop) {
-               $drop = $i;
-               $r->add($row);
-            }
+         if ($result) {
+             foreach($result as $val) {
+                 $r->add(get_object_vars($val));
+             }
          }
 
          break;
@@ -299,18 +301,6 @@ function ewiki_database_moodle($action, &$args, $sw1, $sw2) {
 }
 
 function anydb_escape_string($s) {
-   global $CFG ;
-   switch ($CFG->dbfamily) {
-        case 'mysql':
-            $s = mysql_escape_string($s);
-            break;
-        case 'postgres':
-            $s = pg_escape_string($s);
-            break;
-        default:
-            $s = addslashes($s);
-   }
-
-   return($s);
+   return(addslashes($s));
 }
 

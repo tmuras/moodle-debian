@@ -1,4 +1,4 @@
-<?php // $Id: discussion.php,v 1.13 2007/01/03 20:35:10 skodak Exp $
+<?php // $Id: discussion.php,v 1.15.2.5 2008/07/05 14:53:32 skodak Exp $
 
     require('../config.php');
     require('lib.php');
@@ -22,6 +22,13 @@
         error("User ID was incorrect");
     }
 
+    if ($user->deleted) {
+        print_header();
+        print_heading(get_string('userdeleted'));
+        print_footer();
+        die;
+    }
+
 /// Check if frame&jsless mode selected
     if (!get_user_preferences('message_noframesjs', 0) and !$noframesjs) {
 
@@ -35,9 +42,9 @@
        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
        <title><?php echo get_string('discussion', 'message').': '.fullname($user) ?></title>
      </head>
-     <frameset rows="110,*,0,200">
+     <frameset rows="110,*,0,220">
        <noframes><body><?php
-           echo '<a href="discussion.php?id='.$userid.'&amp;noframesjs=1">'.get_string('noframesjs', 'message').'<a/>';
+           echo '<a href="discussion.php?id='.$userid.'&amp;noframesjs=1">'.get_string('noframesjs', 'message').'</a>';
        ?></body></noframes>
 
        <frame src="user.php?id=<?php p($user->id)?>&amp;frame=user"     name="user"
@@ -46,6 +53,7 @@
               scrolling="yes" marginwidth="10" marginheight="10" frameborder="0" />
        <frame src="refresh.php?id=<?php p($user->id)?>&amp;name=<?php echo urlencode(fullname($user)) ?>"  name="refresh"
               scrolling="no"  marginwidth="0" marginheight="0" frameborder="0" />
+       
        <frame src="send.php?id=<?php p($user->id)?>"     name="send"
               scrolling="no"  marginwidth="2" marginheight="2" frameborder="0" />
      </frameset>
@@ -92,7 +100,7 @@
 
 /// Check that the user is not blocking us!!
     if ($contact = get_record('message_contacts', 'userid', $user->id, 'contactid', $USER->id)) {
-        if ($contact->blocked and !has_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_SYSTEM, SITEID))) {
+        if ($contact->blocked and !has_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_SYSTEM))) {
             print_heading(get_string('userisblockingyou', 'message'));
             exit;
         }
@@ -123,7 +131,7 @@
     print_header(get_string('discussion', 'message').': '.fullname($user), '', '', 'edit-message');
     echo '<div class="message-discussion-noframes">';
     echo '<div id="userinfo">';
-    echo print_user_picture($user->id, SITEID, $user->picture, 48, true, true, 'userwindow');
+    echo print_user_picture($user, SITEID, $user->picture, 48, true, true, 'userwindow');
     echo '<div class="name"><h1>'.$userfullname.'</h1></div>';
     echo '<div class="commands"><ul>';
     if ($contact = get_record('message_contacts', 'userid', $USER->id, 'contactid', $user->id)) {
@@ -198,8 +206,8 @@
 
     if ($messages = get_records_select('message_read', "(useridto = '$USER->id' AND useridfrom = '$userid' AND timeread > '$start' $lastsql) OR (useridto = '$userid' AND useridfrom = '$USER->id' AND timeread > '$start' $lastsql)")) {
         foreach ($messages as $message) {
-            $time = userdate($message->timecreated, get_string('strftimedaytime'));
-
+            $time = userdate($message->timecreated, get_string('strftimedatetimeshort'));
+            
             if ($message->useridfrom == $USER->id) {
                 $fullname = $mefullname;
             } else {
@@ -222,7 +230,7 @@
 
     if ($messages = get_records_select('message', "useridto = '$userid' AND useridfrom = '$USER->id' $lastsql")) {
         foreach ($messages as $message) {
-            $time = userdate($message->timecreated, get_string('strftimedaytime'));
+            $time = userdate($message->timecreated, get_string('strftimedatetimeshort'));
 
             $printmessage = format_text($message->message, $message->format, $options, 0);
             $printmessage = '<div class="message other"><span class="author">'.$mefullname.'</span> '.
@@ -240,7 +248,7 @@
 
     if ($messages = get_records_select('message', "useridto = '$USER->id' AND useridfrom = '$userid' $lastsql")) {
         foreach ($messages as $message) {
-            $time = userdate($message->timecreated, get_string('strftimedaytime'));
+            $time = userdate($message->timecreated, get_string('strftimedatetimeshort'));
 
             $printmessage = format_text($message->message, $message->format, $options, 0);
             $printmessage = '<div class="message other"><span class="author">'.$userfullname.'</span> '.

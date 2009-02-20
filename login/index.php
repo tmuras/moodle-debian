@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.109.2.13 2007/07/06 17:39:56 stronk7 Exp $
+<?php // $Id: index.php,v 1.129.2.3 2008/05/18 21:26:57 iarenaza Exp $
 
 
     require_once("../config.php");
@@ -14,6 +14,7 @@
 
     //initialize variables
     $errormsg = '';
+    $errorcode = 0;
 
 /// Check for timed out sessions
     if (!empty($SESSION->has_timed_out)) {
@@ -24,7 +25,7 @@
     }
 
 /// Check if the guest user exists.  If not, create one.
-    if (! record_exists('user', 'username', 'guest')) {
+    if (! record_exists('user', 'username', 'guest', 'mnethostid', $CFG->mnet_localhost_id)) {
         if (! $guest = create_guest_record()) {
             notify('Could not create guest user record !!!');
         }
@@ -63,14 +64,13 @@ httpsrequired();
     } else {
         $currlang = current_language();
         $langs    = get_list_of_languages();
-        $langlabel = '<span class="accesshide">'.get_string('language').':</span>';
+        $langlabel = get_accesshide(get_string('language'));
         $langmenu = popup_form ("$CFG->httpswwwroot/login/index.php?lang=", $langs, "chooselang", $currlang, "", "", "", true, 'self', $langlabel);
     }
 
     $loginsite = get_string("loginsite");
-
-    $loginurl = (!empty($CFG->alternateloginurl)) ? $CFG->alternateloginurl : '';
-
+    $navlinks = array(array('name' => $loginsite, 'link' => null, 'type' => 'misc'));
+    $navigation = build_navigation($navlinks);
 
     if ($user !== false or $frm !== false) {
         // some auth plugin already supplied these
@@ -90,11 +90,11 @@ httpsrequired();
         if ($user) {
             $frm->username = $user->username;
         } else {
-            $frm = data_submitted($loginurl);
+            $frm = data_submitted();
         }
 
     } else {
-        $frm = data_submitted($loginurl);
+        $frm = data_submitted();
     }
 
 /// Check if the user has actually submitted login data to us
@@ -102,6 +102,7 @@ httpsrequired();
     if (empty($CFG->usesid) and $testcookies and (get_moodle_cookie() == '')) {    // Login without cookie when test requested
 
         $errormsg = get_string("cookiesnotenabled");
+        $errorcode = 1;
 
     } else if ($frm) {                             // Login WITH cookies
 
@@ -111,6 +112,8 @@ httpsrequired();
             $string = eregi_replace("[^(-\.[:alnum:])]", "", $frm->username);
             if (strcmp($frm->username, $string)) {
                 $errormsg = get_string('username').': '.get_string("alphanumerical");
+                $errorcode = 2;
+
                 $user = null;
             }
         }
@@ -140,56 +143,24 @@ httpsrequired();
             }
 
             if (empty($user->confirmed)) {       // This account was never confirmed
-                print_header(get_string("mustconfirm"), get_string("mustconfirm") ); 
+                print_header(get_string("mustconfirm"), get_string("mustconfirm") );
                 print_heading(get_string("mustconfirm"));
                 print_simple_box(get_string("emailconfirmsent", "", $user->email), "center");
                 print_footer();
                 die;
             }
 
-            // Let's get them all set up.
-            $USER = $user;
-
-            add_to_log(SITEID, 'user', 'login', "view.php?id=$USER->id&course=".SITEID, $USER->id, 0, $USER->id);
-
-
-            update_user_login_times();
-            if (empty($CFG->nolastloggedin)) {
-                set_moodle_cookie($USER->username);
-            } else {
-                // do not store last logged in user in cookie
-                // auth plugins can temporarily override this from loginpage_hook()
-                // do not save $CFG->nolastloggedin in database!
-                set_moodle_cookie('nobody');
-            }
-            set_login_session_preferences();
-
-            /// This is what lets the user do anything on the site :-)
-            load_all_capabilities();
-
-            //Select password change url
-            $userauth = get_auth_plugin($USER->auth);
-            if ($userauth->can_change_password()) {
-                if ($userauth->change_password_url()) {
-                    $passwordchangeurl = $userauth->change_password_url();
-                } else {
-                    $passwordchangeurl = $CFG->httpswwwroot.'/login/change_password.php';
-                }
-            } else {
-                $passwordchangeurl = '';
+            if ($frm->password == 'changeme') {
+                //force the change
+                set_user_preference('auth_forcepasswordchange', true, $user->id);
             }
 
-            // check whether the user should be changing password
-            if (get_user_preferences('auth_forcepasswordchange', false) || $frm->password == 'changeme'){
-                if ($passwordchangeurl != '') {
-                    redirect($passwordchangeurl);
-                } else {
-                    error(get_strin('nopasswordchangeforced', 'auth'));
-                }
-            }
+        /// Let's get them all set up.
+            add_to_log(SITEID, 'user', 'login', "view.php?id=$USER->id&course=".SITEID,
+                       $user->id, 0, $user->id);
+            $USER = complete_user_login($user);
 
-
-          /// Prepare redirection
+        /// Prepare redirection
             if (user_not_fully_set_up($USER)) {
                 $urltogo = $CFG->wwwroot.'/user/edit.php';
                 // We don't delete $SESSION->wantsurl yet, so we get there later
@@ -204,7 +175,7 @@ httpsrequired();
                 unset($SESSION->wantsurl);
             }
 
-          /// Go to my-moodle page instead of homepage if mymoodleredirect enabled
+        /// Go to my-moodle page instead of homepage if mymoodleredirect enabled
             if (!has_capability('moodle/site:config',get_context_instance(CONTEXT_SYSTEM)) and !empty($CFG->mymoodleredirect) and !isguest()) {
                 if ($urltogo == $CFG->wwwroot or $urltogo == $CFG->wwwroot.'/' or $urltogo == $CFG->wwwroot.'/index.php') {
                     $urltogo = $CFG->wwwroot.'/my/';
@@ -212,21 +183,27 @@ httpsrequired();
             }
 
 
-            // check if user password has expired
-            // Currently supported only for ldap-authentication module
+        /// check if user password has expired
+        /// Currently supported only for ldap-authentication module
+            $userauth = get_auth_plugin($USER->auth);
             if (!empty($userauth->config->expiration) and $userauth->config->expiration == 1) {
-                    $days2expire = $userauth->password_expire($USER->username);
-                        if (intval($days2expire) > 0 && intval($days2expire) < intval($userauth->config->expiration_warning)) {
-                        print_header("$site->fullname: $loginsite", "$site->fullname", $loginsite, $focus, "", true, "<div class=\"langmenu\">$langmenu</div>"); 
-                        notice_yesno(get_string('auth_passwordwillexpire', 'auth', $days2expire), $passwordchangeurl, $urltogo); 
-                        print_footer();
-                        exit;
-                    } elseif (intval($days2expire) < 0 ) {
-                        print_header("$site->fullname: $loginsite", "$site->fullname", $loginsite, $focus, "", true, "<div class=\"langmenu\">$langmenu</div>"); 
-                        notice_yesno(get_string('auth_passwordisexpired', 'auth'), $passwordchangeurl, $urltogo);
-                        print_footer();
-                        exit;
-                    }    
+                if ($userauth->can_change_password()) {
+                    $passwordchangeurl = $userauth->change_password_url();
+                } else {
+                    $passwordchangeurl = $CFG->httpswwwroot.'/login/change_password.php';
+                }
+                $days2expire = $userauth->password_expire($USER->username);
+                if (intval($days2expire) > 0 && intval($days2expire) < intval($userauth->config->expiration_warning)) {
+                    print_header("$site->fullname: $loginsite", "$site->fullname", $navigation, '', '', true, "<div class=\"langmenu\">$langmenu</div>");
+                    notice_yesno(get_string('auth_passwordwillexpire', 'auth', $days2expire), $passwordchangeurl, $urltogo);
+                    print_footer();
+                    exit;
+                } elseif (intval($days2expire) < 0 ) {
+                    print_header("$site->fullname: $loginsite", "$site->fullname", $navigation, '', '', true, "<div class=\"langmenu\">$langmenu</div>");
+                    notice_yesno(get_string('auth_passwordisexpired', 'auth'), $passwordchangeurl, $urltogo);
+                    print_footer();
+                    exit;
+                }
             }
 
             reset_login_count();
@@ -234,14 +211,15 @@ httpsrequired();
             redirect($urltogo);
 
             exit;
-    
+
         } else {
             if (empty($errormsg)) {
                 $errormsg = get_string("invalidlogin");
+                $errorcode = 3;
             }
 
             // TODO: if the user failed to authenticate, check if the username corresponds to a remote mnet user
-            if ( !empty($CFG->mnet_dispatcher_mode) 
+            if ( !empty($CFG->mnet_dispatcher_mode)
                  && $CFG->mnet_dispatcher_mode === 'strict'
                  && is_enabled_auth('mnet')) {
                 $errormsg .= get_string('loginlinkmnetuser', 'mnet', "mnet_email.php?u=$frm->username");
@@ -249,40 +227,56 @@ httpsrequired();
         }
     }
 
-    
-/// We need to show a login form
+/// Detect problems with timedout sessions
+    if ($session_has_timed_out and !data_submitted()) {
+        $errormsg = get_string('sessionerroruser', 'error');
+        $errorcode = 4;
+    }
 
 /// First, let's remember where the user was trying to get to before they got here
 
     if (empty($SESSION->wantsurl)) {
-        $SESSION->wantsurl = (array_key_exists('HTTP_REFERER',$_SERVER) && 
-                              $_SERVER["HTTP_REFERER"] != $CFG->wwwroot && 
+        $SESSION->wantsurl = (array_key_exists('HTTP_REFERER',$_SERVER) &&
+                              $_SERVER["HTTP_REFERER"] != $CFG->wwwroot &&
                               $_SERVER["HTTP_REFERER"] != $CFG->wwwroot.'/' &&
                               $_SERVER["HTTP_REFERER"] != $CFG->httpswwwroot.'/login/' &&
                               $_SERVER["HTTP_REFERER"] != $CFG->httpswwwroot.'/login/index.php')
             ? $_SERVER["HTTP_REFERER"] : NULL;
     }
 
-    if (!empty($loginurl)) {   // We don't want the standard forms, go elsewhere
+/// Redirect to alternative login URL if needed
+    if (!empty($CFG->alternateloginurl)) {
+        $loginurl = $CFG->alternateloginurl;
+
+        if (strpos($SESSION->wantsurl, $loginurl) === 0) {
+            //we do not want to return to alternate url
+            $SESSION->wantsurl = NULL;
+        }
+
+        if ($errorcode) {
+            if (strpos($loginurl, '?') === false) {
+                $loginurl .= '?';
+            } else {
+                $loginurl .= '&';
+            }
+            $loginurl .= 'errorcode='.$errorcode;
+        }
+
         redirect($loginurl);
     }
-    
+
 
 /// Generate the login page with forms
 
-    if ($session_has_timed_out) {
-        $errormsg = get_string('sessionerroruser', 'error');
-    }
-
-    if (get_moodle_cookie() == '') {   
+    if (get_moodle_cookie() == '') {
         set_moodle_cookie('nobody');   // To help search for cookies
     }
-    
+
     if (empty($frm->username) && $authsequence[0] != 'shibboleth') {  // See bug 5184
         $frm->username = get_moodle_cookie() === 'nobody' ? '' : get_moodle_cookie();
         $frm->password = "";
     }
-    
+
     if (!empty($frm->username)) {
         $focus = "password";
     } else {
@@ -295,8 +289,8 @@ httpsrequired();
         $show_instructions = false;
     }
 
-    print_header("$site->fullname: $loginsite", $site->fullname, $loginsite, $focus, 
-                 '', true, '<div class="langmenu">'.$langmenu.'</div>'); 
+    print_header("$site->fullname: $loginsite", $site->fullname, $navigation, $focus,
+                 '', true, '<div class="langmenu">'.$langmenu.'</div>');
 
     include("index_form.html");
 

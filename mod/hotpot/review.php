@@ -1,4 +1,4 @@
-<?PHP // $Id: review.php,v 1.11.2.1 2007/02/28 05:36:24 nicolasconnault Exp $
+<?PHP // $Id: review.php,v 1.17.2.4 2008/04/02 06:10:04 dongsheng Exp $
 // This page prints a review of a particular quiz attempt
     require_once("../../config.php");
     require_once("lib.php");
@@ -31,15 +31,21 @@
     if (! $attempt = get_record("hotpot_attempts", "id", $attempt)) {
         error("Attempt ID was incorrect");
     }
-    
+
+    require_login($course);
+
+    // check user can access this hotpot activity
+    if (!hotpot_is_visible($cm)) {
+        print_error("activityiscurrentlyhidden");
+    }
+
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-    require_login($course->id);
     if (!has_capability('mod/hotpot:viewreport',$context)) {
         if (!$hotpot->review) {
-            error(get_string("noreview", "quiz"));
+            print_error("noreview", "quiz");
         }
         //if (time() < $hotpot->timeclose) {
-        //  error(get_string("noreviewuntil", "quiz", userdate($hotpot->timeclose)));
+        //  print_error("noreviewuntil", "quiz", '', userdate($hotpot->timeclose));
         //}
         if ($attempt->userid != $USER->id) {
             error("This is not your attempt!");
@@ -52,10 +58,8 @@
     // print header
     $title = format_string($course->shortname) . ": $hotpot->name";
     $heading = $course->fullname;
-    $navigation = "<a href=\"index.php?id=$course->id\">$strmodulenameplural</a> -> ".get_string("review", "quiz");
-    if ($course->id != SITEID) {
-        $navigation = "<a href=\"../../course/view.php?id=$course->id\">$course->shortname</a> -> $navigation";
-    }
+
+    $navigation = build_navigation('', $cm);
     $button = update_module_button($cm->id, $course->id, $strmodulename);
     print_header($title, $heading, $navigation, "", "", true, $button, navmenu($course, $cm));
     print '<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>'; // for overlib
@@ -103,10 +107,10 @@ function hotpot_print_attempt_summary(&$hotpot, &$attempt) {
                 $value = hotpot_format_status($attempt);
                 break;
             case 'timerecorded':
-                $value = empty($attempt->timefinish) ? '-' : userdate($attempt->timefinish); 
+                $value = empty($attempt->timefinish) ? '-' : userdate($attempt->timefinish);
                 break;
             case 'timetaken':
-                $value = empty($attempt->timefinish) ? '-' : format_time($attempt->timefinish - $attempt->timestart); 
+                $value = empty($attempt->timefinish) ? '-' : format_time($attempt->timefinish - $attempt->timestart);
                 break;
             default:
                 $value = isset($attempt->$field) ? $attempt->$field : NULL;

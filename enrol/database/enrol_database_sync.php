@@ -1,4 +1,4 @@
-<?php // $Id: enrol_database_sync.php,v 1.5.4.1 2007/06/18 10:27:08 thepurpleblob Exp $
+<?php // $Id: enrol_database_sync.php,v 1.6.2.1 2008/01/02 22:35:33 skodak Exp $
 
     if(!empty($_SERVER['GATEWAY_INTERFACE'])){
         error_log("should not be called from apache!");
@@ -14,6 +14,12 @@
 
     // ensure errors are well explained
     $CFG->debug=E_ALL;
+
+    if (!is_enabled_enrol('database')) {
+         error_log("Database enrol plugin not enabled!");
+         die;
+    }
+
     // update enrolments -- these handlers should autocreate courses if required
     $enrol = new enrolment_plugin_database();
 

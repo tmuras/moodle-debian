@@ -37,7 +37,7 @@
 
 .tabrow0 div,
 .tabrow0 ul {
-  top: 2.7em;
+  top: 3.5em;
   padding: 0.2em 0;
 }
 
@@ -45,6 +45,22 @@ form.mform input {
   margin-left: expression((this.type=="text"||this.type=="file"||this.type=="password")?'-10px':'0');
 }
 
+#admin-user-user_bulk form.mform input,
+#admin-user form.mform input {
+  margin-left: 0;
+}
+
 form.mform textarea {
  margin-left: -10px;
 }
+
+.que .info {
+  margin-left: 0.6em;
+}
+
+#adminsettings .form-setting,
+#adminsettings .form-description {
+  display:inline-block; padding-left:2px;
+}
+
+

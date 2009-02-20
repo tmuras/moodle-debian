@@ -1,6 +1,7 @@
-<?PHP // $Id: calendar.php,v 1.6.2.1 2007/02/27 00:58:47 moodler Exp $ 
+<?PHP // $Id: calendar.php,v 1.10.4.1 2007/11/29 14:40:46 skodak Exp $ 
       // calendar.php - created with Moodle 1.7 beta + (2006101003)
 
+$string['allday'] = 'All day';
 $string['advancedoptions'] = 'Advanced options';
 $string['calendar'] = 'Calendar';
 $string['calendarheading'] = '$a Calendar';
@@ -8,12 +9,15 @@ $string['clickhide'] = 'click to hide';
 $string['clickshow'] = 'click to show';
 $string['commontasks'] = 'Options';
 $string['confirmeventdelete'] = 'Are you sure you want to delete this event?';
+$string['course'] = 'Course';
 $string['courseevent'] = 'Course event';
 $string['courseevents'] = 'Course events';
+$string['courses'] = 'Courses';
 $string['dayview'] = 'Day View';
 $string['daywithnoevents'] = 'There are no events this day.';
 $string['default'] = 'Default';
 $string['deleteevent'] = 'Delete event';
+$string['deleteevents'] = 'Delete events';
 $string['detailedmonthview'] = 'Detailed Month View';
 $string['durationminutes'] = 'Duration in minutes';
 $string['durationnone'] = 'Without duration';
@@ -36,6 +40,7 @@ $string['eventnone'] = 'No events';
 $string['eventrepeat'] = 'Repeats';
 $string['eventsall'] = 'All events';
 $string['eventsfor'] = '$a events';
+$string['eventskey'] = 'Events Key';
 $string['eventsrelatedtocourses'] = 'Events related to courses';
 $string['eventstarttime'] = 'Start time';
 $string['eventtime'] = 'Time';
@@ -54,9 +59,11 @@ $string['for'] = 'for';
 $string['fri'] = 'Fri';
 $string['friday'] = 'Friday';
 $string['generateurlbutton'] = 'Get calendar URL';
+$string['global'] = 'Global';
 $string['globalevent'] = 'Global event';
 $string['globalevents'] = 'Global events';
 $string['gotocalendar'] = 'Go to calendar';
+$string['group'] = 'Group';
 $string['groupevent'] = 'Group event';
 $string['groupevents'] = 'Group events';
 $string['hidden'] = 'hidden';
@@ -115,6 +122,7 @@ $string['typesite'] = 'Site event';
 $string['typeuser'] = 'User event';
 $string['upcomingevents'] = 'Upcoming Events';
 $string['urlforical'] = 'URL for iCalendar export, for subscribing to calendar';
+$string['user'] = 'User';
 $string['userevent'] = 'User event';
 $string['userevents'] = 'User events';
 $string['wed'] = 'Wed';
