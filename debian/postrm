@@ -26,7 +26,7 @@ case "$1" in
 
 	rm -f /etc/${webserver}/conf.d/moodle
 	restart="${webserver}"
-	. /usr/share/wwwconfig-common/restart.sh
+	. /usr/share/wwwconfig-common/restart.sh || true
 
 	rm -rf /usr/share/moodle
 	ucf --purge /etc/moodle/config.php

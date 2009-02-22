@@ -170,7 +170,7 @@ case "$1" in
 	# if [ "$status" = "uncomment" -o "$status" = "include" ]; then
 	    restart=" ${server} ${restart}"
 	# fi
-	. /usr/share/wwwconfig-common/restart.sh
+	. /usr/share/wwwconfig-common/restart.sh || true
 
 	# care about the database creation
 

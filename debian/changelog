@@ -13,6 +13,8 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
   * Add a watch file
   * Update copyright file
 
+  * Prevent errors when restarting apache fails (closes: #389502)
+
   Dependencies:
   * Depend on libjs-yui instead of yui (renamed after lenny)
   * Add dependency on unzip
