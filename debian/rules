@@ -49,7 +49,6 @@ binary-indep: install
 
 	find debian/moodle/usr -type f -exec chmod 644 {} \;
 	find debian/moodle/usr -type d -exec chmod 755 {} \;
-	chmod 755 debian/moodle/usr/share/moodle/lib/editor/htmlarea/plugins/SpellChecker/spell-check-logic.cgi
 	chmod 755 debian/moodle/usr/share/moodle/mod/chat/chatd.php
 	chmod 755 debian/moodle/usr/share/moodle/admin/mailout-debugger.php
 	rm debian/moodle/usr/share/moodle/mod/chat/chatd.php
@@ -60,6 +59,7 @@ binary-indep: install
 	rm debian/moodle/usr/share/moodle/admin/delete.php
 	rm debian/moodle/usr/share/moodle/mod/wiki/ewiki/fragments/mkhuge
 	rm debian/moodle/usr/share/moodle/search/.cvsignore
+	rm -rf debian/moodle/usr/share/moodle/lib/editor/htmlarea/plugins/SpellChecker
 
 	rm -rf debian/moodle/usr/share/moodle/lib/smarty
 	rm -rf debian/moodle/usr/share/moodle/lib/yui
