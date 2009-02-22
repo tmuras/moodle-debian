@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Moodle Packaging Team <moodle-packaging@catalyst.net.nz>
 Uploaders: Francois Marier <francois@debian.org>, Penny Leach <penny@mjollnir.org>, Mathieu Petit-Clair <mat@moodle.com>, Dan Poltawski <talktodan@gmail.com>
 Build-Depends-Indep: po-debconf
-Build-Depends: debhelper (>= 4.1.13), dpatch
+Build-Depends: debhelper (>= 7), dpatch
 Standards-Version: 3.8.0
 Homepage: http://www.moodle.org/
 Vcs-Git: git://git.debian.org/git/pkg-moodle/moodle.git

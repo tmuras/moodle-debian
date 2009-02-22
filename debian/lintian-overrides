@@ -1,0 +1,6 @@
+# Moodle uses customised versions of these libraries
+moodle: embedded-php-library usr/share/moodle/lib/adodb/adodb.inc.php
+moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/tiny_mce.js
+moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/tiny_mce_popup.js
+moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/tiny_mce_src.js
+moodle: embedded-php-library usr/share/moodle/lib/phpmailer/class.phpmailer.php
