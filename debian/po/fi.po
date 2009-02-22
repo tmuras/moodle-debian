@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moodle 1.8.2-1.1\n"
 "Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
-"POT-Creation-Date: 2008-03-10 07:24+0100\n"
+"POT-Creation-Date: 2009-02-22 22:56+1300\n"
 "PO-Revision-Date: 2008-02-27 20:49+0200\n"
 "Last-Translator: Esko Arajärvi <edu@iki.fi>\n"
 "Language-Team: Finnish <debian-l10n-finnish@lists.debian.org>\n"
@@ -15,24 +15,12 @@ msgstr ""
 #. Type: select
 #. Description
 #: ../templates:1001
-msgid "Web server software:"
-msgstr "Verkkopalvelinohjelma:"
-
-#. Type: select
-#. Description
-#: ../templates:1001
-msgid "Please choose the web server software you will use with Moodle."
-msgstr "Valitse palvelinohjelma, jonka kanssa käytät Moodlea."
-
-#. Type: select
-#. Description
-#: ../templates:2001
 msgid "Database server software for Moodle:"
 msgstr "Tietokantapalvelinohjelma Moodlelle:"
 
 #. Type: select
 #. Description
-#: ../templates:2001
+#: ../templates:1001
 msgid ""
 "Moodle can work with either MySQL or PostgreSQL. Please choose which one you "
 "want to use."
@@ -42,9 +30,30 @@ msgstr ""
 
 #. Type: select
 #. Description
-#: ../templates:2001
+#: ../templates:1001
 msgid "Please check that it is installed before continuing."
 msgstr "Tarkista, että se on asennettuna ennen kuin jatkat."
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid "Should a default postgres database be created for Moodle on localhost?"
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid ""
+"If you want, a database can be automatically created on localhost for Moodle."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid ""
+"Otherwise, you will need to create the database and configure access to it "
+"manually."
+msgstr ""
 
 #. Type: string
 #. Description
@@ -170,21 +179,55 @@ msgstr ""
 #. Type: note
 #. Description
 #: ../templates:12001
-msgid "Warning - Moodle database tables not created"
+#, fuzzy
+#| msgid "Warning - Moodle database tables not created"
+msgid "Warning - Moodle tables not created in database"
 msgstr "Varoitus - Moodlen tietokantatauluja ei luotu"
 
 #. Type: note
 #. Description
 #: ../templates:12001
+#, fuzzy
+#| msgid ""
+#| "The Moodle install script will create the database, but the tables are to "
+#| "be created with a PHP script. Please launch it right after the install:"
 msgid ""
-"The Moodle install script will create the database, but the tables are to be "
-"created with a PHP script. Please launch it right after the install:"
+"This install script will create the Moodle database, but the tables need to "
+"be created by Moodle itself. Please launch Moodle immediately after this "
+"installation completes:"
 msgstr ""
 "Moodlen asennuskomentosarja luo tietokannan, mutta taulut luodaan PHP-"
 "komentosarjalla. Käynnistä se heti asennuksen jälkeen:"
 
 #. Type: note
 #. Description
-#: ../templates:12001
+#. Type: note
+#. Description
+#: ../templates:12001 ../templates:13001
 msgid "http://localhost/moodle/admin"
 msgstr "http://localhost/moodle/admin"
+
+#. Type: note
+#. Description
+#: ../templates:13001
+#, fuzzy
+#| msgid "Warning - Moodle database tables not created"
+msgid "Warning - Moodle database not created"
+msgstr "Varoitus - Moodlen tietokantatauluja ei luotu"
+
+#. Type: note
+#. Description
+#: ../templates:13001
+msgid ""
+"You will need to create your Moodle database manually and configure access "
+"to it according to the settings you specified during this installation. See "
+"your Moodle's config.php. Once you create the database, the tables will need "
+"to be created by Moodle itself. Launch it immediately after configuring your "
+"database:"
+msgstr ""
+
+#~ msgid "Web server software:"
+#~ msgstr "Verkkopalvelinohjelma:"
+
+#~ msgid "Please choose the web server software you will use with Moodle."
+#~ msgstr "Valitse palvelinohjelma, jonka kanssa käytät Moodlea."

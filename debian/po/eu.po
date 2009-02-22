@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moodle-templates\n"
 "Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
-"POT-Creation-Date: 2008-03-10 07:24+0100\n"
+"POT-Creation-Date: 2009-02-22 22:56+1300\n"
 "PO-Revision-Date: 2008-03-10 10:43+0100\n"
 "Last-Translator: Piarres Beobide <pi@beobide.net>\n"
 "Language-Team: Euskara <Librezale@librezale.org>\n"
@@ -19,25 +19,12 @@ msgstr ""
 #. Type: select
 #. Description
 #: ../templates:1001
-msgid "Web server software:"
-msgstr "Web zerbitzari softwarea:"
-
-#. Type: select
-#. Description
-#: ../templates:1001
-msgid "Please choose the web server software you will use with Moodle."
-msgstr ""
-"Mesedez hautatu moodle-rekin erabili nahi duzun web zerbitzari softwarea."
-
-#. Type: select
-#. Description
-#: ../templates:2001
 msgid "Database server software for Moodle:"
 msgstr "Moodle-k erabiliko duen datubase zerbitzaria:"
 
 #. Type: select
 #. Description
-#: ../templates:2001
+#: ../templates:1001
 msgid ""
 "Moodle can work with either MySQL or PostgreSQL. Please choose which one you "
 "want to use."
@@ -47,9 +34,30 @@ msgstr ""
 
 #. Type: select
 #. Description
-#: ../templates:2001
+#: ../templates:1001
 msgid "Please check that it is installed before continuing."
 msgstr "Mesedez egiaztatu instalaturik dagoela jarraitu aurretik."
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid "Should a default postgres database be created for Moodle on localhost?"
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid ""
+"If you want, a database can be automatically created on localhost for Moodle."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid ""
+"Otherwise, you will need to create the database and configure access to it "
+"manually."
+msgstr ""
 
 #. Type: string
 #. Description
@@ -176,21 +184,56 @@ msgstr ""
 #. Type: note
 #. Description
 #: ../templates:12001
-msgid "Warning - Moodle database tables not created"
+#, fuzzy
+#| msgid "Warning - Moodle database tables not created"
+msgid "Warning - Moodle tables not created in database"
 msgstr "Abisua - Ez dira moodle datubase taulak sortu"
 
 #. Type: note
 #. Description
 #: ../templates:12001
+#, fuzzy
+#| msgid ""
+#| "The Moodle install script will create the database, but the tables are to "
+#| "be created with a PHP script. Please launch it right after the install:"
 msgid ""
-"The Moodle install script will create the database, but the tables are to be "
-"created with a PHP script. Please launch it right after the install:"
+"This install script will create the Moodle database, but the tables need to "
+"be created by Moodle itself. Please launch Moodle immediately after this "
+"installation completes:"
 msgstr ""
 "Moodle instalazio skript-ak datubasea sortuko du baina taulak PHP skript "
 "baten bidez sortu behar dira. Mesedez abiarazi ezazu instalazioaren ondoren:"
 
 #. Type: note
 #. Description
-#: ../templates:12001
+#. Type: note
+#. Description
+#: ../templates:12001 ../templates:13001
 msgid "http://localhost/moodle/admin"
 msgstr "http://localhost/moodle/admin"
+
+#. Type: note
+#. Description
+#: ../templates:13001
+#, fuzzy
+#| msgid "Warning - Moodle database tables not created"
+msgid "Warning - Moodle database not created"
+msgstr "Abisua - Ez dira moodle datubase taulak sortu"
+
+#. Type: note
+#. Description
+#: ../templates:13001
+msgid ""
+"You will need to create your Moodle database manually and configure access "
+"to it according to the settings you specified during this installation. See "
+"your Moodle's config.php. Once you create the database, the tables will need "
+"to be created by Moodle itself. Launch it immediately after configuring your "
+"database:"
+msgstr ""
+
+#~ msgid "Web server software:"
+#~ msgstr "Web zerbitzari softwarea:"
+
+#~ msgid "Please choose the web server software you will use with Moodle."
+#~ msgstr ""
+#~ "Mesedez hautatu moodle-rekin erabili nahi duzun web zerbitzari softwarea."

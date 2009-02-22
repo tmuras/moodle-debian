@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: fr\n"
 "Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
-"POT-Creation-Date: 2008-03-10 07:24+0100\n"
+"POT-Creation-Date: 2009-02-22 22:56+1300\n"
 "PO-Revision-Date: 2006-06-07 06:44+0200\n"
 "Last-Translator: Christian Perrier <bubulle@debian.org>\n"
 "Language-Team: French <debian-l10n-french@lists.debian.org>\n"
@@ -20,26 +20,12 @@ msgstr ""
 #. Type: select
 #. Description
 #: ../templates:1001
-msgid "Web server software:"
-msgstr "Logiciel serveur web :"
-
-#. Type: select
-#. Description
-#: ../templates:1001
-msgid "Please choose the web server software you will use with Moodle."
-msgstr ""
-"Veuillez choisir le logiciel serveur web que vous désirez utiliser avec "
-"Moodle."
-
-#. Type: select
-#. Description
-#: ../templates:2001
 msgid "Database server software for Moodle:"
 msgstr "Logiciel serveur de bases de données pour Moodle :"
 
 #. Type: select
 #. Description
-#: ../templates:2001
+#: ../templates:1001
 msgid ""
 "Moodle can work with either MySQL or PostgreSQL. Please choose which one you "
 "want to use."
@@ -49,9 +35,30 @@ msgstr ""
 
 #. Type: select
 #. Description
-#: ../templates:2001
+#: ../templates:1001
 msgid "Please check that it is installed before continuing."
 msgstr "Vérifiez qu'il est bien installé avant de continuer."
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid "Should a default postgres database be created for Moodle on localhost?"
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid ""
+"If you want, a database can be automatically created on localhost for Moodle."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid ""
+"Otherwise, you will need to create the database and configure access to it "
+"manually."
+msgstr ""
 
 #. Type: string
 #. Description
@@ -184,15 +191,22 @@ msgstr ""
 #. Type: note
 #. Description
 #: ../templates:12001
-msgid "Warning - Moodle database tables not created"
+#, fuzzy
+#| msgid "Warning - Moodle database tables not created"
+msgid "Warning - Moodle tables not created in database"
 msgstr "Tables de la base de données de Moodle non créées"
 
 #. Type: note
 #. Description
 #: ../templates:12001
+#, fuzzy
+#| msgid ""
+#| "The Moodle install script will create the database, but the tables are to "
+#| "be created with a PHP script. Please launch it right after the install:"
 msgid ""
-"The Moodle install script will create the database, but the tables are to be "
-"created with a PHP script. Please launch it right after the install:"
+"This install script will create the Moodle database, but the tables need to "
+"be created by Moodle itself. Please launch Moodle immediately after this "
+"installation completes:"
 msgstr ""
 "Le script d'installation de Moodle s'occupera de la création de la base de "
 "données, mais les tables qu'elle doit contenir doivent être créées avec un "
@@ -200,6 +214,35 @@ msgstr ""
 
 #. Type: note
 #. Description
-#: ../templates:12001
+#. Type: note
+#. Description
+#: ../templates:12001 ../templates:13001
 msgid "http://localhost/moodle/admin"
 msgstr "http://localhost/moodle/admin"
+
+#. Type: note
+#. Description
+#: ../templates:13001
+#, fuzzy
+#| msgid "Warning - Moodle database tables not created"
+msgid "Warning - Moodle database not created"
+msgstr "Tables de la base de données de Moodle non créées"
+
+#. Type: note
+#. Description
+#: ../templates:13001
+msgid ""
+"You will need to create your Moodle database manually and configure access "
+"to it according to the settings you specified during this installation. See "
+"your Moodle's config.php. Once you create the database, the tables will need "
+"to be created by Moodle itself. Launch it immediately after configuring your "
+"database:"
+msgstr ""
+
+#~ msgid "Web server software:"
+#~ msgstr "Logiciel serveur web :"
+
+#~ msgid "Please choose the web server software you will use with Moodle."
+#~ msgstr ""
+#~ "Veuillez choisir le logiciel serveur web que vous désirez utiliser avec "
+#~ "Moodle."
