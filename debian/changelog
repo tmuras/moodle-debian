@@ -13,7 +13,12 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
   * Suggest clamav
   * Demoted mimetex to recommended
 
- -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 21:25:24 +1300
+  Generated config:
+  * Turn 'dbpersist' on by default in the generated config.php
+  * Include whitespace warning at the end of generated config.php
+  * Set the path to du, unzip and zip
+
+ -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 21:32:00 +1300
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
