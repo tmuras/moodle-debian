@@ -6,7 +6,14 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
   * Add a watch file
   * Update copyright file
 
- -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 21:21:13 +1300
+  Dependencies:
+  * Depend on libjs-yui instead of yui (renamed after lenny)
+  * Add dependency on unzip
+  * Recommend php5-xmlrpc and aspell
+  * Suggest clamav
+  * Demoted mimetex to recommended
+
+ -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 21:25:24 +1300
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 

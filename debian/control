@@ -12,9 +12,10 @@ Vcs-Browser: http://git.debian.org/?p=pkg-moodle/moodle.git;a=summary
 
 Package: moodle
 Architecture: all
-Depends: ${misc:Depends}, libapache2-mod-php5 | php5-cgi, php5-pgsql | php5-mysql, php5-gd, php5-curl, php5-cli, apache2-mpm-prefork | httpd, wwwconfig-common (>= 0.0.7), mimetex, ucf, postgresql-client | mysql-client, zip, smarty, yui
+Depends: ${misc:Depends}, libapache2-mod-php5 | php5-cgi, php5-pgsql | php5-mysql, php5-gd, php5-curl, php5-cli, apache2-mpm-prefork | httpd, wwwconfig-common (>= 0.0.7), ucf, postgresql-client | mysql-client, unzip, smarty, libjs-yui
 Pre-Depends: debconf (>= 0.5) | debconf-2.0
-Recommends: postgresql | mysql-server, php5-ldap
+Recommends: postgresql | mysql-server, php5-ldap, php5-xmlrpc, aspell, mimetex
+Suggests: clamav
 Description: Course Management System for Online Learning
  Moodle (Modular Object-Oriented Dynamic Learning Environment) is a course 
  management system - a software package designed to help educators create 
