@@ -1,6 +1,6 @@
 moodle (1.9.4.dfsg-1) unstable; urgency=low
 
-  * New Upstream Version (closes: #475535)
+  * New Upstream Version (closes: #475535, #514284)
     (added notes/ and tag/ to debian/install)
   * Merge with Ubuntu:
     - drop use of wwwconfig (closes: #389502, #302205)
@@ -29,7 +29,7 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
   * Include whitespace warning at the end of generated config.php
   * Set the path to du, unzip and zip
 
- -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 22:40:20 +1300
+ -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 22:49:50 +1300
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
