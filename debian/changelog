@@ -8,6 +8,7 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
 
   * Bump debhelper compatibility to 7
   * Add lintian overrides for known customised libraries
+  * Compress the deb with bzip2
   * Add a watch file
   * Update copyright file
 

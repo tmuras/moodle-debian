@@ -73,7 +73,7 @@ binary-indep: install
 	dh_installdeb
 	dh_gencontrol
 	dh_md5sums
-	dh_builddeb
+	dh_builddeb -- -Z bzip2
 
 binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary-arch binary install patch unpatch clean1
