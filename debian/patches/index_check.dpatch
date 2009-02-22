@@ -2,7 +2,7 @@
 ## index_check.dpatch by Jordan Mantha <laserjock@ubuntu.com>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: No description.
+## DP: Disable the built-in installer since we are using debconf
 
 @DPATCH@
 diff -urNad moodle~/admin/index.php moodle/admin/index.php
