@@ -22,11 +22,11 @@ case "$1" in
 	db_version 2.0
 
 	get_config
-	servers="apache apache-ssl apache-perl apache2"
 
 	rm -f /etc/${webserver}/conf.d/moodle
-	restart="${webserver}"
-	. /usr/share/wwwconfig-common/restart.sh || true
+	if [ -e "/etc/init.d/${webserver}" ]; then
+	    invoke-rc.d ${webserver} reload || true
+	fi
 
 	rm -rf /usr/share/moodle
 	ucf --purge /etc/moodle/config.php
@@ -41,11 +41,11 @@ case "$1" in
 	db_version 2.0
 
 	get_config
-	servers="apache apache-ssl apache-perl apache2"
 
 	rm -f /etc/${webserver}/conf.d/moodle
-	restart="${webserver}"
-	. /usr/share/wwwconfig-common/restart.sh
+	if [ -e "/etc/init.d/${webserver}" ]; then
+	    invoke-rc.d ${webserver} reload || true
+	fi
 	;;
 
        upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)

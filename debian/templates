@@ -15,6 +15,14 @@ _Description: Database server software for Moodle:
  .
  Please check that it is installed before continuing.
 
+Template: moodle/db_postgres_create
+Type: boolean
+Default: true
+_Description: Should a default postgres database be created for Moodle on localhost?
+ If you want, a database can be automatically created on localhost for Moodle.
+ .
+ Otherwise, you will need to create the database and configure access to it manually.
+
 Template: moodle/db_host
 Type: string
 Default: localhost
@@ -69,9 +77,21 @@ _Description: Warning - Moodle is not configured
 
 Template: moodle/create_tables
 Type: note
-_Description: Warning - Moodle database tables not created
- The Moodle install script will create the database, but
- the tables are to be created with a PHP script. Please
- launch it right after the install:
+_Description: Warning - Moodle tables not created in database
+ This install script will create the Moodle database, but
+ the tables need to be created by Moodle itself. Please
+ launch Moodle immediately after this installation completes:
+ .
+ http://localhost/moodle/admin
+
+Template: moodle/create_db
+Type: note
+_Description: Warning - Moodle database not created
+ You will need to create your Moodle database manually and
+ configure access to it according to the settings you specified
+ during this installation. See your Moodle's config.php.
+ Once you create the database, the tables will need to be created
+ by Moodle itself. Launch it immediately after configuring your
+ database:
  .
  http://localhost/moodle/admin

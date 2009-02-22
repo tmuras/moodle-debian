@@ -9,7 +9,7 @@ db_capb backup
 db_input high moodle/sgbd || true
 
 STATE=1
-while [ "$STATE"  != 0 -a "$STATE" != 13 ]
+while [ "$STATE"  != 0 -a "$STATE" -lt 15 ]
   do
   case "$STATE" in
       1)
@@ -29,7 +29,11 @@ while [ "$STATE"  != 0 -a "$STATE" != 13 ]
 	  if db_go; then
 	      db_get moodle/db_server || true
 	      if [ ! -z "$RET" ]; then
-		  STATE=3
+		  if [ "$RET" = "postgresql" ]; then
+		      STATE=3
+		  else
+		      STATE=4
+		  fi
 	      fi
 	  else
 	      STATE=1
@@ -37,11 +41,11 @@ while [ "$STATE"  != 0 -a "$STATE" != 13 ]
 	  ;;
 
       3)
-	  db_input critical moodle/db_host || true
+	  db_input critical moodle/db_postgres_create || true
 	  if db_go; then
-	      db_get moodle/db_host || true
+	      db_get moodle/db_postgres_create || true
 	      if [ ! -z "$RET" ]; then
-		  STATE=4
+		  STATE=9
 	      fi
 	  else
 	      STATE=2
@@ -49,9 +53,9 @@ while [ "$STATE"  != 0 -a "$STATE" != 13 ]
 	  ;;
 
       4)
-	  db_input critical moodle/dba_name || true
+	  db_input critical moodle/db_host || true
 	  if db_go; then
-	      db_get moodle/dba_name || true
+	      db_get moodle/db_host || true
 	      if [ ! -z "$RET" ]; then
 		  STATE=5
 	      fi
@@ -61,85 +65,103 @@ while [ "$STATE"  != 0 -a "$STATE" != 13 ]
 	  ;;
 
       5)
-	  db_input critical moodle/dba_password || true
+	  db_input critical moodle/dba_name || true
 	  if db_go; then
-	      db_get moodle/dba_password || true
-	      STATE=6
-	  else
-	      STATE=4
-	  fi
-	  ;;
-
-      6)
-	  db_input critical moodle/dba_confirm || true
-	  if db_go; then
-	      db_get moodle/dba_confirm || true
-	      CONFIRM="$RET"
-	      db_get moodle/dba_password || true
-	      if [ "$RET" != "$CONFIRM" ]; then
-		  STATE=7
-	      else
-		  STATE=8
-	      fi
-	  else
-	      STATE=3
-	  fi
-	  ;;
-
-      7)
-	  db_input critical moodle/mismatch || true
-	  db_go
-	  STATE=4
-	  ;;
-
-      8)
-	  db_input critical moodle/dbu_name || true
-	  if db_go; then
-	      db_get moodle/dbu_name || true
+	      db_get moodle/dba_name || true
 	      if [ ! -z "$RET" ]; then
-		  STATE=9
+		  STATE=6
 	      fi
 	  else
 	      STATE=2
 	  fi
 	  ;;
 
-      9)
-	  db_input critical moodle/dbu_password || true
+      6)
+	  db_input critical moodle/dba_password || true
 	  if db_go; then
-	      db_get moodle/dbu_password || true
-	      STATE=10
+	      db_get moodle/dba_password || true
+	      STATE=7
 	  else
-	      STATE=8
+	      STATE=5
+	  fi
+	  ;;
+
+      7)
+	  db_input critical moodle/dba_confirm || true
+	  if db_go; then
+	      db_get moodle/dba_confirm || true
+	      CONFIRM="$RET"
+	      db_get moodle/dba_password || true
+	      if [ "$RET" != "$CONFIRM" ]; then
+		  STATE=8
+	      else
+		  STATE=9
+	      fi
+	  else
+	      STATE=4
+	  fi
+	  ;;
+
+      8)
+	  db_input critical moodle/mismatch || true
+	  db_go
+	  STATE=5
+	  ;;
+
+      9)
+	  db_input critical moodle/dbu_name || true
+	  if db_go; then
+	      db_get moodle/dbu_name || true
+	      if [ ! -z "$RET" ]; then
+		  STATE=10
+	      fi
+	  else
+	      STATE=2
 	  fi
 	  ;;
 
       10)
+	  db_input critical moodle/dbu_password || true
+	  if db_go; then
+	      db_get moodle/dbu_password || true
+	      STATE=11
+	  else
+	      STATE=9
+	  fi
+	  ;;
+
+      11)
 	  db_input critical moodle/dbu_confirm || true
 	  if db_go; then
 	      db_get moodle/dbu_confirm || true
 	      CONFIRM="$RET"
 	      db_get moodle/dbu_password || true
 	      if [ "$RET" != "$CONFIRM" ]; then
-		  STATE=11
-	      else
 		  STATE=12
+	      else
+		  STATE=13
 	      fi
 	  else
-	      STATE=8
+	      STATE=9
 	  fi
 	  ;;
 
-      11)
+      12)
 	  db_input critical moodle/mismatch || true
 	  db_go
-	  STATE=8
+	  STATE=9
 	  ;;
 
-      12)
+      13)
 	  db_input critical moodle/create_tables || true
 	  db_go
-	  STATE=13
+	  STATE=15
+	  ;;
+
+      14)
+	  db_input critical moodle/create_db || true
+	  db_go
+	  STATE=15
 	  ;;
   esac
 done

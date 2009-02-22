@@ -2,6 +2,9 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
 
   * New Upstream Version (closes: #475535)
     (added notes/ and tag/ to debian/install)
+  * Merge with Ubuntu:
+    - drop use of wwwconfig (closes: #389502, #302205)
+    - debian/postinst: ucf fixes (fixes a hang)
 
   * Remove preinst (no more direct upgrades from sarge)
   * Remove PHP4 support from the Apache config file we provide
@@ -12,8 +15,6 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
   * Compress the deb with bzip2
   * Add a watch file
   * Update copyright file
-
-  * Prevent errors when restarting apache fails (closes: #389502)
 
   Dependencies:
   * Depend on libjs-yui instead of yui (renamed after lenny)
@@ -27,7 +28,7 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
   * Include whitespace warning at the end of generated config.php
   * Set the path to du, unzip and zip
 
- -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 22:20:15 +1300
+ -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 22:35:53 +1300
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
