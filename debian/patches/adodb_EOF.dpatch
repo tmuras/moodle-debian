@@ -1,0 +1,17 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## adodb_EOF.dpatch by Jordan Mantha <laserjock@ubuntu.com>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: No description.
+
+@DPATCH@
+diff -urNad moodle~/lib/adodb/adodb-pager.inc.php moodle/lib/adodb/adodb-pager.inc.php
+--- moodle~/lib/adodb/adodb-pager.inc.php	2009-02-21 20:46:19.000000000 -0800
++++ moodle/lib/adodb/adodb-pager.inc.php	2009-02-21 21:04:18.000000000 -0800
+@@ -287,4 +287,4 @@
+ }
+ 
+ 
+-?>
+\ No newline at end of file
++?>

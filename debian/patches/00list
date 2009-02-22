@@ -1,1 +1,4 @@
+adodb_EOF.dpatch
+CVE-2007-3215_phpmailer.dpatch
 html2text-GPL.dpatch
+index_check.dpatch
