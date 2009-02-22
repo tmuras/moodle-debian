@@ -44,7 +44,6 @@ binary-indep: install
 	rm debian/moodle/usr/share/moodle/lib/simpletestlib/LICENSE
 	rm debian/moodle/usr/share/moodle/search/Zend/LICENSE.txt
 	rm debian/moodle/usr/share/moodle/lib/smarty/COPYING.lib
-	rm debian/moodle/usr/share/moodle/lib/libcurlemu/LICENSE
 	rm debian/moodle/usr/share/moodle/lib/pear/HTTP/WebDAV/COPYING
 	rm debian/moodle/usr/share/moodle/lib/pear/HTTP/WebDAV/LICENSE
 
