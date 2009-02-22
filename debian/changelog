@@ -1,3 +1,10 @@
+moodle (1.9.4.dfsg-1) unstable; urgency=low
+
+  * New Upstream Version (closes: #475535)
+    (added notes/ and tag/ to debian/install)
+
+ -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 21:15:07 +1300
+
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
   * Improve the fix for log URL filtering as suggested by Steffen Joeris

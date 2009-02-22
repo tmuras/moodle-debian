@@ -24,11 +24,13 @@ message					usr/share/moodle
 mnet					usr/share/moodle
 mod					usr/share/moodle
 my					usr/share/moodle
+notes					usr/share/moodle
 pix					usr/share/moodle
 question				usr/share/moodle
 rss					usr/share/moodle
 search					usr/share/moodle
 sso					usr/share/moodle
+tag					usr/share/moodle
 theme					usr/share/moodle
 user					usr/share/moodle
 userpix					usr/share/moodle
