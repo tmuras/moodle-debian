@@ -2,7 +2,9 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
 
   * New Upstream Version (closes: #475535)
     (added notes/ and tag/ to debian/install)
+
   * Remove preinst (no more direct upgrades from sarge)
+  * Remove PHP4 support from the Apache config file we provide
 
   * Bump debhelper compatibility to 7
   * Add lintian overrides for known customised libraries
