@@ -3,9 +3,10 @@ moodle (1.9.4.dfsg-1) unstable; urgency=low
   * New Upstream Version (closes: #475535)
     (added notes/ and tag/ to debian/install)
 
+  * Add a watch file
   * Update copyright file
 
- -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 21:17:18 +1300
+ -- Francois Marier <francois@debian.org>  Sun, 22 Feb 2009 21:21:13 +1300
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 

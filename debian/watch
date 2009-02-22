@@ -1,0 +1,3 @@
+version=3
+opts=dversionmangle=s/\.dfsg(\.[0-9]+)?$// \
+http://download.moodle.org/ /download.php/stable[0-9]+/moodle-([0-9.]+).tgz
