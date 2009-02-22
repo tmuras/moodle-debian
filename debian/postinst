@@ -30,13 +30,20 @@ EOF
 
 # DoSQL borrowed originally from Ubuntu mythtv package
 DoMySQL() {
-    local dbtype="$1"
-    local host="$2"
-    local admin_username="$3"
-    local admin_password="$4"
-    local database="$5"
-    local statement="`escape_quotes \"$6\"`"
-    local tmp=`tempfile -m 600`
+    local dbtype
+    dbtype="$1"
+    local host
+    host="$2"
+    local admin_username
+    admin_username="$3"
+    local admin_password
+    admin_password="$4"
+    local database
+    database="$5"
+    local statement
+    statement="`escape_quotes \"$6\"`"
+    local tmp
+    tmp=`tempfile -m 600`
 	cat <<EOF >$tmp
 $admin_password
 EOF
