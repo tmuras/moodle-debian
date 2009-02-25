@@ -1,11 +1,3 @@
-moodle (1.9.4.dfsg-0ubuntu2) jaunty; urgency=low
-
-  * renamed prerm script
-  * significantly rewrote postinst and other maintainer scripts to improve
-    user experience and package maintainability
-
- -- Matt Oquist <moquist@majen.net>  Wed, 25 Feb 2009 13:17:47 -0500
-
 moodle (1.9.4.dfsg-0ubuntu1) jaunty; urgency=low
 
   * Merge with Debian git:
@@ -13,7 +5,12 @@ moodle (1.9.4.dfsg-0ubuntu1) jaunty; urgency=low
     - use internal yui library 
     - add update-notifier support back in
 
- -- Jordan Mantha <laserjock@ubuntu.com>  Tue, 24 Feb 2009 18:03:15 -0800
+  [Matt Oquist]
+    * renamed prerm script
+    * significantly rewrote postinst and other maintainer scripts to improve
+      user experience and package maintainability
+
+ -- Jordan Mantha <laserjock@ubuntu.com>  Wed, 25 Feb 2009 14:23:17 -0800
 
 moodle (1.9.4.dfsg-1) UNRELEASED; urgency=low
 
