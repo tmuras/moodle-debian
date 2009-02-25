@@ -60,7 +60,7 @@ for \$s (@statements) { \$db->do(\$s) || die 'Failed to execute SQL: ' . \$s . '
 }
 
 check_php5myinstalled() {
-    dpkg -s php5-mysql || return 1
+    dpkg -s php5-mysql >/dev/null 2>&1 || return 1
     return 0
 }
 
@@ -71,7 +71,7 @@ check_myinstalled() {
 }
 
 check_php5pginstalled() {
-    dpkg -s php5-pgsql || return 1
+    dpkg -s php5-pgsql >/dev/null 2>&1 || return 1
     return 0
 }
 
