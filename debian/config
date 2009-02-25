@@ -7,8 +7,7 @@ db_version 2.0
 db_capb backup
 
 STATE=start
-while [ "$STATE"  != 'notconfigured' -a "$STATE" != 'done' ]
-  do
+while [ "$STATE"  != 'notconfigured' -a "$STATE" != 'done' ]; do
   case "$STATE" in
       start|db_server)
 	  db_input critical moodle/db_server || true

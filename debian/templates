@@ -1,3 +1,39 @@
+Template: moodle/local_only
+Type: boolean
+Default: true
+_Description: Should access to this Moodle server be restricted to localhost?
+ Select "Yes" to prevent other computers from connecting to this Moodle site.
+ You must select "No" if you wish for others to be able to use this Moodle site.
+ .
+ Note: By selecting "No" you open your system to connections from remote hosts
+ and this may have security implications.
+
+Template: moodle/fqdn_check
+Type: boolean
+Default: true
+_Description: Is your FQDN correct?
+ Moodle will be configured to use this system's Fully Qualified Domain Name
+ (FQDN). This must be correct, and you cannot easily change this after your
+ Moodle installation is complete.
+ .
+ The command 'hostname --fqdn' will display your system's current FQDN.
+ .
+ Select "No" to halt this configuration script before the FQDN is applied. You
+ can then change the FQDN and use 'sudo dpkg-reconfigure moodle' later to complete
+ the Moodle configuration.
+
+Template: moodle/https_only
+Type: boolean
+Default: false
+_Description: Should https be required to access this Moodle server?
+ If you elect to use https, you must have Apache's SSL module enabled and
+ configured in order to complete the Moodle installation after this
+ configuration script ends.
+ .
+ Select "Yes" to require all connections to this Moodle server to be encrypted.
+ .
+ Note: Selecting "Yes" will have a slight impact on your Moodle site's performance.
+
 Template: moodle/db_server
 Type: select
 Choices: postgresql, mysql-server

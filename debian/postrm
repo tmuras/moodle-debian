@@ -17,7 +17,7 @@ case "$1" in
     purge)
 	rm -f /etc/${webserver}/conf.d/moodle
 	if [ -e "/etc/init.d/${webserver}" ]; then
-	    invoke-rc.d ${webserver} reload || true
+	    invoke-rc.d ${webserver} reload >/dev/null 2>&1 || true
 	fi
 
 	rm -rf /usr/share/moodle
