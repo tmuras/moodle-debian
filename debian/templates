@@ -2,11 +2,12 @@ Template: moodle/local_only
 Type: boolean
 Default: true
 _Description: Should access to this Moodle server be restricted to localhost?
- Select "Yes" to prevent other computers from connecting to this Moodle site.
- You must select "No" if you wish for others to be able to use this Moodle site.
+ If access is restricted to localhost, other computers will be prevented from
+ connecting to this Moodle site. If you wish for others to be able to use this
+ Moodle site you must not restrict access to localhost.
  .
- Note: By selecting "No" you open your system to connections from remote hosts
- and this may have security implications.
+ Note: Opening your system to connections from remote hosts may have security
+ implications.
 
 Template: moodle/fqdn_check
 Type: boolean
@@ -18,9 +19,8 @@ _Description: Is your FQDN correct?
  .
  The command 'hostname --fqdn' will display your system's current FQDN.
  .
- Select "No" to halt this configuration script before the FQDN is applied. You
- can then change the FQDN and use 'sudo dpkg-reconfigure moodle' later to complete
- the Moodle configuration.
+ If your FQDN is incorrect, you should change the FQDN and use 'sudo
+ dpkg-reconfigure moodle' later to complete the Moodle configuration.
 
 Template: moodle/https_only
 Type: boolean
@@ -30,9 +30,9 @@ _Description: Should https be required to access this Moodle server?
  configured in order to complete the Moodle installation after this
  configuration script ends.
  .
- Select "Yes" to require all connections to this Moodle server to be encrypted.
+ Note: Requiring https will have a slight impact on your Moodle site's
+ performance.
  .
- Note: Selecting "Yes" will have a slight impact on your Moodle site's performance.
 
 Template: moodle/db_server
 Type: select
@@ -49,9 +49,8 @@ Template: moodle/db_create
 Type: boolean
 Default: true
 _Description: Should a default database be created for Moodle on localhost?
- Select "Yes" to create a database on localhost for Moodle.
- .
- Select "No" if you want to create the database and configure access to it manually.
+ If you do not create a default database, you must create the database and
+ configure access to it manually.
 
 Template: moodle/db_host
 Type: string
@@ -120,9 +119,9 @@ _Description: Warning - Moodle is not configured
 Template: moodle/db_populate
 Type: note
 _Description: Warning - Moodle database not populated.
- This install script will attempt to create the Moodle database, but
- the database needs to be populated by Moodle itself. Please
- launch Moodle immediately after this installation completes:
+ This install script may create the Moodle database, but the database needs to
+ be populated by Moodle itself. Please launch Moodle immediately after this
+ installation completes:
  .
  http://localhost/moodle/admin or http://<FQDN>/moodle/admin
 
