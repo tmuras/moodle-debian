@@ -226,7 +226,7 @@ moodle_config() {
 	protocol="http"
     fi
 
-    fqdn=`hostname --fqdn`
+    fqdn=`hostname --fqdn 2>/dev/null`
     if [ -z "$fqdn" ]; then
 	echo 'moodle configuration left incomplete pending configuration of FQDN' >&2
 	if test -d $unud; then
