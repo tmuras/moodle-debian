@@ -255,7 +255,7 @@ moodle_config() {
 
  \$CFG->dbpersist = "true";
 
- \$CFG->wwwroot = 'http://{$wwwroot}/moodle';
+ \$CFG->wwwroot = '${wwwroot}';
  \$CFG->dirroot = '/usr/share/moodle';
  \$CFG->dataroot = '/var/lib/moodle';
  \$CFG->directorypermissions = 0750;
