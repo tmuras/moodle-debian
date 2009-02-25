@@ -1,0 +1,10 @@
+Name: Moodle reconfigure required (FQDN)
+Priority: High
+Terminal: False
+DontShowAfterReboot: True
+Description: The moodle package was upgraded or installed, but the system's
+ Fully Qualified Domain Name must be verified before the moodle configuration
+ is completed.
+ .
+ Once you're sure the system's FQDN is correct (use 'hostname --fqdn') you can
+ complete the moodle configuration with this command: 'sudo dpkg-reconfigure moodle'.
