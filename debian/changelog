@@ -3,6 +3,7 @@ moodle (1.9.4.dfsg-0ubuntu1) jaunty; urgency=low
   * Merge with Debian git:
     - use Ubuntu's smarty lib directory for linking
     - use internal yui library 
+    - add update-notifier support back in
 
  -- Jordan Mantha <laserjock@ubuntu.com>  Tue, 24 Feb 2009 18:03:15 -0800
 

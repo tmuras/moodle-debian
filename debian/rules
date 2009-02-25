@@ -23,6 +23,8 @@ install: patch-stamp
 	dh_prep
 	dh_installdirs
 
+	dh_install -pmoodle debian/moodle-reconfigure-required.update-notifier usr/share/moodle
+
 # Build architecture-dependent files here.
 binary-arch: install
 # We have nothing to do by default.
