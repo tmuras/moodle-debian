@@ -1,6 +1,6 @@
 moodle (1.9.4.dfsg-0ubuntu1) jaunty; urgency=low
 
-  * Merge with Debian git:
+  * Merge with Debian git (Closes LP: #322961, #239481, #334611):
     - use Ubuntu's smarty lib directory for linking
     - use internal yui library 
     - add update-notifier support back in
@@ -9,8 +9,9 @@ moodle (1.9.4.dfsg-0ubuntu1) jaunty; urgency=low
     * renamed prerm script
     * significantly rewrote postinst and other maintainer scripts to improve
       user experience and package maintainability
+      (Closes LP: #225662, #325450, #327843, #303078, #234609)
 
- -- Jordan Mantha <laserjock@ubuntu.com>  Wed, 25 Feb 2009 14:23:17 -0800
+ -- Jordan Mantha <laserjock@ubuntu.com>  Wed, 25 Feb 2009 15:16:22 -0800
 
 moodle (1.9.4.dfsg-1) UNRELEASED; urgency=low
 
