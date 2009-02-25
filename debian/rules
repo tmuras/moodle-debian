@@ -23,7 +23,9 @@ install: patch-stamp
 	dh_prep
 	dh_installdirs
 
-	dh_install -pmoodle debian/moodle-reconfigure-required.update-notifier usr/share/moodle
+	dh_install -pmoodle debian/update-notifier/moodle-reconfigure-required_fqdn-check usr/share/moodle/update-notifier
+	dh_install -pmoodle debian/update-notifier/moodle-reconfigure-required_mysql-server usr/share/moodle/update-notifier
+	dh_install -pmoodle debian/update-notifier/moodle-reconfigure-required_postgresql usr/share/moodle/update-notifier
 
 # Build architecture-dependent files here.
 binary-arch: install

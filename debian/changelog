@@ -1,3 +1,11 @@
+moodle (1.9.4.dfsg-0ubuntu2) jaunty; urgency=low
+
+  * renamed prerm script
+  * significantly rewrote postinst and other maintainer scripts to improve
+    user experience and package maintainability
+
+ -- Matt Oquist <moquist@majen.net>  Wed, 25 Feb 2009 13:17:47 -0500
+
 moodle (1.9.4.dfsg-0ubuntu1) jaunty; urgency=low
 
   * Merge with Debian git:

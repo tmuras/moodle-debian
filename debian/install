@@ -34,4 +34,3 @@ tag					usr/share/moodle
 theme					usr/share/moodle
 user					usr/share/moodle
 userpix					usr/share/moodle
-debian/apache.conf			etc/moodle

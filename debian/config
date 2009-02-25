@@ -6,161 +6,212 @@
 db_version 2.0
 db_capb backup
 
-db_input high moodle/sgbd || true
-
-STATE=1
-while [ "$STATE"  != 0 -a "$STATE" -lt 15 ]
+STATE=start
+while [ "$STATE"  != 'notconfigured' -a "$STATE" != 'done' ]
   do
   case "$STATE" in
-      1)
-	  # Don't ask for the webserver anymore
-	  STATE=2
+      start|db_server)
+	  db_input critical moodle/db_server || true
+	  if ! db_go; then
+	      STATE=notconfigured
+	  else
+	      db_get moodle/db_server || true
+	      if [ -n "$RET" ]; then
+		  STATE=local_only
+	      fi
+	  fi
 	  ;;
 
-      2)
-	  db_input critical moodle/db_server || true
-	  if db_go; then
-	      db_get moodle/db_server || true
-	      if [ ! -z "$RET" ]; then
-		  if [ "$RET" = "postgresql" ]; then
-		      STATE=3
+      local_only)
+	  db_input critical moodle/local_only || true
+	  if ! db_go; then
+	      STATE=notconfigured
+	  else
+	      db_get moodle/local_only || true
+	      if [ -n "$RET" ]; then
+		  if [ "$RET" = "true" ]; then
+		      STATE=https_only
 		  else
-		      STATE=4
+		      STATE=fqdn_check
+		  fi
+	      fi
+	  fi
+	  ;;
+
+      fqdn_check)
+	  db_input critical moodle/fqdn_check || true
+	  if ! db_go; then
+	      STATE=notconfigured
+	  else
+	      db_get moodle/fqdn_check || true
+	      if [ -n "$RET" ]; then
+		  STATE=https_only
+	      fi
+	  fi
+	  ;;
+
+      https_only)
+	  db_input critical moodle/https_only || true
+	  if ! db_go; then
+	      STATE=notconfigured
+	  else
+	      db_get moodle/https_only || true
+	      if [ -n "$RET" ]; then
+		  STATE=db_host
+	      fi
+	  fi
+	  ;;
+
+      db_host)
+	  db_input low moodle/db_host || true
+	  if ! db_go; then
+	      STATE=notconfigured
+	  else
+	      db_get moodle/db_host || true
+	      if [ -n "$RET" ]; then
+		  STATE=db_create
+	      fi
+	  fi
+	  ;;
+
+      db_create)
+          db_get moodle/db_host || true
+          if [ "$RET" = "localhost" ]; then
+	      db_input critical moodle/db_create || true
+	      if ! db_go; then
+		  STATE=notconfigured
+	      else
+		  db_get moodle/db_create || true
+		  if [ -n "$RET" ]; then
+		      STATE=dba_password
 		  fi
 	      fi
 	  else
-	      STATE=1
+	      # We only support DB creation on localhost.
+	      # There are too many variables (particularly for
+	      # postgresql) to support automated creation of remote
+	      # databases.
+	      #
+	      # Assumption: users who want remote databases don't need
+	      # our help creating them.
+	      db_set moodle/db_create false || true
+	      STATE=dba_password
 	  fi
 	  ;;
 
-      3)
-	  db_input critical moodle/db_postgres_create || true
-	  if db_go; then
-	      db_get moodle/db_postgres_create || true
-	      if [ ! -z "$RET" ]; then
-		  STATE=9
-	      fi
-	  else
-	      STATE=2
-	  fi
-	  ;;
+      dba_password)
+          db_get moodle/db_create || true
+	  db_create="$RET"
+	  db_get moodle/db_server || true
+	  db_server="$RET"
 
-      4)
-	  db_input critical moodle/db_host || true
-	  if db_go; then
-	      db_get moodle/db_host || true
-	      if [ ! -z "$RET" ]; then
-		  STATE=5
-	      fi
-	  else
-	      STATE=2
-	  fi
-	  ;;
-
-      5)
-	  db_input critical moodle/dba_name || true
-	  if db_go; then
-	      db_get moodle/dba_name || true
-	      if [ ! -z "$RET" ]; then
-		  STATE=6
-	      fi
-	  else
-	      STATE=2
-	  fi
-	  ;;
-
-      6)
-	  db_input critical moodle/dba_password || true
-	  if db_go; then
-	      db_get moodle/dba_password || true
-	      STATE=7
-	  else
-	      STATE=5
-	  fi
-	  ;;
-
-      7)
-	  db_input critical moodle/dba_confirm || true
-	  if db_go; then
-	      db_get moodle/dba_confirm || true
-	      CONFIRM="$RET"
-	      db_get moodle/dba_password || true
-	      if [ "$RET" != "$CONFIRM" ]; then
-		  STATE=8
+	  # We don't need a DBA password if the we're using a postgresql DB.
+          if [ "$db_server" = "mysql-server" ] && [ "$db_create" = "true" ]; then
+	      db_input critical moodle/dba_password || true
+	      db_input critical moodle/dba_confirm || true
+	      if ! db_go; then
+		  STATE=notconfigured
 	      else
-		  STATE=9
+		  db_get moodle/dba_confirm || true
+		  CONFIRM="$RET"
+		  db_get moodle/dba_password || true
+		  PW="$RET"
+		  if [ "$PW" != "$CONFIRM" ]; then
+		      STATE=dba_pwmismatch
+		  else
+		      STATE=dbu_name
+		  fi
 	      fi
 	  else
-	      STATE=4
+	      # We don't need the DBA password.
+	      STATE=dbu_name
 	  fi
 	  ;;
 
-      8)
-	  db_input critical moodle/mismatch || true
-	  db_go
-	  STATE=5
+      dba_pwmismatch)
+	  db_input critical moodle/pwmismatch || true
+	  STATE=dba_password
 	  ;;
 
-      9)
-	  db_input critical moodle/dbu_name || true
-	  if db_go; then
+      dbu_name)
+	  db_input low moodle/dbu_name || true
+	  if ! db_go; then
+	      STATE=notconfigured
+	  else
 	      db_get moodle/dbu_name || true
-	      if [ ! -z "$RET" ]; then
-		  STATE=10
+	      if [ -n "$RET" ]; then
+		  STATE=dbu_password
 	      fi
-	  else
-	      STATE=2
 	  fi
 	  ;;
 
-      10)
+      dbu_password)
 	  db_input critical moodle/dbu_password || true
-	  if db_go; then
-	      db_get moodle/dbu_password || true
-	      STATE=11
-	  else
-	      STATE=9
-	  fi
-	  ;;
-
-      11)
 	  db_input critical moodle/dbu_confirm || true
-	  if db_go; then
+	  if ! db_go; then
+	      STATE=notconfigured
+	  else
 	      db_get moodle/dbu_confirm || true
 	      CONFIRM="$RET"
 	      db_get moodle/dbu_password || true
-	      if [ "$RET" != "$CONFIRM" ]; then
-		  STATE=12
+	      PW="$RET"
+	      if [ "$PW" != "$CONFIRM" ]; then
+		  STATE=dbu_pwmismatch
 	      else
-		  STATE=13
+		  if [ -z "$PW" ] || [ -z "$CONFIRM" ]; then
+		      STATE=dbu_pwempty
+		  else
+		      case "$PW" in
+			  # Don't allow quoting characters at all.
+			  # They break stuff and aren't necessary.
+			  *"'"*|*'"'*|*\\*)
+			      STATE=dbu_pwillegalchar
+			      ;;
+			  *)
+			      db_get moodle/db_create || true
+			      if [ "$RET" = "true" ]; then
+				  STATE=db_populate
+			      else
+				  STATE=config_php_created
+			      fi
+		      esac
+		  fi
 	      fi
-	  else
-	      STATE=9
 	  fi
 	  ;;
 
-      12)
-	  db_input critical moodle/mismatch || true
-	  db_go
-	  STATE=9
+      dbu_pwempty)
+	  db_input critical moodle/pwempty|| true
+	  STATE=dbu_password
 	  ;;
 
-      13)
-	  db_input critical moodle/create_tables || true
-	  db_go
-	  STATE=15
+      dbu_pwmismatch)
+	  db_input critical moodle/pwmismatch || true
+	  STATE=dbu_password
 	  ;;
 
-      14)
-	  db_input critical moodle/create_db || true
-	  db_go
-	  STATE=15
+      dbu_pwillegalchar)
+	  db_input critical moodle/pwillegalchar || true
+	  STATE=dbu_password
 	  ;;
+
+      db_populate)
+	  db_input critical moodle/db_populate || true
+	  db_go || true
+	  STATE=done
+	  ;;
+
+      config_php_created)
+	  db_input critical moodle/config_php_created || true
+	  db_go || true
+	  STATE=done
+	  ;;
+
   esac
 done
 
-if [ "$STATE" = 0 ]; then
+if [ "$STATE" = 'notconfigured' ]; then
     db_input critical moodle/notconfigured || true
-    db_go
+    db_go || true
     exit 1
 fi

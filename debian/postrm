@@ -21,6 +21,7 @@ case "$1" in
 	fi
 
 	rm -rf /usr/share/moodle
+	ucf --purge /etc/moodle/apache.conf
 	ucf --purge /etc/moodle/config.php
 	ucf --purge /etc/cron.d/moodle
 	rm -rf /etc/moodle
@@ -31,7 +32,7 @@ case "$1" in
     remove)
 	rm -f /etc/${webserver}/conf.d/moodle
 	if [ -e "/etc/init.d/${webserver}" ]; then
-	    invoke-rc.d ${webserver} reload || true
+	    invoke-rc.d ${webserver} reload >/dev/null || true
 	fi
 	;;
 
