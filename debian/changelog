@@ -1,4 +1,12 @@
-moodle (1.9.4.dfsg-1) unstable; urgency=low
+moodle (1.9.4.dfsg-0ubuntu1) jaunty; urgency=low
+
+  * Merge with Debian git:
+    - use Ubuntu's smarty lib directory for linking
+    - use internal yui library 
+
+ -- Jordan Mantha <laserjock@ubuntu.com>  Tue, 24 Feb 2009 18:03:15 -0800
+
+moodle (1.9.4.dfsg-1) UNRELEASED; urgency=low
 
   * New Upstream Version (closes: #475535, #514284, #515823)
     (added notes/ and tag/ to debian/install)
