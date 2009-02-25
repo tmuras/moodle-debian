@@ -142,6 +142,23 @@ moodle (1.8.2-1.3) unstable; urgency=high
 
  -- Nico Golde <nion@debian.org>  Sun, 20 Jul 2008 18:07:55 +0200
 
+moodle (1.8.2-1.2ubuntu2) intrepid; urgency=low
+
+  * SECURITY UPDATE: arbitrary code execution via multiple vectors.
+    - Add CVE-2008-1502.dpatch: upstream KSES lib fixes, thanks to Nico Golde.
+
+ -- Kees Cook <kees@ubuntu.com>  Wed, 22 Oct 2008 14:01:33 -0700
+
+moodle (1.8.2-1.2ubuntu1) intrepid; urgency=low
+
+  * Merge from debian unstable, remaining changes:
+    - Suggest php5-ldap
+    - Modify Maintainer value to match Debian-Maintainer-Field Spec
+    - debian/postinst ucf fixes
+    - drop use of wwwconfig (database code in postinst stolen from mythtv)
+
+ -- Oliver Grawert <ogra@ubuntu.com>  Thu, 01 May 2008 02:19:09 +0100
+
 moodle (1.8.2-1.2) unstable; urgency=low
 
   * Non-maintainer upload to fix pending l10n issues.
@@ -170,11 +187,52 @@ moodle (1.8.2-1.1) unstable; urgency=low
 
  -- Tobias Klauser <tklauser@access.unizh.ch>  Sat, 12 Jan 2008 17:04:03 +0100
 
+moodle (1.8.2-1ubuntu4) hardy; urgency=low
+
+  * debian/postinst: ... except we should explicitly pass --debconf-ok
+    to ucf, for compatibility with older versions.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 28 Mar 2008 01:16:24 +0000
+
+moodle (1.8.2-1ubuntu3) hardy; urgency=low
+
+  * debian/postinst: Only call db_stop after ucf has been run in
+    handle_config(), since ucf itself uses debconf; and drop the
+    "exec 0<&1" workaround which no longer matters. LP: #203844
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 28 Mar 2008 00:37:00 +0000
+
+moodle (1.8.2-1ubuntu2) gutsy; urgency=low
+
+  * Package changed to avoid use of wwwconfig; borrowed database setup code
+    from Ubuntu mythtv package.
+
+ -- Matt Oquist <moquist@majen.net>  Sat, 28 Jul 2007 16:14:18 +0200
+
+moodle (1.8.2-1ubuntu1) gutsy; urgency=low
+
+  * Merge from Debian unstable. Remaining Ubuntu changes:
+    - Depends on postgresql-client
+    - Suggest php5-ldap
+    - Modify Maintainer value to match Debian-Maintainer-Field Spec
+
+ -- Vincent Legout <bixente44@gmail.com>  Tue, 17 Jul 2007 16:14:18 +0200
+
 moodle (1.8.2-1) unstable; urgency=low
 
   * New upstream release, fixes security bug, closes: #432264
 
  -- Isaac Clerencia <isaac@debian.org>  Mon, 09 Jul 2007 00:24:17 +0200
+
+moodle (1.8.1-1ubuntu1) gutsy; urgency=low
+
+  * Merge from debian unstable, remaining changes:
+    - Depends on postgresql-client
+    - Suggest php5-ldap
+    - Set apache2 as default in debian/templates
+    - Update Maintainer field in debian/control
+
+ -- Luca Falavigna <dktrkranz@ubuntu.com>  Fri, 15 Jun 2007 23:33:55 +0100
 
 moodle (1.8.1-1) unstable; urgency=low
 
@@ -183,6 +241,26 @@ moodle (1.8.1-1) unstable; urgency=low
   * No longer depend on php4 and apache 1
 
  -- Isaac Clerencia <isaac@debian.org>  Fri, 15 Jun 2007 14:12:43 +0200
+
+moodle (1.7.2-1ubuntu2) gutsy; urgency=low
+
+  * Switch back to postgresql-client and postgresql (LP: 110054)
+  * Suggest php5-ldap (LP: 107713)
+
+ -- Luca Falavigna <dktrkranz@ubuntu.com>  Sun, 10 Jun 2007 23:56:16 +0200
+
+moodle (1.7.2-1ubuntu1) gutsy; urgency=low
+
+  * Merge from Debian unstable. Remaining Ubuntu changes:
+    + debian/control:
+      - php5 by default.
+      - Add postgresql-client-8.1 to Depends.
+      - Update Recommends alternate to postgresql-8.1.
+    + debian/templates: Ensure the default corresponds to the install-
+      time dependencies (apache2).
+  * Modify Maintainer value to match Debian-Maintainer-Field Spec
+
+ -- Arthur Loiret <freacky22527@free.fr>  Sun,  3 Jun 2007 20:53:01 +0200
 
 moodle (1.7.2-1) unstable; urgency=low
 
@@ -202,12 +280,36 @@ moodle (1.7+20061215-1) experimental; urgency=low
 
  -- Isaac Clerencia <isaac@debian.org>  Fri, 15 Dec 2006 13:39:14 +0100
 
+moodle (1.6.3-2ubuntu1) feisty; urgency=low
+
+  * Merge from debian unstable, remaining changes:
+    - debian/control:
+      + php5 by default.
+      + Add postgresql-client-8.1 to Depends.
+      + Update Recommends alternate to postgresql-8.1.
+    - debian/templates: Ensure the default corresponds to the install-
+      time dependencies (apache2).
+
+ -- Kees Cook <kees@ubuntu.com>  Mon, 18 Dec 2006 12:28:27 -0800
+
 moodle (1.6.3-2) unstable; urgency=high
 
   * Urgency high as it fixes a security bug and should enter Etch ASAP
   * Fix security bug in the forum module (discuss.php)
 
  -- Isaac Clerencia <isaac@debian.org>  Thu, 14 Dec 2006 14:14:27 +0100
+
+moodle (1.6.3-1ubuntu1) feisty; urgency=low
+
+  * Merge from debian unstable.  Remaining Ubuntu changes:
+    - debian/control:
+      + php5 by default.
+      + Add postgresql-client-8.1 to Depends.
+      + Update Recommends alternate to postgresql-8.1.
+    - debian/templates: Ensure the default corresponds to the install-
+      time dependencies (apache2).
+
+ -- Kees Cook <kees@ubuntu.com>  Wed, 29 Nov 2006 16:08:37 -0800
 
 moodle (1.6.3-1) unstable; urgency=low
 
@@ -224,6 +326,30 @@ moodle (1.6.2+20060930-1) unstable; urgency=high
   * Add a configuration section for php5 in apache.conf, closes: #387609
 
  -- Isaac Clerencia <isaac@debian.org>  Sat, 30 Sep 2006 12:14:29 +0100
+
+moodle (1.6.2-1ubuntu1.1) edgy; urgency=low
+
+  * SECURITY UPDATE: SQL injection vulnerability
+  * Add '01_sql-injection-fix.dpatch': Correctly escape tag options.
+  * References:
+    CVE-2006-5219
+    http://cvs.moodle.com/blog/index.php?r1=1.18.2.2&r2=1.18.2.3
+
+ -- Kees Cook <kees@ubuntu.com>  Wed, 11 Oct 2006 15:25:15 -0700
+
+moodle (1.6.2-1ubuntu1) edgy; urgency=low
+
+  * Merge from Debian unstable. The following Ubuntu changes remain:
+    - debian/control:
+      + Apply patch from Ubuntu #59472 to use php5
+        (Closes Ubuntu: #59472),
+      + Add postgresql-client-8.1 to Depends (Closes Ubuntu: #51813),
+      + Update Recommends alternate to postgresql-8.1,
+    - debian/templates: Ensure the default corresponds to the install-
+      time dependencies (apache2) so we can avoid the mess that was
+      worked around in dapper-security.
+
+ -- Daniel T Chen <crimsun@ubuntu.com>  Sat, 23 Sep 2006 22:26:13 -0400
 
 moodle (1.6.2-1) unstable; urgency=low
 
@@ -245,12 +371,29 @@ moodle (1.6.1+20060825-1) unstable; urgency=low
 
  -- Isaac Clerencia <isaac@debian.org>  Fri, 25 Aug 2006 08:56:42 +0200
 
+moodle (1.6-2ubuntu1) edgy; urgency=low
+
+  [ Ubuntu Merge-o-Matic ]
+  * Merge from debian unstable.
+
+ -- Daniel T Chen <crimsun@ubuntu.com>  Thu,  6 Jul 2006 20:30:30 -0400
+
 moodle (1.6-2) unstable; urgency=low
 
   * Fix two problems in preinst, thanks to Jordi Mallach's workmate
   * Ship cron file in package instead of generating it at postinst
 
  -- Isaac Clerencia <isaac@debian.org>  Mon,  3 Jul 2006 10:25:31 +0200
+
+moodle (1.6-1ubuntu1) edgy; urgency=low
+
+  * Merge from debian unstable:
+    - Use Debian Sid's packaging save in debian/templates where we need
+      to make sure the default corresponds to the install-time
+      dependencies (apache2) so we can avoid the mess that was worked
+      around in dapper-security.
+
+ -- Daniel T Chen <crimsun@ubuntu.com>  Fri, 30 Jun 2006 19:21:20 +0100
 
 moodle (1.6-1) unstable; urgency=low
 
@@ -284,6 +427,12 @@ moodle (1.5.3+20060108-2) unstable; urgency=low
 
  -- Isaac Clerencia <isaac@debian.org>  Thu, 26 Jan 2006 13:01:58 +0100
 
+moodle (1.5.3+20060108-1ubuntu1) dapper; urgency=low
+
+  * Resynchronise with Debian.
+
+ -- Daniel T Chen <crimsun@fungus.sh.nu>  Mon, 09 Jan 2006 13:49:39 +0000
+
 moodle (1.5.3+20060108-1) unstable; urgency=low
 
   * New package created from 1.5.3+ branch, which closes: #346509, a
@@ -294,11 +443,27 @@ moodle (1.5.3+20060108-1) unstable; urgency=low
 
  -- Isaac Clerencia <isaac@debian.org>  Sun,  8 Jan 2006 17:09:57 +0100
 
+moodle (1.5.3-1ubuntu1) dapper; urgency=low
+
+  * Resynchronise with Debian.
+
+ -- Stephan Hermann <sh@sourcecode.de>  Wed, 28 Dec 2005 18:25:41 +0100
+
 moodle (1.5.3-1) unstable; urgency=low
 
   * New upstream release
 
  -- Isaac Clerencia <isaac@debian.org>  Mon, 21 Nov 2005 21:09:21 +0100
+
+moodle (1.5.2-1ubuntu1) breezy; urgency=low
+
+  * Resync with debian (security update)
+  * changed dependencys to php5
+  * changed apache dependency to apache2 
+  * References
+    CAN-2005-2247
+
+ -- Andrew Mitchell <ajmitch@ubuntu.com>  Thu, 13 Oct 2005 02:00:59 +1300
 
 moodle (1.5.2-1) unstable; urgency=low
 
