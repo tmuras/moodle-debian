@@ -226,16 +226,20 @@ moodle_config() {
 	protocol="http"
     fi
 
-    fqdn=`hostname --fqdn 2>/dev/null`
-    if [ -z "$fqdn" ]; then
-	echo 'moodle configuration left incomplete pending configuration of FQDN' >&2
-	if test -d $unud; then
-	    cp -f "/usr/share/moodle/update-notifier/$mrr_fqdn_check" "$unud/$mrr_fqdn_check"
+    if [ "$local_only" = "true" ]; then
+	hostname=localhost
+    else
+	hostname=`hostname --fqdn 2>/dev/null`
+	if [ -z "$hostname" ]; then
+	    echo 'moodle configuration left incomplete pending configuration of FQDN' >&2
+	    if test -d $unud; then
+		cp -f "/usr/share/moodle/update-notifier/$mrr_fqdn_check" "$unud/$mrr_fqdn_check"
+	    fi
+	    exit 0
 	fi
-	exit 0
     fi
 
-    wwwroot="$protocol://$fqdn/moodle";
+    wwwroot="$protocol://$hostname/moodle";
 
     cfile=/etc/moodle/config.php
     tempcfile=`tempfile`
