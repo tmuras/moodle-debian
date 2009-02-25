@@ -70,6 +70,11 @@ check_myinstalled() {
     return 0
 }
 
+check_php5pginstalled() {
+    dpkg -s php5-pgsql || return 1
+    return 0
+}
+
 check_pginstalled() {
     type pg_lsclusters >/dev/null 2>&1 || return 1
     type psql >/dev/null 2>&1 || return 1
@@ -362,13 +367,6 @@ case "$1" in
 			exit 0
 		    fi
 
-		    if ! check_php5myinstalled; then
-			echo 'Error - You have specified that you wish to use a mysql' >&2
-			echo 'database, but php5-mysql is not installed. You must install' >&2
-			echo 'php5-mysql before you can complete your moodle installation.' >&2
-			exit 0
-		    fi
-
 		    if ! DoMySQL "$db_server" "$db_host" "$dba_name" "$dba_password" "$db_name" "SELECT NULL" 2>/dev/null; then
 			if ! DoMySQL "$db_server" "$db_host" "$dba_name" "$dba_password" "" \
 			     "CREATE DATABASE $db_name"; then
@@ -389,6 +387,13 @@ case "$1" in
 
 		    DoMySQL "$db_server" "$db_host" "$dba_name" "$dba_password" "$db_name" \
 		            "GRANT ALL PRIVILEGES ON $db_name.* TO $dbu_name@'%' IDENTIFIED BY '$dbu_password'"
+
+		    if ! check_php5myinstalled; then
+			echo 'Error - You have specified that you wish to use a mysql' >&2
+			echo 'database, but php5-mysql is not installed. You must install' >&2
+			echo 'php5-mysql before you can complete your moodle installation.' >&2
+			exit 0
+		    fi
 		fi
 	    ;;
 	    postgres7)
@@ -411,6 +416,13 @@ case "$1" in
 			id "$dbu_name" 2>/dev/null || adduser --system --home /nonexistent --no-create-home --disabled-login "$dbu_name" >/dev/null
 			su -c "psql --command \"CREATE ROLE $dbu_name PASSWORD '$dbu_password' NOSUPERUSER CREATEDB NOCREATEROLE INHERIT LOGIN;\"" $dba_name >/dev/null
 			su -c "createdb -E UTF8 -O \"$dbu_name\" \"$db_name\"" $dba_name >/dev/null
+		    fi
+
+		    if ! check_php5pginstalled; then
+			echo 'Error - You have specified that you wish to use a postgresql' >&2
+			echo 'database, but php5-pgsql is not installed. You must install' >&2
+			echo 'php5-pgsql before you can complete your moodle installation.' >&2
+			exit 0
 		    fi
 		fi
 	    ;;
