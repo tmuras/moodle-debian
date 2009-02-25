@@ -300,7 +300,7 @@ case "$1" in
 	# Read debconf and edit the config file accordingly
 	get_config
 	apache_config
-	handle_config
+	moodle_config
 	db_stop
 
 	if [ -r /etc/moodle/config.php ]; then
