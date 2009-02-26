@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moodle\n"
 "Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
-"POT-Creation-Date: 2009-02-22 22:56+1300\n"
+"POT-Creation-Date: 2009-02-25 17:24-0800\n"
 "PO-Revision-Date: 2007-05-16 19:36+0100\n"
 "Last-Translator: Bart Cornelis <cobaco@skolelinux.no>\n"
 "Language-Team: debian-l10n-dutch <debian-l10n-dutch@lists.debian.org>\n"
@@ -17,172 +17,307 @@ msgstr ""
 "X-Poedit-Language: Dutch\n"
 "X-Poedit-Country: utf-8\n"
 
-#. Type: select
+#. Type: boolean
 #. Description
 #: ../templates:1001
+msgid "Should access to this Moodle server be restricted to localhost?"
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:1001
+msgid ""
+"If access is restricted to localhost, other computers will be prevented from "
+"connecting to this Moodle site. If you wish for others to be able to use "
+"this Moodle site you must not restrict access to localhost."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:1001
+msgid ""
+"Note: Opening your system to connections from remote hosts may have security "
+"implications."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid "Is your FQDN correct?"
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid ""
+"Moodle will be configured to use this system's Fully Qualified Domain Name "
+"(FQDN). This must be correct, and you cannot easily change this after your "
+"Moodle installation is complete."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid "The command 'hostname --fqdn' will display your system's current FQDN."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:2001
+msgid ""
+"If your FQDN is incorrect, you should change the FQDN and use 'sudo dpkg-"
+"reconfigure moodle' later to complete the Moodle configuration."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:3001
+msgid "Should https be required to access this Moodle server?"
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:3001
+msgid ""
+"If you elect to use https, you must have Apache's SSL module enabled and "
+"configured in order to complete the Moodle installation after this "
+"configuration script ends."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../templates:3001
+msgid ""
+"Note: Requiring https will have a slight impact on your Moodle site's "
+"performance."
+msgstr ""
+
+#. Type: select
+#. Description
+#: ../templates:4001
 msgid "Database server software for Moodle:"
 msgstr "Te gebruiken databaseserver:"
 
 #. Type: select
 #. Description
-#: ../templates:1001
+#: ../templates:4001
+#, fuzzy
+#| msgid ""
+#| "Moodle can work with either MySQL or PostgreSQL. Please choose which one "
+#| "you want to use."
 msgid ""
 "Moodle can work with either MySQL or PostgreSQL. Please choose which one you "
-"want to use."
+"want to use (and check that it is installed before continuing)."
 msgstr ""
 "Moodle kan zowel MySQL als PostgreSQL databases gebruiken. Wat voor "
 "databaseserver wilt u gebruiken?"
 
 #. Type: select
 #. Description
-#: ../templates:1001
-msgid "Please check that it is installed before continuing."
-msgstr "Gelieve na te gaan dat deze geïnstalleerd is alvorens verder te gaan."
-
-#. Type: boolean
-#. Description
-#: ../templates:2001
-msgid "Should a default postgres database be created for Moodle on localhost?"
+#: ../templates:4001
+msgid ""
+"Select 'Cancel' if you want to complete the Moodle configuration completely "
+"manually. (This is not recommended.)"
 msgstr ""
 
 #. Type: boolean
 #. Description
-#: ../templates:2001
-msgid ""
-"If you want, a database can be automatically created on localhost for Moodle."
+#: ../templates:5001
+msgid "Should a default database be created for Moodle on localhost?"
 msgstr ""
 
 #. Type: boolean
 #. Description
-#: ../templates:2001
+#: ../templates:5001
 msgid ""
-"Otherwise, you will need to create the database and configure access to it "
-"manually."
+"If you do not create a default database, you must create the database and "
+"configure access to it manually."
 msgstr ""
 
 #. Type: string
 #. Description
-#: ../templates:3001
+#: ../templates:6001
 msgid "Database server hostname:"
 msgstr "Computernaam van de databaseserver:"
 
 #. Type: string
 #. Description
-#: ../templates:3001
+#: ../templates:6001
 msgid "Please enter the hostname of the database server host."
 msgstr "Wat is de computernaam van de databaseserver?"
 
-#. Type: string
+#. Type: password
 #. Description
-#: ../templates:4001
-msgid "Database administrator username:"
-msgstr "Gebruikersnaam van de databasebeheerder:"
-
-#. Type: string
-#. Description
-#: ../templates:4001
-msgid ""
-"Please enter the PostgreSQL or MySQL administrator username, needed for the "
-"database creation."
+#: ../templates:7001
+msgid "root's MySQL password:"
 msgstr ""
-"Wat is de gebruikersnaam van de PostgreSQL- of MySQL-beheerder? Dit is nodig "
-"om de database te kunnen aanmaken."
 
 #. Type: password
 #. Description
-#: ../templates:5001
-msgid "Database administrator password:"
-msgstr "Wachtwoord van de databasebeheerder:"
-
-#. Type: password
-#. Description
-#: ../templates:5001
+#: ../templates:7001
+#, fuzzy
+#| msgid ""
+#| "Please enter the PostgreSQL or MySQL administrator password, needed for "
+#| "the database creation."
 msgid ""
-"Please enter the PostgreSQL or MySQL administrator password, needed for the "
-"database creation."
+"Please enter root's MySQL password, which is needed for the database "
+"creation."
 msgstr ""
 "Wat is het wachtwoord van de PostgreSQL- of MySQL-beheerder? Dit is nodig om "
 "de database te kunnen aanmaken."
 
 #. Type: password
 #. Description
-#: ../templates:6001
-msgid "DBA password confirmation:"
+#: ../templates:7001
+msgid ""
+"(This password was set (or left blank) when you installed mysql-server.)"
+msgstr ""
+
+#. Type: password
+#. Description
+#: ../templates:8001
+#, fuzzy
+#| msgid "DBA password confirmation:"
+msgid "root's MySQL password confirmation:"
 msgstr "Bevestiging van het wachtwoord van de de databasebeheerder:"
 
 #. Type: password
 #. Description
-#: ../templates:6001
-msgid "Please confirm the password in order to continue the process."
+#: ../templates:8001
+#, fuzzy
+#| msgid "Please confirm the password in order to continue the process."
+msgid "Please confirm the password in order to continue."
 msgstr ""
 "Om verder te gaan dient u het wachtwoord nogmaals in te geven (om tikfouten "
 "op te vangen)."
 
 #. Type: note
 #. Description
-#: ../templates:7001
+#: ../templates:9001
 msgid "Password mismatch"
 msgstr "De wachtwoorden komen niet overeen."
 
 #. Type: note
 #. Description
-#: ../templates:7001
+#: ../templates:9001
 msgid ""
 "The password and its confirmation do not match. Please reenter the passwords."
 msgstr ""
 "Het wachtwoord en de bevestiging komen niet overeen. Gelieve het wachtwoord "
 "opnieuw in te voeren."
 
+#. Type: note
+#. Description
+#: ../templates:10001
+#, fuzzy
+#| msgid "Password mismatch"
+msgid "Password is empty"
+msgstr "De wachtwoorden komen niet overeen."
+
+#. Type: note
+#. Description
+#: ../templates:10001
+#, fuzzy
+#| msgid ""
+#| "The password and its confirmation do not match. Please reenter the "
+#| "passwords."
+msgid "Your password must not be empty. Please reenter your password."
+msgstr ""
+"Het wachtwoord en de bevestiging komen niet overeen. Gelieve het wachtwoord "
+"opnieuw in te voeren."
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid "Illegal password character"
+msgstr ""
+
+#. Type: note
+#. Description
+#: ../templates:11001
+msgid ""
+"The password you specified has at least one of the following disallowed "
+"characters: '  \"  \\"
+msgstr ""
+
 #. Type: string
 #. Description
-#: ../templates:8001
+#: ../templates:12001
 msgid "Database owner username:"
 msgstr "Gebruikersnaam van de database-eigenaar:"
 
 #. Type: string
 #. Description
-#: ../templates:8001
+#: ../templates:12001
 msgid "Please enter the username of the Moodle database owner."
 msgstr "Wat is de gebruikersnaam van de eigenaar van de Moodle-Database?"
 
 #. Type: password
 #. Description
-#: ../templates:9001
-msgid "Database owner password:"
+#: ../templates:13001
+#, fuzzy
+#| msgid "Database owner password:"
+msgid "Moodle database password:"
 msgstr "Wachtwoord van de database-eigenaar:"
 
 #. Type: password
 #. Description
-#: ../templates:9001
-msgid "Please enter the password of the Moodle database owner."
+#: ../templates:13001
+#, fuzzy
+#| msgid "Please enter the password of the Moodle database owner."
+msgid "Please enter the password of the Moodle database."
 msgstr "Wat is het wachtwoord van de eigenaar van de Moodle-Database?"
 
 #. Type: password
 #. Description
-#: ../templates:10001
-msgid "Database user password confirmation:"
+#: ../templates:13001
+msgid ""
+"This password will appear in Moodle's config.php file:\n"
+" you should not re-use a password from elsewhere,\n"
+" you will not need to remember this password after this installation, and\n"
+" you should choose a strong password with letters, numbers, and symbols."
+msgstr ""
+
+#. Type: password
+#. Description
+#: ../templates:13001
+msgid "(This password cannot be blank.)"
+msgstr ""
+
+#. Type: password
+#. Description
+#: ../templates:14001
+#, fuzzy
+#| msgid "Database user password confirmation:"
+msgid "Moodle database password confirmation:"
 msgstr "Bevestiging van het wachtwoord van de databasegebruiker:"
 
 #. Type: password
 #. Description
-#: ../templates:10001
-msgid "Please confirm the password of the Moodle database owner."
+#: ../templates:14001
+#, fuzzy
+#| msgid "Please confirm the password of the Moodle database owner."
+msgid "Please confirm the password of the Moodle database."
 msgstr ""
 "Om verder te gaan dient u het wachtwoord van de eigenaar van de Moodle-"
 "database nogmaals in te geven (om tikfouten op te vangen)."
 
 #. Type: note
 #. Description
-#: ../templates:11001
+#: ../templates:15001
 msgid "Warning - Moodle is not configured"
 msgstr "Waarschuwing - Moodle is niet geconfigureerd"
 
 #. Type: note
 #. Description
-#: ../templates:11001
+#: ../templates:15001
+#, fuzzy
+#| msgid ""
+#| "Please note that you have not completed the Moodle configuration. For "
+#| "completing it, please use \"dpkg-reconfigure moodle\" later."
 msgid ""
-"Please note that you have not completed the Moodle configuration. For "
-"completing it, please use \"dpkg-reconfigure moodle\" later."
+"Please note that you have not completed the Moodle configuration. In order "
+"to complete it, please use \"sudo dpkg --configure moodle\" later."
 msgstr ""
 "Merk op dat u de Moodle-configuratie niet voltooid heeft. Om de configuratie "
 "later te voltooien dient u het commando 'dpkg-reconfigure moodle' uit te "
@@ -190,23 +325,23 @@ msgstr ""
 
 #. Type: note
 #. Description
-#: ../templates:12001
+#: ../templates:16001
 #, fuzzy
 #| msgid "Warning - Moodle database tables not created"
-msgid "Warning - Moodle tables not created in database"
+msgid "Warning - Moodle database not populated."
 msgstr "Waarschuwing - Moodle-databasetabellen zijn niet aangemaakt"
 
 #. Type: note
 #. Description
-#: ../templates:12001
+#: ../templates:16001
 #, fuzzy
 #| msgid ""
 #| "The Moodle install script will create the database, but the tables are to "
 #| "be created with a PHP script. Please launch it right after the install:"
 msgid ""
-"This install script will create the Moodle database, but the tables need to "
-"be created by Moodle itself. Please launch Moodle immediately after this "
-"installation completes:"
+"This install script may create the Moodle database, but the database needs "
+"to be populated by Moodle itself. Please launch Moodle immediately after "
+"this installation completes:"
 msgstr ""
 "Het Moodle-installatiescript zal de database aanmaken, de tabellen worden "
 "aangemaakt door een PHP-script. Gelieve dit na de installatie op te starten, "
@@ -214,30 +349,63 @@ msgstr ""
 
 #. Type: note
 #. Description
-#. Type: note
-#. Description
-#: ../templates:12001 ../templates:13001
-msgid "http://localhost/moodle/admin"
+#: ../templates:16001
+#, fuzzy
+#| msgid "http://localhost/moodle/admin"
+msgid "http://localhost/moodle/admin or http://<FQDN>/moodle/admin"
 msgstr "http://localhost/moodle/admin"
 
 #. Type: note
 #. Description
-#: ../templates:13001
-#, fuzzy
-#| msgid "Warning - Moodle database tables not created"
-msgid "Warning - Moodle database not created"
-msgstr "Waarschuwing - Moodle-databasetabellen zijn niet aangemaakt"
+#: ../templates:17001
+msgid "Moodle config.php created"
+msgstr ""
 
 #. Type: note
 #. Description
-#: ../templates:13001
+#: ../templates:17001
+#, fuzzy
+#| msgid ""
+#| "The Moodle install script will create the database, but the tables are to "
+#| "be created with a PHP script. Please launch it right after the install:"
 msgid ""
-"You will need to create your Moodle database manually and configure access "
-"to it according to the settings you specified during this installation. See "
-"your Moodle's config.php. Once you create the database, the tables will need "
-"to be created by Moodle itself. Launch it immediately after configuring your "
-"database:"
+"This install script will create Moodle's config.php file, but the Moodle "
+"database will not be created or populated. You must create the Moodle "
+"database and then launch Moodle immediately to complete the installation."
 msgstr ""
+"Het Moodle-installatiescript zal de database aanmaken, de tabellen worden "
+"aangemaakt door een PHP-script. Gelieve dit na de installatie op te starten, "
+"u vindt het script op:"
+
+#. Type: note
+#. Description
+#: ../templates:17001
+msgid ""
+"(The database configuration you've specified can be seen in /etc/moodle/"
+"config.php.)"
+msgstr ""
+
+#~ msgid "Please check that it is installed before continuing."
+#~ msgstr ""
+#~ "Gelieve na te gaan dat deze geïnstalleerd is alvorens verder te gaan."
+
+#~ msgid "Database administrator username:"
+#~ msgstr "Gebruikersnaam van de databasebeheerder:"
+
+#~ msgid ""
+#~ "Please enter the PostgreSQL or MySQL administrator username, needed for "
+#~ "the database creation."
+#~ msgstr ""
+#~ "Wat is de gebruikersnaam van de PostgreSQL- of MySQL-beheerder? Dit is "
+#~ "nodig om de database te kunnen aanmaken."
+
+#~ msgid "Database administrator password:"
+#~ msgstr "Wachtwoord van de databasebeheerder:"
+
+#, fuzzy
+#~| msgid "Warning - Moodle database tables not created"
+#~ msgid "Warning - Moodle tables not created in database"
+#~ msgstr "Waarschuwing - Moodle-databasetabellen zijn niet aangemaakt"
 
 #~ msgid "Web server software:"
 #~ msgstr "Te gebruiken Webserver:"
