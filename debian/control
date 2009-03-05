@@ -1,8 +1,7 @@
 Source: moodle
 Section: web
 Priority: optional
-Maintainer: Ubuntu Core Developers <ubuntu-devel-discuss@lists.ubuntu.com>
-XSBC-Original-Maintainer: Moodle Packaging Team <moodle-packaging@catalyst.net.nz>
+Maintainer: Moodle Packaging Team <moodle-packaging@catalyst.net.nz>
 Uploaders: Francois Marier <francois@debian.org>, Penny Leach <penny@mjollnir.org>, Mathieu Petit-Clair <mat@moodle.com>, Dan Poltawski <talktodan@gmail.com>
 Build-Depends-Indep: po-debconf
 Build-Depends: debhelper (>= 7), dpatch
