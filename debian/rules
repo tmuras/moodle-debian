@@ -66,6 +66,7 @@ binary-indep: install
 	rm -rf debian/moodle/usr/share/moodle/lib/editor/htmlarea/plugins/SpellChecker
 
 	rm -rf debian/moodle/usr/share/moodle/lib/smarty
+	rm -rf debian/moodle/usr/share/moodle/lib/yui
 
 	dh_lintian
 	dh_installdebconf
