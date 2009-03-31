@@ -1,6 +1,6 @@
 moodle (1.8.2.dfsg-3+lenny2) stable-security; urgency=high
 
-  * Fix file file disclosure in Tex Filter ( MSA-09-0009 ) 
+  * Fix file file disclosure in Tex Filter (CVE-2009-1171, closes: #522116)
 
  -- Dan Poltawski <talktodan@gmail.com>  Mon, 30 Mar 2009 16:39:40 +0100
 
