@@ -1,3 +1,10 @@
+moodle (1.8.2.dfsg-5) unstable; urgency=high
+
+  * Fix arbitrary file disclosure via abusing $$ in LaTeX
+    mode if not mimetex is used (CVE-2009-1171; Closes: #522116).
+
+ -- Francois Marier <francois@debian.org>  Thu, 02 Apr 2009 18:18:02 +1300
+
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
   * Improve the fix for log URL filtering as suggested by Steffen Joeris
