@@ -1,3 +1,11 @@
+moodle (1.8.2.dfsg-3+lenny2) stable-security; urgency=high
+
+  * Fix arbitrary file disclosure via abusing $$ in
+    LaTeX mode in case the installation is not using mimetex
+    for LaTeX rendering (CVE-2009-1171; Closes: #522116).
+
+ -- Francois Marier <francois@debian.org>  Thu, 02 Apr 2009 17:21:46 +1300
+
 moodle (1.8.2.dfsg-3+lenny1) testing-security; urgency=high
 
   * Non-maintainer upload by the security team
