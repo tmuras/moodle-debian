@@ -259,6 +259,7 @@ moodle_config() {
  # You can find a commented config file in /usr/share/doc/moodle/
 
  unset(\$CFG);
+ \$CFG = new stdClass();
 
  \$CFG->dbtype = '${db_type}';
  \$CFG->dbhost = '${db_host}';
