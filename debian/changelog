@@ -21,6 +21,7 @@ moodle (1.9.4.dfsg-1) UNRELEASED; urgency=low
   * Compress the deb with bzip2
   * Add a watch file
   * Update copyright file
+  * Update uploaders field
 
   Dependencies:
   * Depend on libjs-yui instead of yui (renamed after lenny)
@@ -35,7 +36,7 @@ moodle (1.9.4.dfsg-1) UNRELEASED; urgency=low
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
 
- -- Francois Marier <francois@debian.org>  Tue, 07 Apr 2009 12:33:00 +1200
+ -- Francois Marier <francois@debian.org>  Wed, 29 Apr 2009 18:56:07 +1200
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
