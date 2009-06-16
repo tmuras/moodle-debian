@@ -1,3 +1,12 @@
+moodle (1.8.2.dfsg-3+lenny3) stable-security; urgency=high
+
+  * Fix MSA-09-0010: Unzip binary may create symbolic links pointing outside
+    of dataroot on unix/linux servers 
+  * Fix MSA-09-0011: Glossary, database and forum ratings are not verified
+    after submission
+
+ -- Dan Poltawski <talktodan@gmail.com>  Tue, 16 Jun 2009 22:06:26 +0100
+
 moodle (1.8.2.dfsg-3+lenny2) stable-security; urgency=high
 
   * Fix arbitrary file disclosure via abusing $$ in

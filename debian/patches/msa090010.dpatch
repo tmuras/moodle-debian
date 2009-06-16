@@ -1,0 +1,198 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## msa090010.dpatch by Dan Poltawski <talktodan@gmail.com>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: MSA-09-0011: Unzip binary may create symbolic links pointing 
+## DP: outside of dataroot on unix/linux servers
+## DP: This patch constructed from many upstream commits in order to
+## DP: merge correctly, in order:
+## DP:  6f23f8985a716eb2d7f05938ca3154108f1ca168
+## DP:  cc980ff6e5c2f17a5fe1aa2feba6ae1b7d5ba23b
+## DP:  604ecf15154acd07f1e25eebfec601656841e9be
+## DP:  b5469f78cbb151c9b820c59f9629ebd250d6d623
+## DP:  ff933bfa8f1a91be94d42ce19e7c62dd537da7ea
+## DP:  717109992697de94a2a81a6191fd0e4db78d5eca
+## DP:  5592bd127617e3130a7a511966475eda0d12bf49
+
+@DPATCH@
+diff --git a/lib/moodlelib.php b/lib/moodlelib.php
+index 005b484..a2fadc8 100644
+--- a/lib/moodlelib.php
++++ b/lib/moodlelib.php
+@@ -6273,16 +6273,27 @@ function unzip_file ($zipfile, $destination = '', $showstatus = true) {
+     //    -$zipfilename is the name of the zip file (without path)
+     //    -$destpath is the destination path where the zip file will uncompressed (dir)
+ 
+-    $list = null;
++    $list = array();
++
++    require_once("$CFG->libdir/filelib.php");
++
++    do {
++        $temppath = "$CFG->dataroot/temp/unzip/".random_string(10);
++    } while (file_exists($temppath));
++    if (!check_dir_exists($temppath, true, true)) {
++        return false;
++    }
+ 
+     if (empty($CFG->unzip)) {    // Use built-in php-based unzip function
+ 
+         include_once("$CFG->libdir/pclzip/pclzip.lib.php");
+         $archive = new PclZip(cleardoubleslashes("$zippath/$zipfilename"));
+-        if (!$list = $archive->extract(PCLZIP_OPT_PATH, $destpath,
++        if (!$list = $archive->extract(PCLZIP_OPT_PATH, $temppath,
+                                        PCLZIP_CB_PRE_EXTRACT, 'unzip_cleanfilename',
+-                                       PCLZIP_OPT_EXTRACT_DIR_RESTRICTION, $destpath)) {
+-            notice($archive->errorInfo(true));
++                                       PCLZIP_OPT_EXTRACT_DIR_RESTRICTION, $temppath)) {
++            if (!empty($showstatus)) {
++                notice($archive->errorInfo(true));
++            }
+             return false;
+         }
+ 
+@@ -6294,7 +6305,7 @@ function unzip_file ($zipfile, $destination = '', $showstatus = true) {
+         $command = 'cd '.escapeshellarg($zippath).$separator.
+                     escapeshellarg($CFG->unzip).' -o '.
+                     escapeshellarg(cleardoubleslashes("$zippath/$zipfilename")).' -d '.
+-                    escapeshellarg($destpath).$redirection;
++                    escapeshellarg($temppath).$redirection;
+         //All converted to backslashes in WIN
+         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+             $command = str_replace('/','\\',$command);
+@@ -6302,14 +6313,66 @@ function unzip_file ($zipfile, $destination = '', $showstatus = true) {
+         Exec($command,$list);
+     }
+ 
++    unzip_process_temp_dir($temppath, $destpath);
++    fulldelete($temppath);
++
+     //Display some info about the unzip execution
+     if ($showstatus) {
+-        unzip_show_status($list,$destpath);
++        unzip_show_status($list, $temppath, $destpath);
+     }
+ 
+     return true;
+ }
+ 
++/**
++ * Sanitize temporary unzipped files and move to target dir.
++ * @param string $temppath path to temporary dir with unzip output
++ * @param string $destpath destination path
++ * @return void
++ */
++function unzip_process_temp_dir($temppath, $destpath) {
++    global $CFG;
++
++    $filepermissions = ($CFG->directorypermissions & 0666); // strip execute flags
++
++    if (check_dir_exists($destpath, true, true)) {
++        $currdir = opendir($temppath);
++        while (false !== ($file = readdir($currdir))) {
++            if ($file <> ".." && $file <> ".") {
++                $fullfile = "$temppath/$file";
++                if (is_link($fullfile)) {
++                    //somebody tries to sneak in symbolik link - no way!
++                    continue;
++                }
++                $cleanfile = clean_param($file, PARAM_FILE); // no dangerous chars
++                if ($cleanfile === '') {
++                    // invalid file name
++                    continue;
++                }
++                if ($cleanfile !== $file and file_exists("$temppath/$cleanfile")) {
++                    // eh, weird chars collision detected
++                    continue;
++                }
++                $descfile = "$destpath/$cleanfile";
++                if (is_dir($fullfile)) {
++                    // recurse into subdirs
++                    unzip_process_temp_dir($fullfile, $descfile);
++                }
++                if (is_file($fullfile)) {
++                    // rename and move the file
++                    if (file_exists($descfile)) {
++                        //override existing files
++                        unlink($descfile);
++                    }
++                    rename($fullfile, $descfile);
++                    chmod($descfile, $filepermissions);
++                }
++            }
++        }
++        closedir($currdir);
++    }
++}
++
+ function unzip_cleanfilename ($p_event, &$p_header) {
+ //This function is used as callback in unzip_file() function
+ //to clean illegal characters for given platform and to prevent directory traversal.
+@@ -6329,7 +6392,7 @@ function unzip_cleanfilename ($p_event, &$p_header) {
+     return 1;
+ }
+ 
+-function unzip_show_status ($list,$removepath) {
++function unzip_show_status($list, $removepath, $removepath2) {
+ //This function shows the results of the unzip execution
+ //depending of the value of the $CFG->zip, results will be
+ //text or an array of files.
+@@ -6349,7 +6412,8 @@ function unzip_show_status ($list,$removepath) {
+         foreach ($list as $item) {
+             echo "<tr>";
+             $item['filename'] = str_replace(cleardoubleslashes($removepath).'/', "", $item['filename']);
+-            print_cell("left", s($item['filename']));
++            $item['filename'] = str_replace(cleardoubleslashes($removepath2).'/', "", $item['filename']);
++            print_cell("left", s(clean_param($item['filename'], PARAM_PATH)));
+             if (! $item['folder']) {
+                 print_cell("right", display_size($item['size']));
+             } else {
+@@ -6366,7 +6430,9 @@ function unzip_show_status ($list,$removepath) {
+         print_simple_box_start("center");
+         echo "<pre>";
+         foreach ($list as $item) {
+-            echo s(str_replace(cleardoubleslashes($removepath.'/'), '', $item)).'<br />';
++            $item = str_replace(cleardoubleslashes($removepath.'/'), '', $item);
++            $item = str_replace(cleardoubleslashes($removepath2.'/'), '', $item);
++            echo s($item).'<br />';
+         }
+         echo "</pre>";
+         print_simple_box_end();
+@@ -6731,7 +6797,7 @@ function remove_dir($dir, $content_only=false) {
+ /**
+  * Function to check if a directory exists and optionally create it.
+  *
+- * @param string absolute directory path
++ * @param string absolute directory path (must be under $CFG->dataroot)
+  * @param boolean create directory if does not exist
+  * @param boolean create directory recursively
+  *
+@@ -6741,6 +6807,10 @@ function check_dir_exists($dir, $create=false, $recursive=false) {
+ 
+     global $CFG;
+ 
++    if (strstr(cleardoubleslashes($dir), cleardoubleslashes($CFG->dataroot.'/')) === false) {
++        debugging('Warning. Wrong call to check_dir_exists(). $dir must be an absolute path under $CFG->dataroot ("' . $dir . '" is incorrect)', DEBUG_DEVELOPER);
++    }
++
+     $status = true;
+ 
+     if(!is_dir($dir)) {
+@@ -6749,10 +6819,13 @@ function check_dir_exists($dir, $create=false, $recursive=false) {
+         } else {
+             umask(0000);
+             if ($recursive) {
+-                // PHP 5.0 has recursive mkdir parameter, but 4.x does not :-(
+-                $dir = str_replace('\\', '/', $dir); //windows compatibility
+-                $dirs = explode('/', $dir);
+-                $dir = array_shift($dirs).'/'; //skip root or drive letter
++            /// We are going to make it recursive under $CFG->dataroot only
++            /// (will help sites running open_basedir security and others)
++                $dir = str_replace(cleardoubleslashes($CFG->dataroot . '/'), '', cleardoubleslashes($dir));
++            /// PHP 5.0 has recursive mkdir parameter, but 4.x does not :-(
++                $dirs = explode('/', $dir); /// Extract path parts
++            /// Iterate over each part with start point $CFG->dataroot
++                $dir = $CFG->dataroot . '/';
+                 foreach ($dirs as $part) {
+                     if ($part == '') {
+                         continue;

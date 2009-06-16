@@ -1,0 +1,88 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## msa090011.dpatch by Dan Poltawski <talktodan@gmail.com>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: MSA-09-0011: Glossary and forum ratings are not 
+## DP: verified after submission
+## DP: From upstream commits:
+## DP: 461ca1b47ec2426ff1c0b0b9502296d7ca458534
+## DP: b18525e3d4ed09ec193bec35176e88b7a9015a6c
+## DP: 42a7f43ee2ad975391d61836291b4351a0b1e94f
+
+@DPATCH@
+diff --git a/lang/en_utf8/forum.php b/lang/en_utf8/forum.php
+index 94ff3e7..4862bc3 100644
+--- a/lang/en_utf8/forum.php
++++ b/lang/en_utf8/forum.php
+@@ -111,6 +111,7 @@ $string['inforum'] = 'in $a';
+ $string['intronews'] = 'General news and announcements';
+ $string['introsocial'] = 'An open forum for chatting about anything you want to';
+ $string['introteacher'] = 'A forum for teacher-only notes and discussion';
++$string['invalidrate'] = 'Invalid rate ($a)';
+ $string['lastpost'] = 'Last post';
+ $string['learningforums'] = 'Learning forums';
+ $string['mailnow'] = 'Mail now';
+diff --git a/mod/forum/rate.php b/mod/forum/rate.php
+index 6d81359..f9bc398 100644
+--- a/mod/forum/rate.php
++++ b/mod/forum/rate.php
+@@ -13,6 +13,10 @@
+     if (! $cm = get_coursemodule_from_instance('forum', $forumid, $id)) {
+         error('Course Module ID was incorrect');
+     }
++
++    if (!$forum = get_record('forum', 'id', $forumid)) {
++        error("Forum ID was incorrect");
++    }
+     
+     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+     
+@@ -39,6 +43,9 @@
+ 
+         $lastpostid = 0;
+ 
++    /// Calculate scale values
++        $scale_values = make_grades_menu($forum->scale);
++
+         foreach ((array)$data as $postid => $rating) {
+             if ($postid == "id") {
+                 continue;
+@@ -47,6 +54,11 @@
+             $postid = (int)$postid;
+             $lastpostid = $postid;
+ 
++        /// Check rate is valid for for that forum scale values
++            if (!array_key_exists($rating, $scale_values) && $rating != FORUM_UNSET_POST_RATING) {
++                print_error('invalidrate', 'forum', '', $rating);
++            }
++
+             if ($rating == FORUM_UNSET_POST_RATING) {
+                 delete_records('forum_ratings', 'post', $postid, 'userid', $USER->id);
+ 
+diff --git a/mod/glossary/rate.php b/mod/glossary/rate.php
+index 784935b..d00ad61 100644
+--- a/mod/glossary/rate.php
++++ b/mod/glossary/rate.php
+@@ -23,6 +23,10 @@
+ 
+     $glossary = false;
+     if ($data = data_submitted("$CFG->wwwroot/mod/glossary/view.php")) {    // form submitted
++
++    /// Calculate scale values
++        $scale_values = make_grades_menu($glossary->scale);
++
+         foreach ((array)$data as $entryid => $rating) {
+             if (!is_numeric($entryid)) {
+                 continue;
+@@ -69,6 +73,11 @@
+                 continue;
+             }
+ 
++        /// Check rate is valid for that glossary scale values
++            if (!array_key_exists($rating, $scale_values) && $rating != -999) {
++                print_error('invalidrate', 'glossary', '', $rating);
++            }
++
+             if ($oldrating = get_record("glossary_ratings", "userid", $USER->id, "entryid", $entry->id)) {
+                 //Check if we must delete the rate
+                 if ($rating == -999) {
