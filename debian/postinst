@@ -66,7 +66,7 @@ check_php5myinstalled() {
 
 check_myinstalled() {
     test -x /usr/sbin/mysqld || return 1
-    type mysql >/dev/null 2>&1 || return 1
+    which mysql >/dev/null 2>&1 || return 1
     return 0
 }
 
@@ -76,15 +76,15 @@ check_php5pginstalled() {
 }
 
 check_pginstalled() {
-    type pg_lsclusters >/dev/null 2>&1 || return 1
-    type psql >/dev/null 2>&1 || return 1
+    which pg_lsclusters >/dev/null 2>&1 || return 1
+    which psql >/dev/null 2>&1 || return 1
     return 0
 }
 
 check_pgsafe() {
     dbname="$1"
 
-    type pg_lsclusters >/dev/null 2>&1 || { echo 'pg_lsclusters not found in $PATH'; return 1; }
+    which pg_lsclusters >/dev/null 2>&1 || { echo 'pg_lsclusters not found in $PATH'; return 1; }
     o=$(pg_lsclusters -h) || { echo "pg_lsclusters failed."; return 1; }
 
     if [ $(echo "$o" | wc -l) != 1 ]; then
