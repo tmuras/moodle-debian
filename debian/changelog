@@ -18,6 +18,7 @@ moodle (1.9.5-1) UNRELEASED; urgency=low
   * Bump Standard-Version to 3.8.2
   * Bump debhelper compatibility to 7
   * Add lintian overrides for known customised libraries
+  * Add lintian overrides for known GPL libraries
   * Add new license files to delete (lintian warning)
   * Compress the deb with bzip2
   * Add a watch file
@@ -36,9 +37,8 @@ moodle (1.9.5-1) UNRELEASED; urgency=low
   * Include whitespace warning at the end of generated config.php
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
-  * 
 
- -- Francois Marier <francois@debian.org>  Fri, 26 Jun 2009 14:52:08 +1200
+ -- Francois Marier <francois@debian.org>  Fri, 26 Jun 2009 15:04:22 +1200
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
