@@ -1,4 +1,4 @@
-<?php // $Id: view.php,v 1.106.2.5 2008/12/17 12:40:09 sam_marshall Exp $
+<?php // $Id: view.php,v 1.106.2.6 2009/02/12 02:29:34 jerome Exp $
 
 //  Display the course home page.
 
@@ -57,7 +57,7 @@
         has_capability('moodle/role:switchroles', $context)) {
         // is this role assignable in this context?
         // inquiring minds want to know...
-        $aroles = get_assignable_roles($context);
+        $aroles = get_assignable_roles_for_switchrole($context);
         if (is_array($aroles) && isset($aroles[$switchrole])) {
             role_switch($switchrole, $context);
             // Double check that this role is allowed here

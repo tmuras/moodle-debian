@@ -1,4 +1,4 @@
-<?php // $Id: postgres7.class.php,v 1.36 2007/10/10 05:25:28 nicolasconnault Exp $
+<?php // $Id: postgres7.class.php,v 1.36.2.1 2009/03/02 19:08:26 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -562,10 +562,10 @@ function getSequenceFromDB($xmldb_table) {
             'intersect', 'into', 'is', 'isnull', 'join', 'leading', 'left', 'like',
             'limit', 'localtime', 'localtimestamp', 'natural', 'new', 'not',
             'notnull', 'null', 'off', 'offset', 'old', 'on', 'only', 'or', 'order',
-            'outer', 'overlaps', 'placing', 'primary', 'references', 'right', 'select',
+            'outer', 'overlaps', 'placing', 'primary', 'references', 'returning', 'right', 'select',
             'session_user', 'similar', 'some', 'symmetric', 'table', 'then', 'to',
             'trailing', 'true', 'union', 'unique', 'user', 'using', 'verbose',
-            'when', 'where'
+            'when', 'where', 'with'
         );
         return $reserved_words;
     }

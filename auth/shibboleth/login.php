@@ -1,5 +1,4 @@
-<?php // $Id: login.php,v 1.1.2.2 2008/02/01 12:58:08 exe-cutor Exp $
-
+<?php // $Id: login.php,v 1.1.2.3 2009/02/06 08:20:41 exe-cutor Exp $
 
     require_once("../../config.php");
     require_once($CFG->dirroot."/auth/shibboleth/auth.php");
@@ -61,6 +60,8 @@ httpsrequired();
         if (isset($IdPs[$selectedIdP][1]) && !empty($IdPs[$selectedIdP][1])){
             header('Location: '.$IdPs[$selectedIdP][1].'?providerId='. urlencode($selectedIdP) .'&target='. urlencode($CFG->wwwroot.'/auth/shibboleth/index.php'));
         } else {
+            // TODO: This has to be changed to /Shibboleth.sso/DS?entityId= for 
+            // Shibbolet 2.x sometime...
             header('Location: /Shibboleth.sso?providerId='. urlencode($selectedIdP) .'&target='. urlencode($CFG->wwwroot.'/auth/shibboleth/index.php'));
         }
     } elseif (isset($_POST['idp']) && !isset($IdPs[$_POST['idp']]))  {

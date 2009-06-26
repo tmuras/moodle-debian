@@ -1,4 +1,4 @@
-<?php // $Id: dmllib.php,v 1.116.2.31 2008/08/20 08:51:11 tjhunt Exp $
+<?php // $Id: dmllib.php,v 1.116.2.32 2009/02/15 23:04:43 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -2015,6 +2015,27 @@ function sql_order_by_text($fieldname, $numchars=32) {
             break;
         default:
             return $fieldname;
+    }
+}
+
+/**
+ * Returns the SQL text to be used to calculate the length in characters of one expression.
+ * @param string fieldname or expression to calculate its length in characters.
+ * @return string the piece of SQL code to be used in the statement.
+ */
+function sql_length($fieldname) {
+
+    global $CFG;
+
+    switch ($CFG->dbfamily) {
+        case 'mysql':
+            return 'CHAR_LENGTH(' . $fieldname . ')';
+            break;
+        case 'mssql':
+            return 'LEN(' . $fieldname . ')';
+            break;
+        default:
+            return 'LENGTH(' . $fieldname . ')';
     }
 }
 

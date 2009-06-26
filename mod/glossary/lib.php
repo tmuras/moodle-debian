@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.193.2.19 2008/11/12 17:02:23 sam_marshall Exp $
+<?php  // $Id: lib.php,v 1.193.2.20 2009/02/27 12:58:00 sam_marshall Exp $
 
 /// Library of functions and constants for module glossary
 /// (replace glossary with the name of your module and delete this line)
@@ -2005,7 +2005,7 @@ function glossary_get_paging_bar($totalcount, $page, $perpage, $baseurl, $maxpag
         while ($pagenum <= $pageto) {
             $pagetoshow = $pagenum +1;
             if ($pagenum == $page && !$specialselected) {
-                $code .= "$separator$pagetoshow";
+                $code .= "$separator<b>$pagetoshow</b>";
             } else {
                 $code .= "$separator<a href=\"{$baseurl}page=$pagenum\">$pagetoshow</a>";
             }
@@ -2025,7 +2025,7 @@ function glossary_get_paging_bar($totalcount, $page, $perpage, $baseurl, $maxpag
         if ($showspecial) {
             $code .= '<br />';
             if ($specialselected) {
-                $code .= $specialtext;
+                $code .= "<b>$specialtext</b>";
             } else {
                 $code .= "$separator<a href=\"{$baseurl}page=$specialvalue\">$specialtext</a>";
             }

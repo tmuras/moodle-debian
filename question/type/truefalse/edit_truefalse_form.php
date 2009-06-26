@@ -1,4 +1,4 @@
-<?php
+<?php  // $Id: edit_truefalse_form.php,v 1.5.2.1 2009/02/19 01:09:35 tjhunt Exp $
 require_once($CFG->dirroot.'/question/type/edit_question_form.php');
 /**
  * Defines the editing form for the thruefalse question type.

@@ -1,4 +1,4 @@
-<?php  // $Id: report.php,v 1.46.2.8 2008/12/10 06:30:24 dongsheng Exp $
+<?php  // $Id: report.php,v 1.46.2.12 2009/03/27 01:48:14 danmarsden Exp $
 
 // This script uses installed report plugins to print quiz reports
 
@@ -68,7 +68,7 @@
 
         if (empty($b)) {
             if (empty($a)) {
-                $navigation = build_navigation('', $cm);
+                $navigation = build_navigation($strreport, $cm);
                 print_header("$course->shortname: ".format_string($scorm->name), $course->fullname,$navigation,
                              '', '', true);
             } else {
@@ -177,21 +177,24 @@
                                  fullname($userdata).'</a>';
                         $row[] = '<a href="report.php?a='.$scorm->id.'&amp;user='.$scouser->userid.'&amp;attempt='.$a.'">'.$a.'</a>';
                         $select = 'scormid = '.$scorm->id.' and userid = '.$scouser->userid.' and attempt = '.$a;
-                        $timetracks = get_record_select('scorm_scoes_track', $select,'min(timemodified) as started, max(timemodified) as last');
+//                        $timetracks = get_record_select('scorm_scoes_track', $select,'min(timemodified) as started, max(timemodified) as last');
+                        $timetracks = scorm_get_sco_runtime($scorm->id, false, $scouser->userid, $a);
                         // jump out here if this attempt doesnt exist
-                        if (!$timetracks->started) {
+//                        if (!$timetracks->started) {
+                        if (!$timetracks->start) {
                             continue;
                         }
-                        $row[] = userdate($timetracks->started, get_string('strftimedaydatetime'));
-                        $row[] = userdate($timetracks->last, get_string('strftimedaydatetime'));
-
+//                        $row[] = userdate($timetracks->started, get_string('strftimedaydatetime'));
+//                        $row[] = userdate($timetracks->last, get_string('strftimedaydatetime'));
+                        $row[] = userdate($timetracks->start, get_string('strftimedaydatetime'));
+                        $row[] = userdate($timetracks->finish, get_string('strftimedaydatetime'));
                         $row[] = scorm_grade_user_attempt($scorm, $scouser->userid, $a);
                         $table->data[] = $row;
                     }
                 }
                 echo '<div id="scormtablecontainer">';
                 if (has_capability('mod/scorm:deleteresponses',$contextmodule)) {
-                    echo '<form id="attemptsform" method="post" action="'.$_SERVER['PHP_SELF'].'" onsubmit="var menu = document.getElementById(\'menuaction\'); return (menu.options[menu.selectedIndex].value == \'delete\' ? \''.addslashes(get_string('deleteattemptcheck','quiz')).'\' : true);">';
+                    echo '<form id="attemptsform" method="post" action="'.$_SERVER['PHP_SELF'].'" onsubmit="var menu = document.getElementById(\'menuaction\'); return (menu.options[menu.selectedIndex].value == \'delete\' ? \''.addslashes_js(get_string('deleteattemptcheck','quiz')).'\' : true);">';
                     echo '<input type="hidden" name="id" value="'.$id.'">';
                     print_table($table);
                     echo '<a href="javascript:select_all_in(\'DIV\',null,\'scormtablecontainer\');">'.get_string('selectall', 'quiz').'</a> / ';
@@ -377,7 +380,6 @@
                 $interactionid = 'cmi.interactions.'.$i.'.id';
             }
             if ($existinteraction) {
-                echo '<h3>'.get_string('interactions','scorm').'</h3>';
                 echo '<h3>'.get_string('interactions','scorm').'</h3>';
                 print_table($table);
             }

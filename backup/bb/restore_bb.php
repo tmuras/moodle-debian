@@ -1,4 +1,4 @@
-<?php // $Id: restore_bb.php,v 1.7.16.1 2007/10/15 05:42:22 nicolasconnault Exp $
+<?php // $Id: restore_bb.php,v 1.7.16.2 2009/05/06 16:10:15 skodak Exp $
 // This file facilitates the conversion of a Blackboard course export
 // into a Moodle course export.  It assumes an unzipped directory and makes in-place alterations.
 
@@ -74,7 +74,7 @@ function blackboard_convert($dir){
 
         // Copy the Blackboard course files into the moodle course_files structure
         $subdirs = get_subdirs($dir."/");
-        mkdir("$dir/course_files");
+        mkdir("$dir/course_files", $CFG->directorypermissions);
         foreach ($subdirs as $subdir){
             rename($subdir, "course_files/$subdir");
         }

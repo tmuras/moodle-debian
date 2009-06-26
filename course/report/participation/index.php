@@ -1,4 +1,4 @@
-<?php  // $Id: index.php,v 1.20.2.5 2008/11/29 14:31:00 skodak Exp $
+<?php  // $Id: index.php,v 1.20.2.7 2009/03/04 13:34:20 skodak Exp $
 
     require_once('../../../config.php');
     require_once($CFG->dirroot.'/lib/tablelib.php');
@@ -43,7 +43,7 @@
     $actionoptions = array('' => $strallactions,
                            'view' => $strview,
                            'post' => $strpost,);
-    if (!in_array($action, $actionoptions)) {
+    if (!array_key_exists($action, $actionoptions)) {
         $action = '';
     }
 
@@ -185,11 +185,8 @@
         $sql = "SELECT ra.userid, u.firstname, u.lastname, u.idnumber, COUNT(l.action) AS count
                   FROM {$CFG->prefix}role_assignments ra
                        JOIN {$CFG->prefix}user u           ON u.id = ra.userid
-                       LEFT OUTER JOIN {$CFG->prefix}log l ON l.userid = ra.userid
-                 WHERE ra.contextid $relatedcontexts AND ra.roleid = $roleid AND
-                       (l.id IS NULL OR
-                          (l.cmid = $instanceid AND l.time > $timefrom AND $actionsql)
-                       )";
+                       LEFT OUTER JOIN {$CFG->prefix}log l ON (l.userid = ra.userid AND l.cmid = $instanceid AND l.time > $timefrom AND $actionsql)
+                 WHERE ra.contextid $relatedcontexts AND ra.roleid = $roleid";
 
         if ($table->get_sql_where()) {
             $sql .= ' AND '.$table->get_sql_where(); //initial bar
@@ -204,11 +201,8 @@
         $countsql = "SELECT COUNT(DISTINCT(ra.userid))
                        FROM {$CFG->prefix}role_assignments ra
                             JOIN {$CFG->prefix}user u           ON u.id = ra.userid
-                            LEFT OUTER JOIN {$CFG->prefix}log l ON l.userid = ra.userid
-                      WHERE ra.contextid $relatedcontexts AND ra.roleid = $roleid AND
-                            (l.id IS NULL OR
-                               (l.cmid = $instanceid AND l.time > $timefrom AND $actionsql)
-                            )";
+                            LEFT OUTER JOIN {$CFG->prefix}log l ON (l.userid = ra.userid AND l.cmid = $instanceid AND l.time > $timefrom AND $actionsql)
+                      WHERE ra.contextid $relatedcontexts AND ra.roleid = $roleid";
 
         $totalcount = count_records_sql($countsql);
 

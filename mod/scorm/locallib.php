@@ -1,4 +1,4 @@
-<?php  // $Id: locallib.php,v 1.46.2.26 2008/12/12 19:39:32 danmarsden Exp $
+<?php  // $Id: locallib.php,v 1.46.2.31 2009/03/11 20:25:04 danmarsden Exp $
 
 /// Constants and settings for module scorm
 define('UPDATE_NEVER', '0');
@@ -34,26 +34,6 @@ function scorm_get_popup_options_array(){
                  'menubar'=> isset($CFG->scorm_menubar) ? $CFG->scorm_menubar : 0,
                  'toolbar'=> isset($CFG->scorm_toolbar) ? $CFG->scorm_toolbar : 0,
                  'status'=> isset($CFG->scorm_status) ? $CFG->scorm_status : 0);
-}
-
-$stdoptions = '';
-foreach (scorm_get_popup_options_array() as $popupopt => $value) {
-    $stdoptions .= $popupopt.'='.$value;
-    if ($popupopt != 'status') {
-        $stdoptions .= ',';
-    }
-}
-
-if (!isset($CFG->scorm_updatetime)) {
-    set_config('scorm_updatetime','2');
-}
-
-if (!isset($CFG->scorm_advancedsettings)) {
-    set_config('scorm_advancedsettings','0');
-}
-
-if (!isset($CFG->scorm_windowsettings)) {
-    set_config('scorm_windowsettings','0');
 }
 
 /// Local Library of functions for module scorm
@@ -319,7 +299,7 @@ function scorm_get_scoes($id,$organisation=false) {
 function scorm_insert_track($userid,$scormid,$scoid,$attempt,$element,$value) {
     $id = null;
     if ($track = get_record_select('scorm_scoes_track',"userid='$userid' AND scormid='$scormid' AND scoid='$scoid' AND attempt='$attempt' AND element='$element'")) {
-        $track->value = $value;
+        $track->value = addslashes_js($value);
         $track->timemodified = time();
         $id = update_record('scorm_scoes_track',$track);
     } else {
@@ -328,7 +308,7 @@ function scorm_insert_track($userid,$scormid,$scoid,$attempt,$element,$value) {
         $track->scoid = $scoid;
         $track->attempt = $attempt;
         $track->element = $element;
-        $track->value = addslashes($value);
+        $track->value = addslashes_js($value);
         $track->timemodified = time();
         $id = insert_record('scorm_scoes_track',$track);
     }
@@ -367,8 +347,12 @@ function scorm_get_tracks($scoid,$userid,$attempt='') {
         $usertrack->timemodified = 0;
         foreach ($tracks as $track) {
             $element = $track->element;
+            $track->value = stripslashes_safe($track->value);
             $usertrack->{$element} = $track->value;
             switch ($element) {
+                case 'x.start.time':
+                    $usertrack->x_start_time = $track->value;
+                    break;
                 case 'cmi.core.lesson_status':
                 case 'cmi.completion_status':
                     if ($track->value == 'not attempted') {
@@ -378,8 +362,8 @@ function scorm_get_tracks($scoid,$userid,$attempt='') {
                 break;
                 case 'cmi.core.score.raw':
                 case 'cmi.score.raw':
-                    $usertrack->score_raw = $track->value;
-                break;
+                    $usertrack->score_raw = sprintf('%0d', $track->value);
+                    break;
                 case 'cmi.core.session_time':
                 case 'cmi.session_time':
                     $usertrack->session_time = $track->value;
@@ -401,6 +385,45 @@ function scorm_get_tracks($scoid,$userid,$attempt='') {
         return false;
     }
 }
+
+/* Find the start and finsh time for a a given SCO attempt
+ *
+ * @param int $scormid SCORM Id
+ * @param int $scoid SCO Id
+ * @param int $userid User Id
+ * @param int $attemt Attempt Id
+ *
+ * @return object start and finsh time EPOC secods
+ *
+ */
+function scorm_get_sco_runtime($scormid, $scoid, $userid, $attempt=1) {
+
+    $timedata = new object();
+    $sql = !empty($scoid) ? "userid=$userid AND scormid=$scormid AND scoid=$scoid AND attempt=$attempt" : "userid=$userid AND scormid=$scormid AND attempt=$attempt";
+    $tracks = get_records_select('scorm_scoes_track',"$sql ORDER BY timemodified ASC");
+    if ($tracks) {
+        $tracks = array_values($tracks);
+    }
+
+    if ($start_track = get_records_select('scorm_scoes_track',"$sql AND element='x.start.time' ORDER BY scoid ASC")) {
+        $start_track = array_values($start_track);
+        $timedata->start = $start_track[0]->value;
+    }
+    else if ($tracks) {
+        $timedata->start = $tracks[0]->timemodified;
+    }
+    else {
+        $timedata->start = false;
+    }
+    if ($tracks && $track = array_pop($tracks)) {
+        $timedata->finish = $track->timemodified;
+    }
+    else {
+        $timedata->finish = $timedata->start;
+    }
+    return $timedata;
+}
+
 
 function scorm_get_user_data($userid) {
 /// Gets user info required to display the table of scorm results
@@ -707,7 +730,7 @@ function scorm_view_display ($user, $scorm, $action, $cm, $boxwidth='') {
 }
 function scorm_simple_play($scorm,$user) {
     $result = false;
-    
+
     if ($scorm->updatefreq == UPDATE_EVERYTIME) {
         scorm_parse($scorm);
     }

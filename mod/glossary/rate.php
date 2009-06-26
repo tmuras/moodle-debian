@@ -1,4 +1,4 @@
-<?php   // $Id: rate.php,v 1.12.2.1 2008/10/08 07:15:34 skodak Exp $
+<?php   // $Id: rate.php,v 1.12.2.2 2009/05/06 09:15:46 stronk7 Exp $
 
 //  Collect ratings, store them, then return to where we came from
 
@@ -45,6 +45,10 @@
     }
 
     if ($data = data_submitted()) {    // form submitted
+
+    /// Calculate scale values
+        $scale_values = make_grades_menu($glossary->scale);
+
         foreach ((array)$data as $entryid => $rating) {
             if (!is_numeric($entryid)) {
                 continue;
@@ -67,6 +71,11 @@
             if ($entry->userid == $USER->id) {
                 //can not rate own entry
                 continue;
+            }
+
+        /// Check rate is valid for that glossary scale values
+            if (!array_key_exists($rating, $scale_values) && $rating != -999) {
+                print_error('invalidrate', 'glossary', '', $rating);
             }
 
             if ($oldrating = get_record("glossary_ratings", "userid", $USER->id, "entryid", $entry->id)) {

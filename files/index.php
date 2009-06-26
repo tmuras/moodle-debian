@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.121.2.8 2008/12/13 02:19:41 mudrd8mz Exp $
+<?php // $Id: index.php,v 1.121.2.9 2009/05/08 08:52:42 skodak Exp $
 
 //  Manage all uploaded files in a course file area
 
@@ -781,11 +781,19 @@ function displaydir ($wdir) {
                 $filesafe = rawurlencode($dir);
                 $filesize = display_size(get_directory_size("$fullpath/$dir"));
                 $filedate = userdate(filemtime($filename), get_string("strftimedatetime"));
-                print_cell("center", "<input type=\"checkbox\" name=\"file$count\" value=\"$fileurl\" />", 'checkbox');
+                if ($wdir.$dir === '/moddata') {
+                    print_cell();
+                } else {
+                    print_cell("center", "<input type=\"checkbox\" name=\"file$count\" value=\"$fileurl\" />", 'checkbox');
+                }
                 print_cell("left", "<a href=\"index.php?id=$id&amp;wdir=$fileurl&amp;choose=$choose\"><img src=\"$CFG->pixpath/f/folder.gif\" class=\"icon\" alt=\"$strfolder\" />&nbsp;".htmlspecialchars($dir)."</a>", 'name');
                 print_cell("right", $filesize, 'size');
                 print_cell("right", $filedate, 'date');
-                print_cell("right", "<a href=\"index.php?id=$id&amp;wdir=$wdir&amp;file=$filesafe&amp;action=rename&amp;choose=$choose\">$strrename</a>", 'commands');
+                if ($wdir.$dir === '/moddata') {
+                    print_cell();
+                } else { 
+                    print_cell("right", "<a href=\"index.php?id=$id&amp;wdir=$wdir&amp;file=$filesafe&amp;action=rename&amp;choose=$choose\">$strrename</a>", 'commands');
+                }
             }
 
             echo "</tr>";

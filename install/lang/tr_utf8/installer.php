@@ -35,16 +35,18 @@ $string['configfilewritten'] = 'config.php dosyası başarıyla oluşturuldu';
 $string['configurationcompletehead'] = 'Yapılandırma tamamlandı';
 $string['configurationcompletesub'] = 'Ana moodle dizine yapılandırma dosyasının kaydedilmesi için girişimde bulunuldu.';
 $string['continue'] = 'Devam';
+$string['ctyperecommended'] = 'Site başarımını arttırmak için, özellikle siteniz Latince kökenli olmayan dilleri destekliyorsa, seçimli ctype PHP uzantısını yüklemek önemle tavsiye edilir.';
+$string['ctyperequired'] = 'Site başarımını arttırmak ve çok dilli uyumluluk sunmak için ctype PHP uzantısı gereklidir.';
 $string['curlrecommended'] = 'Moodle Ağının işlevsel bir şekilde çalışması için isteğe bağlı Curl kütüphanesinin kurulması şiddetle tavsiye edilir.';
 $string['curlrequired'] = 'cURL PHP eklentisi, Moodle kaynakları ile iletişim kurulabilmesi için gereklidir.';
 $string['customcheck'] = 'Diğer Kontroller';
 $string['database'] = 'Veritabanı';
 $string['databasecreationsettingshead'] = 'Şimdi, Moodle verilerinin saklanacağı veritabanını
 oluşturmanız gerekiyor. Bu veritabanı kurulum programı tarafından aşağıdaki ayarlara göre otomatik olarak oluşturulacak.';
-$string['databasecreationsettingssub'] = '<b>Tipi:</b> kurulum tarafından mysql olarak sabitlendi<br />
-<b>Sunucu:</b> kurulum tarafından localhost olarak sabitlendi<br />
+$string['databasecreationsettingssub'] = '<b>Tipi:</b> kurulum tarafından \"mysql \"olarak sabitlendi<br />
+<b>Sunucu:</b> kurulum tarafından \"localhost\" olarak sabitlendi<br />
 <b>Adı:</b> veritabanı adı, ör: moodle<br />
-<b>Kullanıcı:</b> kurulum tarafından root olarak sabitlendi<br />
+<b>Kullanıcı:</b> kurulum tarafından \"root\" olarak sabitlendi<br />
 <b>Şifre:</b> kullanıcı şifresi<br />
 <b>Tablo öneki:</b> tüm tablo isimleri için isteğe bağlı önek';
 $string['databasesettingshead'] = 'Şimdi, Moodle verilerinin saklanacağı veritabanını
@@ -101,6 +103,7 @@ $string['databasesettingssub_postgres7'] = '<b>Tipi:</b> PostgreSQL<br />
 $string['databasesettingswillbecreated'] = '<b>Not:</b> Kurulum programı veritabanı yoksa otomatikmen veritabanını oluşturmayı deneyecektir.';
 $string['dataroot'] = 'Veri Dizini';
 $string['datarooterror'] = 'Belirtilen \'Veri Dizini\' bulunamadı veya oluşturulamadı. Dizin yolunu düzenleyin veya bu dizini kendiniz oluşturun.';
+$string['datarootpublicerror'] = 'Belirttiğiniz \'Veri Dizini\' web üzerinden doğrudan erişilebilir, farklı dizin kullanmalısınız.';
 $string['dbconnectionerror'] = 'Belirtiğiniz veritabanına bağlantı kuramadık. Lütfen veritabanı ayarlarını kontrol edin.';
 $string['dbcreationerror'] = 'Veritabanı oluşturma hatası. Belirtilen ayarlardan sağlanan isimle bir veritabanı oluşturulamadı.';
 $string['dbhost'] = 'Veritabanı Sunucusu';
@@ -173,8 +176,9 @@ $string['globalsquoteshelp'] = '<p>Pasifleştirilmiş Magic Quotes GPC ve etkinl
 <blockquote>php_value magic_quotes_gpc On</blockquote>
 <blockquote>php_value register_globals Off</blockquote>
 </p>';
+$string['globalswarning'] = '<p><strong>GÜVENLİK UYARISI!</strong></p><p> Moodle\'ın düzgün çalışması için <br /> mevcut PHP ayarlarında belli değişiklikler yapmanız gerekir.</p><p><code>register_globals=off</code> olarak ayarlanmalı.</p><p> Bu ayar code>php.ini</code>, Apache/IIS <br />yapılandırmanı ya da <code>.htaccess</code> dosyanı düzenleyerek kontrol edilir.</p>';
 $string['help'] = 'Yardım';
-$string['iconvrecommended'] = 'Sitenizde latin olmayan dilleri kullanıyorsanız isteğe bağlı ICONV kütüphanesinin kurulması site performansını arttırmak için şiddetle tavsiye edilir.';
+$string['iconvrecommended'] = 'Sitenizde latince kökenli olmayan dilleri kullanıyorsanız isteğe bağlı ICONV kütüphanesinin kurulması site performansını arttırmak için şiddetle tavsiye edilir.';
 $string['info'] = 'Bilgi';
 $string['installation'] = 'Kurulum';
 $string['invalidmd5'] = 'Geçersiz md5';
@@ -247,6 +251,8 @@ $string['phpversionhelp'] = '<p>Moodle, PHP sürümünün en az 4.3.0 veya 5.1.0
 <p>PHP\'yi güncellemeli veya PHP\'nin yeni sürümünü kullananan bir hostinge taşınmalısınız!</p>';
 $string['postgres7'] = 'PostgreSQL (postgres7)';
 $string['previous'] = 'Önceki';
+$string['qtyperqpwillberemoved'] = 'Güncelleme sırasında, RQP soru tipi kaldırılacak. Bu soru tipini kullanmadığınızdan herhangi bir sorunla karşılaşmazsınız.';
+$string['qtyperqpwillberemovedanyway'] = 'Güncelleme sırasında, RQP soru tipi kaldırılacak. Veritabanınızda bazı RQP soruları var ve güncellemeye devam etmeden önce bu soru tipini (http://moodle.org/mod/data/view.php?d=13&amp;rid=797) buradan tekrar kurmazsanız, bu soru tipinin çalışması durdurulacak.';
 $string['remotedownloaderror'] = 'Bileşeni sunucunuza indirirken hata oluştu, lütfen proxy(vekil) ayarlarını kontrol edin. PHP cURL eklentisi şiddetle tavsiye edilir.<br /><br /><a href=\"$a->url\">$a->url</a><br />dosyasını kendiniz indirmeli ve indirdiğiniz dosyayı sunucunuzundaki \"$a->dest\" klasörüne kaydetmeli ve zip arşivini açmalısınız.';
 $string['remotedownloadnotallowed'] = 'Sunucunuza bileşen indirmeye izin verilmiyor. (allow_url_fopen pasif).<br /><br />Arşivlenmiş dosyayı <a href=\"$a->url\">$a->url</a> elle indirip buraya \"$a->dest\" açmalısınız.';
 $string['report'] = 'Rapor';

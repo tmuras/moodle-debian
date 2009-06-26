@@ -1,4 +1,4 @@
-<?php // $Id: settings.php,v 1.34.2.6 2008/03/03 07:27:07 nicolasconnault Exp $
+<?php // $Id: settings.php,v 1.34.2.9 2009/05/04 12:26:19 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -39,11 +39,8 @@ $settings->add(new admin_setting_configcheckbox('grade_report_quickgrading', get
 $settings->add(new admin_setting_configcheckbox('grade_report_showquickfeedback', get_string('quickfeedback', 'grades'),
                                             get_string('configshowquickfeedback', 'grades'), 0));
 
-$settings->add(new admin_setting_configselect('grade_report_aggregationview', get_string('aggregationview', 'grades'),
-                                          get_string('configaggregationview', 'grades'), GRADE_REPORT_AGGREGATION_VIEW_FULL,
-                                          array(GRADE_REPORT_AGGREGATION_VIEW_FULL => get_string('full', 'grades'),
-                                                GRADE_REPORT_AGGREGATION_VIEW_AGGREGATES_ONLY => get_string('aggregatesonly', 'grades'),
-                                                GRADE_REPORT_AGGREGATION_VIEW_GRADES_ONLY => get_string('gradesonly', 'grades'))));
+$settings->add(new admin_setting_configcheckbox('grade_report_fixedstudents', get_string('fixedstudents', 'grades'),
+                                            get_string('configfixedstudents', 'grades'), 0));
 
 $settings->add(new admin_setting_configselect('grade_report_meanselection', get_string('meanselection', 'grades'),
                                           get_string('configmeanselection', 'grades'), GRADE_REPORT_MEAN_GRADED,
@@ -61,9 +58,6 @@ $settings->add(new admin_setting_configcheckbox('grade_report_showeyecons', get_
 
 $settings->add(new admin_setting_configcheckbox('grade_report_showaverages', get_string('showaverages', 'grades'),
                                             get_string('configshowaverages', 'grades'), 1));
-
-$settings->add(new admin_setting_configcheckbox('grade_report_showgroups', get_string('showgroups', 'grades'),
-                                            get_string('configshowgroups', 'grades'), 0));
 
 $settings->add(new admin_setting_configcheckbox('grade_report_showlocks', get_string('showlocks', 'grades'),
                                             get_string('configshowlocks', 'grades'), 0));

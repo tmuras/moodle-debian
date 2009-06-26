@@ -1,4 +1,4 @@
-<?php // $Id: resource.class.php,v 1.21.2.3 2008/12/10 07:09:49 dongsheng Exp $
+<?php // $Id: resource.class.php,v 1.21.2.5 2009/05/01 08:06:09 dongsheng Exp $
 
 /**
 * Extend the base resource class for repository resources
@@ -506,11 +506,11 @@ function set_encrypted_parameter() {
 
     if (!empty($this->resource->reference) && file_exists($CFG->dirroot ."/mod/resource/type/file/externserverfile.php")) {
         include $CFG->dirroot ."/mod/resource/type/file/externserverfile.php";
-        if (function_exists(extern_server_file)) {
+        if (function_exists('extern_server_file')) {
             return extern_server_file($this->resource->reference);
         }
     }
-    return md5($_SERVER['REMOTE_ADDR'].$CFG->resource_secretphrase);
+    return md5(getremoteaddr().$CFG->resource_secretphrase);
 }
 
 

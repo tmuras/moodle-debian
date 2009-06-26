@@ -1,4 +1,4 @@
-<?php //$Id: lib.php,v 1.89.2.9 2009/01/23 23:28:40 stronk7 Exp $
+<?php //$Id: lib.php,v 1.89.2.16 2009/05/10 23:16:06 stronk7 Exp $
     //This file contains all the general function needed (file manipulation...)
     //not directly part of the backup/restore utility
 
@@ -649,12 +649,10 @@
     function import_backup_file_silently($pathtofile,$destinationcourse,$emptyfirst=false,$userdata=false, $preferences=array()) {
         global $CFG,$SESSION,$USER; // is there such a thing on cron? I guess so..
         global $restore; // ick
-        if (empty($USER)) {
-            $USER = get_admin();
-            $USER->admin = 1; // not sure why, but this doesn't get set
-        }
 
-        define('RESTORE_SILENTLY',true); // don't output all the stuff to us.
+        if (!defined('RESTORE_SILENTLY')) {
+            define('RESTORE_SILENTLY',true); // don't output all the stuff to us.
+        }
 
         $debuginfo = 'import_backup_file_silently: ';
         $cleanupafter = false;
@@ -703,9 +701,12 @@
             mtrace($debuginfo.'Required function check failed (see backup_required_functions)');
             return false;
         }
-
         @ini_set("max_execution_time","3000");
-        raise_memory_limit("192M");
+        if (empty($CFG->extramemorylimit)) {
+            raise_memory_limit('128M');
+        } else {
+            raise_memory_limit($CFG->extramemorylimit);
+        }
 
         if (!$backup_unique_code = restore_precheck($destinationcourse,$pathtofile,$errorstr,true)) {
             mtrace($debuginfo.'Failed restore_precheck (error was '.$errorstr.')');
@@ -771,7 +772,9 @@
     */
     function backup_course_silently($courseid, $prefs, &$errorstring) {
         global $CFG, $preferences; // global preferences here because something else wants it :(
-        define('BACKUP_SILENTLY', 1);
+        if (!defined('BACKUP_SILENTLY')) {
+            define('BACKUP_SILENTLY', 1);
+        }
         if (!$course = get_record('course', 'id', $courseid)) {
             debugging("Couldn't find course with id $courseid in backup_course_silently");
             return false;
@@ -805,6 +808,7 @@
         global $CFG;
         $preferences = new StdClass;
         $preferences->backup_unique_code = time();
+        $preferences->backup_users = (isset($prefs['backup_users']) ? $prefs['backup_users'] : 0);
         $preferences->backup_name = backup_get_zipfile_name($course, $preferences->backup_unique_code);
         $count = 0;
 
@@ -822,6 +826,7 @@
                 if (!function_exists($modbackup) || !function_exists($modcheckbackup)) {
                     continue;
                 }
+                $modcheckbackup($course->id, $preferences->backup_users, $preferences->backup_unique_code);
                 $var = "exists_".$modname;
                 $preferences->$var = true;
                 $count++;
@@ -863,7 +868,6 @@
 
         //Check other parameters
         $preferences->backup_metacourse = (isset($prefs['backup_metacourse']) ? $prefs['backup_metacourse'] : 0);
-        $preferences->backup_users = (isset($prefs['backup_users']) ? $prefs['backup_users'] : 0);
         $preferences->backup_logs = (isset($prefs['backup_logs']) ? $prefs['backup_logs'] : 0);
         $preferences->backup_user_files = (isset($prefs['backup_user_files']) ? $prefs['backup_user_files'] : 0);
         $preferences->backup_course_files = (isset($prefs['backup_course_files']) ? $prefs['backup_course_files'] : 0);
@@ -872,6 +876,28 @@
         $preferences->backup_gradebook_history = (isset($prefs['backup_gradebook_history']) ? $prefs['backup_gradebook_history'] : 0);
         $preferences->backup_blogs = (isset($prefs['backup_blogs']) ? $prefs['backup_blogs'] : 0);
         $preferences->backup_course = $course->id;
+
+        //Check users
+        user_check_backup($course->id,$preferences->backup_unique_code,$preferences->backup_users,$preferences->backup_messages, $preferences->backup_blogs);
+
+        //Check logs
+        log_check_backup($course->id);
+
+        //Check user files
+        user_files_check_backup($course->id,$preferences->backup_unique_code);
+
+        //Check course files
+        course_files_check_backup($course->id,$preferences->backup_unique_code);
+
+        //Check site files
+        site_files_check_backup($course->id,$preferences->backup_unique_code);
+
+        //Role assignments
+        $roles = get_records('role', '', '', 'sortorder');
+        foreach ($roles as $role) {
+            $preferences->backuproleassignments[$role->id] = $role;
+        }
+
         backup_add_static_preferences($preferences);
         return $preferences;
     }

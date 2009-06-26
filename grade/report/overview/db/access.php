@@ -1,4 +1,4 @@
-<?php  // $Id: access.php,v 1.4 2007/10/10 06:34:21 nicolasconnault Exp $
+<?php  // $Id: access.php,v 1.4.2.1 2009/02/25 06:58:00 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -30,8 +30,6 @@ $gradereport_overview_capabilities = array(
         'captype' => 'read',
         'contextlevel' => CONTEXT_COURSE,
         'legacy' => array(
-            'teacher' => CAP_ALLOW,
-            'editingteacher' => CAP_ALLOW,
             'student' => CAP_ALLOW,
             'admin' => CAP_ALLOW
         )

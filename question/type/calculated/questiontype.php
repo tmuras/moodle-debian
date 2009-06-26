@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.26.2.12 2008/12/04 16:32:16 pichetp Exp $
+<?php  // $Id: questiontype.php,v 1.26.2.14 2009/02/18 18:04:12 pichetp Exp $
 
 /////////////////
 // CALCULATED ///
@@ -122,6 +122,10 @@ class question_calculated_qtype extends question_dataset_dependent_questiontype 
         // Get old answers:
         global $CFG;
 
+        if (isset($question->answer) && !isset($question->answers)) {
+            $question->answers = $question->answer;
+        }
+
         // Get old versions of the objects
         if (!$oldanswers = get_records('question_answers', 'question', $question->id, 'id ASC')) {
             $oldanswers = array();
@@ -130,8 +134,8 @@ class question_calculated_qtype extends question_dataset_dependent_questiontype 
         if (!$oldoptions = get_records('question_calculated', 'question', $question->id, 'answer ASC')) {
             $oldoptions = array();
         }
-                // Save the units.
-        // Save units
+
+        // Save the units.
         $virtualqtype = $this->get_virtual_qtype();
         $result = $virtualqtype->save_numerical_units($question);
         if (isset($result->error)) {

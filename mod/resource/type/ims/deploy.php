@@ -1,4 +1,4 @@
-<?php // $Id: deploy.php,v 1.24.2.2 2008/04/02 06:10:04 dongsheng Exp $
+<?php // $Id: deploy.php,v 1.24.2.3 2009/03/23 09:46:59 mudrd8mz Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -254,7 +254,7 @@
                 $moresubmanifests = ims_extract_submanifests($submanifest['#']);
             /// Add them to results array
                 if (!empty($moresubmanifests)) {
-                    $submanifest_object->childs = moresubmanifests;
+                    $submanifest_object->childs = $moresubmanifests;
                 }
             /// Add submanifest object to results array
                 $submanifests[] = $submanifest_object;

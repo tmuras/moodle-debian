@@ -1,4 +1,4 @@
-<?php  //$Id: fetch.php,v 1.4 2007/10/10 06:34:21 nicolasconnault Exp $
+<?php  //$Id: fetch.php,v 1.4.2.1 2009/03/18 14:08:32 sam_marshall Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -24,7 +24,7 @@
 ///////////////////////////////////////////////////////////////////////////
 
 $nomoodlecookie = true; // session not used here
-require '../../../config.php';
+require_once '../../../config.php';
 
 $id = required_param('id', PARAM_INT); // course id
 if (!$course = get_record('course', 'id', $id)) {

@@ -1,4 +1,4 @@
-<?php // $Id: moodle_wikidump.php,v 1.12.4.2 2008/02/19 11:04:48 skodak Exp $
+<?php // $Id: moodle_wikidump.php,v 1.12.4.3 2009/05/10 15:27:35 stronk7 Exp $
 # ToDo: Binary Content
 #       Binary Linking
 /*
@@ -63,7 +63,7 @@ function moodle_ewiki_page_wiki_dump($id=0, $data=0, $action=0) {
   }
     
   $url = ewiki_script("", "WikiExport");
-  $ret  = ewiki_make_title($id, $id, 2);
+  $ret  = ewiki_make_title($id, ewiki_t($id), 2);
   $ret .= ($cont&&$cont!==true)?$cont."<br /><br />\n":"";
   $ret .= get_string("wikiexportcomment","wiki");
   // removing name="form" from the following form as it does not validate

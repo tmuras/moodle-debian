@@ -1,4 +1,4 @@
-<?php // $Id: file.php,v 1.46.2.4 2008/07/10 09:48:43 scyrma Exp $
+<?php // $Id: file.php,v 1.46.2.5 2009/04/09 09:30:32 skodak Exp $
       // This script fetches files from the dataroot directory
       //
       // You should use the get_file_url() function, available in lib/filelib.php, to link to file.php.
@@ -124,17 +124,23 @@
     }
 
     // security: force download of all attachments submitted by students
-    if ((count($args) >= 3)
-        and (strtolower($args[1]) == 'moddata')
-        and ((strtolower($args[2]) == 'forum')
-            or (strtolower($args[2]) == 'assignment')
-            or (strtolower($args[2]) == 'data')
-            or (strtolower($args[2]) == 'glossary')
-            or (strtolower($args[2]) == 'wiki')
-            or (strtolower($args[2]) == 'exercise')
-            or (strtolower($args[2]) == 'workshop')
-            )) {
-        $forcedownload  = 1; // force download of all attachments
+    if (count($args) >= 3 and strtolower($args[1]) === 'moddata') {
+        $mod = clean_param($args[2], PARAM_SAFEDIR);
+        if (file_exists("$CFG->dirroot/mod/$mod/lib.php")) {
+            if (!$forcedownload) {
+                require_once("$CFG->dirroot/mod/$mod/lib.php");
+                $trustedfunction = $mod.'_is_moddata_trusted';
+                if (function_exists($trustedfunction)) {
+                    // force download of all attachments that are not trusted
+                    $forcedownload = !$trustedfunction();
+                } else {
+                    $forcedownload = 1;
+                }
+            }
+        } else {
+            // module is not installed - better not serve file at all
+            not_found($course->id);
+        }
     }
     if ($args[0] == 'blog') {
         $forcedownload  = 1; // force download of all attachments

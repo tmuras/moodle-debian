@@ -1,4 +1,4 @@
-<?PHP // $Id: format.php,v 1.12.4.6 2009/01/05 15:20:11 thepurpleblob Exp $
+<?PHP // $Id: format.php,v 1.12.4.7 2009/04/17 01:50:11 gbateson Exp $
 ////////////////////////////////////////////////////////////////////////////
 /// Hotpotatoes 5.0 and 6.0 Format
 ///
@@ -48,7 +48,9 @@ class qformat_hotpot extends qformat_default {
 
         // get import file name
         global $params;
-        if (isset($params) && !empty($params->choosefile)) {
+        if (! empty($this->realfilename)) {
+            $filename = $this->realfilename;
+        } else if (isset($params) && !empty($params->choosefile)) {
             // course file (Moodle >=1.6+)
             $filename = $params->choosefile;
         } else {

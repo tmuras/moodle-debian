@@ -1,6 +1,6 @@
-<?php // $Id: download.php,v 1.27 2007/10/09 21:43:30 iarenaza Exp $
+<?php // $Id: download.php,v 1.27.2.1 2009/03/18 14:08:32 sam_marshall Exp $
 
-    require ("../../config.php");
+    require_once ("../../config.php");
 
 // Check that all the parameters have been provided.
 

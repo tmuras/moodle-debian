@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.87.2.13 2008/11/14 00:14:50 piers Exp $
+<?php  // $Id: lib.php,v 1.87.2.15 2009/04/09 09:30:32 skodak Exp $
 
 /**
 * Given an object containing all the necessary data,
@@ -387,7 +387,7 @@ function scorm_cron () {
     }
 
     $timenow = time();
-    $updatetime = usergetmidnight($timenow, $sitetimezone) + ($CFG->scorm_updatetime * 3600);
+    $updatetime = usergetmidnight($timenow, $sitetimezone) + ($CFG->scorm_updatetimelast * 3600);
 
     if ($CFG->scorm_updatetimelast < $updatetime and $timenow > $updatetime) {
 
@@ -641,6 +641,14 @@ function scorm_reset_userdata($data) {
  */
 function scorm_get_extra_capabilities() {
     return array('moodle/site:accessallgroups');
+}
+
+/**
+ * Tells if files in moddata are trusted and can be served without XSS protection.
+ * @return bool true if file can be submitted by teacher only (trusted), false otherwise
+ */
+function scorm_is_moddata_trusted() {
+    return true;
 }
 
 ?>

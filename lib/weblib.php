@@ -1168,11 +1168,14 @@ function print_textfield ($name, $value, $alt = '',$size=50,$maxlength=0, $retur
  * @param string $targetwindow The name of the target page to open the linked page in.
  * @param string $selectlabel Text to place in a [label] element - preferred for accessibility.
  * @param array $optionsextra TODO, an array?
+ * @param mixed $gobutton If set, this turns off the JavaScript and uses a 'go'
+ *   button instead (as is always included for JS-disabled users). Set to true
+ *   for a literal 'Go' button, or to a string to change the name of the button.
  * @return string If $return is true then the entire form is returned as a string.
  * @todo Finish documenting this function<br>
  */
 function popup_form($common, $options, $formid, $selected='', $nothing='choose', $help='', $helptext='', $return=false,
-$targetwindow='self', $selectlabel='', $optionsextra=NULL) {
+$targetwindow='self', $selectlabel='', $optionsextra=NULL, $gobutton=NULL) {
 
     global $CFG;
     static $go, $choose;   /// Locally cached, in case there's lots on a page
@@ -1209,17 +1212,24 @@ $targetwindow='self', $selectlabel='', $optionsextra=NULL) {
         $selectlabel = '<label for="'.$formid.'_jump">'.$selectlabel.'</label>';
     }
 
-    //IE and Opera fire the onchange when ever you move into a dropdwown list with the keyboard.
-    //onfocus will call a function inside dropdown.js. It fixes this IE/Opera behavior.
-    //Note: There is a bug on Opera+Linux with the javascript code (first mouse selection is inactive),
-    //so we do not fix the Opera behavior on Linux
-    if (check_browser_version('MSIE') || (check_browser_version('Opera') && !check_browser_operating_system("Linux"))) {
-        $output .= '<div>'.$selectlabel.$button.'<select id="'.$formid.'_jump" onfocus="initSelect(\''.$formid.'\','.$targetwindow.')" name="jump">'."\n";
-    }
-    //Other browser
-    else {
-        $output .= '<div>'.$selectlabel.$button.'<select id="'.$formid.'_jump" name="jump" onchange="'.$targetwindow.'.location=document.getElementById(\''.$formid.'\').jump.options[document.getElementById(\''.$formid.'\').jump.selectedIndex].value;">'."\n";
-    }
+    if ($gobutton) {
+        // Using the no-JavaScript version
+        $javascript = '';
+    } else if (check_browser_version('MSIE') || (check_browser_version('Opera') && !check_browser_operating_system("Linux"))) {
+        //IE and Opera fire the onchange when ever you move into a dropdown list with the keyboard.
+        //onfocus will call a function inside dropdown.js. It fixes this IE/Opera behavior.
+        //Note: There is a bug on Opera+Linux with the javascript code (first mouse selection is inactive),
+        //so we do not fix the Opera behavior on Linux
+        $javascript = ' onfocus="initSelect(\''.$formid.'\','.$targetwindow.')"';
+    } else {
+        //Other browser
+        $javascript = ' onchange="'.$targetwindow.
+          '.location=document.getElementById(\''.$formid.
+          '\').jump.options[document.getElementById(\''.
+          $formid.'\').jump.selectedIndex].value;"';
+    }    
+
+    $output .= '<div>'.$selectlabel.$button.'<select id="'.$formid.'_jump" name="jump"'.$javascript.'>'."\n";
 
     if ($nothing != '') {
         $output .= "   <option value=\"javascript:void(0)\">$nothing</option>\n";
@@ -1297,14 +1307,18 @@ $targetwindow='self', $selectlabel='', $optionsextra=NULL) {
 
     $output .= '</select>';
     $output .= '<input type="hidden" name="sesskey" value="'.sesskey().'" />';
-    $output .= '<div id="noscript'.$formid.'" style="display: inline;">';
-    $output .= '<input type="submit" value="'.$go.'" /></div>';
-    $output .= '<script type="text/javascript">'.
-               "\n//<![CDATA[\n".
-               'document.getElementById("noscript'.$formid.'").style.display = "none";'.
-               "\n//]]>\n".'</script>';
-    $output .= '</div>';
-    $output .= '</form>';
+    if ($gobutton) {
+        $output .= '<input type="submit" value="'.
+            ($gobutton===true ? $go : $gobutton).'" />';
+    } else {
+        $output .= '<div id="noscript'.$formid.'" style="display: inline;">';
+        $output .= '<input type="submit" value="'.$go.'" /></div>';
+        $output .= '<script type="text/javascript">'.
+                   "\n//<![CDATA[\n".
+                   'document.getElementById("noscript'.$formid.'").style.display = "none";'.
+                   "\n//]]>\n".'</script>';
+    }
+    $output .= '</div></form>';
 
     if ($return) {
         return $output;
@@ -2271,11 +2285,11 @@ function html_to_text($html) {
 
     require_once($CFG->libdir .'/html2text.php');
 
-    $result = html2text($html);
+    $h2t = new html2text($html);
+    $result = $h2t->get_text();
 
-    // html2text does not fix numerical entities so handle those here.
-    $tl=textlib_get_instance();
-    $result = $tl->entities_to_utf8($result,false);
+    // html2text does not fix HTML entities so handle those here.
+    $result = html_entity_decode($result, ENT_NOQUOTES, 'UTF-8');
 
     return $result;
 }
@@ -3627,9 +3641,9 @@ function get_separator() {
  *
  * @uses $CFG
  * @param mixed $navigation The breadcrumb navigation string to be printed
- * @param string $separator The breadcrumb trail separator. The default 0 leads to the use
- *  of $THEME->rarrow, themes could use '&rarr;', '/', or '' for a style-sheet solution.
+ * @param string $separator OBSOLETE, mostly not used any more. See build_navigation instead.
  * @param boolean $return False to echo the breadcrumb string (default), true to return it.
+ * @return string or null, depending on $return.
  */
 function print_navigation ($navigation, $separator=0, $return=false) {
     global $CFG, $THEME;
@@ -3689,9 +3703,9 @@ function print_navigation ($navigation, $separator=0, $return=false) {
             $url   = $navitem['url'];
 
             if (empty($url)) {
-                $output .= '<li class="first">'."$separator $title</li>\n";
+                $output .= '<li>'."$separator $title</li>\n";
             } else {
-                $output .= '<li class="first">'."$separator\n<a ".$CFG->frametarget.' onclick="this.target=\''.$CFG->framename.'\'" href="'
+                $output .= '<li>'."$separator\n<a ".$CFG->frametarget.' onclick="this.target=\''.$CFG->framename.'\'" href="'
                            .$url.'">'."$title</a>\n</li>\n";
             }
         }
@@ -4363,19 +4377,18 @@ function print_file_picture($path, $courseid=0, $height='', $width='', $link='',
 /**
  * Print the specified user's avatar.
  *
- * If you pass a $user object that has id, picture, imagealt, firstname, lastname
- * you save a DB query.
- *
- * @param int $user takes a userid, or a userobj
- * @param int $courseid ?
- * @param boolean $picture Print the user picture?
- * @param int $size Size in pixels.  Special values are (true/1 = 100px) and (false/0 = 35px) for backward compatability
+ * @param mixed $user Should be a $user object with at least fields id, picture, imagealt, firstname, lastname
+ *      If any of these are missing, or if a userid is passed, the the database is queried. Avoid this
+ *      if at all possible, particularly for reports. It is very bad for performance.
+ * @param int $courseid The course id. Used when constructing the link to the user's profile.
+ * @param boolean $picture The picture to print. By default (or if NULL is passed) $user->picture is used.
+ * @param int $size Size in pixels. Special values are (true/1 = 100px) and (false/0 = 35px) for backward compatability
  * @param boolean $return If false print picture to current page, otherwise return the output as string
- * @param boolean $link Enclose printed image in a link to view specified course?
- * @param string $target link target attribute
- * @param boolean $alttext use username or userspecified text in image alt attribute
- * return string
- * @todo Finish documenting this function
+ * @param boolean $link enclose printed image in a link the user's profile (default true).
+ * @param string $target link target attribute. Makes the profile open in a popup window.
+ * @param boolean $alttext add non-blank alt-text to the image. (Default true, set to false for purely
+ *      decorative images, or where the username will be printed anyway.)
+ * @return string or nothing, depending on $return.
  */
 function print_user_picture($user, $courseid, $picture=NULL, $size=0, $return=false, $link=true, $target='', $alttext=true) {
     global $CFG;
@@ -4923,7 +4936,7 @@ function print_textarea($usehtmleditor, $rows, $cols, $width, $height, $name, $v
 
             }
             $str .= ($scriptcount < 1) ? '<script type="text/javascript" src="'.
-                    $CFG->httpswwwroot .'/lib/editor/htmlarea/lang/en.php"></script>'."\n" : '';
+                    $CFG->httpswwwroot .'/lib/editor/htmlarea/lang/en.php?id='.$courseid.'"></script>'."\n" : '';
             $scriptcount++;
 
             if ($height) {    // Usually with legacy calls
@@ -5465,7 +5478,7 @@ function navmenulist($course, $sections, $modinfo, $strsection, $strjumpto, $wid
             $mod->name = '('.$mod->name.')';
         }
         $class = 'activity '.$mod->modname;
-        $class .= ($cmid == $mod->cm) ? ' selected' : '';
+        $class .= ($cmid == $mod->id) ? ' selected' : '';
         $menu[] = '<li class="'.$class.'">'.
                   '<img src="'.$CFG->modpixpath.'/'.$mod->modname.'/icon.gif" alt="" />'.
                   '<a href="'.$CFG->wwwroot.'/mod/'.$url.'">'.$mod->name.'</a></li>';
@@ -5504,10 +5517,24 @@ function print_date_selector($day, $month, $year, $currenttime=0, $return=false)
     for ($i=1970; $i<=2020; $i++) {
         $years[$i] = $i;
     }
-    return choose_from_menu($days,   $day,   $currentdate['mday'], '', '', '0', $return)
-          .choose_from_menu($months, $month, $currentdate['mon'],  '', '', '0', $return)
-          .choose_from_menu($years,  $year,  $currentdate['year'], '', '', '0', $return);
 
+    // Build or print result
+    $result='';
+    // Note: There should probably be a fieldset around these fields as they are
+    // clearly grouped. However this causes problems with display. See Mozilla
+    // bug 474415
+    $result.='<label class="accesshide" for="menu'.$day.'">'.get_string('day','form').'</label>';
+    $result.=choose_from_menu($days,   $day,   $currentdate['mday'], '', '', '0', true);
+    $result.='<label class="accesshide" for="menu'.$month.'">'.get_string('month','form').'</label>';
+    $result.=choose_from_menu($months, $month, $currentdate['mon'],  '', '', '0', true);
+    $result.='<label class="accesshide" for="menu'.$year.'">'.get_string('year','form').'</label>';
+    $result.=choose_from_menu($years,  $year,  $currentdate['year'], '', '', '0', true);
+
+    if ($return) {
+        return $result;
+    } else {
+        echo $result;
+    }
 }
 
 /**
@@ -5535,8 +5562,21 @@ function print_time_selector($hour, $minute, $currenttime=0, $step=5, $return=fa
         $minutes[$i] = sprintf("%02d",$i);
     }
 
-    return choose_from_menu($hours,   $hour,   $currentdate['hours'],   '','','0',$return)
-          .choose_from_menu($minutes, $minute, $currentdate['minutes'], '','','0',$return);
+    // Build or print result
+    $result='';
+    // Note: There should probably be a fieldset around these fields as they are
+    // clearly grouped. However this causes problems with display. See Mozilla
+    // bug 474415
+    $result.='<label class="accesshide" for="menu'.$hour.'">'.get_string('hour','form').'</label>';
+    $result.=choose_from_menu($hours,   $hour,   $currentdate['hours'],   '','','0',true);
+    $result.='<label class="accesshide" for="menu'.$minute.'">'.get_string('minute','form').'</label>';
+    $result.=choose_from_menu($minutes, $minute, $currentdate['minutes'], '','','0',true);
+
+    if ($return) {
+        return $result;
+    } else {
+        echo $result;
+    }
 }
 
 /**
@@ -6263,9 +6303,9 @@ function print_paging_bar($totalcount, $page, $perpage, $baseurl, $pagevar='page
         if ($page > 0) {
             $pagenum = $page - 1;
             if (!is_a($baseurl, 'moodle_url')){
-                $output .= '&nbsp;(<a href="'. $baseurl . $pagevar .'='. $pagenum .'">'. get_string('previous') .'</a>)&nbsp;';
+                $output .= '&nbsp;(<a class="previous" href="'. $baseurl . $pagevar .'='. $pagenum .'">'. get_string('previous') .'</a>)&nbsp;';
             } else {
-                $output .= '&nbsp;(<a href="'. $baseurl->out(false, array($pagevar => $pagenum)).'">'. get_string('previous') .'</a>)&nbsp;';
+                $output .= '&nbsp;(<a class="previous" href="'. $baseurl->out(false, array($pagevar => $pagenum)).'">'. get_string('previous') .'</a>)&nbsp;';
             }
         }
         if ($perpage > 0) {
@@ -6311,9 +6351,9 @@ function print_paging_bar($totalcount, $page, $perpage, $baseurl, $pagevar='page
         $pagenum = $page + 1;
         if ($pagenum != $displaypage) {
             if (!is_a($baseurl, 'moodle_url')){
-                $output .= '&nbsp;&nbsp;(<a href="'. $baseurl . $pagevar .'='. $pagenum .'">'. get_string('next') .'</a>)';
+                $output .= '&nbsp;&nbsp;(<a class="next" href="'. $baseurl . $pagevar .'='. $pagenum .'">'. get_string('next') .'</a>)';
             } else {
-                $output .= '&nbsp;&nbsp;(<a href="'. $baseurl->out(false, array($pagevar => $pagenum)) .'">'. get_string('next') .'</a>)';
+                $output .= '&nbsp;&nbsp;(<a class="next" href="'. $baseurl->out(false, array($pagevar => $pagenum)) .'">'. get_string('next') .'</a>)';
             }
         }
         $output .= '</div>';
@@ -7041,6 +7081,18 @@ function is_in_popup() {
     return ($inpopup);
 }
 
+/**
+ * Return the authentication plugin title
+ * @param string $authtype plugin type
+ * @return string
+ */
+function auth_get_plugin_title ($authtype) {
+    $authtitle = get_string("auth_{$authtype}title", "auth");
+    if ($authtitle == "[[auth_{$authtype}title]]") {
+        $authtitle = get_string("auth_{$authtype}title", "auth_{$authtype}");
+    }
+    return $authtitle;
+}
 
 // vim:autoindent:expandtab:shiftwidth=4:tabstop=4:tw=140:
 ?>

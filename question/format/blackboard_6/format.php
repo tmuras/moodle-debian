@@ -1,4 +1,4 @@
-<?php
+<?php  // $Id: format.php,v 1.14.2.4 2009/03/23 09:47:45 mudrd8mz Exp $
 
 ////////////////////////////////////////////////////////////////////////////
 /// Blackboard 6.x Format
@@ -40,6 +40,7 @@ class qformat_blackboard_6 extends qformat_default {
     function clean_temp_dir($dir='') {
         // for now we will just say everything happened okay note 
         // that a mess may be piling up in $CFG->dataroot/temp/bbquiz_import
+        // TODO return true at top of the function renders all the following code useless
         return true;
         
         if ($dir == '') {
@@ -184,7 +185,6 @@ class qformat_blackboard_6 extends qformat_default {
                             } else {
                                 return $filearray;
                             }
-                            return false;        
                         }
                     }
                     else {

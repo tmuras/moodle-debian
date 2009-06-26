@@ -1,4 +1,4 @@
-<?php //$Id: index.php,v 1.3.2.1 2007/12/17 14:11:52 tjhunt Exp $
+<?php //$Id: index.php,v 1.3.2.2 2009/03/18 14:08:32 sam_marshall Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 // NOTICE OF COPYRIGHT                                                   //
@@ -22,7 +22,7 @@
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
 
-require '../../config.php';
+require_once '../../config.php';
 
 $courseid = required_param('id', PARAM_INT);
 

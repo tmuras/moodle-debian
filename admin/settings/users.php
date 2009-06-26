@@ -1,4 +1,4 @@
-<?php // $Id: users.php,v 1.26.2.12 2008/12/01 22:06:55 skodak Exp $
+<?php // $Id: users.php,v 1.26.2.17 2009/05/13 05:35:38 jerome Exp $
 
 // This file defines settingpages and externalpages under the "users" category
 
@@ -41,10 +41,7 @@ if ($hassiteconfig
         $authbyname = array();
 
         foreach ($auths as $auth) {
-            $strauthname = get_string("auth_{$auth}title", "auth");
-            if ($strauthname == "[[auth_{$auth}title]]") {
-                $strauthname = get_string("auth_{$auth}title", "auth_{$auth}");
-            }
+            $strauthname = auth_get_plugin_title($auth);
             $authbyname[$strauthname] = $auth;
         }
         ksort($authbyname);
@@ -113,7 +110,12 @@ if ($hassiteconfig
             }
             if (!$guestroles = get_roles_with_capability('moodle/legacy:guest', CAP_ALLOW)) {
                 $guestroles = array();
+                $defaultguestid = null;
+            } else {
+                $defaultguestid = reset($guestroles);
+                $defaultguestid = $defaultguestid->id;
             }
+            
             // we must not use assignable roles here:
             //   1/ unsetting roles as assignable for admin might bork the settings!
             //   2/ default user role should not be assignable anyway
@@ -130,9 +132,9 @@ if ($hassiteconfig
             }
 
             $temp->add(new admin_setting_configselect('notloggedinroleid', get_string('notloggedinroleid', 'admin'),
-                          get_string('confignotloggedinroleid', 'admin'), $guestrole->id, $allroles ));
+                          get_string('confignotloggedinroleid', 'admin'), $defaultguestid, $allroles ));
             $temp->add(new admin_setting_configselect('guestroleid', get_string('guestroleid', 'admin'),
-                          get_string('configguestroleid', 'admin'), $guestrole->id, $allroles));
+                          get_string('configguestroleid', 'admin'), $defaultguestid, $allroles));
             $temp->add(new admin_setting_configselect('defaultuserroleid', get_string('defaultuserroleid', 'admin'),
                           get_string('configdefaultuserroleid', 'admin'), $userrole->id, $nonguestroles)); // guest role here breaks a lot of stuff
         }
@@ -164,9 +166,13 @@ if ($hassiteconfig
                              'yahooid' => get_string('yahooid'),
                              'aimid' => get_string('aimid'),
                              'msnid' => get_string('msnid'),
+                             'firstaccess' => get_string('firstaccess'),
                              'lastaccess' => get_string('lastaccess'),
-                             'mycourses' => get_string('mycourses'))));
+                             'mycourses' => get_string('mycourses'),
+                             'groups' => get_string('groups'))));
     }
+
+    $temp->add(new admin_setting_configcheckbox('allowuserswitchrolestheycantassign', get_string('allowuserswitchrolestheycantassign', 'admin'), get_string('configallowuserswitchrolestheycantassign', 'admin'), 0));
 
     $ADMIN->add('roles', $temp);
 

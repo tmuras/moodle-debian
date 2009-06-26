@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.129.2.3 2008/05/18 21:26:57 iarenaza Exp $
+<?php // $Id: index.php,v 1.129.2.5 2009/03/23 09:46:18 mudrd8mz Exp $
 
 
     require_once("../config.php");
@@ -84,7 +84,7 @@ httpsrequired();
         // Handles the case of another Moodle site linking into a page on this site
         //TODO: move weblink into own auth plugin
         include($CFG->dirroot.'/login/weblinkauth.php');
-        if (function_exists(weblink_auth)) {
+        if (function_exists('weblink_auth')) {
             $user = weblink_auth($SESSION->wantsurl);
         }
         if ($user) {
@@ -273,7 +273,12 @@ httpsrequired();
     }
 
     if (empty($frm->username) && $authsequence[0] != 'shibboleth') {  // See bug 5184
-        $frm->username = get_moodle_cookie() === 'nobody' ? '' : get_moodle_cookie();
+        if (!empty($_GET["username"])) {
+            $frm->username = $_GET["username"];
+        } else {
+            $frm->username = get_moodle_cookie() === 'nobody' ? '' : get_moodle_cookie();
+        }
+
         $frm->password = "";
     }
 

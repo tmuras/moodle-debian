@@ -1,4 +1,4 @@
-<?php  //$Id: lib.php,v 1.1.2.4 2007/12/25 10:03:17 skodak Exp $
+<?php  //$Id: lib.php,v 1.1.2.6 2009/04/20 21:24:00 stronk7 Exp $
 
 function tex_filter_get_executable($debug=false) {
     global $CFG;
@@ -34,8 +34,25 @@ function tex_filter_get_executable($debug=false) {
     error($error_message1);
 }
 
+function tex_sanitize_formula($texexp) {
+    /// Check $texexp against blacklist (whitelisting could be more complete but also harder to maintain)
+    $tex_blacklist = array(
+        'include','command','loop','repeat','open','toks','output',
+        'input','catcode','name','^^',
+        '\def','\edef','\gdef','\xdef',
+        '\every','\errhelp','\errorstopmode','\scrollmode','\nonstopmode',
+        '\batchmode','\read','\write','csname','\newhelp','\uppercase',
+        '\lowercase','\relax','\aftergroup',
+        '\afterassignment','\expandafter','\noexpand','\special',
+        '\let', '\futurelet','\else','\fi','\chardef','\makeatletter','\afterground',
+        '\noexpand','\line','\mathcode','\item','\section','\mbox','\declarerobustcommand'
+    );
+
+    return  str_ireplace($tex_blacklist, 'forbiddenkeyword', $texexp);
+}
 
 function tex_filter_get_cmd($pathname, $texexp) {
+    $texexp = tex_sanitize_formula($texexp);
     $texexp = escapeshellarg($texexp);
     $executable = tex_filter_get_executable(false);
 

@@ -790,7 +790,7 @@ function get_cache_flags($type, $changedsince=NULL) {
 
 /**
  * Use this funciton to get a list of users from a config setting of type admin_setting_users_with_capability.
- * @param string $value the value of the config setting. 
+ * @param string $value the value of the config setting.
  * @param string $capability the capability - must match the one passed to the admin_setting_users_with_capability constructor.
  * @return array of user objects.
  */
@@ -1986,10 +1986,15 @@ function require_login($courseorid=0, $autologinguest=true, $cm=null, $setwantsu
             print_error('nocontext');
         }
     }
+    if (!empty($cm) && !isset($cm->context)) {
+        if ( ! $cm->context = get_context_instance(CONTEXT_MODULE, $cm->id) ) {
+            print_error('nocontext');
+        }
+    }
     if ($COURSE->id == SITEID) {
         /// Eliminate hidden site activities straight away
         if (!empty($cm) && !$cm->visible
-            && !has_capability('moodle/course:viewhiddenactivities', $COURSE->context)) {
+            && !has_capability('moodle/course:viewhiddenactivities', $cm->context)) {
             redirect($CFG->wwwroot, get_string('activityiscurrentlyhidden'));
         }
         user_accesstime_log($COURSE->id); /// Access granted, update lastaccess times
@@ -2080,7 +2085,7 @@ function require_login($courseorid=0, $autologinguest=true, $cm=null, $setwantsu
 
         /// Make sure they can read this activity too, if specified
 
-            if (!empty($cm) and !$cm->visible and !has_capability('moodle/course:viewhiddenactivities', $COURSE->context)) {
+            if (!empty($cm) && !$cm->visible && !has_capability('moodle/course:viewhiddenactivities', $cm->context)) {
                 redirect($CFG->wwwroot.'/course/view.php?id='.$cm->course, get_string('activityiscurrentlyhidden'));
             }
             user_accesstime_log($COURSE->id); /// Access granted, update lastaccess times
@@ -2298,6 +2303,11 @@ function over_bounce_threshold($user) {
     if (empty($CFG->handlebounces)) {
         return false;
     }
+
+    if (empty($user->id)) { /// No real (DB) user, nothing to do here.
+        return false;
+    }
+
     // set sensible defaults
     if (empty($CFG->minbounces)) {
         $CFG->minbounces = 10;
@@ -2321,6 +2331,11 @@ function over_bounce_threshold($user) {
  * @param $reset - will reset the count to 0
  */
 function set_send_count($user,$reset=false) {
+
+    if (empty($user->id)) { /// No real (DB) user, nothing to do here.
+        return;
+    }
+
     if ($pref = get_record('user_preferences','userid',$user->id,'name','email_send_count')) {
         $pref->value = (!empty($reset)) ? 0 : $pref->value+1;
         update_record('user_preferences',$pref);
@@ -2688,9 +2703,8 @@ function set_moodle_cookie($thing) {
     $days = 60;
     $seconds = DAYSECS*$days;
 
-    // no need to set secure or http cookie only here - it is not secret
-    setCookie($cookiename, '', time() - HOURSECS, $CFG->sessioncookiepath, $CFG->sessioncookiedomain);
-    setCookie($cookiename, rc4encrypt($thing), time()+$seconds, $CFG->sessioncookiepath, $CFG->sessioncookiedomain);
+    setCookie($cookiename, '', time() - HOURSECS, $CFG->sessioncookiepath, $CFG->sessioncookiedomain, $CFG->cookiesecure);
+    setCookie($cookiename, rc4encrypt($thing), time()+$seconds, $CFG->sessioncookiepath, $CFG->sessioncookiedomain, $CFG->cookiesecure);
 }
 
 /**
@@ -3005,6 +3019,7 @@ function delete_user($user) {
     global $CFG;
     require_once($CFG->libdir.'/grouplib.php');
     require_once($CFG->libdir.'/gradelib.php');
+    require_once($CFG->dirroot.'/message/lib.php');
 
     begin_sql();
 
@@ -3014,6 +3029,9 @@ function delete_user($user) {
             $grade->delete('userdelete');
         }
     }
+
+    //move unread messages from this user to read
+    message_move_userfrom_unread2read($user->id);
 
     // remove from all groups
     delete_records('groups_members', 'userid', $user->id);
@@ -3102,12 +3120,12 @@ function authenticate_user_login($username, $password) {
         $auth = empty($user->auth) ? 'manual' : $user->auth;  // use manual if auth not set
         if ($auth=='nologin' or !is_enabled_auth($auth)) {
             add_to_log(0, 'login', 'error', 'index.php', $username);
-            error_log('[client '.$_SERVER['REMOTE_ADDR']."]  $CFG->wwwroot  Disabled Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
+            error_log('[client '.getremoteaddr()."]  $CFG->wwwroot  Disabled Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
             return false;
         }
         if (!empty($user->deleted)) {
             add_to_log(0, 'login', 'error', 'index.php', $username);
-            error_log('[client '.$_SERVER['REMOTE_ADDR']."]  $CFG->wwwroot  Deleted Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
+            error_log('[client '.getremoteaddr()."]  $CFG->wwwroot  Deleted Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
             return false;
         }
         $auths = array($auth);
@@ -3131,6 +3149,10 @@ function authenticate_user_login($username, $password) {
             if (empty($user->auth)) {             // For some reason auth isn't set yet
                 set_field('user', 'auth', $auth, 'username', $username);
                 $user->auth = $auth;
+            }
+            if (empty($user->firstaccess)) { //prevent firstaccess from remaining 0 for manual account that never required confirmation
+                set_field('user','firstaccess', $user->timemodified, 'id', $user->id);
+                $user->firstaccess = $user->timemodified;
             }
 
             update_internal_user_password($user, $password); // just in case salt or encoding were changed (magic quotes too one day)
@@ -3170,7 +3192,7 @@ function authenticate_user_login($username, $password) {
     // failed if all the plugins have failed
     add_to_log(0, 'login', 'error', 'index.php', $username);
     if (debugging('', DEBUG_ALL)) {
-        error_log('[client '.$_SERVER['REMOTE_ADDR']."]  $CFG->wwwroot  Failed Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
+        error_log('[client '.getremoteaddr()."]  $CFG->wwwroot  Failed Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
     }
     return false;
 }
@@ -3633,7 +3655,7 @@ function remove_course_contents($courseid, $showfeedback=true) {
     }
 
 /// Give local code a chance to delete its references to this course.
-    require_once('locallib.php');
+    require_once($CFG->libdir.'/locallib.php');
     notify_local_delete_course($courseid, $showfeedback);
 
 /// Delete course blocks
@@ -4114,7 +4136,7 @@ function email_to_user($user, $from, $subject, $messagetext, $messagehtml='', $a
     global $CFG, $FULLME, $MNETIDPJUMPURL;
     static $mnetjumps = array();
 
-    if (empty($user)) {
+    if (empty($user) || empty($user->email)) {
         return false;
     }
 
@@ -4145,7 +4167,7 @@ function email_to_user($user, $from, $subject, $messagetext, $messagehtml='', $a
     // If the user is a remote mnet user, parse the email text for URL to the
     // wwwroot and modify the url to direct the user's browser to login at their
     // home site (identity provider - idp) before hitting the link itself
-    if ($user->mnethostid > 1) {
+    if (is_mnet_remote_user($user)) {
         require_once($CFG->dirroot.'/mnet/lib.php');
         // Form the request url to hit the idp's jump.php
         if (isset($mnetjumps[$user->mnethostid])) {
@@ -4264,11 +4286,11 @@ function email_to_user($user, $from, $subject, $messagetext, $messagehtml='', $a
         /// And convert some strings
             $mail->FromName = $textlib->convert($mail->FromName, 'utf-8', $mail->CharSet); //From Name
             foreach ($mail->ReplyTo as $key => $rt) {                                      //ReplyTo Names
-                $mail->ReplyTo[$key][1] = $textlib->convert($rt, 'utf-8', $mail->CharSet);
+                $mail->ReplyTo[$key][1] = $textlib->convert($rt[1], 'utf-8', $mail->CharSet);
             }
             $mail->Subject = $textlib->convert($mail->Subject, 'utf-8', $mail->CharSet);   //Subject
             foreach ($mail->to as $key => $to) {
-                $mail->to[$key][1] = $textlib->convert($to, 'utf-8', $mail->CharSet);      //To Names
+                $mail->to[$key][1] = $textlib->convert($to[1], 'utf-8', $mail->CharSet);      //To Names
             }
             $mail->Body = $textlib->convert($mail->Body, 'utf-8', $mail->CharSet);         //Body
             $mail->AltBody = $textlib->convert($mail->AltBody, 'utf-8', $mail->CharSet);   //Subject
@@ -4403,12 +4425,13 @@ function reset_password_and_mail($user) {
     }
 
     $a = new object();
-    $a->firstname = $user->firstname;
-    $a->sitename = format_string($site->fullname);
-    $a->username = $user->username;
+    $a->firstname   = $user->firstname;
+    $a->lastname    = $user->lastname;
+    $a->sitename    = format_string($site->fullname);
+    $a->username    = $user->username;
     $a->newpassword = $newpassword;
-    $a->link = $CFG->httpswwwroot .'/login/change_password.php';
-    $a->signoff = generate_email_signoff();
+    $a->link        = $CFG->httpswwwroot .'/login/change_password.php';
+    $a->signoff     = generate_email_signoff();
 
     $message = get_string('newpasswordtext', '', $a);
 
@@ -4497,6 +4520,7 @@ function send_password_change_info($user) {
 
     $data = new object();
     $data->firstname = $user->firstname;
+    $data->lastname  = $user->lastname;
     $data->sitename = format_string($site->fullname);
     $data->admin = generate_email_signoff();
 
@@ -5348,7 +5372,6 @@ function get_string($identifier, $module='', $a=NULL, $extralocations=NULL) {
     } else {
         $locations[] = $CFG->dataroot.'/lang/';
         $locations[] = $CFG->dirroot.'/lang/';
-        $locations[] = $CFG->dirroot.'/local/lang/';
     }
 
 /// Add extra places to look for strings for particular plugin types.
@@ -5365,7 +5388,9 @@ function get_string($identifier, $module='', $a=NULL, $extralocations=NULL) {
             $type = substr($module, 0, $dividerpos + 1);
             $plugin = substr($module, $dividerpos + 1);
         }
-        if (!empty($rules[$type])) {
+        if ($module == 'local') {
+            $locations[] = $CFG->dirroot . '/local/lang/';
+        } if (!empty($rules[$type])) {
             foreach ($rules[$type] as $location) {
                 $locations[] = $CFG->dirroot . "/$location/$plugin/lang/";
             }
@@ -6303,6 +6328,39 @@ function check_php_version($version='4.1.0') {
     }
 
     return false;
+}
+
+/**
+ * Returns one or several CSS class names that match the user's browser. These can be put
+ * in the body tag of the page to apply browser-specific rules without relying on CSS hacks
+ */
+function get_browser_version_classes() {
+    $classes = '';
+    if (check_browser_version("MSIE", "0")) {
+        $classes .= 'ie ';
+        if (check_browser_version("MSIE", 8)) {
+            $classes .= 'ie8 ';
+        } elseif (check_browser_version("MSIE", 7)) {
+            $classes .= 'ie7 ';
+        } elseif (check_browser_version("MSIE", 6)) {
+            $classes .= 'ie6 ';
+        }
+    } elseif (check_browser_version("Firefox", 0) || check_browser_version("Gecko", 0) || check_browser_version("Camino", 0)) {
+        $classes .= 'gecko ';
+
+        if (preg_match('/rv\:([1-2])\.([0-9])/', $_SERVER['HTTP_USER_AGENT'], $matches)) {
+            $classes .= "gecko{$matches[1]}{$matches[2]} ";
+        }
+
+    } elseif (check_browser_version("Safari", 0)) {
+        $classes .= 'safari ';
+
+    } elseif (check_browser_version("Opera", 0)) {
+        $classes .= 'opera ';
+
+    }
+
+    return $classes;
 }
 
 /**
@@ -7423,15 +7481,24 @@ function unzip_file ($zipfile, $destination = '', $showstatus = true) {
     //    -$zipfilename is the name of the zip file (without path)
     //    -$destpath is the destination path where the zip file will uncompressed (dir)
 
-    $list = null;
+    $list = array();
+
+    require_once("$CFG->libdir/filelib.php");
+
+    do {
+        $temppath = "$CFG->dataroot/temp/unzip/".random_string(10);
+    } while (file_exists($temppath));
+    if (!check_dir_exists($temppath, true, true)) {
+        return false;
+    }
 
     if (empty($CFG->unzip)) {    // Use built-in php-based unzip function
 
         include_once("$CFG->libdir/pclzip/pclzip.lib.php");
         $archive = new PclZip(cleardoubleslashes("$zippath/$zipfilename"));
-        if (!$list = $archive->extract(PCLZIP_OPT_PATH, $destpath,
+        if (!$list = $archive->extract(PCLZIP_OPT_PATH, $temppath,
                                        PCLZIP_CB_PRE_EXTRACT, 'unzip_cleanfilename',
-                                       PCLZIP_OPT_EXTRACT_DIR_RESTRICTION, $destpath)) {
+                                       PCLZIP_OPT_EXTRACT_DIR_RESTRICTION, $temppath)) {
             if (!empty($showstatus)) {
                 notice($archive->errorInfo(true));
             }
@@ -7446,7 +7513,7 @@ function unzip_file ($zipfile, $destination = '', $showstatus = true) {
         $command = 'cd '.escapeshellarg($zippath).$separator.
                     escapeshellarg($CFG->unzip).' -o '.
                     escapeshellarg(cleardoubleslashes("$zippath/$zipfilename")).' -d '.
-                    escapeshellarg($destpath).$redirection;
+                    escapeshellarg($temppath).$redirection;
         //All converted to backslashes in WIN
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             $command = str_replace('/','\\',$command);
@@ -7454,12 +7521,64 @@ function unzip_file ($zipfile, $destination = '', $showstatus = true) {
         Exec($command,$list);
     }
 
+    unzip_process_temp_dir($temppath, $destpath);
+    fulldelete($temppath);
+
     //Display some info about the unzip execution
     if ($showstatus) {
-        unzip_show_status($list,$destpath);
+        unzip_show_status($list, $temppath, $destpath);
     }
 
     return true;
+}
+
+/**
+ * Sanitize temporary unzipped files and move to target dir.
+ * @param string $temppath path to temporary dir with unzip output
+ * @param string $destpath destination path
+ * @return void
+ */
+function unzip_process_temp_dir($temppath, $destpath) {
+    global $CFG;
+
+    $filepermissions = ($CFG->directorypermissions & 0666); // strip execute flags
+
+    if (check_dir_exists($destpath, true, true)) {
+        $currdir = opendir($temppath);
+        while (false !== ($file = readdir($currdir))) {
+            if ($file <> ".." && $file <> ".") {
+                $fullfile = "$temppath/$file";
+                if (is_link($fullfile)) {
+                    //somebody tries to sneak in symbolik link - no way!
+                    continue;
+                }
+                $cleanfile = clean_param($file, PARAM_FILE); // no dangerous chars
+                if ($cleanfile === '') {
+                    // invalid file name
+                    continue;
+                }
+                if ($cleanfile !== $file and file_exists("$temppath/$cleanfile")) {
+                    // eh, weird chars collision detected
+                    continue;
+                }
+                $descfile = "$destpath/$cleanfile";
+                if (is_dir($fullfile)) {
+                    // recurse into subdirs
+                    unzip_process_temp_dir($fullfile, $descfile);
+                }
+                if (is_file($fullfile)) {
+                    // rename and move the file
+                    if (file_exists($descfile)) {
+                        //override existing files
+                        unlink($descfile);
+                    }
+                    rename($fullfile, $descfile);
+                    chmod($descfile, $filepermissions);
+                }
+            }
+        }
+        closedir($currdir);
+    }
 }
 
 function unzip_cleanfilename ($p_event, &$p_header) {
@@ -7481,7 +7600,7 @@ function unzip_cleanfilename ($p_event, &$p_header) {
     return 1;
 }
 
-function unzip_show_status ($list,$removepath) {
+function unzip_show_status($list, $removepath, $removepath2) {
 //This function shows the results of the unzip execution
 //depending of the value of the $CFG->zip, results will be
 //text or an array of files.
@@ -7501,7 +7620,8 @@ function unzip_show_status ($list,$removepath) {
         foreach ($list as $item) {
             echo "<tr>";
             $item['filename'] = str_replace(cleardoubleslashes($removepath).'/', "", $item['filename']);
-            print_cell("left", s($item['filename']));
+            $item['filename'] = str_replace(cleardoubleslashes($removepath2).'/', "", $item['filename']);
+            print_cell("left", s(clean_param($item['filename'], PARAM_PATH)));
             if (! $item['folder']) {
                 print_cell("right", display_size($item['size']));
             } else {
@@ -7518,7 +7638,9 @@ function unzip_show_status ($list,$removepath) {
         print_simple_box_start("center");
         echo "<pre>";
         foreach ($list as $item) {
-            echo s(str_replace(cleardoubleslashes($removepath.'/'), '', $item)).'<br />';
+            $item = str_replace(cleardoubleslashes($removepath.'/'), '', $item);
+            $item = str_replace(cleardoubleslashes($removepath2.'/'), '', $item);
+            echo s($item).'<br />';
         }
         echo "</pre>";
         print_simple_box_end();
@@ -7955,7 +8077,7 @@ function check_dir_exists($dir, $create=false, $recursive=false) {
 
     global $CFG;
 
-    if (strstr($dir, $CFG->dataroot.'/') === false) {
+    if (strstr(cleardoubleslashes($dir), cleardoubleslashes($CFG->dataroot.'/')) === false) {
         debugging('Warning. Wrong call to check_dir_exists(). $dir must be an absolute path under $CFG->dataroot ("' . $dir . '" is incorrect)', DEBUG_DEVELOPER);
     }
 
@@ -7969,9 +8091,8 @@ function check_dir_exists($dir, $create=false, $recursive=false) {
             if ($recursive) {
             /// We are going to make it recursive under $CFG->dataroot only
             /// (will help sites running open_basedir security and others)
-                $dir = str_replace($CFG->dataroot . '/', '', $dir);
+                $dir = str_replace(cleardoubleslashes($CFG->dataroot . '/'), '', cleardoubleslashes($dir));
             /// PHP 5.0 has recursive mkdir parameter, but 4.x does not :-(
-                $dir = str_replace('\\', '/', $dir); //windows compatibility
                 $dirs = explode('/', $dir); /// Extract path parts
             /// Iterate over each part with start point $CFG->dataroot
                 $dir = $CFG->dataroot . '/';

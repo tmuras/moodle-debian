@@ -1,4 +1,4 @@
-<?PHP // $Id: hotpot.php,v 1.10.4.2 2009/01/27 05:34:31 gbateson Exp $ 
+<?PHP // $Id: hotpot.php,v 1.10.4.3 2009/02/28 03:59:28 gbateson Exp $ 
       // hotpot.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -86,6 +86,7 @@ $string['rawdetails'] = 'Raw attempt details';
 $string['regrade'] = 'Regrade';
 $string['regradecheck'] = 'Do you really want to regrade &quot;$a&quot;?';
 $string['regraderequired'] = 'Regrade required';
+$string['removegradeitem'] = 'Remove grade item';
 $string['reportanswers'] = 'Answers';
 $string['reportattemptfinish'] = 'Att. finish';
 $string['reportattemptnumber'] = 'Attempt';

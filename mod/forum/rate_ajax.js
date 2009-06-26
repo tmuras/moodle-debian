@@ -1,4 +1,4 @@
-// $Id: rate_ajax.js,v 1.1.2.3 2009/01/23 16:30:13 stronk7 Exp $
+// $Id: rate_ajax.js,v 1.1.2.5 2009/04/06 03:44:13 arborrow Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -71,7 +71,7 @@ function prevent_form_submission(e) {
 /**
  * This function performs the communication with the server
  * in order to send new rates and receive feedback about that.
- * It's the action thrown by all the menu listeners defined above
+ * It is the action thrown by all the menu listeners defined above
  */
 function perform_rate(e, menu) {
 
@@ -114,7 +114,7 @@ function rate_success(o) {
 
     /** Process error response **/
     if (response.status != 'Ok') {
-        display_error(menu, reponse);
+        display_error(menu, response);
     } else {
         display_response(menu, response);
     }
@@ -141,6 +141,11 @@ function rate_failure(o) {
  * This function will display the correct response received from server
  */
 function display_response(menu, response) {
+
+    /** Correct response, revert menu color if neeeded **/
+    if (menu.style.backgroundColor == 'red') {
+        menu.style.backgroundColor = null;
+    }
 
     /** Process ok response, displaying it **/
     var ratingsDiv  = YAHOO.util.Dom.getAncestorByTagName(menu, 'div');

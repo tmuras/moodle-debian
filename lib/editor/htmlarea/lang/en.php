@@ -1,4 +1,4 @@
-<?php // $Id: en.php,v 1.4 2006/11/15 20:39:27 skodak Exp $
+<?php // $Id: en.php,v 1.4.10.1 2009/05/07 05:30:10 dongsheng Exp $
     include("../../../../config.php");
     $lastmodified = filemtime("en.php");
     $lifetime = 1800;
@@ -9,6 +9,10 @@
     //if ( function_exists('ob_gzhandler') ) {
     //    ob_start("ob_gzhandler");
     //}
+
+    // use course language
+    $courseid  = optional_param('id', 1, PARAM_INT);
+    course_setup($courseid);
 
     header("Content-type: application/x-javascript; charset: utf-8");  // Correct MIME type
     header("Last-Modified: " . gmdate("D, d M Y H:i:s", $lastmodified) . " GMT");

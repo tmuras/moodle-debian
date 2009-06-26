@@ -1,4 +1,4 @@
-<?php //$Id: index.php,v 1.11.2.3 2008/05/29 17:25:30 mudrd8mz Exp $
+<?php //$Id: index.php,v 1.11.2.4 2009/04/22 08:20:34 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -37,16 +37,6 @@ require_login($course->id);
 $context = get_context_instance(CONTEXT_COURSE, $course->id);
 
 require_capability('gradereport/outcomes:view', $context);
-
-// Build navigation
-$strgrades = get_string('grades');
-$stroutcomes = get_string('outcomes', 'grades');
-
-$navigation = grade_build_nav(__FILE__, $stroutcomes, $course->id);
-
-/// Print header
-print_header_simple($strgrades.':'.$stroutcomes, ':'.$strgrades, $navigation, '', '', true);
-print_grade_plugin_selector($courseid, 'report', 'outcomes');
 
 //first make sure we have proper final grades
 grade_regrade_final_grades($courseid);
@@ -165,7 +155,9 @@ foreach ($report_info as $outcomeid => $outcomedata) {
 
 
 $html .= '</table>';
-print_heading($stroutcomes);
+
+print_grade_page_head($courseid, 'report', 'outcomes');
+
 
 echo $html;
 print_footer($course);

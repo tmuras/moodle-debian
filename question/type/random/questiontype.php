@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.12.2.7 2008/11/28 06:07:25 tjhunt Exp $
+<?php  // $Id: questiontype.php,v 1.12.2.9 2009/02/17 06:14:48 tjhunt Exp $
 /**
  * Class for the random question type.
  *
@@ -106,29 +106,26 @@ class random_qtype extends default_questiontype {
     }
 
     function save_question($question, $form, $course) {
-        // If the category is changing, set things up as default_questiontype::save_question expects.
-        list($formcategory, $unused) = explode(',', $form->category);
-        if (isset($question->id) && $formcategory != $question->category) {
-            $form->categorymoveto = $form->category;
-        }
         $form->name = '';
-        $question = parent::save_question($question, $form, $course);
-        if (!$category = get_record('question_categories', 'id', $question->category)) {
-            error('Could retrieve question category');
-        }
-        $question->name = $this->question_name($category);
-        if (!set_field('question', 'name', addslashes($question->name), 'id', $question->id)) {
-            error('Could not update random question name');
-        }
-        return $question;
+        // Name is not a required field for random questions, but parent::save_question
+        // Assumes that it is.
+        return parent::save_question($question, $form, $course);
     }
 
     function save_question_options($question) {
-        // No options, but we set the parent field to the question's own id.
-        // Setting the parent field has the effect of hiding this question in
-        // various places.
-        return (set_field('question', 'parent', $question->id, 'id',
-         $question->id) ? true : false);
+        // No options, as such, but we set the parent field to the question's
+        // own id. Setting the parent field has the effect of hiding this
+        // question in various places.
+        $updateobject = new stdClass;
+        $updateobject->id = $question->id;
+        $updateobject->parent = $question->id;
+
+        // We also force the question name to be 'Random (categoryname)'.
+        if (!$category = get_record('question_categories', 'id', $question->category)) {
+            error('Could retrieve question category');
+        }
+        $updateobject->name = addslashes($this->question_name($category));
+        return update_record('question', $updateobject);
     }
 
     /**

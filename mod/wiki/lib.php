@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.53.2.5 2008/09/26 09:33:03 stronk7 Exp $
+<?php  // $Id: lib.php,v 1.53.2.6 2009/04/22 21:29:23 skodak Exp $
 
 /// Library of functions and constants for module wiki
 /// (replace wiki with the name of your module and delete this line)
@@ -235,13 +235,6 @@ function wiki_cron () {
     $result=delete_records_select('wiki_locks','lockedseen < '.(time()-WIKI_LOCK_PERSISTENCE));
 
     return $result;
-}
-
-function wiki_grades($wikiid) {
-/// Must return an array of grades for a given instance of this module,
-/// indexed by user.  It also returns a maximum allowed grade.
-
-    return NULL;
 }
 
 function wiki_get_participants($wikiid) {

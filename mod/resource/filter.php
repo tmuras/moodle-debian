@@ -1,4 +1,4 @@
-<?php // $Id: filter.php,v 1.18.2.2 2008/12/07 17:32:44 stronk7 Exp $
+<?php // $Id: filter.php,v 1.18.2.4 2009/02/16 18:03:12 stronk7 Exp $
     //This function provides automatic linking to
     //resources when its name (title) is found inside every Moodle text
     //Williams, Stronk7, Martin D
@@ -46,7 +46,7 @@
                         cm.visible =  1 AND
                         r.id = cm.instance AND
                         cm.course = {$courseid}
-                ORDER BY CHAR_LENGTH(r.name) DESC, cm.section ASC;";
+                ORDER BY " . sql_length('r.name') . " DESC, cm.section ASC";
 
             if (!$resources = get_records_sql($resource_sql) ){
                 $nothingtodo = true;

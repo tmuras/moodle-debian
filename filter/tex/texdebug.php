@@ -1,9 +1,7 @@
-<?PHP // $Id: texdebug.php,v 1.20.2.2 2007/12/25 11:41:46 skodak Exp $
+<?php // $Id: texdebug.php,v 1.20.2.4 2009/03/26 19:06:29 stronk7 Exp $
       // This function fetches math. images from the data directory
       // If not, it obtains the corresponding TeX expression from the cache_tex db table
       // and uses mimeTeX to create the image file
-
-    $nomoodlecookie = true;     // Because it interferes with caching
 
     require_once("../../config.php");
 
@@ -22,6 +20,9 @@
 
     $action = optional_param('action', '', PARAM_ALPHA);
     $texexp = optional_param('tex', '', PARAM_RAW);
+
+    require_login();
+    require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM), $USER->id); /// Required cap to run this. MDL-18552
 
     $query = urldecode($_SERVER['QUERY_STRING']);
     error_reporting(E_ALL);
@@ -294,7 +295,7 @@
                <label for="ShowDB">See the cache_filters database entry for this expression (if any).</label></li>
            <li><input type="radio" name="DeleteDB" value="DeleteDB" id="DeleteDB" />
                <label for="DeleteDB">Delete the cache_filters database entry for this expression (if any).</label></li>
-           <li><input type="radio" name="action" value="ShowImageMimetex" id="ShowImageMimetex  checked="checked" />
+           <li><input type="radio" name="action" value="ShowImageMimetex" id="ShowImageMimetex"  checked="checked" />
                <label for="ShowImageMimetex">Show a graphic image of the algebraic expression rendered with mimetex.</label></li>
            <li><input type="radio" name="action" value="ShowImageTex" id="ShowImageTex" />
                <label for="ShowImageTex">Show a graphic image of the algebraic expression rendered with Tex/Ghostscript.</label></li>

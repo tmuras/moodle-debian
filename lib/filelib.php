@@ -1,4 +1,4 @@
-<?php //$Id: filelib.php,v 1.50.2.25 2008/11/01 19:27:36 skodak Exp $
+<?php //$Id: filelib.php,v 1.50.2.28 2009/05/07 08:55:50 nicolasconnault Exp $
 
 define('BYTESERVING_BOUNDARY', 's1k2o3d4a5k6s7'); //unique string constant
 
@@ -38,7 +38,12 @@ function get_file_url($path, $options=null, $type='coursefile') {
 
     if ($CFG->slasharguments) {
         $parts = explode('/', $path);
-        $parts = array_map('rawurlencode', $parts);
+        foreach ($parts as $key => $part) {
+        /// anchor dash character should not be encoded
+            $subparts = explode('#', $part);
+            $subparts = array_map('rawurlencode', $subparts);
+            $parts[$key] = implode('#', $subparts);
+        }
         $path  = implode('/', $parts);
         $ffurl = $url.'/'.$path;
         $separator = '?';
@@ -417,10 +422,10 @@ function get_mimetypes_array() {
 
         'ps'   => array ('type'=>'application/postscript', 'icon'=>'pdf.gif'),
         'qt'   => array ('type'=>'video/quicktime', 'icon'=>'video.gif'),
-        'ra'   => array ('type'=>'audio/x-realaudio', 'icon'=>'audio.gif'),
-        'ram'  => array ('type'=>'audio/x-pn-realaudio', 'icon'=>'audio.gif'),
+        'ra'   => array ('type'=>'audio/x-realaudio-plugin', 'icon'=>'audio.gif'),
+        'ram'  => array ('type'=>'audio/x-pn-realaudio-plugin', 'icon'=>'audio.gif'),
         'rhb'  => array ('type'=>'text/xml', 'icon'=>'xml.gif'),
-        'rm'   => array ('type'=>'audio/x-pn-realaudio', 'icon'=>'audio.gif'),
+        'rm'   => array ('type'=>'audio/x-pn-realaudio-plugin', 'icon'=>'audio.gif'),
         'rtf'  => array ('type'=>'text/rtf', 'icon'=>'text.gif'),
         'rtx'  => array ('type'=>'text/richtext', 'icon'=>'text.gif'),
         'sh'   => array ('type'=>'application/x-sh', 'icon'=>'text.gif'),
@@ -941,7 +946,7 @@ function put_records_csv($file, $records, $table = NULL) {
  * @param $location the path to remove.
  */
 function fulldelete($location) {
-    if (is_dir($location)) {
+    if (is_dir($location) and !is_link($location)) {
         $currdir = opendir($location);
         while (false !== ($file = readdir($currdir))) {
             if ($file <> ".." && $file <> ".") {

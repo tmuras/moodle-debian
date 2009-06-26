@@ -1,4 +1,4 @@
-<?PHP  //$Id: upgrade.php,v 1.154.2.44 2008/12/09 04:49:06 tjhunt Exp $
+<?PHP  //$Id: upgrade.php,v 1.154.2.52 2009/05/11 18:29:27 stronk7 Exp $
 
 // This file keeps track of upgrades to Moodle.
 //
@@ -2041,11 +2041,11 @@ function xmldb_main_upgrade($oldversion=0) {
         execute_sql($sql, true);
 
     /// convert old aggregation constants if needed
-        for ($i=0; $i<=12; $i=$i+2) {
+        /*for ($i=0; $i<=12; $i=$i+2) {
             $j = $i+1;
             $sql = "UPDATE {$CFG->prefix}grade_categories SET aggregation = $i, aggregateonlygraded = 1 WHERE aggregation = $j";
             execute_sql($sql, true);
-        }
+        }*/ // not needed anymore - breaks upgrade now
 
         upgrade_main_savepoint($result, 2007090503);
     }
@@ -3092,6 +3092,81 @@ function xmldb_main_upgrade($oldversion=0) {
 
         /// Main savepoint reached
             upgrade_main_savepoint($result, 2007101532.10);
+    }
+
+    if ($result && $oldversion < 2007101542) {
+        if (empty($CFG->hiddenuserfields)) {
+            set_config('hiddenuserfields','firstaccess');
+        } else {
+            if (strpos($CFG->hiddenuserfields, 'firstaccess') === false) { //firstaccess should not already be listed but just in case
+                set_config('hiddenuserfields',$CFG->hiddenuserfields.',firstaccess');
+            }
+        }
+    /// Main savepoint reached
+        upgrade_main_savepoint($result, 2007101542);
+    }
+
+    if ($result && $oldversion < 2007101545.01) {
+        require_once("$CFG->dirroot/filter/tex/lib.php");
+        filter_tex_updatedcallback(null);
+    /// Main savepoint reached
+        upgrade_main_savepoint($result, 2007101545.01);
+    }
+
+    if ($result && $oldversion < 2007101546.02) {
+        if (empty($CFG->gradebook_latest195_upgrade)) {
+            require_once($CFG->libdir.'/gradelib.php'); // we need constants only
+            // reset current coef for simple mean items - it may contain some rubbish ;-)
+            $sql = "UPDATE {$CFG->prefix}grade_items
+                       SET aggregationcoef = 0
+                     WHERE categoryid IN (SELECT gc.id
+                                            FROM {$CFG->prefix}grade_categories gc
+                                           WHERE gc.aggregation = ".GRADE_AGGREGATE_WEIGHTED_MEAN2.")";
+            $result = execute_sql($sql);
+        } else {
+            // direct upgrade from 1.8.x - no need to reset coef, because it is already ok
+            unset_config('gradebook_latest195_upgrade');
+        }
+
+        upgrade_main_savepoint($result, 2007101546.02);
+    }
+
+    if ($result && $oldversion < 2007101546.03) {
+    /// Deleting orphaned messages from deleted users.
+        require_once($CFG->dirroot.'/message/lib.php');
+    /// Detect deleted users with messages sent(useridfrom) and not read
+        if ($deletedusers = get_records_sql("SELECT DISTINCT u.id
+                                           FROM {$CFG->prefix}user u
+                                           JOIN {$CFG->prefix}message m ON m.useridfrom = u.id
+                                          WHERE u.deleted = 1")) {
+            foreach ($deletedusers as $deleteduser) {
+                message_move_userfrom_unread2read($deleteduser->id); // move messages
+            }
+        }
+    /// Main savepoint reached
+        upgrade_main_savepoint($result, 2007101546.03);
+    }
+
+    if ($result && $oldversion < 2007101546.05) {
+        // force full regrading - the max grade for sum aggregation was not correct when scales involved,
+        //                        extra credit grade is not dropped anymore in aggregations if drop low or keep high specified
+        //                        sum aggragetion respects drop low and keep high when calculation max value
+        set_field('grade_items', 'needsupdate', 1, 'needsupdate', 0);
+    }
+
+    if ($result && $oldversion < 2007101546.06) {
+        unset_config('grade_report_showgroups');
+        upgrade_main_savepoint($result, 2007101546.06);
+    }
+
+    if ($result && $oldversion < 2007101547) {
+        // Let's check the status of mandatory mnet_host records, fixing them
+        // and moving "orphan" users to default localhost record. MDL-16879
+        notify('Fixing mnet records, this may take a while...', 'notifysuccess');
+        $db->debug = false; // Can output too much. Disabling
+        upgrade_fix_incorrect_mnethostids();
+        $db->debug = true; // Restoring debug level
+        upgrade_main_savepoint($result, 2007101547);
     }
 
     return $result;

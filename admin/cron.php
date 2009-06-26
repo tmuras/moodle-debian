@@ -1,4 +1,4 @@
-<?php // $Id: cron.php,v 1.126.2.16 2008/12/29 19:58:05 skodak Exp $
+<?php // $Id: cron.php,v 1.126.2.17 2009/03/26 19:56:25 skodak Exp $
 
 /// This script looks through all the module directories for cron.php files
 /// and runs them.  These files can contain cleanup functions, email functions
@@ -425,6 +425,23 @@
         }
     }
 
+/// Run the auth cron, if any
+/// before enrolments because it might add users that will be needed in enrol plugins
+    $auths = get_enabled_auth_plugins();
+
+    mtrace("Running auth crons if required...");
+    foreach ($auths as $auth) {
+        $authplugin = get_auth_plugin($auth);
+        if (method_exists($authplugin, 'cron')) {
+            mtrace("Running cron for auth/$auth...");
+            $authplugin->cron();
+            if (!empty($authplugin->log)) {
+                mtrace($authplugin->log);
+            }
+        }
+        unset($authplugin);
+    }
+
 /// Run the enrolment cron, if any
     if (!($plugins = explode(',', $CFG->enrol_plugins_enabled))) {
         $plugins = array($CFG->enrol);
@@ -439,22 +456,6 @@
             mtrace($enrol->log);
         }
         unset($enrol);
-    }
-
-/// Run the auth cron, if any
-    $auths = get_enabled_auth_plugins();
-
-    mtrace("Running auth crons if required...");
-    foreach ($auths as $auth) {
-        $authplugin = get_auth_plugin($auth);
-        if (method_exists($authplugin, 'cron')) {
-            mtrace("Running cron for auth/$auth...");
-            $authplugin->cron();
-            if (!empty($authplugin->log)) {
-                mtrace($authplugin->log);
-            }
-        }
-        unset($authplugin);
     }
 
     if (!empty($CFG->enablestats) and empty($CFG->disablestatsprocessing)) {

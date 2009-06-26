@@ -1,4 +1,4 @@
-<?php  //$Id: dump.php,v 1.3 2007/09/27 06:51:55 skodak Exp $
+<?php  //$Id: dump.php,v 1.5 2007/10/10 06:34:21 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -24,7 +24,7 @@
 ///////////////////////////////////////////////////////////////////////////
 
 $nomoodlecookie = true; // session not used here
-require '../../../config.php';
+require_once '../../../config.php';
 
 $id = required_param('id', PARAM_INT); // course id
 if (!$course = get_record('course', 'id', $id)) {

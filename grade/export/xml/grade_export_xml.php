@@ -1,4 +1,4 @@
-<?php //$Id: grade_export_xml.php,v 1.22.2.1 2008/02/26 08:00:10 moodler Exp $
+<?php //$Id: grade_export_xml.php,v 1.22.2.2 2009/04/30 19:56:10 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -107,9 +107,15 @@ class grade_export_xml extends grade_export {
         $gui->close();
         $geub->close();
 
-        @header('Cache-Control: private, must-revalidate, pre-check=0, post-check=0, max-age=0');
-        @header('Expires: '. gmdate('D, d M Y H:i:s', 0) .' GMT');
-        @header('Pragma: no-cache');
+        if (strpos($CFG->wwwroot, 'https://') === 0) { //https sites - watch out for IE! KB812935 and KB316431
+            @header('Cache-Control: max-age=10');
+            @header('Expires: '. gmdate('D, d M Y H:i:s', 0) .' GMT');
+            @header('Pragma: ');
+        } else { //normal http - prevent caching at all cost
+            @header('Cache-Control: private, must-revalidate, pre-check=0, post-check=0, max-age=0');
+            @header('Expires: '. gmdate('D, d M Y H:i:s', 0) .' GMT');
+            @header('Pragma: no-cache');
+        }
         header("Content-type: text/xml; charset=UTF-8");
         header("Content-Disposition: attachment; filename=\"$downloadfilename\"");
 

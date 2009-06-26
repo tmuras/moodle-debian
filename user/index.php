@@ -1,4 +1,4 @@
-<?PHP // $Id: index.php,v 1.194.2.18 2008/12/01 20:46:13 skodak Exp $
+<?PHP // $Id: index.php,v 1.194.2.21 2009/04/28 18:50:12 skodak Exp $
 
 //  Lists all the users within a given course
 
@@ -140,8 +140,7 @@
         $currentgroup  = NULL;
     }
 
-    $isseparategroups = ($course->groupmode == SEPARATEGROUPS and $course->groupmodeforce and
-                         !has_capability('moodle/site:accessallgroups', $context));
+    $isseparategroups = ($course->groupmode == SEPARATEGROUPS and !has_capability('moodle/site:accessallgroups', $context));
 
     if ($isseparategroups and (!$currentgroup) ) {
         $navlinks = array();
@@ -446,7 +445,7 @@
     if (!empty($search)) {
         $LIKE = sql_ilike();
         $fullname  = sql_fullname('u.firstname','u.lastname');
-        $wheresearch .= ' AND ('. $fullname .' '. $LIKE .'\'%'. $search .'%\' OR email '. $LIKE .'\'%'. $search .'%\' OR idnumber '.$LIKE.' \'%'.$search.'%\') ';
+        $wheresearch .= ' AND ('. $fullname .' '. $LIKE .' \'%'. $search .'%\' OR email '. $LIKE .' \'%'. $search .'%\' OR idnumber '.$LIKE.' \'%'.$search.'%\') ';
 
     }
 
@@ -789,7 +788,7 @@
     }
 
     if ($bulkoperations && $totalcount > ($perpage*3)) {
-        echo '<form action="index.php"><div><input type="hidden" name="id" value="'.$course->id.'" />'.get_string('search').':&nbsp;'."\n";
+        echo '<form action="index.php" class="searchform"><div><input type="hidden" name="id" value="'.$course->id.'" />'.get_string('search').':&nbsp;'."\n";
         echo '<input type="text" name="search" value="'.s($search).'" />&nbsp;<input type="submit" value="'.get_string('search').'" /></div></form>'."\n";
     }
 

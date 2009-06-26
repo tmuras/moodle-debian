@@ -1,4 +1,4 @@
-<?php //$Id: lib.php,v 1.1.2.4 2008/10/15 05:29:48 dongsheng Exp $
+<?php //$Id: lib.php,v 1.1.2.5 2009/05/13 05:35:38 jerome Exp $
 
 require_once($CFG->dirroot.'/user/filters/text.php');
 require_once($CFG->dirroot.'/user/filters/date.php');
@@ -118,7 +118,7 @@ class user_filtering {
                 $plugins = get_list_of_plugins('auth');
                 $choices = array();
                 foreach ($plugins as $auth) {
-                    $choices[$auth] = get_string("auth_{$auth}title", 'auth');
+                    $choices[$auth] = auth_get_plugin_title ($auth);
                 }
                 return new user_filter_simpleselect('auth', get_string('authentication'), $advanced, 'auth', $choices);
 

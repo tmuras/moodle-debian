@@ -1,4 +1,4 @@
-<?php // $Id: langdoc.php,v 1.20.4.4 2008/12/10 06:30:23 dongsheng Exp $
+<?php // $Id: langdoc.php,v 1.20.4.5 2009/05/06 16:10:14 skodak Exp $
 
 /**
  * This script enables Moodle translators to edit /docs and /help language
@@ -22,7 +22,7 @@
     $filemissingmark = ' (***)';    // mark to add to non-existing filenames in selection form
     $fileoldmark = ' (old?)';       // mark to add to filenames in selection form id english version is newer
                                     // or to filenames with filesize() == 0
-    $filetemplate = '';             // template for new files, i.e. '$Id: langdoc.php,v 1.20.4.4 2008/12/10 06:30:23 dongsheng Exp $';
+    $filetemplate = '';             // template for new files, i.e. '$Id: langdoc.php,v 1.20.4.5 2009/05/06 16:10:14 skodak Exp $';
 
     $currentfile = optional_param('currentfile', 'docs/README.txt', PARAM_PATH); 
 
@@ -112,7 +112,7 @@
             for ($a=0; $a < count($pathparts)-1 ; $a++) {
                 $checkpath .= "/".$pathparts[$a];
                 if(!file_exists($checkpath)){
-                     if(!mkdir($checkpath)){
+                     if(!mkdir($checkpath, $CFG->directorypermissions)){
                          echo ("Cannot create directory: $checkpath");
                      }    
                 }    

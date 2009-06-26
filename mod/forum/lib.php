@@ -1732,7 +1732,11 @@ function forum_search_posts($searchterms, $courseid=0, $limitfrom=0, $limitnum=5
             $select[] = "(d.userid = {$USER->id} OR (d.timestart < $now AND (d.timeend = 0 OR d.timeend > $now)))";
         }
 
-        if ($forum->type == 'qanda') {
+        $cm = get_coursemodule_from_instance('forum', $forumid);
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+
+        if ($forum->type == 'qanda'
+            && !has_capability('mod/forum:viewqandawithoutposting', $context)) {
             if (!empty($forum->onlydiscussions)) {
                 $discussionsids = implode(',', $forum->onlydiscussions);
                 $select[] = "(d.id IN ($discussionsids) OR p.parent = 0)";
@@ -3373,8 +3377,17 @@ function forum_get_ratings_mean($postid, $scale, $ratings=NULL) {
 
 /**
  * Return the count of the ratings of a post given to the current user by others.
- * Scale is an array of possible ratings in the scale - the end of the scale is the highest or max grade
- * Ratings is an optional simple array of actual ratings (just integers)
+ *
+ * For numerical grades, the scale index is the same as the real grade value from interval {0..n}
+ * and $scale looks like Array( 0 => '0/n', 1 => '1/n', ..., n => 'n/n' )
+ *
+ * For scales, the index is the order of the scale item {1..n}
+ * and $scale looks like Array( 1 => 'poor', 2 => 'weak', 3 => 'good' )
+ * In case of no ratings done yet, we have nothing to display.
+ *
+ * @param int $postid
+ * @param array $scale Possible ratings in the scale - the end of the scale is the highest or max grade
+ * @param array $ratings An optional simple array of actual ratings (just integers)
  */
 function forum_get_ratings_count($postid, $scale, $ratings=NULL) {
 
@@ -3388,12 +3401,36 @@ function forum_get_ratings_count($postid, $scale, $ratings=NULL) {
     }
 
     $count = count($ratings);
-    $scalecount = count($scale)-1; //this should give us the last element of the scale aka the max grade with  $scale[$scalecount]
-
-    if ($count > $scale[$scalecount]) { //if the count exceeds the forum scale (i.e. max grade then set the score to the max grade
-        $count = $scale[$scalecount];
+    if (! array_key_exists(0, $scale)) {
+        $scaleused = true;
+    } else {
+        $scaleused = false;
     }
-    return $scale[$count];
+
+    if ($count == 0) {
+        if ($scaleused) {    // If no rating given yet and we use a scale
+            return get_string('noratinggiven', 'forum');
+        } else {
+            return '';
+        }
+    }
+
+    $maxgradeidx = max(array_keys($scale)); // For numerical grades, the index is the same as the real grade value {0..n}
+                                            // and $scale looks like Array( 0 => '0/n', 1 => '1/n', ..., n => 'n/n' )
+                                            // For scales, the index is the order of the scale item {1..n}
+                                            // and $scale looks like Array( 1 => 'poor', 2 => 'weak', 3 => 'good' )
+
+    if ($count > $maxgradeidx) {      // The count exceeds the max grade
+        $a = new stdClass();
+        $a->count = $count;
+        $a->grade = $scale[$maxgradeidx];
+        return get_string('aggregatecountformat', 'forum', $a);
+    } else {                                // Display the count and the aggregated grade for this post
+        $a = new stdClass();
+        $a->count = $count;
+        $a->grade = $scale[$count];
+        return get_string('aggregatecountformat', 'forum', $a);
+    }
 }
 
 /**
@@ -3413,7 +3450,6 @@ function forum_get_ratings_max($postid, $scale, $ratings=NULL) {
     }
 
     $count = count($ratings);
-    $max = max($ratings);
 
     if ($count == 0 ) {
         return "";
@@ -3423,8 +3459,9 @@ function forum_get_ratings_max($postid, $scale, $ratings=NULL) {
         return $scale[$rating];
 
     } else {
+        $max = max($ratings);
 
-     if (isset($scale[$max])) {
+        if (isset($scale[$max])) {
             return $scale[$max]." ($count)";
         } else {
             return "$max ($count)";    // Should never happen, hopefully
@@ -3449,7 +3486,6 @@ function forum_get_ratings_min($postid, $scale,  $ratings=NULL) {
     }
 
     $count = count($ratings);
-    $min = min($ratings);
 
     if ($count == 0 ) {
         return "";
@@ -3459,6 +3495,7 @@ function forum_get_ratings_min($postid, $scale,  $ratings=NULL) {
         return $scale[$rating]; //this works for min
 
     } else {
+        $min = min($ratings);
 
         if (isset($scale[$min])) {
             return $scale[$min]." ($count)";
@@ -4562,20 +4599,20 @@ function forum_user_can_see_post($forum, $discussion, $post, $user=NULL, $cm=NUL
 
     // retrieve objects (yuk)
     if (is_numeric($forum)) {
-        debugging('missinf full forum', DEBUG_DEVELOPER);
+        debugging('missing full forum', DEBUG_DEVELOPER);
         if (!$forum = get_record('forum','id',$forum)) {
             return false;
         }
     }
 
     if (is_numeric($discussion)) {
-        debugging('missinf full discussion', DEBUG_DEVELOPER);
+        debugging('missing full discussion', DEBUG_DEVELOPER);
         if (!$discussion = get_record('forum_discussions','id',$discussion)) {
             return false;
         }
     }
     if (is_numeric($post)) {
-        debugging('missinf full post', DEBUG_DEVELOPER);
+        debugging('missing full post', DEBUG_DEVELOPER);
         if (!$post = get_record('forum_posts','id',$post)) {
             return false;
         }
@@ -5106,6 +5143,7 @@ function forum_print_posts_threaded($course, &$cm, $forum, $discussion, $parent,
                 }
             } else {
                 if (!forum_user_can_see_post($forum, $discussion, $post, NULL, $cm)) {
+                    echo "</div>\n";
                     continue;
                 }
                 $by = new object();
@@ -5417,21 +5455,21 @@ function forum_add_user_default_subscriptions($userid, $context) {
     switch ($context->contextlevel) {
 
         case CONTEXT_SYSTEM:   // For the whole site
-             if ($courses = get_records('course')) {
-                 foreach ($courses as $course) {
-                     $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
-                     forum_add_user_default_subscriptions($userid, $subcontext);
-                 }
+             $rs = get_recordset('course', '', '', '', 'id');
+             while ($course = rs_fetch_next_record($rs)) {
+                 $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                 forum_add_user_default_subscriptions($userid, $subcontext);
              }
+             rs_close($rs);
              break;
 
         case CONTEXT_COURSECAT:   // For a whole category
-             if ($courses = get_records('course', 'category', $context->instanceid)) {
-                 foreach ($courses as $course) {
-                     $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
-                     forum_add_user_default_subscriptions($userid, $subcontext);
-                 }
-             }
+            $rs = get_recordset('course', 'category', $context->instanceid, '', 'id');
+            while ($course = rs_fetch_next_record($rs)) {
+                $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                forum_add_user_default_subscriptions($userid, $subcontext);
+            }
+            rs_close($rs);
              if ($categories = get_records('course_categories', 'parent', $context->instanceid)) {
                  foreach ($categories as $category) {
                      $subcontext = get_context_instance(CONTEXT_COURSECAT, $category->id);
@@ -6036,7 +6074,11 @@ function forum_tp_count_forum_unread_posts($cm, $course) {
     if (empty($CFG->enablegroupings)) {
         $mygroups = $modinfo->groups[0];
     } else {
-        $mygroups = $modinfo->groups[$cm->groupingid];
+        if (array_key_exists($cm->groupingid, $modinfo->groups)) {
+            $mygroups = $modinfo->groups[$cm->groupingid];
+        } else {
+            $mygroups = false; // Will be set below
+        }
     }
 
     // add all groups posts

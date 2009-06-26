@@ -1,4 +1,4 @@
-<?php // $Id: sitemap.php,v 1.3.20.1 2008/11/19 01:25:49 stronk7 Exp $
+<?php // $Id: sitemap.php,v 1.3.20.2 2009/05/10 15:27:35 stronk7 Exp $
 
 /*
     This plugin will create a sitemap rooted at the given location
@@ -36,7 +36,7 @@ function ewiki_page_sitemap($id=0, $data=0, $action=0){
 
   //creates the title bar on top of page 
   if($id == EWIKI_PAGE_SITEMAP){
-    $o = ewiki_make_title($id, $id, 2);  
+    $o = ewiki_make_title($id, ewiki_t($id), 2);  
 
     foreach($ewiki_config["SiteMap"]["RootList"] as $root){
       if(isset($a_validpages[$root])){

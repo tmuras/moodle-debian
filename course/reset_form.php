@@ -1,4 +1,4 @@
-<?php // $Id: reset_form.php,v 1.1.2.1 2007/11/29 14:40:50 skodak Exp $
+<?php // $Id: reset_form.php,v 1.1.2.2 2009/04/05 19:33:02 skodak Exp $
 require_once $CFG->libdir.'/formslib.php';
 
 class course_reset_form extends moodleform {
@@ -111,7 +111,9 @@ class course_reset_form extends moodleform {
                 if (file_exists($modfile)) {
                     @include_once($modfile);
                     if (function_exists($mod_reset_course_form_defaults)) {
-                        $defaults = $defaults + $mod_reset_course_form_defaults($COURSE);
+                        if ($moddefs = $mod_reset_course_form_defaults($COURSE)) {
+                            $defaults = $defaults + $moddefs;
+                        }
                     }
                 }
             }

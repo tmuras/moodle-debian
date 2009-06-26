@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.20.2.11 2009/01/15 07:29:00 tjhunt Exp $
+<?php  // $Id: questiontype.php,v 1.20.2.12 2009/03/16 01:52:24 tjhunt Exp $
 
 ///////////////////
 /// SHORTANSWER ///
@@ -333,7 +333,7 @@ class question_shortanswer_qtype extends default_questiontype {
                     }
                     // print info about new penalty
                     // penalty is relevant only if the answer is not correct and further attempts are possible
-                    if (($state->last_graded->raw_grade < $question->maxgrade) and (QUESTION_EVENTCLOSEANDGRADE !== $state->event)) {
+                    if (($state->last_graded->raw_grade < $question->maxgrade) and (QUESTION_EVENTCLOSEANDGRADE != $state->event)) {
                         if ('' !== $state->last_graded->penalty && ((float)$state->last_graded->penalty) > 0.0) {
                             // A penalty was applied so display it
                             echo ' ';

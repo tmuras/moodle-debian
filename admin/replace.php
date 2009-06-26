@@ -1,4 +1,4 @@
-<?php /// $Id: replace.php,v 1.8.4.3 2008/12/10 06:30:23 dongsheng Exp $
+<?php /// $Id: replace.php,v 1.8.4.4 2009/03/12 19:02:08 stronk7 Exp $
       /// Search and replace strings throughout all texts in the whole database
 
 require_once('../config.php');
@@ -39,6 +39,20 @@ if (!db_replace($search, $replace)) {
 }
 
 print_simple_box_end();
+
+/// Try to replace some well-known serialised contents (html blocks)
+notify('Replacing in html blocks...');
+$sql = "SELECT bi.*
+          FROM {$CFG->prefix}block_instance bi
+          JOIN {$CFG->prefix}block b ON b.id = bi.blockid
+         WHERE b.name = 'html'";
+if ($instances = get_records_sql($sql)) {
+    foreach ($instances as $instance) {
+        $blockobject = block_instance('html', $instance);
+        $blockobject->config->text = str_replace($search, $replace, $blockobject->config->text);
+        $blockobject->instance_config_commit($blockobject->pinned);
+    }
+}
 
 /// Rebuild course cache which might be incorrect now
 notify('Rebuilding course cache...');

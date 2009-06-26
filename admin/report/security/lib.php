@@ -1,4 +1,4 @@
-<?php  //$Id: lib.php,v 1.3.2.5 2009/01/27 17:38:40 skodak Exp $
+<?php  //$Id: lib.php,v 1.3.2.14 2009/03/26 20:59:31 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -65,6 +65,21 @@ function report_security_get_issue_list() {
         'report_security_check_courserole',
 
     );
+}
+
+function report_security_doc_link($issue, $name) {
+    global $CFG;
+
+    if (empty($CFG->docroot)) {
+        return $name;
+    }
+
+    $lang = str_replace('_utf8', '', current_language());
+
+    $str = "<a onclick=\"this.target='docspopup'\" href=\"$CFG->docroot/$lang/report/security/$issue\">";
+    $str .= "<img class=\"iconhelp\" src=\"$CFG->httpswwwroot/pix/docs.gif\" alt=\"\" />$name</a>";
+
+    return $str;
 }
 
 ///=============================================
@@ -383,8 +398,13 @@ function report_security_check_emailchangeconfirmation($detailed=false) {
     $result->link    = "<a href=\"$CFG->wwwroot/$CFG->admin/settings.php?section=sitepolicies\">".get_string('sitepolicies', 'admin').'</a>';
 
     if (empty($CFG->emailchangeconfirmation)) {
-        $result->status = REPORT_SECURITY_WARNING;
-        $result->info   = get_string('check_emailchangeconfirmation_error', 'report_security');
+        if (empty($CFG->allowemailaddresses)) {
+            $result->status = REPORT_SECURITY_WARNING;
+            $result->info   = get_string('check_emailchangeconfirmation_error', 'report_security');
+        } else {
+            $result->status = REPORT_SECURITY_INFO;
+            $result->info   = get_string('check_emailchangeconfirmation_info', 'report_security');
+        }
     } else {
         $result->status = REPORT_SECURITY_OK;
         $result->info   = get_string('check_emailchangeconfirmation_ok', 'report_security');
@@ -482,15 +502,18 @@ function report_security_check_riskxss($detailed=false) {
     $result->status  = REPORT_SECURITY_WARNING;
     $result->link    = null;
 
-    $sqlfrom = "FROM {$CFG->prefix}role_capabilities rc
-                JOIN {$CFG->prefix}capabilities cap ON cap.name = rc.capability
-                JOIN {$CFG->prefix}context c ON c.id = rc.contextid
-                JOIN {$CFG->prefix}context sc ON (sc.path = c.path OR sc.path LIKE ".sql_concat('c.path', "'/%'")." OR c.path LIKE ".sql_concat('sc.path', "'/%'").")
-                JOIN {$CFG->prefix}role_assignments ra ON (ra.contextid = sc.id AND ra.roleid = rc.roleid)
-                JOIN {$CFG->prefix}user u ON u.id = ra.userid
-               WHERE ".sql_bitand('cap.riskbitmask', RISK_XSS)." <> 0
-                     AND rc.permission = ".CAP_ALLOW."
-                     AND u.deleted = 0";
+    $sqlfrom = "FROM (SELECT rcx.*
+                        FROM {$CFG->prefix}role_capabilities rcx
+                        JOIN {$CFG->prefix}capabilities cap ON (cap.name = rcx.capability AND ".sql_bitand('cap.riskbitmask', RISK_XSS)." <> 0)
+                       WHERE rcx.permission = ".CAP_ALLOW.") rc,
+                     {$CFG->prefix}context c,
+                     {$CFG->prefix}context sc,
+                     {$CFG->prefix}role_assignments ra,
+                     {$CFG->prefix}user u
+               WHERE c.id = rc.contextid
+                     AND (sc.path = c.path OR sc.path LIKE ".sql_concat('c.path', "'/%'")." OR c.path LIKE ".sql_concat('sc.path', "'/%'").")
+                     AND u.id = ra.userid AND u.deleted = 0
+                     AND ra.contextid = sc.id AND ra.roleid = rc.roleid";
 
     $count = count_records_sql("SELECT COUNT(DISTINCT u.id) $sqlfrom");
 
@@ -768,9 +791,9 @@ function report_security_check_defaultcourserole($detailed=false) {
     if ($anything_contexts = get_records_sql($sql)) {
         foreach($anything_contexts as $contextid) {
             if ($contextid == SYSCONTEXTID) {
-                $a = "$CFG->wwwroot/$CFG->admin/roles/manage.php?action=view&roleid=$CFG->defaultcourseroleid";
+                $a = "$CFG->wwwroot/$CFG->admin/roles/manage.php?action=view&amp;roleid=$CFG->defaultcourseroleid";
             } else {
-                $a = "$CFG->wwwroot/$CFG->admin/roles/override.php?contextid=$contextid&roleid=$CFG->defaultcourseroleid";
+                $a = "$CFG->wwwroot/$CFG->admin/roles/override.php?contextid=$contextid&amp;roleid=$CFG->defaultcourseroleid";
             }
             $problems[] = get_string('check_defaultcourserole_anything', 'report_security', $a);
         }
@@ -787,9 +810,9 @@ function report_security_check_defaultcourserole($detailed=false) {
     if ($riskycontexts = get_records_sql($sql)) {
         foreach($riskycontexts as $contextid=>$unused) {
             if ($contextid == SYSCONTEXTID) {
-                $a = "$CFG->wwwroot/$CFG->admin/roles/manage.php?action=view&roleid=$CFG->defaultcourseroleid";
+                $a = "$CFG->wwwroot/$CFG->admin/roles/manage.php?action=view&amp;roleid=$CFG->defaultcourseroleid";
             } else {
-                $a = "$CFG->wwwroot/$CFG->admin/roles/override.php?contextid=$contextid&roleid=$CFG->defaultcourseroleid";
+                $a = "$CFG->wwwroot/$CFG->admin/roles/override.php?contextid=$contextid&amp;roleid=$CFG->defaultcourseroleid";
             }
             $problems[] = get_string('check_defaultcourserole_risky', 'report_security', $a);
         }
@@ -863,6 +886,16 @@ function report_security_check_courserole($detailed=false) {
 
     $roleids = array_keys($student_roles);
 
+    $sql = "SELECT DISTINCT rc.roleid
+              FROM {$CFG->prefix}role_capabilities rc
+             WHERE (rc.capability = 'moodle/legacy:coursecreator' OR rc.capability = 'moodle/legacy:admin'
+                    OR rc.capability = 'moodle/legacy:teacher' OR rc.capability = 'moodle/legacy:editingteacher')
+                   AND rc.permission = ".CAP_ALLOW."";
+
+    $riskyroleids = get_records_sql($sql);
+    $riskyroleids = array_keys($riskyroleids);
+
+
     // first test if do anything enabled - that would be really crazy!!!!!!
     $inroles = implode(',', $roleids);
     $sql = "SELECT rc.roleid, rc.contextid
@@ -878,49 +911,50 @@ function report_security_check_courserole($detailed=false) {
         $roleid    = $res->roleid;
         $contextid = $res->contextid;
         if ($contextid == SYSCONTEXTID) {
-            $a = "$CFG->wwwroot/$CFG->admin/roles/manage.php?action=view&roleid=$roleid";
+            $a = "$CFG->wwwroot/$CFG->admin/roles/manage.php?action=view&amp;roleid=$roleid";
         } else {
-            $a = "$CFG->wwwroot/$CFG->admin/roles/override.php?contextid=$contextid&roleid=$roleid";
+            $a = "$CFG->wwwroot/$CFG->admin/roles/override.php?contextid=$contextid&amp;roleid=$roleid";
         }
         $problems[] = get_string('check_courserole_anything', 'report_security', $a);
     }
-    $rs->close();
+    rs_close($rs);
 
-    // risky caps in any level - usually very dangerous!!
-    $inroles = implode(',', $roleids);
-    $sql = "SELECT rc.roleid, rc.contextid
-              FROM {$CFG->prefix}role_capabilities rc
-              JOIN {$CFG->prefix}capabilities cap ON cap.name = rc.capability
-             WHERE ".sql_bitand('cap.riskbitmask', (RISK_XSS | RISK_CONFIG | RISK_DATALOSS))." <> 0
-                   AND rc.permission = ".CAP_ALLOW."
-                   AND rc.roleid IN ($inroles)
-          GROUP BY rc.roleid, rc.contextid
-          ORDER BY rc.roleid, rc.contextid";
-    $rs = get_recordset_sql($sql);
-    while ($res = rs_fetch_next_record($rs)) {
-        $roleid    = $res->roleid;
-        $contextid = $res->contextid;
-        if ($contextid == SYSCONTEXTID) {
-            $a = "$CFG->wwwroot/$CFG->admin/roles/manage.php?action=view&roleid=$roleid";
-        } else {
-            $a = "$CFG->wwwroot/$CFG->admin/roles/override.php?contextid=$contextid&roleid=$roleid";
+    // any XSS legacy cap does not make any sense here!
+    $inroles = implode(',', $riskyroleids);
+    $sql = "SELECT DISTINCT c.id, c.shortname
+              FROM {$CFG->prefix}course c
+             WHERE c.defaultrole IN ($inroles)
+          ORDER BY c.sortorder";
+    if ($courses = get_records_sql($sql)) {
+        foreach ($courses as $course) {
+            $a = (object)array('url'=>"$CFG->wwwroot/course/edit.php?id=$course->id", 'shortname'=>$course->shortname);
+            $problems[] = get_string('check_courserole_riskylegacy', 'report_security', $a);
         }
-        $problems[] = get_string('check_courserole_risky', 'report_security', $a);
     }
-    $rs->close();
 
-    // course creator or administrator does not make any sense here!
-    $inroles = implode(',', $roleids);
-    $sql = "SELECT DISTINCT rc.roleid
-              FROM {$CFG->prefix}role_capabilities rc
-             WHERE (rc.capability = 'moodle/legacy:coursecreator' OR rc.capability = 'moodle/legacy:admin')
-                   AND rc.permission = ".CAP_ALLOW."
-                   AND rc.roleid IN ($inroles)";
-    if ($legacys = get_records_sql($sql)) {
-        foreach ($legacys as $roleid=>$unused) {
-            $a = "$CFG->wwwroot/$CFG->admin/roles/manage.php?action=view&roleid=$roleid";
-            $problems[] = get_string('check_defaultcourserole_legacy', 'report_security', $a);
+    // risky caps in any level for roles not marked as risky yet - usually very dangerous!!
+    if ($checkroles = array_diff($roleids, $riskyroleids)) {
+        $inroles = implode(',', $checkroles);
+        $sql = "SELECT rc.roleid, rc.contextid
+                  FROM {$CFG->prefix}role_capabilities rc
+                  JOIN {$CFG->prefix}capabilities cap ON cap.name = rc.capability
+                 WHERE ".sql_bitand('cap.riskbitmask', (RISK_XSS | RISK_CONFIG | RISK_DATALOSS))." <> 0
+                       AND rc.permission = ".CAP_ALLOW."
+                       AND rc.roleid IN ($inroles)
+              GROUP BY rc.roleid, rc.contextid
+              ORDER BY rc.roleid, rc.contextid";
+        $rs = get_recordset_sql($sql);
+        while ($res = rs_fetch_next_record($rs)) {
+            $roleid    = $res->roleid;
+            $contextid = $res->contextid;
+            if ($contextid == SYSCONTEXTID) {
+                $a = "$CFG->wwwroot/$CFG->admin/roles/manage.php?action=view&amp;roleid=$roleid";
+            } else {
+                $a = "$CFG->wwwroot/$CFG->admin/roles/override.php?contextid=$contextid&amp;roleid=$roleid";
+            }
+            $problems[] = get_string('check_courserole_risky', 'report_security', $a);
         }
+        rs_close($rs);
     }
 
 
@@ -959,7 +993,7 @@ function report_security_check_riskadmin($detailed=false) {
     $result->status  = null;
     $result->link    = null;
 
-    $sql = "SELECT DISTINCT u.id, u.firstname, u.lastname, u.picture, u.imagealt
+    $sql = "SELECT DISTINCT u.id, u.firstname, u.lastname, u.picture, u.imagealt, u.email
               FROM {$CFG->prefix}role_capabilities rc
               JOIN {$CFG->prefix}role_assignments ra ON (ra.contextid = rc.contextid AND ra.roleid = rc.roleid)
               JOIN {$CFG->prefix}user u ON u.id = ra.userid
@@ -969,46 +1003,56 @@ function report_security_check_riskadmin($detailed=false) {
                    AND rc.contextid = ".SYSCONTEXTID."";
 
     $admins = get_records_sql($sql);
+    $admincount = count($admins);
 
-    $sqlfrom = "FROM {$CFG->prefix}role_capabilities rc
-                JOIN {$CFG->prefix}context c ON c.id = rc.contextid
-                JOIN {$CFG->prefix}context sc ON (sc.path = c.path OR sc.path LIKE ".sql_concat('c.path', "'/%'").")
-                JOIN {$CFG->prefix}role_assignments ra ON (ra.contextid = sc.id AND ra.roleid = rc.roleid)
-                JOIN {$CFG->prefix}user u ON u.id = ra.userid
-               WHERE rc.capability = 'moodle/site:doanything'
-                     AND rc.permission = ".CAP_ALLOW."
-                     AND u.deleted = 0
-                     AND ra.contextid <> ".SYSCONTEXTID."";
+    $sqlunsup = "SELECT u.id, u.firstname, u.lastname, u.picture, u.imagealt, u.email, ra.contextid, ra.roleid
+                  FROM (SELECT rcx.*
+                        FROM {$CFG->prefix}role_capabilities rcx
+                       WHERE rcx.capability = 'moodle/site:doanything' AND rcx.permission = ".CAP_ALLOW.") rc,
+                     {$CFG->prefix}context c,
+                     {$CFG->prefix}context sc,
+                     {$CFG->prefix}role_assignments ra,
+                     {$CFG->prefix}user u
+               WHERE c.id = rc.contextid
+                     AND (sc.path = c.path OR sc.path LIKE ".sql_concat('c.path', "'/%'")." OR c.path LIKE ".sql_concat('sc.path', "'/%'").")
+                     AND u.id = ra.userid AND u.deleted = 0
+                     AND ra.contextid = sc.id AND ra.roleid = rc.roleid AND ra.contextid <> ".SYSCONTEXTID."
+            GROUP BY u.id, u.firstname, u.lastname, u.picture, u.imagealt, u.email, ra.contextid, ra.roleid
+            ORDER BY u.lastname, u.firstname";
 
-    $count = count_records_sql("SELECT COUNT(DISTINCT u.id) $sqlfrom");
+    $unsupcount = count_records_sql("SELECT COUNT('x') FROM ($sqlunsup) unsup");
 
-    if (!$count) {
+    if ($detailed) {
+        foreach ($admins as $uid=>$user) {
+            $url = "$CFG->wwwroot/user/view.php?id=$user->id";
+            $admins[$uid] = '<li><a href="'.$url.'">'.fullname($user).' ('.$user->email.')</a></li>';
+        }
+        $admins = '<ul>'.implode($admins).'</ul>';
+    }
+
+    if (!$unsupcount) {
         $result->status  = REPORT_SECURITY_OK;
-        $result->info = get_string('check_riskadmin_ok', 'report_security', count($admins));
+        $result->info = get_string('check_riskadmin_ok', 'report_security', $admincount);
 
         if ($detailed) {
-            foreach ($admins as $uid=>$user) {
-                $admins[$uid] = fullname($user);
-            }
-            $admins = implode(', ', $admins);
             $result->details = get_string('check_riskadmin_detailsok', 'report_security', $admins);
         }
 
     } else {
         $result->status  = REPORT_SECURITY_WARNING;
-        $a = (object)array('admincount'=>count($admins), 'unsupcount'=>$count);
+        $a = (object)array('admincount'=>$admincount, 'unsupcount'=>$unsupcount);
         $result->info = get_string('check_riskadmin_warning', 'report_security', $a);
 
         if ($detailed) {
-            foreach ($admins as $uid=>$user) {
-                $admins[$uid] = fullname($user);
+            $rs = get_recordset_sql($sqlunsup);
+            $users = array();
+            while ($user = rs_fetch_next_record($rs)) {
+                $url = "$CFG->wwwroot/$CFG->admin/roles/assign.php?contextid=$user->contextid&amp;roleid=$user->roleid";
+                $a = (object)array('fullname'=>fullname($user), 'url'=>$url, 'email'=>$user->email);
+                $users[] = '<li>'.get_string('check_riskadmin_unassign', 'report_security', $a).'</li>';
             }
-            $admins = implode(', ', $admins);
-            $users = get_records_sql("SELECT DISTINCT u.id, u.firstname, u.lastname, u.picture, u.imagealt $sqlfrom");
-            foreach ($users as $uid=>$user) {
-                $users[$uid] = fullname($user);
-            }
-            $users = implode(', ', $users);
+            rs_close($rs);
+            $users = '<ul>'.implode($users).'</ul>';
             $a = (object)array('admins'=>$admins, 'unsupported'=>$users);
             $result->details = get_string('check_riskadmin_detailswarning', 'report_security', $a);
         }

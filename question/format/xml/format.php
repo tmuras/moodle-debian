@@ -1,4 +1,4 @@
-<?php // $Id: format.php,v 1.41.2.8 2008/09/19 09:58:57 thepurpleblob Exp $
+<?php // $Id: format.php,v 1.41.2.9 2009/03/16 14:20:24 thepurpleblob Exp $
 //
 ///////////////////////////////////////////////////////////////
 // XML import/export
@@ -106,7 +106,7 @@ class qformat_xml extends qformat_default {
         }
         if ($istext) {
             if (!is_string($xml)) {
-                $this->error( 'Invalid xml file - string expected (use CDATA?)' );
+                $this->error( get_string('invalidxml','qformat_xml') );
             }
             $xml = addslashes( trim( $xml ) );
         }
@@ -1003,7 +1003,7 @@ class qformat_xml extends qformat_default {
         default:
             // try support by optional plugin
             if (!$data = $this->try_exporting_using_qtypes( $question->qtype, $question )) { 
-                error( "Unsupported question type $question->qtype" );
+                notify( get_string( 'unsupportedexport','qformat_xml',$QTYPES[$question->qtype]->menu_name() ) );
             }
             $expout .= $data;
         }

@@ -1,8 +1,8 @@
-<?php // $Id: reformat.php,v 1.5 2007/01/04 23:38:24 skodak Exp $
+<?php // $Id: reformat.php,v 1.5.4.1 2009/03/23 09:46:31 mudrd8mz Exp $
 /**
  * jjg7:8/9/2004
  *
- * @version $Id: reformat.php,v 1.5 2007/01/04 23:38:24 skodak Exp $
+ * @version $Id: reformat.php,v 1.5.4.1 2009/03/23 09:46:31 mudrd8mz Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -108,7 +108,7 @@ function importmodifiedaikenstyle($filename) {
             // make entry followed by '.'
             $line[1]='.';
         }
-        elseif ( ($responses AND $answer_found) OR (count(outlines)<=1) ) {
+        elseif ( ($responses AND $answer_found) OR (count($outlines)<=1) ) {
         // we have found responses and an answer and the current line is not an answer
             switch ($line[0]) {
                 case 1:

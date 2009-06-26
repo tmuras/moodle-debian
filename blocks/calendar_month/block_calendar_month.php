@@ -1,4 +1,4 @@
-<?PHP //$Id: block_calendar_month.php,v 1.30.2.5 2008/03/03 20:39:19 skodak Exp $
+<?PHP //$Id: block_calendar_month.php,v 1.30.2.6 2009/01/30 06:22:16 jerome Exp $
 
 class block_calendar_month extends block_base {
     function init() {
@@ -41,6 +41,8 @@ class block_calendar_month extends block_base {
             calendar_set_referring_course(0);
 
         } else {
+            //MDL-14693: fix calendar on resource page
+            $courseshown =  optional_param( 'id', $COURSE->id, PARAM_INT );
             // Forcibly filter events to include only those from the particular course we are in.
             $filtercourse    = array($courseshown => $COURSE);
             $groupeventsfrom = array($courseshown => 1);

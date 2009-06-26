@@ -1,4 +1,4 @@
-<?php // $Id: tabs.php,v 1.27.2.6 2009/01/01 14:29:37 skodak Exp $
+<?php // $Id: tabs.php,v 1.27.2.7 2009/05/04 20:24:46 skodak Exp $
 
 // Handles headers and tabs for the roles control at any level apart from SYSTEM level
 // We also assume that $currenttab, $assignableroles and $overridableroles are defined
@@ -53,9 +53,6 @@ if ($currenttab != 'update') {
                 $navigation = build_navigation($navlinks);
                 print_header($streditcoursesettings, $course->fullname, $navigation);
             }
-            break;
-
-        case CONTEXT_GROUP:
             break;
 
         case CONTEXT_MODULE:

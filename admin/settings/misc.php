@@ -1,4 +1,4 @@
-<?php // $Id: misc.php,v 1.14.2.4 2008/11/28 06:07:25 tjhunt Exp $
+<?php // $Id: misc.php,v 1.14.2.5 2009/03/09 23:30:55 stronk7 Exp $
 
 // * Miscellaneous settings
 
@@ -15,6 +15,7 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
     $rqsetting = new admin_setting_configcheckbox('selectmanual', get_string('selectmanualquestions', 'qtype_random'), get_string('configselectmanualquestions', 'qtype_random'), 0);
     $rqsetting->plugin = 'qtype_random';
     $temp->add($rqsetting);
+    $temp->add(new admin_setting_configcheckbox('experimentalsplitrestore', get_string('experimentalsplitrestore', 'admin'), get_string('configexperimentalsplitrestore', 'admin'), 0));
 
     $ADMIN->add('misc', $temp);
 

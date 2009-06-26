@@ -1,4 +1,4 @@
-<?php //$Id: field.class.php,v 1.10.2.1 2008/08/28 06:46:43 jamiesensei Exp $
+<?php //$Id: field.class.php,v 1.10.2.3 2009/03/15 13:43:28 skodak Exp $
 
 class profile_field_menu extends profile_field_base {
     var $options;
@@ -58,7 +58,7 @@ class profile_field_menu extends profile_field_base {
      * @param   integer   the key returned from the select input in the form
      */
     function edit_save_data_preprocess($key) {
-        return isset($this->options[$key]) ? $this->options[$key] : NULL;
+        return isset($this->options[$key]) ? addslashes($this->options[$key]) : NULL;
     }
 
     /**
@@ -71,6 +71,19 @@ class profile_field_menu extends profile_field_base {
         $user->{$this->inputname} = $this->datakey;
     }
 
+    /**
+     * HardFreeze the field if locked.
+     * @param   object   instance of the moodleform class
+     */
+    function edit_field_set_locked(&$mform) {
+        if (!$mform->elementExists($this->inputname)) {
+            return;
+        }
+        if ($this->is_locked() and !has_capability('moodle/user:update', get_context_instance(CONTEXT_SYSTEM))) {
+            $mform->hardFreeze($this->inputname);
+            $mform->setConstant($this->inputname, $this->datakey);
+        }
+    }
 }
 
 ?>

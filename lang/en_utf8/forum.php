@@ -1,4 +1,4 @@
-<?PHP // $Id: forum.php,v 1.21.4.13 2009/01/27 17:51:52 stronk7 Exp $
+<?PHP // $Id: forum.php,v 1.21.4.15 2009/01/30 11:30:21 mudrd8mz Exp $
       // forum.php - created with Moodle 1.7 beta + (2006101003)
 
 $string['addanewdiscussion'] = 'Add a new discussion topic';
@@ -7,6 +7,7 @@ $string['addanewtopic'] = 'Add a new topic';
 $string['advancedsearch'] = 'Advanced search';
 $string['aggregateavg'] = 'Average of ratings';
 $string['aggregatecount'] = 'Count of ratings';
+$string['aggregatecountformat'] = '$a->count (grade: $a->grade)';
 $string['aggregatemax'] = 'Maximum rating';
 $string['aggregatemin'] = 'Minimum rating';
 $string['aggregatenone'] = 'No ratings';
@@ -165,6 +166,7 @@ $string['nopostforum'] = 'Sorry, you are not allowed to post to this forum';
 $string['noposts'] = 'No posts';
 $string['nopostscontaining'] = 'No posts containing \'$a\' were found';
 $string['noquestions'] = 'There are no questions yet in this forum';
+$string['noratinggiven'] = 'No rating given';
 $string['nosubscribers'] = 'There are no subscribers yet for this forum';
 $string['nothingnew'] = 'Nothing new for $a';
 $string['notingroup'] = 'Sorry, but you need to be part of a group to see this forum.';

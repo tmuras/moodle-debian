@@ -1,4 +1,4 @@
-<?php
+<?php  // $Id: edit_randomsamatch_form.php,v 1.4.2.5 2009/02/19 01:09:33 tjhunt Exp $
 /**
  * Defines the editing form for the randomsamatch question type.
  *

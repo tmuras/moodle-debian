@@ -2,7 +2,7 @@
 /**
  * This script lists student attempts
  *
- * @version $Id: report.php,v 1.98.2.46 2009/01/14 07:03:15 tjhunt Exp $
+ * @version $Id: report.php,v 1.98.2.47 2009/02/16 04:17:54 tjhunt Exp $
  * @author Martin Dougiamas, Tim Hunt and others.
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package quiz
@@ -337,8 +337,9 @@ class quiz_report extends quiz_default_report {
                     "END) AS gradedattempt, ";
             }
             
-            $select .='qa.uniqueid AS attemptuniqueid, qa.id AS attempt, u.id AS userid, u.idnumber, u.firstname, u.lastname, u.picture, '.
-                'qa.sumgrades, qa.timefinish, qa.timestart, qa.timefinish - qa.timestart AS duration ';
+            $select .= 'qa.uniqueid AS attemptuniqueid, qa.id AS attempt, ' . 
+                    'u.id AS userid, u.idnumber, u.firstname, u.lastname, u.picture, u.imagealt, ' .
+                    'qa.sumgrades, qa.timefinish, qa.timestart, qa.timefinish - qa.timestart AS duration ';
     
             // This part is the same for all cases - join users and quiz_attempts tables
             $from = 'FROM '.$CFG->prefix.'user u ';
@@ -459,7 +460,8 @@ class quiz_report extends quiz_default_report {
                         }
                     }
                     if (in_array('picture', $columns)){
-                        $picture = print_user_picture($attempt->userid, $course->id, $attempt->picture, false, true);
+                        $attempt->id = $attempt->userid;
+                        $picture = print_user_picture($attempt, $course->id, NULL, false, true);
                         $row[] = $picture;
                     }
                     if (!$download){
@@ -664,7 +666,7 @@ class quiz_report extends quiz_default_report {
             $mform->set_data($displayoptions +compact('detailedmarks', 'pagesize'));
             $mform->display();
             //should be quicker than a COUNT to test if there is at least one record :
-            if ($showgrades && get_records('quiz_grades', 'quiz', $quiz->id, '', '*', 0, 1)){
+            if ($showgrades && record_exists('quiz_grades', 'quiz', $quiz->id)){
                 $imageurl = $CFG->wwwroot.'/mod/quiz/report/overview/overviewgraph.php?id='.$quiz->id;
                 print_heading(get_string('overviewreportgraph', 'quiz_overview'));
                 echo '<div class="mdl-align"><img src="'.$imageurl.'" alt="'.get_string('overviewreportgraph', 'quiz_overview').'" /></div>';

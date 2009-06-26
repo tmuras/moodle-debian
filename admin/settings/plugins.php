@@ -1,4 +1,4 @@
-<?php  //$Id: plugins.php,v 1.1.2.8 2008/12/06 20:41:42 skodak Exp $
+<?php  //$Id: plugins.php,v 1.1.2.10 2009/02/07 22:24:26 skodak Exp $
 
 if ($hassiteconfig) {
 
@@ -138,7 +138,7 @@ if ($hassiteconfig) {
                 $ADMIN->add('filtersettings', $settings);
 
             } else if (file_exists("$CFG->dirroot/$filterfull/filterconfig.html")) {
-                $ADMIN->add('filtersettings', new admin_externalpage('filtersetting'.str_replace('/', '', $filterfull), $strfiltername, "$CFG->wwwroot/$CFG->admin/filter.php?filter=$filterfull", !in_array($filterfull, $activefilters)));
+                $ADMIN->add('filtersettings', new admin_externalpage('filtersetting'.str_replace('/', '', $filterfull), $strfiltername, "$CFG->wwwroot/$CFG->admin/filter.php?filter=$filterfull", 'moodle/site:config', !in_array($filterfull, $activefilters)));
             }
         }
     }
@@ -160,5 +160,6 @@ foreach (get_list_of_plugins($CFG->admin.'/report') as $plugin) {
     }
     // old style 3rd party plugin without settings.php
     $www_path = "$CFG->wwwroot/$CFG->admin/report/$plugin/index.php";
-    $ADMIN->add('reports', new admin_externalpage('report'.$plugin, $plugin, $www_path, 'moodle/site:viewreports'));
+    $reportname = get_string($plugin, 'report_' . $plugin);
+    $ADMIN->add('reports', new admin_externalpage('report'.$plugin, $reportname, $www_path, 'moodle/site:viewreports'));
 }

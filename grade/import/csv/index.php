@@ -1,4 +1,4 @@
-<?php  //$Id: index.php,v 1.31.2.4 2008/10/08 18:52:46 skodak Exp $
+<?php  //$Id: index.php,v 1.31.2.10 2009/04/27 10:21:45 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -32,6 +32,8 @@ $id            = required_param('id', PARAM_INT); // course id
 $separator     = optional_param('separator', '', PARAM_ALPHA);
 $verbosescales = optional_param('verbosescales', 1, PARAM_BOOL);
 
+define('GRADE_CSV_LINE_LENGTH', 4096);
+
 if (!$course = get_record('course', 'id', $id)) {
     print_error('nocourseid');
 }
@@ -40,6 +42,9 @@ require_login($course);
 $context = get_context_instance(CONTEXT_COURSE, $id);
 require_capability('moodle/grade:import', $context);
 require_capability('gradeimport/csv:view', $context);
+
+$separatemode = (groups_get_course_groupmode($COURSE) == SEPARATEGROUPS and !has_capability('moodle/site:accessallgroups', $context));
+$currentgroup = groups_get_course_group($course);
 
 // sort out delimiter
 if (isset($CFG->CSV_DELIMITER)) {
@@ -59,12 +64,8 @@ if (isset($CFG->CSV_DELIMITER)) {
     $csv_encode = '/\&\#44/';
 }
 
-$strgrades = get_string('grades', 'grades');
 $actionstr = get_string('csv', 'grades');
-$navigation = grade_build_nav(__FILE__, $actionstr, array('courseid' => $course->id));
-
-print_header($course->shortname.': '.get_string('grades'), $course->fullname, $navigation);
-print_grade_plugin_selector($id, 'import', 'csv');
+print_grade_page_head($course->id, 'import', 'csv');
 
 // set up import form
 $mform = new grade_import_form(null, array('includeseparator'=>!isset($CFG->CSV_DELIMITER), 'verbosescales'=>true));
@@ -89,7 +90,7 @@ if ($id) {
 if ($importcode = optional_param('importcode', '', PARAM_FILE)) {
     $filename = $CFG->dataroot.'/temp/gradeimport/cvs/'.$USER->id.'/'.$importcode;
     $fp = fopen($filename, "r");
-    $header = split($csv_delimiter, fgets($fp,1024), PARAM_RAW);
+    $header = split($csv_delimiter, fgets($fp,GRADE_CSV_LINE_LENGTH), PARAM_RAW);
 }
 
 $mform2 = new grade_import_mapping_form(null, array('gradeitems'=>$gradeitems, 'header'=>$header));
@@ -128,7 +129,7 @@ if ($formdata = $mform->get_data()) {
     $fp = fopen($filename, "r");
 
     // --- get header (field names) ---
-    $header = split($csv_delimiter, fgets($fp,1024), PARAM_RAW);
+    $header = split($csv_delimiter, fgets($fp,GRADE_CSV_LINE_LENGTH), PARAM_RAW);
 
     // print some preview
     $numlines = 0; // 0 preview lines displayed
@@ -142,7 +143,7 @@ if ($formdata = $mform->get_data()) {
     }
     echo '</tr>';
     while (!feof ($fp) && $numlines <= $formdata->previewrows) {
-        $lines = split($csv_delimiter, fgets($fp,1024));
+        $lines = split($csv_delimiter, fgets($fp,GRADE_CSV_LINE_LENGTH));
         echo '<tr>';
         foreach ($lines as $line) {
             echo '<td>'.$line.'</td>';;
@@ -158,7 +159,7 @@ if ($formdata = $mform->get_data()) {
     $mform2->display();
 
 //} else if (($formdata = data_submitted()) && !empty($formdata->map)) {
- 
+
 // else if grade import mapping form is submitted
 } else if ($formdata = $mform2->get_data()) {
 
@@ -171,7 +172,7 @@ if ($formdata = $mform->get_data()) {
 
     if ($fp = fopen($filename, "r")) {
         // --- get header (field names) ---
-        $header = split($csv_delimiter, clean_param(fgets($fp,1024), PARAM_RAW));
+        $header = split($csv_delimiter, clean_param(fgets($fp,GRADE_CSV_LINE_LENGTH), PARAM_RAW));
 
         foreach ($header as $i => $h) {
             $h = trim($h); $header[$i] = $h; // remove whitespace
@@ -200,6 +201,7 @@ if ($formdata = $mform->get_data()) {
                 $maperrors[$j] = true;
             } else {
                 // collision
+                fclose($fp);
                 unlink($filename); // needs to be uploaded again, sorry
                 error('mapping collision detected, 2 fields maps to the same grade item '.$j);
             }
@@ -219,14 +221,14 @@ if ($formdata = $mform->get_data()) {
     if ($fp = fopen($filename, "r")) {
 
         // read the first line makes sure this doesn't get read again
-        $header = split($csv_delimiter, fgets($fp,1024));
+        $header = split($csv_delimiter, fgets($fp,GRADE_CSV_LINE_LENGTH));
 
         $newgradeitems = array(); // temporary array to keep track of what new headers are processed
         $status = true;
 
         while (!feof ($fp)) {
             // add something
-            $line = split($csv_delimiter, fgets($fp,1024));
+            $line = split($csv_delimiter, fgets($fp,GRADE_CSV_LINE_LENGTH));
 
             if(count($line) <= 1){
                 // there is no data on this line, move on
@@ -379,7 +381,7 @@ if ($formdata = $mform->get_data()) {
                                 } else {
                                     $scale = $gradeitem->load_scale();
                                     $scales = explode(',', $scale->scale);
-                                    $scales = array_map('trim', $scales); //hack - trim whitespace around scale options 
+                                    $scales = array_map('trim', $scales); //hack - trim whitespace around scale options
                                     array_unshift($scales, '-'); // scales start at key 1
                                     $key = array_search($value, $scales);
                                     if ($key === false) {
@@ -396,7 +398,7 @@ if ($formdata = $mform->get_data()) {
                             } else {
                                 if ($value === '' or $value == '-') {
                                     $value = null; // no grade
-    
+
                                 } else if (!is_numeric($value)) {
                                 // non numeric grade value supplied, possibly mapped wrong column
                                     echo "<br/>t0 is $t0";
@@ -421,6 +423,14 @@ if ($formdata = $mform->get_data()) {
                 $status = false;
                 import_cleanup($importcode);
                 notify('user mapping error, could not find user!');
+                break;
+            }
+
+            if ($separatemode and !groups_is_member($currentgroup, $studentid)) {
+                // not allowed to import into this group, abort
+                $status = false;
+                import_cleanup($importcode);
+                notify('user not member of current group, can not update!');
                 break;
             }
 
@@ -479,12 +489,16 @@ if ($formdata = $mform->get_data()) {
             grade_import_commit($course->id, $importcode);
         }
         // temporary file can go now
+        fclose($fp);
         unlink($filename);
     } else {
         error ('import file '.$filename.' not readable');
     }
 
 } else {
+    groups_print_course_menu($course, 'index.php?id='.$id);
+    echo '<div class="clearer"></div>';
+
     // display the standard upload file form
     $mform->display();
 }

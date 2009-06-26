@@ -1,4 +1,4 @@
-<?php  //$Id: import.php,v 1.3 2007/10/10 06:34:21 nicolasconnault Exp $
+<?php  //$Id: import.php,v 1.3.2.1 2009/04/22 08:20:21 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -71,12 +71,7 @@ if ($importcode !== false) {
         }
 
     } else {
-        $strgrades = get_string('grades', 'grades');
-        $actionstr = get_string('xml', 'grades');
-        $navigation = grade_build_nav(__FILE__, $actionstr, array('courseid' => $course->id));
-
-        print_header($course->shortname.': '.get_string('grades'), $course->fullname, $navigation);
-        print_grade_plugin_selector($id, 'import', 'xml');
+        print_grade_page_head($course->id, 'import', 'xml', get_string('importxml', 'grades'));
 
         grade_import_commit($id, $importcode, $feedback, true);
 

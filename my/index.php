@@ -1,4 +1,4 @@
-<?php  // $Id: index.php,v 1.16.2.2 2008/04/09 02:43:51 dongsheng Exp $
+<?php  // $Id: index.php,v 1.16.2.5 2009/04/07 07:46:25 skodak Exp $
 
     // this is the 'my moodle' page
 
@@ -63,9 +63,11 @@
     print_container_start(TRUE);
 
 /// The main overview in the middle of the page
-    
-    // limits the number of courses showing up
-    $courses = get_my_courses($USER->id, 'visible DESC,sortorder ASC', '*', false, 21);
+    $courses_limit = 21;
+    if (!empty($CFG->mycoursesperpage)) {
+        $courses_limit = $CFG->mycoursesperpage;
+    }
+    $courses = get_my_courses($USER->id, 'visible DESC,sortorder ASC', '*', false, $courses_limit);
     $site = get_site();
     $course = $site; //just in case we need the old global $course hack
 

@@ -1,4 +1,4 @@
-<?php // $Id: edit.php,v 1.3.2.1 2008/02/27 08:57:54 skodak Exp $
+<?php // $Id: edit.php,v 1.3.2.3 2009/04/22 08:20:20 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -23,7 +23,7 @@
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
 
-require '../../../config.php';
+require_once '../../../config.php';
 require_once $CFG->libdir.'/gradelib.php';
 require_once $CFG->dirroot.'/grade/lib.php';
 require_once 'edit_form.php';
@@ -133,12 +133,7 @@ if ($admin) {
     admin_externalpage_print_header();
 
 } else {
-    $navigation = grade_build_nav(__FILE__, $pagename, $COURSE->id);
-    /// Print header
-    print_header_simple($strgrades.': '.$pagename, ': '.$strgrades, $navigation, '', '', true, '', navmenu($COURSE));
-
-    $currenttab = 'lettersedit';
-    require('tabs.php');
+    print_grade_page_head($COURSE->id, 'letter', 'edit', get_string('editgradeletters', 'grades'));
 }
 
 $mform->display();

@@ -1,4 +1,4 @@
-<?PHP  // $Id: report_security.php,v 1.2.2.5 2009/01/28 06:10:38 moodler Exp $
+<?PHP  // $Id: report_security.php,v 1.2.2.11 2009/02/19 07:21:42 skodak Exp $
 
 
 //NOTE TO TRANSLATORS: please do not translate yet, we are going to finalise this file sometime in January and backport to 1.9.x ;-)
@@ -32,7 +32,7 @@ $string['check_courserole_anything'] = 'The \"doanything\" capability must not b
 $string['check_courserole_details'] = '<p>Each course has one default enrolment role specified. Please make sure no risky capabilities are allowed for this role.</p>
 <p>The only supported legacy type for the default course role is <em>Student</em>.</p>';
 $string['check_courserole_error'] = 'Incorrectly defined default course roles detected!';
-$string['check_courserole_legacy'] = 'Unsupported legacy type detected in the <a href=\"$a\">role</a>.';
+$string['check_courserole_riskylegacy'] = 'Risky legacy type detected in <a href=\"$a->url\">$a->shortname</a>.';
 $string['check_courserole_name'] = 'Default roles (courses)';
 $string['check_courserole_notyet'] = 'Used only default course role.';
 $string['check_courserole_ok'] = 'Default course role definitions is OK.';
@@ -42,7 +42,7 @@ $string['check_defaultcourserole_anything'] = 'The \"doanything\" capability mus
 $string['check_defaultcourserole_details'] = '<p>The default student role for course enrolment specifies the default role for courses. Please make sure no risky capabilities are allowed in this role.</p>
 <p>The only supported legacy type for default role is <em>Student</em>.</p>';
 $string['check_defaultcourserole_error'] = 'Incorrectly defined default course role \"$a\" detected!';
-$string['check_defaultcourserole_legacy'] = 'Unsupported legacy type detected.';
+$string['check_defaultcourserole_legacy'] = 'Risky legacy type detected.';
 $string['check_defaultcourserole_name'] = 'Default course role (global)';
 $string['check_defaultcourserole_notset'] = 'Default role is not set.';
 $string['check_defaultcourserole_ok'] = 'Site default role definition is OK.';
@@ -51,17 +51,19 @@ $string['check_defaultcourserole_risky'] = 'Risky capabilities detected in <a hr
 $string['check_defaultuserrole_details'] = '<p>All logged in users are given capabilities of the default user role. Please make sure no risky capabilities are allowed in this role.</p>
 <p>The only supported legacy type for the default user role is <em>Authenticated user</em>. The course view capability must not be enabled.</p>';
 $string['check_defaultuserrole_error'] = 'The default user role \"$a\" is incorrectly defined!';
-$string['check_defaultuserrole_name'] = 'Registered user role';
+$string['check_defaultuserrole_name'] = 'Default role for all users';
 $string['check_defaultuserrole_notset'] = 'Default role is not set.';
-$string['check_defaultuserrole_ok'] = 'Registered user role definition is OK.';
+$string['check_defaultuserrole_ok'] = 'Default role for all users definition is OK.';
 
 $string['check_displayerrors_details'] = '<p>Enabling the PHP setting <code>display_errors</code> is not recommended on production sites because error messages can reveal sensitive information about your server.</p>';
 $string['check_displayerrors_error'] = 'The PHP setting to display errors is enabled. It is recommended that this is disabled.';
 $string['check_displayerrors_name'] = 'Displaying of PHP errors';
 $string['check_displayerrors_ok'] = 'Displaying of PHP errors disabled.';
 
-$string['check_emailchangeconfirmation_details'] = '<p>It is recommended that an email confirmation step is required when users change their email address in their profile. If disabled, spammers may try to exploit the server to send spam.</p>';
+$string['check_emailchangeconfirmation_details'] = '<p>It is recommended that an email confirmation step is required when users change their email address in their profile. If disabled, spammers may try to exploit the server to send spam.</p>
+<p>Email field may be also locked from authentication plugins, this possibility is not considered here.</p>';
 $string['check_emailchangeconfirmation_error'] = 'Users may enter any email address.';
+$string['check_emailchangeconfirmation_info'] = 'Users may enter email addresses from allowed domains only.';
 $string['check_emailchangeconfirmation_name'] = 'Email change confirmation';
 $string['check_emailchangeconfirmation_ok'] = 'Confirmation of change of email address in user profile.';
 
@@ -117,11 +119,12 @@ $string['check_passwordpolicy_error'] = 'Password policy not set.';
 $string['check_passwordpolicy_name'] = 'Password policy';
 $string['check_passwordpolicy_ok'] = 'Password policy enabled.';
 
-$string['check_riskadmin_detailsok'] = '<p>Please verify the following list of administrators:</p><p>$a</p>';
-$string['check_riskadmin_detailswarning'] = '<p>Please verify the following list of administrators:</p><p>$a->admins</p>
-<p>It is recommended to assign administrator role in system context only. Following users have unsupported admin role assignments:</p><p>$a->unsupported</p>';
+$string['check_riskadmin_detailsok'] = '<p>Please verify the following list of system administrators:</p>$a';
+$string['check_riskadmin_detailswarning'] = '<p>Please verify the following list of system administrators:</p>$a->admins
+<p>It is recommended to assign administrator role in system context only. Following users have unsupported admin role assignments:</p>$a->unsupported';
 $string['check_riskadmin_name'] = 'Administrators';
 $string['check_riskadmin_ok'] = 'Found $a server administrator(s).';
+$string['check_riskadmin_unassign'] = '<a href=\"$a->url\">$a->fullname ($a->email) review role assignment</a>';
 $string['check_riskadmin_warning'] = 'Found $a->admincount server administrators and $a->unsupcount unsupported admin role assignments.';
 
 $string['check_riskxss_details'] = '<p>RISK_XSS denotes all dangerous capabilities that only trusted users may use.</p>

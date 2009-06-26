@@ -1,4 +1,4 @@
-<?php // $Id: editsection.php,v 1.25 2007/08/17 19:09:11 nicolasconnault Exp $
+<?php // $Id: editsection.php,v 1.25.2.2 2009/02/05 13:28:46 stronk7 Exp $
       // Edit the introduction of a section
 
     require_once("../config.php");
@@ -52,7 +52,7 @@
         $stredit      = get_string('edit', '', " $sectionname");
         $strsummaryof = get_string('summaryof', '', " $sectionname");
     } else {
-        $sectionname  = get_string("name$course->format");
+        $sectionname  = get_section_name($course->format);
         $stredit      = get_string('edit', '', " $sectionname $section->section");
         $strsummaryof = get_string('summaryof', '', " $sectionname $form->section");
     }

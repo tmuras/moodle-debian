@@ -1,9 +1,9 @@
-<?php // $Id: locallib.php,v 1.1.2.18 2008/09/24 08:04:01 scyrma Exp $
+<?php // $Id: locallib.php,v 1.1.2.19 2009/03/02 21:36:50 mudrd8mz Exp $
 
 /**
  * locallib.php - moodle tag local library - output functions
  *
- * @version: $Id: locallib.php,v 1.1.2.18 2008/09/24 08:04:01 scyrma Exp $
+ * @version: $Id: locallib.php,v 1.1.2.19 2009/03/02 21:36:50 mudrd8mz Exp $
  * @licence http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package moodlecore
  *
@@ -30,8 +30,10 @@ function tag_print_cloud($nr_of_tags=150, $return=false) {
     }
 
     $tagkeys = array_keys($tagsincloud);
-    $firsttagkey = $tagkeys[0];
-    $maxcount = $tagsincloud[$firsttagkey]->count;
+    if (!empty($tagkeys)) {
+        $firsttagkey = $tagkeys[0];
+        $maxcount = $tagsincloud[$firsttagkey]->count;
+    }
 
     $etags = array();
 

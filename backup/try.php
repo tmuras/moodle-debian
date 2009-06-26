@@ -1,4 +1,4 @@
-<?PHP //$Id: try.php,v 1.8.4.1 2008/05/02 04:07:31 dongsheng Exp $
+<?PHP //$Id: try.php,v 1.8.4.3 2009/03/30 10:04:57 dongsheng Exp $
     require_once ("../config.php");
     require_once ("backup_scheduled.php");
     require_once ("lib.php");
@@ -19,7 +19,11 @@
 
     //Adjust some php variables to the execution of this script
     @ini_set("max_execution_time","3000");
-    raise_memory_limit("192M");
+    if (empty($CFG->extramemorylimit)) {
+        raise_memory_limit('128M');
+    } else {
+        raise_memory_limit($CFG->extramemorylimit);
+    }
 
     echo "<pre>\n";
 

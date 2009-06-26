@@ -1,4 +1,4 @@
-<?php  //$Id: export.php,v 1.9 2007/10/10 06:43:25 toyomoyo Exp $
+<?php  //$Id: export.php,v 1.9.2.1 2009/04/27 08:53:09 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -45,6 +45,11 @@ $context = get_context_instance(CONTEXT_COURSE, $id);
 require_capability('moodle/grade:export', $context);
 require_capability('gradeexport/xls:view', $context);
 
+if (groups_get_course_groupmode($COURSE) == SEPARATEGROUPS and !has_capability('moodle/site:accessallgroups', $context)) {
+    if (!groups_is_member($groupid, $USER->id)) {
+        print_error('cannotaccessgroup', 'grades');
+    }
+}
 
 // print all the exported data here
 $export = new grade_export_xls($course, $groupid, $itemids, $export_feedback, $updatedgradesonly, $displaytype, $decimalpoints);

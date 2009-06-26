@@ -1,4 +1,4 @@
-<?php // $Id: importppt.php,v 1.22.2.2 2008/07/10 09:48:47 scyrma Exp $
+<?php // $Id: importppt.php,v 1.22.2.3 2009/05/06 16:10:15 skodak Exp $
 /**
  * This is a very rough importer for powerpoint slides
  * Export a powerpoint presentation with powerpoint as html pages
@@ -8,7 +8,7 @@
  * 
  * The script supports book and lesson.
  *
- * @version $Id: importppt.php,v 1.22.2.2 2008/07/10 09:48:47 scyrma Exp $
+ * @version $Id: importppt.php,v 1.22.2.3 2009/05/06 16:10:15 skodak Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -126,7 +126,7 @@ function readdata($file, $courseid, $modname) {
     $path_parts = pathinfo($zipfile);
     $dirname = substr($zipfile, 0, strpos($zipfile, '.'.$path_parts['extension'])); // take off the extension
     if (!file_exists($base.$dirname)) {
-        mkdir($base.$dirname);
+        mkdir($base.$dirname, $CFG->directorypermissions);
     }
 
     // move our uploaded file to temp/lesson
@@ -204,7 +204,7 @@ function extract_data($pages, $courseid, $lessonname, $modname) {
     while(true) {
         if (!file_exists($imagedir.'/'.$lessonname.$i)) {
             // ok doesnt exist so make the directory and update our paths
-            mkdir($imagedir.'/'.$lessonname.$i);
+            mkdir($imagedir.'/'.$lessonname.$i, $CFG->directorypermissions);
             $imagedir = $imagedir.'/'.$lessonname.$i;
             $imagelink = $imagelink.'/'.$lessonname.$i;
             break;
