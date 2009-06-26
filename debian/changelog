@@ -1,6 +1,6 @@
 moodle (1.9.5-1) UNRELEASED; urgency=low
 
-  * New Upstream Version (closes: #475535, #514284, #515823)
+  * New Upstream Version (closes: #475535, #514284, #515823, #526543)
     - added notes/ and tag/ to debian/install
     - drop CVE-2007-3215_phpmailer patch (merged upstream)
 
@@ -12,7 +12,7 @@ moodle (1.9.5-1) UNRELEASED; urgency=low
 
   * Remove preinst (no more direct upgrades from sarge)
   * Remove PHP4 support from the Apache config file we provide
-  * Drop support for apache 1.x and remove from debconf
+  * Drop support for apache 1.x and remove from debconf (closes: #484858)
   * Add swedish debconf translation (closes: #511202)
 
   * Bump Standard-Version to 3.8.2
@@ -39,7 +39,7 @@ moodle (1.9.5-1) UNRELEASED; urgency=low
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
 
- -- Francois Marier <francois@debian.org>  Fri, 26 Jun 2009 15:19:07 +1200
+ -- Francois Marier <francois@debian.org>  Fri, 26 Jun 2009 15:57:32 +1200
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
