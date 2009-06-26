@@ -1,6 +1,11 @@
-<?php // $Id: filterlib.php,v 1.24.10.2 2008/07/26 22:11:33 stronk7 Exp $
+<?php // $Id: filterlib.php,v 1.24.10.4 2009/02/18 11:02:11 stronk7 Exp $
       // Contains special functions that are particularly useful to filters
 
+
+/// Define one exclusive separator that we'll use in the temp saved tags
+/// keys. It must be something rare enough to avoid having matches with
+/// filterobjects. MDL-18165
+define ('EXCL_SEPARATOR', '-%-');
 
 /**
  * This is just a little object to define a phrase and some instructions 
@@ -228,6 +233,7 @@ function filter_phrases ($text, &$link_array, $ignoretagsopen=NULL, $ignoretagsc
     }
 
     if (!empty($ignoretags)) {
+        $ignoretags = array_reverse($ignoretags); /// Reversed so "progressive" str_replace() will solve some nesting problems.
         $text = str_replace(array_keys($ignoretags),$ignoretags,$text);
     }
 
@@ -271,7 +277,7 @@ function filter_remove_duplicates($linkarray) {
 /**
  * Extract open/lose tags and their contents to avoid being processed by filters.
  * Useful to extract pieces of code like <a>...</a> tags. It returns the text
- * converted with some <#x.x#> codes replacing the extracted text. Such extracted
+ * converted with some <#xEXCL_SEPARATORx#> codes replacing the extracted text. Such extracted
  * texts are returned in the ignoretags array (as values), with codes as keys.
  *
  * param  text                  the text that we are filtering (in/out)
@@ -292,7 +298,7 @@ function filter_save_ignore_tags(&$text,$filterignoretagsopen,$filterignoretagsc
         preg_match_all($pregexp, $text, $list_of_ignores);
         foreach (array_unique($list_of_ignores[0]) as $key=>$value) {
             $prefix = (string)(count($ignoretags) + 1);
-            $ignoretags['<#'.$prefix.'.'.$key.'#>'] = $value;
+            $ignoretags['<#'.$prefix.EXCL_SEPARATOR.$key.'#>'] = $value;
         }
         if (!empty($ignoretags)) {
             $text = str_replace($ignoretags,array_keys($ignoretags),$text);
@@ -302,7 +308,7 @@ function filter_save_ignore_tags(&$text,$filterignoretagsopen,$filterignoretagsc
 
 /**
  * Extract tags (any text enclosed by < and > to avoid being processed by filters.
- * It returns the text converted with some <%x.x%> codes replacing the extracted text. Such extracted
+ * It returns the text converted with some <%xEXCL_SEPARATORx%> codes replacing the extracted text. Such extracted
  * texts are returned in the tags array (as values), with codes as keys.
  *      
  * param  text   the text that we are filtering (in/out)
@@ -313,7 +319,7 @@ function filter_save_tags(&$text,&$tags) {
     preg_match_all('/<([^#%*].*?)>/is',$text,$list_of_newtags);
     foreach (array_unique($list_of_newtags[0]) as $ntkey=>$value) {
         $prefix = (string)(count($tags) + 1);
-        $tags['<%'.$prefix.'.'.$ntkey.'%>'] = $value;
+        $tags['<%'.$prefix.EXCL_SEPARATOR.$ntkey.'%>'] = $value;
     }
     if (!empty($tags)) {
         $text = str_replace($tags,array_keys($tags),$text);

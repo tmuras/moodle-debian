@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.538.2.69 2009/01/14 04:47:21 dongsheng Exp $
+<?php  // $Id: lib.php,v 1.538.2.75 2009/05/08 21:05:18 skodak Exp $
    // Library of useful functions
 
 
@@ -14,13 +14,18 @@ define('FRONTPAGECOURSELIST',     '1');
 define('FRONTPAGECATEGORYNAMES',  '2');
 define('FRONTPAGETOPICONLY',      '3');
 define('FRONTPAGECATEGORYCOMBO',  '4');
-define('FRONTPAGECOURSELIMIT',    200);         // maximum number of courses displayed on the frontpage
+if (!defined('FRONTPAGECOURSELIMIT')) {
+    define('FRONTPAGECOURSELIMIT',    200);     // maximum number of courses displayed on the frontpage
+}
 define('EXCELROWS', 65535);
 define('FIRSTUSEDEXCELROW', 3);
 
 define('MOD_CLASS_ACTIVITY', 0);
 define('MOD_CLASS_RESOURCE', 1);
 
+if (!defined('MAX_MODINFO_CACHE_SIZE')) { 
+    define('MAX_MODINFO_CACHE_SIZE', 10);
+}
 
 function make_log_url($module, $url) {
     switch ($module) {
@@ -1176,6 +1181,11 @@ function &get_fast_modinfo(&$course, $userid=0) {
     unset($cache[$course->id]); // prevent potential reference problems when switching users
     $cache[$course->id] = $modinfo;
 
+    // Ensure cache does not use too much RAM
+    if (count($cache) > MAX_MODINFO_CACHE_SIZE) {
+        array_shift($cache);
+    }
+
     return $cache[$course->id];
 }
 
@@ -1364,13 +1374,15 @@ function print_section($course, $section, $mods, $modnamesused, $absolute=false,
             }
 
             if ($mod->modname == "label") {
+                echo "<span class=\"";
                 if (!$mod->visible) {
-                    echo "<div class=\"dimmed_text\">";
+                    echo 'dimmed_text';
+                } else {
+                    echo 'label';
                 }
+                echo '">';
                 echo format_text($extra, FORMAT_HTML, $labelformatoptions);
-                if (!$mod->visible) {
-                    echo "</div>";
-                }
+                echo "</span>";
                 if (!empty($CFG->enablegroupings) && !empty($mod->groupingid) && has_capability('moodle/course:managegroups', get_context_instance(CONTEXT_COURSE, $course->id))) {
                     if (!isset($groupings)) {
                         $groupings = groups_get_all_groupings($course->id);
@@ -3123,16 +3135,8 @@ function move_courses ($courseids, $categoryid) {
 
                     $course->category  = $categoryid;
                     $course->sortorder = $sortorder;
-                    $course->fullname = addslashes($course->fullname);
-                    $course->shortname = addslashes($course->shortname);
-                    $course->summary = addslashes($course->summary);
-                    $course->password = addslashes($course->password);
-                    $course->teacher = addslashes($course->teacher);
-                    $course->teachers = addslashes($course->teachers);
-                    $course->student = addslashes($course->student);
-                    $course->students = addslashes($course->students);
 
-                    if (!update_record('course', $course)) {
+                    if (!update_record('course', addslashes_recursive($course))) {
                         notify("An error occurred - course not moved!");
                     }
 
@@ -3194,30 +3198,30 @@ function get_section_name($format) {
 
 /**
  * Can the current user delete this course?
+ * Course creators have exception,
+ * 1 day after the creation they can sill delete the course.
  * @param int $courseid
  * @return boolean
- *
- * Exception here to fix MDL-7796.
- *
- * FIXME
- *   Course creators who can manage activities in the course
- *   shoule be allowed to delete the course. We do it this
- *   way because we need a quick fix to bring the functionality
- *   in line with what we had pre-roles. We can't give the
- *   default course creator role moodle/course:delete at
- *   CONTEXT_SYSTEM level because this will allow them to
- *   delete any course in the site. So we hard code this here
- *   for now.
- *
- * @author vyshane AT gmail.com
  */
 function can_delete_course($courseid) {
+    global $USER;
 
     $context = get_context_instance(CONTEXT_COURSE, $courseid);
 
-    return ( has_capability('moodle/course:delete', $context)
-             || (has_capability('moodle/legacy:coursecreator', $context)
-             && has_capability('moodle/course:manageactivities', $context)) );
+    if (has_capability('moodle/course:delete', $context)) {
+        return true;
+    }
+
+    // hack: now try to find out if creator created this course recently (1 day)
+    if (!has_capability('moodle/course:create', $context)) {
+        return false;
+    }
+
+    $since = time() - 60*60*24;
+
+    $select = "module = 'course' AND action = 'new' AND userid = $USER->id AND url='view.php?id=$courseid' AND time > $since";
+
+    return record_exists_select('log', $select);
 }
 
 /**
@@ -3266,6 +3270,14 @@ function create_course($data) {
     unset($data->allowedmods);
     if ($CFG->restrictmodulesfor == 'all') {
         $data->restrictmodules = 1;
+
+        // if the user is not an admin, get the default allowed modules because
+        // there are no modules passed by the form
+        if(!has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))) {
+            if(!$allowedmods && $CFG->defaultallowedmodules) {
+                $allowedmods = explode(',', $CFG->defaultallowedmodules);
+            }
+        }
     } else {
         $data->restrictmodules = 0;
     }

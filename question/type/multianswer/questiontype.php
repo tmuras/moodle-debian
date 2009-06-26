@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.41.2.16 2009/01/26 01:27:16 pichetp Exp $
+<?php  // $Id: questiontype.php,v 1.41.2.17 2009/02/13 06:11:59 tjhunt Exp $
 
 ///////////////////
 /// MULTIANSWER /// (Embedded - cloze)
@@ -156,7 +156,6 @@ class embedded_cloze_qtype extends default_questiontype {
         if (isset($authorizedquestion->id)) {
             $question->id = $authorizedquestion->id;
         }
-
 
         $question->category = $authorizedquestion->category;
         $form->course = $course; // To pass the course object to

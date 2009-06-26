@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.22.2.3 2009/01/14 17:47:00 stronk7 Exp $
+<?php  // $Id: lib.php,v 1.22.2.4 2009/02/07 22:31:38 skodak Exp $
 
 function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $selecteddate='today',
                                  $modname="", $modid=0, $modaction='', $selectedgroup=-1, $showcourses=0, $showusers=0, $logformat='showashtml') {
@@ -55,7 +55,7 @@ function print_mnet_log_selector_form($hostid, $course, $selecteduser=0, $select
     // If looking at a different host, we're interested in all our site users
     if ($hostid == $CFG->mnet_localhost_id && $course->id != SITEID) {
         if ($selectedgroup) {   // If using a group, only get users in that group.
-            $courseusers = get_group_users($selectedgroup, 'u.lastname ASC', '', 'u.id, u.firstname, u.lastname, u.idnumber', $limitfrom, $imitnum);
+            $courseusers = get_group_users($selectedgroup, 'u.lastname ASC', '', 'u.id, u.firstname, u.lastname, u.idnumber', $limitfrom, $limitnum);
         } else {
             $courseusers = get_course_users($course->id, '', '', 'u.id, u.firstname, u.lastname, u.idnumber', $limitfrom, $limitnum);
         }

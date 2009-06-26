@@ -1,4 +1,4 @@
-<?php  // $Id: abstractqtype.php,v 1.16.2.3 2008/09/20 14:01:51 pichetp Exp $
+<?php  // $Id: abstractqtype.php,v 1.16.2.4 2009/02/10 05:40:13 tjhunt Exp $
 
 ///////////////////////////////////////////////////////////////
 /// ABSTRACT SUPERCLASS FOR QUSTION TYPES THAT USE DATASETS ///
@@ -270,13 +270,13 @@ class question_dataset_dependent_questiontype extends default_questiontype {
             case 'question': // coming from the first page, creating the second
                 if (empty($form->id)) { // for a new question $form->id is empty
                     $question = parent::save_question($question, $form, $course);
-                   //prepare the datasets using default $questionfromid
+                    //prepare the datasets using default $questionfromid
                     $this->preparedatasets($form);
-                   $form->id = $question->id;
-                   $this->save_dataset_definitions($form);
+                    $form->id = $question->id;
+                    $this->save_dataset_definitions($form);
                 } else if (!empty($form->makecopy)){
-                   $questionfromid =  $form->id ;
-                   $question = parent::save_question($question, $form, $course);
+                    $questionfromid =  $form->id ;
+                    $question = parent::save_question($question, $form, $course);
                     //prepare the datasets
                     $this->preparedatasets($form,$questionfromid);
                     $form->id = $question->id;

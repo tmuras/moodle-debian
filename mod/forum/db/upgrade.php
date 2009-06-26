@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.5.2.5 2008/05/01 20:45:08 skodak Exp $
+<?php  //$Id: upgrade.php,v 1.5.2.6 2009/05/04 08:11:15 stronk7 Exp $
 
 // This file keeps track of upgrades to 
 // the forum module
@@ -83,6 +83,9 @@ function xmldb_forum_upgrade($oldversion=0) {
         }
     }
 
+    if ($result && $oldversion < 2007101513) {
+        delete_records('forum_ratings', 'post', 0); /// Clean existing wrong rates. MDL-18227
+    }
 
     return $result;
 }

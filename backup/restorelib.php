@@ -1,4 +1,4 @@
-<?php //$Id: restorelib.php,v 1.283.2.62 2009/01/24 00:20:52 stronk7 Exp $
+<?php //$Id: restorelib.php,v 1.283.2.74 2009/05/10 14:38:34 stronk7 Exp $
     //Functions used in restore
 
     require_once($CFG->libdir.'/gradelib.php');
@@ -98,7 +98,8 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
             echo '<li>' . get_string('from') . ' ' . get_string('course');
         }
         $course = get_record('course', 'id', $restore->course_id, '', '', '', '', 'id,summary');
-        $coursesummary = restore_decode_content_links_worker($course->summary, $restore);
+        $coursesummary = backup_todb($course->summary,false); // Exception: Process FILEPHP (not available when restored) MDL-18222
+        $coursesummary = restore_decode_content_links_worker($coursesummary, $restore);
         if ($coursesummary != $course->summary) {
             $course->summary = addslashes($coursesummary);
             if (!update_record('course', $course)) {
@@ -771,7 +772,7 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
             $course->shortname = addslashes($course_header->course_shortname);
             $course->idnumber = addslashes($course_header->course_idnumber);
             $course->idnumber = ''; //addslashes($course_header->course_idnumber); // we don't want this at all.
-            $course->summary = backup_todb($course_header->course_summary);
+            $course->summary = addslashes($course_header->course_summary);
             $course->format = addslashes($course_header->course_format);
             $course->showgrades = addslashes($course_header->course_showgrades);
             $course->newsitems = addslashes($course_header->course_newsitems);
@@ -1113,6 +1114,11 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
                     //Get section id when restoring in existing course
                     $rec = get_record("course_sections","course",$restore->course_id,
                                                         "section",$section->section);
+                    //If section exists, has empty summary and backup has some summary, use it. MDL-8848
+                    if ($rec && empty($rec->summary) && !empty($section->summary)) {
+                        $rec->summary = $section->summary;
+                        update_record("course_sections", $rec);
+                    }
                     //If that section doesn't exist, get section 0 (every mod will be
                     //asigned there
                     if(!$rec) {
@@ -2520,22 +2526,44 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
                 //Has role teacher or student or needed
                 $is_course_user = ($is_teacher or $is_student or $is_needed);
 
-                //Calculate mnethostid
-                if (empty($user->mnethosturl) || $user->mnethosturl===$CFG->wwwroot) {
-                    $user->mnethostid = $CFG->mnet_localhost_id;
-                } else {
-                    // fast url-to-id lookups
-                    if (isset($mnethosts[$user->mnethosturl])) {
-                        $user->mnethostid = $mnethosts[$user->mnethosturl]->id;
+                // in case we are restoring to same server, look for user by id
+                // it should return record always, but in sites rebuilt from scratch
+                // and being reconstructed using course backups
+                $user_data = false;
+                if (backup_is_same_site($restore)) {
+                    $user_data = get_record('user', 'id', $user->id);
+                }
+
+                // Only try to perform mnethost/auth modifications if restoring to another server
+                // or if, while restoring to same server, the user doesn't exists yet (rebuilt site)
+                //
+                // So existing user data in same server *won't be modified by restore anymore*,
+                // under any circumpstance. If somehting is wrong with existing data, it's server fault.
+                if (!backup_is_same_site($restore) || (backup_is_same_site($restore) && !$user_data)) {
+                    //Calculate mnethostid
+                    if (empty($user->mnethosturl) || $user->mnethosturl===$CFG->wwwroot) {
+                        $user->mnethostid = $CFG->mnet_localhost_id;
                     } else {
-                        // lookup failed, switch user auth to manual and host to local. MDL-17009
+                        // fast url-to-id lookups
+                        if (isset($mnethosts[$user->mnethosturl])) {
+                            $user->mnethostid = $mnethosts[$user->mnethosturl]->id;
+                        } else {
+                            $user->mnethostid = $CFG->mnet_localhost_id;
+                        }
+                    }
+                    //Arriving here, any user with mnet auth and using $CFG->mnet_localhost_id is wrong
+                    //as own server cannot be accesed over mnet. Change auth to manual and inform about the switch
+                    if ($user->auth == 'mnet' && $user->mnethostid == $CFG->mnet_localhost_id) {
+                        // Respect registerauth
                         if ($CFG->registerauth == 'email') {
                             $user->auth = 'email';
                         } else {
                             $user->auth = 'manual';
                         }
-                        $user->mnethostid = $CFG->mnet_localhost_id;
                         // inform about the automatic switch of authentication/host
+                        if(empty($user->mnethosturl)) {
+                            $user->mnethosturl = '----';
+                        }
                         $messages[] = get_string('mnetrestore_extusers_switchuserauth', 'admin', $user);
                     }
                 }
@@ -2545,8 +2573,11 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
                 $newid=null;
                 //check if it exists (by username) and get its id
                 $user_exists = true;
-                $user_data = get_record("user","username",addslashes($user->username),
-                                        'mnethostid', $user->mnethostid);
+                if (!backup_is_same_site($restore)) { /// Restoring to another server, look for existing user based on fields
+                                                      /// If restoring to same server, look has been performed some lines above (by id)
+                    $user_data = get_record('user', 'username', addslashes($user->username), 'mnethostid', $user->mnethostid);
+                }
+
                 if (!$user_data) {
                     $user_exists = false;
                 } else {
@@ -3667,8 +3698,10 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
 
                         //Now search if that event exists (by name, description, timestart fields) in
                         //restore->course_id course
+                        //Going to compare LOB columns so, use the cross-db sql_compare_text() in both sides.
+                        $compare_description_clause = sql_compare_text('description')  . "=" .  sql_compare_text("'" . $eve->description . "'");
                         $eve_db = get_record_select("event",
-                            "courseid={$eve->courseid} AND name='{$eve->name}' AND description='{$eve->description}' AND timestart=$eve->timestart");
+                            "courseid={$eve->courseid} AND name='{$eve->name}' AND $compare_description_clause AND timestart=$eve->timestart");
                         //If it doesn't exist, create
                         if (!$eve_db) {
                             $create_event = true;
@@ -3735,6 +3768,11 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
     //    - $@FILEPHP@$ ---|------------> $CFG->wwwroot/file.php/courseid (slasharguments on)
     //                     |------------> $CFG->wwwroot/file.php?file=/courseid (slasharguments off)
     //
+    //    - $@SLASH@$ --|---------------> / (slasharguments on)
+    //                  |---------------> %2F (slasharguments off)
+    //
+    //    - $@FORCEDOWNLOAD@$ --|-------> ?forcedownload=1 (slasharguments on)
+    //                          |-------> &amp;forcedownload=1(slasharguments off)
     //Note: Inter-activities linking is being implemented as a final
     //step in the restore execution, because we need to have it
     //finished to know all the oldid, newid equivaleces
@@ -3757,6 +3795,15 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
         $search = array ("$@FILEPHP@$");
         $replace = array(get_file_url($restore->course_id));
         $result = str_replace($search,$replace,$content);
+
+        //Now $@SLASH@$ and $@FORCEDOWNLOAD@$ MDL-18799
+        $search = array('$@SLASH@$', '$@FORCEDOWNLOAD@$');
+        if ($CFG->slasharguments) {
+            $replace = array('/', '?forcedownload=1');
+        } else {
+            $replace = array('%2F', '&amp;forcedownload=1');
+        }
+        $result = str_replace($search, $replace, $result);
 
         if ($result != $content && debugging()) {                                  //Debug
             if (!defined('RESTORE_SILENTLY')) {
@@ -3972,6 +4019,10 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
                 //Iterate
                 $counter = 0;
                 foreach ($list as $dir) {
+                    //Avoid copying maintenance.html. MDL-18594
+                    if ($dir == 'maintenance.html') {
+                       continue;
+                    }
                     //Copy the dir to its new location
                     //Only if destination file/dir doesn exists
                     if (!file_exists($dest_dir."/".$dir)) {
@@ -4500,6 +4551,217 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
     //==                         XML Functions (SAX)                                     ==
     //==                                                                                 ==
     //=====================================================================================
+
+    /// This is the class used to split, in first instance, the monolithic moodle.xml into
+    /// smaller xml files allowing the MoodleParser later to process only the required info
+    /// based in each TODO, instead of processing the whole xml for each TODO. In theory
+    /// processing time can be reduced upto 1/20th of original time (depending of the
+    /// number of TODOs in the original moodle.xml file)
+    ///
+    /// Anyway, note it's a general splitter parser, and only needs to be instantiated
+    /// with the proper destination dir and the tosplit configuration. Be careful when
+    /// using it because it doesn't support XML attributes nor real cdata out from tags.
+    /// (both not used in the target Moodle backup files)
+
+    class moodle_splitter_parser {
+        var $level = 0;            /// Level we are
+        var $tree = array();       /// Array of levels we are
+        var $cdata = '';           /// Raw storage for character data
+        var $content = '';         /// Content buffer to be printed to file
+        var $trailing= '';         /// Content of the trailing tree for each splited file
+        var $savepath = null;      /// Path to store splited files
+        var $fhandler = null;      /// Current file we are writing to
+        var $tosplit = array();    /// Array defining the files we want to split, in this format:
+                                   /// array( level/tag/level/tag => filename)
+        var $splitwords = array(); /// Denormalised array containing the potential tags
+                                   /// being a split point. To speed up check_split_point()
+        var $maxsplitlevel = 0;    /// Precalculated max level where any split happens. To speed up check_split_point()
+        var $buffersize = 65536;   /// 64KB is a good write buffer. Don't expect big benefits by increasing this.
+        var $repectformat = false; /// With this setting enabled, the splited files will look like the original one
+                                   /// with all the indentations 100% copied from original (character data outer tags).
+                                   /// But this is a waste of time from our perspective, and splited xml files are completely
+                                   /// functional without that, so we disable this for production, generating a more compact
+                                   /// XML quicker
+
+    /// PHP4 constructor
+        function moodle_splitter_parser($savepath, $tosplit = null) {
+            return $this->__construct($savepath, $tosplit);
+        }
+
+    /// PHP5 constructor
+        function __construct($savepath, $tosplit = null) {
+            $this->savepath = $savepath;
+            if (!empty($tosplit)) {
+                $this->tosplit = $tosplit;
+            } else { /// No tosplit list passed, process all the possible parts in one moodle.xml file
+                $this->tosplit = array(
+                                     '1/MOODLE_BACKUP/2/INFO'        => 'split_info.xml',
+                                     '1/MOODLE_BACKUP/2/ROLES'       => 'split_roles.xml',
+                                     '2/COURSE/3/HEADER'             => 'split_course_header.xml',
+                                     '2/COURSE/3/BLOCKS'             => 'split_blocks.xml',
+                                     '2/COURSE/3/SECTIONS'           => 'split_sections.xml',
+                                     '2/COURSE/3/FORMATDATA'         => 'split_formatdata.xml',
+                                     '2/COURSE/3/METACOURSE'         => 'split_metacourse.xml',
+                                     '2/COURSE/3/GRADEBOOK'          => 'split_gradebook.xml',
+                                     '2/COURSE/3/USERS'              => 'split_users.xml',
+                                     '2/COURSE/3/MESSAGES'           => 'split_messages.xml',
+                                     '2/COURSE/3/BLOGS'              => 'split_blogs.xml',
+                                     '2/COURSE/3/QUESTION_CATEGORIES'=> 'split_questions.xml',
+                                     '2/COURSE/3/SCALES'             => 'split_scales.xml',
+                                     '2/COURSE/3/GROUPS'             => 'split_groups.xml',
+                                     '2/COURSE/3/GROUPINGS'          => 'split_groupings.xml',
+                                     '2/COURSE/3/GROUPINGSGROUPS'    => 'split_groupingsgroups.xml',
+                                     '2/COURSE/3/EVENTS'             => 'split_events.xml',
+                                     '2/COURSE/3/MODULES'            => 'split_modules.xml',
+                                     '2/COURSE/3/LOGS'               => 'split_logs.xml'
+                                 );
+            }
+        /// Precalculate some info used to speedup checks
+            foreach ($this->tosplit as $key=>$value) {
+                $this->splitwords[basename($key)] = true;
+                if (((int) basename(dirname($key))) > $this->maxsplitlevel) {
+                    $this->maxsplitlevel = (int) basename(dirname($key));
+                }
+            }
+        }
+
+        /// Given one tag being opened, check if it's one split point.
+        /// Return false or split filename
+        function check_split_point($tag) {
+        /// Quick check. Level < 2 cannot be a split point
+            if ($this->level < 2) {
+                return false;
+            }
+        /// Quick check. Current tag against potential splitwords
+            if (!isset($this->splitwords[$tag])) {
+                return false;
+            }
+        /// Prev test passed, take a look to 2-level tosplit
+            $keytocheck = ($this->level - 1) . '/' . $this->tree[$this->level - 1] . '/' . $this->level . '/' . $this->tree[$this->level];
+            if (!isset($this->tosplit[$keytocheck])) {
+                return false;
+            }
+        /// Prev test passed, we are in a split point, return new filename
+            return $this->tosplit[$keytocheck];
+        }
+
+        /// To append data (xml-escaped) to contents buffer
+        function character_data($parser, $data) {
+
+            ///$this->content .= preg_replace($this->entity_find, $this->entity_replace, $data); ///40% slower
+            ///$this->content .= str_replace($this->entity_find, $this->entity_replace, $data);  ///25% slower
+            ///$this->content .= htmlspecialchars($data);                                        ///the best
+            /// Instead of htmlspecialchars() each chunk of character data, we are going to
+            /// concat it without transformation and will apply the htmlspecialchars() when
+            /// that character data is, efectively, going to be added to contents buffer. This
+            /// makes the number of transformations to be reduced (speedup) and avoid potential
+            /// problems with transformations being applied "in the middle" of multibyte chars.
+            $this->cdata .= $data;
+        }
+
+        /// To detect start of tags, keeping level, tree and fhandle updated.
+        /// Also handles creation of split files
+        function start_tag($parser, $tag, $attrs) {
+
+        /// Update things before processing
+            $this->level++;
+            $this->tree[$this->level] = $tag;
+
+        /// Check if we need to start a new split file,
+        /// Speedup: we only do that if we haven't a fhandler and if level <= $maxsplitlevel
+            if ($this->level <= $this->maxsplitlevel && !$this->fhandler && $newfilename = $this->check_split_point($tag)) {
+            /// Open new file handler, init everything
+                $this->fhandler = fopen($this->savepath . '/' . $newfilename, 'w');
+                $this->content = '';
+                $this->cdata = '';
+                $this->trailing = '';
+            /// Build the original leading tree (and calculate the original trailing one)
+                for ($l = 1; $l < $this->level; $l++) {
+                    $this->content .= "<{$this->tree[$l]}>\n";
+                    $this->trailing = "\n</{$this->tree[$l]}>" . $this->trailing;
+                }
+            }
+        /// Perform xml-entities transformation and add to contents buffer together with opening tag.
+        /// Speedup. We lose nice formatting of the split XML but avoid 50% of transformations and XML is 100% equivalent
+            $this->content .= ($this->repectformat ? htmlspecialchars($this->cdata) : '') . "<$tag>";
+            $this->cdata = '';
+        }
+
+        /// To detect end of tags, keeping level, tree and fhandle updated, writting contents buffer to split file.
+        /// Also handles closing of split files
+        function end_tag($parser, $tag) {
+
+        /// Perform xml-entities transformation and add to contents buffer together with closing tag, repecting (or no) format
+            $this->content .= ($this->repectformat ? htmlspecialchars($this->cdata) : htmlspecialchars(trim($this->cdata))) . "</$tag>";
+            $this->cdata = '';
+
+        /// Check if we need to close current split file
+        /// Speedup: we only do that if we have a fhandler and if level <= $maxsplitlevel
+            if ($this->level <= $this->maxsplitlevel && $this->fhandler && $newfilename = $this->check_split_point($tag)) {
+            /// Write pending contents buffer before closing. It's a must
+                fwrite($this->fhandler, $this->content);
+                $this->content = "";
+            /// Write the original trailing tree for fhandler
+                fwrite($this->fhandler, $this->trailing);
+                fclose($this->fhandler);
+                $this->fhandler = null;
+            } else {
+            /// Normal write of contents (use one buffer to improve speed)
+                if ($this->fhandler && strlen($this->content) > $this->buffersize) {
+                    fwrite($this->fhandler, $this->content);
+                    $this->content = "";
+                }
+            }
+
+        /// Update things after processing
+            $this->tree[$this->level] = "";
+            $this->level--;
+
+        }
+    }
+
+    /// This function executes the moodle_splitter_parser, causing the monolithic moodle.xml
+    /// file to be splitted in n smaller files for better treatament by the MoodleParser in restore_read_xml()
+    function restore_split_xml ($xml_file, $preferences) {
+
+        $status = true;
+
+        $xml_parser = xml_parser_create('UTF-8');
+        $split_parser = new moodle_splitter_parser(dirname($xml_file));
+        xml_set_object($xml_parser,$split_parser);
+        xml_set_element_handler($xml_parser, 'start_tag', 'end_tag');
+        xml_set_character_data_handler($xml_parser, 'character_data');
+
+        $doteach = filesize($xml_file) / 20;
+        $fromdot = 0;
+
+        $fp = fopen($xml_file,"r")
+            or $status = false;
+        if ($status) {
+            $lasttime = time();
+            while ($data = fread($fp, 8192)) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    $fromdot += 8192;
+                    if ($fromdot > $doteach) {
+                        echo ".";
+                        backup_flush(300);
+                        $fromdot = 0;
+                    }
+                    if ((time() - $lasttime) > 10) {
+                        $lasttime = time();
+                        backup_flush(300);
+                    }
+                }
+                xml_parse($xml_parser, $data, feof($fp))
+                    or die(sprintf("XML error: %s at line %d",
+                                   xml_error_string(xml_get_error_code($xml_parser)),
+                                   xml_get_current_line_number($xml_parser)));
+            }
+            fclose($fp);
+        }
+        xml_parser_free($xml_parser);
+        return $status;
+    }
 
     //This is the class used to do all the xml parse
     class MoodleParser {
@@ -5102,7 +5364,7 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
         }
 
         function endElementRoles($parser, $tagName) {
-            //Check if we are into INFO zone
+            //Check if we are into ROLES zone
             if ($this->tree[2] == "ROLES") {
 
                 if ($this->tree[3] == "ROLE") {
@@ -5143,7 +5405,7 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
                 }
             }
 
-            //Stop parsing if todo = INFO and tagName = INFO (en of the tag, of course)
+            //Stop parsing if todo = ROLES and tagName = ROLES (en of the tag, of course)
             //Speed up a lot (avoid parse all)
             if ($tagName == "ROLES") {
                 $this->finished = true;
@@ -7044,37 +7306,57 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
                 $this->temp .= htmlspecialchars(trim($this->content))."</".$tagName.">";
                 //If we've finished a mod, xmlize it an save to db
                 if (($this->level == 4) and ($tagName == "MOD")) {
-                    //Prepend XML standard header to info gathered
-                    $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
-                    //Call to xmlize for this portion of xml data (one MOD)
-                    //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                                  //Debug
-                    $data = xmlize($xml_data,0);
-                    //echo strftime ("%X",time())."<p>";                                                            //Debug
-                    //traverse_xmlize($data);                                                                     //Debug
-                    //print_object ($GLOBALS['traverse_array']);                                                  //Debug
-                    //$GLOBALS['traverse_array']="";                                                              //Debug
-                    //Now, save data to db. We'll use it later
-                    //Get id and modtype from data
-                    $mod_id = $data["MOD"]["#"]["ID"]["0"]["#"];
-                    $mod_type = $data["MOD"]["#"]["MODTYPE"]["0"]["#"];
-                    //Only if we've selected to restore it
-                    if  (!empty($this->preferences->mods[$mod_type]->restore)) {
-                        //Save to db
-                        $status = backup_putid($this->preferences->backup_unique_code,$mod_type,$mod_id,
-                                     null,$data);
-                        //echo "<p>id: ".$mod_id."-".$mod_type." len.: ".strlen($sla_mod_temp)." to_db: ".$status."<p>";   //Debug
-                        //Create returning info
-                        $ret_info = new object();
-                        $ret_info->id = $mod_id;
-                        $ret_info->modtype = $mod_type;
-                        $this->info[] = $ret_info;
+                    //Only process the module if efectively it has been selected for restore. MDL-18482
+                    if (empty($this->preferences->mods[$this->temp_mod_type]->granular)  // We don't care about per instance, i.e. restore all instances.
+                        or (array_key_exists($this->temp_mod_id, $this->preferences->mods[$this->temp_mod_type]->instances)
+                            and
+                            !empty($this->preferences->mods[$this->temp_mod_type]->instances[$this->temp_mod_id]->restore))) {
+
+                        //Prepend XML standard header to info gathered
+                        $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".$this->temp;
+                        //Call to xmlize for this portion of xml data (one MOD)
+                        //echo "-XMLIZE: ".strftime ("%X",time()),"-";                                                  //Debug
+                        $data = xmlize($xml_data,0);
+                        //echo strftime ("%X",time())."<p>";                                                            //Debug
+                        //traverse_xmlize($data);                                                                     //Debug
+                        //print_object ($GLOBALS['traverse_array']);                                                  //Debug
+                        //$GLOBALS['traverse_array']="";                                                              //Debug
+                        //Now, save data to db. We'll use it later
+                        //Get id and modtype from data
+                        $mod_id = $data["MOD"]["#"]["ID"]["0"]["#"];
+                        $mod_type = $data["MOD"]["#"]["MODTYPE"]["0"]["#"];
+                        //Only if we've selected to restore it
+                        if  (!empty($this->preferences->mods[$mod_type]->restore)) {
+                            //Save to db
+                            $status = backup_putid($this->preferences->backup_unique_code,$mod_type,$mod_id,
+                                         null,$data);
+                            //echo "<p>id: ".$mod_id."-".$mod_type." len.: ".strlen($sla_mod_temp)." to_db: ".$status."<p>";   //Debug
+                            //Create returning info
+                            $ret_info = new object();
+                            $ret_info->id = $mod_id;
+                            $ret_info->modtype = $mod_type;
+                            $this->info[] = $ret_info;
+                        }
+                    } else {
+                        debugging("Info: skipping $this->temp_mod_type activity with mod id: $this->temp_mod_id. Not selected for restore", DEBUG_DEVELOPER);
                     }
+                    //Reset current mod_type and mod_id
+                    unset($this->temp_mod_type);
+                    unset($this->temp_mod_id);
                     //Reset temp
                     unset($this->temp);
                 }
+
+            /// Grab current mod id and type when available
+                if ($this->level == 5) {
+                    if ($tagName == 'ID') {
+                        $this->temp_mod_id = trim($this->content);
+                    } else if ($tagName == 'MODTYPE') {
+                        $this->temp_mod_type = trim($this->content);
+                    }
+                }
+
             }
-
-
 
             //Stop parsing if todo = MODULES and tagName = MODULES (en of the tag, of course)
             //Speed up a lot (avoid parse all)
@@ -7173,7 +7455,30 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
     //This function executes the MoodleParser
     function restore_read_xml ($xml_file,$todo,$preferences) {
 
+        global $CFG;
+
         $status = true;
+
+    /// If enabled in the site, use split files instead of original moodle.xml file
+    /// This will speed parsing speed upto 20x.
+        if (!empty($CFG->experimentalsplitrestore)) {
+        /// Use splite file, else nothing to process (saves one full parsing for each non-existing todo)
+            $splitfile= dirname($xml_file) . '/' . strtolower('split_' . $todo . '.xml');
+            if (file_exists($splitfile)) {
+                $xml_file = $splitfile;
+                debugging("Info: todo=$todo, using split file", DEBUG_DEVELOPER);
+            } else {
+            /// For some todos, that are used in earlier restore steps (restore_precheck(), restore_form...
+            /// allow fallback to monolithic moodle.xml. Those todos are at the beggining of the xml, so
+            /// it doesn't hurts too much.
+                if ($todo == 'INFO' || $todo == 'COURSE_HEADER' || $todo == 'ROLES') {
+                    debugging("Info: todo=$todo, no split file. Fallback to moodle.xml", DEBUG_DEVELOPER);
+                } else {
+                    debugging("Info: todo=$todo, no split file. Parse skipped", DEBUG_DEVELOPER);
+                    return true;
+                }
+            }
+        }
 
         $xml_parser = xml_parser_create('UTF-8');
         $moodle_parser = new MoodleParser();
@@ -7233,7 +7538,7 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
         if ($status) {
             // MDL-9290 performance improvement on reading large xml
             $lasttime = time(); // crmas
-            while ($data = fread($fp, 4096) and !$moodle_parser->finished) {
+            while ($data = fread($fp, 8192) and !$moodle_parser->finished) {
              
                 if ((time() - $lasttime) > 5) {
                     $lasttime = time();
@@ -7561,8 +7866,25 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
             echo "<ul>";
         }
 
-        //Localtion of the xml file
+        //Location of the xml file
         $xml_file = $CFG->dataroot."/temp/backup/".$restore->backup_unique_code."/moodle.xml";
+
+        //Preprocess the moodle.xml file spliting into smaller chucks (modules, users, logs...)
+        //for optimal parsing later in the restore process.
+        if (!empty($CFG->experimentalsplitrestore)) {
+            if (!defined('RESTORE_SILENTLY')) {
+                echo '<li>'.get_string('preprocessingbackupfile') . '</li>';
+            }
+            //First of all, split moodle.xml into handy files
+            if (!restore_split_xml ($xml_file, $restore)) {
+                if (!defined('RESTORE_SILENTLY')) {
+                    notify("Error proccessing moodle.xml file. Process ended.");
+                } else {
+                    $errorstr = "Error proccessing moodle.xml file. Process ended.";
+                }
+                return false;
+            }
+        }
 
         //If we've selected to restore into new course
         //create it (course)
@@ -7597,7 +7919,9 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
             }
 
             if ($status = restore_open_html($restore,$course_header)){
-                echo "<li>Creating the Restorelog.html in the course backup folder</li>";
+                if (!defined('RESTORE_SILENTLY')) {
+                    echo "<li>Creating the Restorelog.html in the course backup folder</li>";
+                }
             }
 
         } else {
@@ -8637,6 +8961,11 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
                 $oldinstance = backup_getid($restore->backup_unique_code,$table,$oldid);
             }
 
+            // new instance id not found (not restored module/block/user)... skip any assignment
+            if (!$oldinstance || empty($oldinstance->new_id)) {
+                continue;
+            }
+
             $newcontext = get_context_instance($contextlevel, $oldinstance->new_id);
             $assignment->contextid = $newcontext->id; // new context id
             // might already have same assignment
@@ -8665,6 +8994,11 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
                 $oldinstance->new_id = $restore->course_id;
             } else {
                 $oldinstance = backup_getid($restore->backup_unique_code,$table,$oldid);
+            }
+
+            // new instance id not found (not restored module/block/user)... skip any override
+            if (!$oldinstance || empty($oldinstance->new_id)) {
+                continue;
             }
 
             $newcontext = get_context_instance($contextlevel, $oldinstance->new_id);

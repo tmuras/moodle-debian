@@ -1,4 +1,4 @@
-<?PHP  // $Id: lib.php,v 1.79.2.17 2009/01/27 05:33:57 gbateson Exp $
+<?PHP  // $Id: lib.php,v 1.79.2.22 2009/05/07 23:01:37 gbateson Exp $
 
 //////////////////////////////////
 /// CONFIGURATION settings
@@ -212,7 +212,8 @@ function hotpot_update_instance(&$hotpot) {
         $hotpot->id = $hotpot->instance;
         if ($result = update_record('hotpot', $hotpot)) {
             hotpot_update_events($hotpot);
-            hotpot_grade_item_update(stripslashes_recursive($hotpot));
+            //hotpot_grade_item_update(stripslashes_recursive($hotpot));
+            hotpot_update_grades(stripslashes_recursive($hotpot));
         }
     } else {
         $result=  false;
@@ -706,7 +707,7 @@ function hotpot_get_titles_and_next_ex(&$hotpot, $filepath, $get_next=false) {
             if ($get_next) {
                 if (preg_match('|<div[^>]*class="NavButtonBar"[^>]*>(.*?)</div>|is', $source, $matches)) {
                     $navbuttonbar = $matches[1];
-                    if (preg_match_all('|<button[^>]*class="NavButton"[^>]*onclick="'."location='([^']*)'".'[^"]*"[^>]*>|is', $navbuttonbar, $matches)) {
+                    if (preg_match_all('|<button[^>]*onclick="'."location='([^']*)'".'[^"]*"[^>]*>|is', $navbuttonbar, $matches)) {
                         $lastbutton = count($matches[0])-1;
                         $next = $matches[1][$lastbutton];
                     }
@@ -1314,6 +1315,15 @@ function hotpot_grade_item_update($hotpot, $grades=null) {
 
     } else {
         $params['gradetype'] = GRADE_TYPE_NONE;
+        // Note: when adding a new activity, a gradeitem will *not*
+        // be created in the grade book if gradetype==GRADE_TYPE_NONE
+        // A gradeitem will be created later if gradetype changes to GRADE_TYPE_VALUE
+        // However, the gradeitem will *not* be deleted if the activity's
+        // gradetype changes back from GRADE_TYPE_VALUE to GRADE_TYPE_NONE
+        // Therefore, we give the user the ability to force the removal of empty gradeitems
+        if (! empty($hotpot->removegradeitem)) {
+            $params['deleted'] = true;
+        }
     }
     return grade_update('mod/hotpot', $hotpot->course, 'mod', 'hotpot', $hotpot->id, 0, $grades, $params);
 }
@@ -1877,7 +1887,10 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
             $quote = '["'."']?"; // single, double, or no quote
 
             // patterns to media files types and paths
-            $filetype = "avi|mpeg|mpg|mp3|mov|wmv|swf|flv";
+            $filetype = "avi|mpeg|mpg|mp3|mov|wmv|flv";
+            if ($CFG->filter_mediaplugin_enable_swf) {
+                $filetype .= '|swf';
+            }
             $filepath = ".*?\.($filetype)";
 
             $tagopen = '(?:(<)|(\\\\u003C))'; // left angle-bracket (uses two parenthese)
@@ -1892,10 +1905,10 @@ class hotpot_xml_quiz extends hotpot_xml_tree {
             $param_url = "/{$tagopen}param{$space}name=$quote(?:movie|src|url)$quote{$space}value=$quote($filepath)$quote.*?$tagclose/is";
 
             // pattern to match <a> tags which link to multimedia files
-            $link_url = "/{$tagopen}a{$space}href=$quote($filepath)$quote.*?$tagclose.*?$tagreopen\/A$tagclose/is";
+            $link_url = "/{$tagopen}a{$space}href=$quote($filepath)$quote.*?$tagclose.*?$tagreopen\/a$tagclose/is";
 
             // extract <object> tags
-            preg_match_all("/{$tagopen}object\s.*?{$tagclose}(.*?)(?:{$tagreopen}\/object{$tagclose})+/is", $this->html, $objects);
+            preg_match_all("/{$tagopen}object.*?{$tagclose}(.*?)(?:{$tagreopen}\/object{$tagclose})+/is", $this->html, $objects);
 
             $i_max = count($objects[0]);
             for ($i=0; $i<$i_max; $i++) {
@@ -2651,4 +2664,13 @@ function hotpot_reset_course_form_definition(&$mform) {
 function hotpot_reset_course_form_defaults($course) {
     return array('reset_hotpot_deleteallattempts' => 1);
 }
+
+/**
+ * Tells if files in moddata are trusted and can be served without XSS protection.
+ * @return bool true if file can be submitted by teacher only (trusted), false otherwise
+ */
+function hotpot_is_moddata_trusted() {
+    return true;
+}
+
 ?>

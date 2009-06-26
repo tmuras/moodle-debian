@@ -1,4 +1,4 @@
-<?php // $Id: deprecatedlib.php,v 1.41.2.11 2009/01/14 17:44:46 stronk7 Exp $
+<?php // $Id: deprecatedlib.php,v 1.41.2.12 2009/05/04 20:24:45 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -30,7 +30,7 @@
  * use any of these functions.
  *
  * @author Martin Dougiamas
- * @version $Id: deprecatedlib.php,v 1.41.2.11 2009/01/14 17:44:46 stronk7 Exp $
+ * @version $Id: deprecatedlib.php,v 1.41.2.12 2009/05/04 20:24:45 skodak Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package moodlecore
  */
@@ -1125,8 +1125,6 @@ function groups_members_join_sql($groupid=false) {
         $sql = "AND gm.groupid = '$groupid' ";
     }
     return $sql;
-    //return ' INNER JOIN '.$CFG->prefix.'role_assignments ra ON u.id=ra.userid'.
-    //       ' INNER JOIN '.$CFG->prefix.'context c ON ra.contextid=c.id AND c.contextlevel='.CONTEXT_GROUP.' AND c.instanceid='.$groupid;
 }
 
 /**

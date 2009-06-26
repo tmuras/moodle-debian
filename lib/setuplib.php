@@ -1,4 +1,4 @@
-<?php // $Id: setuplib.php,v 1.22.2.4 2008/01/20 17:58:06 skodak Exp $ 
+<?php // $Id: setuplib.php,v 1.22.2.6 2009/05/08 21:30:31 skodak Exp $ 
       // These functions are required very early in the Moodle 
       // setup process, before any of the main libraries are 
       // loaded.
@@ -84,6 +84,42 @@ function raise_memory_limit ($newlimit) {
 }
 
 /**
+ * Function to reduce the memory limit to a new value.
+ * Will respect the memory limit if it is lower, thus allowing
+ * settings in php.ini, apache conf or command line switches
+ * to override it
+ *
+ * The memory limit should be expressed with a string (eg:'64M')
+ *
+ * @param string $newlimit the new memory limit
+ * @return bool
+ */
+function reduce_memory_limit ($newlimit) {
+    if (empty($newlimit)) {
+        return false;
+    }
+    $cur = @ini_get('memory_limit');
+    if (empty($cur)) {
+        // if php is compiled without --enable-memory-limits
+        // apparently memory_limit is set to ''
+        $cur=0;
+    } else {
+        if ($cur == -1){
+            return true; // unlimited mem!
+        }
+        $cur = get_real_size($cur);
+    }
+
+    $new = get_real_size($newlimit);
+    // -1 is smaller, but it means unlimited
+    if ($new < $cur && $new != -1) {
+        ini_set('memory_limit', $newlimit);
+        return true;
+    }
+    return false;
+}
+
+/**
  * Converts numbers like 10M into bytes.
  *
  * @param mixed $size The size to be converted
@@ -140,7 +176,7 @@ function make_upload_directory($directory, $shownotices=true) {
     // Make sure a .htaccess file is here, JUST IN CASE the files area is in the open
     if (!file_exists($currdir.'/.htaccess')) {
         if ($handle = fopen($currdir.'/.htaccess', 'w')) {   // For safety
-            @fwrite($handle, "deny from all\r\nAllowOverride None\r\n");
+            @fwrite($handle, "deny from all\r\nAllowOverride None\r\nNote: this file is broken intentionally, we do not want anybody to undo it in subdirectory!\r\n");
             @fclose($handle);
         }
     }

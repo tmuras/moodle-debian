@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.70.2.27 2008/11/21 07:01:00 jerome Exp $
+<?php  // $Id: view.php,v 1.70.2.30 2009/05/06 17:24:29 stronk7 Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -484,7 +484,7 @@
             $sortcontent = $sortfield->get_sort_field();
             $sortcontentfull = $sortfield->get_sort_sql('c.'.$sortcontent);
 
-            $what = ' DISTINCT r.id, r.approved, r.timecreated, r.timemodified, r.userid, u.firstname, u.lastname, c.'.$sortcontent.', '.$sortcontentfull.' AS _order ';
+            $what = ' DISTINCT r.id, r.approved, r.timecreated, r.timemodified, r.userid, u.firstname, u.lastname, '.sql_compare_text($sortcontentfull).' AS _order ';
             $count = ' COUNT(DISTINCT c.recordid) ';
             $tables = $CFG->prefix.'data_content c,'.$CFG->prefix.'data_records r,'.$CFG->prefix.'data_content cs, '.$CFG->prefix.'user u ';
             $where =  'WHERE c.recordid = r.id
@@ -590,7 +590,9 @@
 
             if ($mode == 'single') {                  // Single template
                 $baseurl = 'view.php?d=' . $data->id . '&amp;mode=single&amp;';
-                $search && $baseurl .= 'filter=1&amp;';
+                if (!empty($search)) {
+                    $baseurl .= 'filter=1&amp;';
+                }
                 print_paging_bar($totalcount, $page, $nowperpage, $baseurl, $pagevar='page');
 
                 if (empty($data->singletemplate)){
@@ -606,6 +608,9 @@
                 $baseurl = 'view.php?d='.$data->id.'&amp;';
                 //send the advanced flag through the URL so it is remembered while paging.
                 $baseurl .= 'advanced='.$advanced.'&amp;';
+                if (!empty($search)) {
+                    $baseurl .= 'filter=1&amp;';
+                }
                 //pass variable to allow determining whether or not we are paging through results.
                 $baseurl .= 'paging='.$paging.'&amp;';
 

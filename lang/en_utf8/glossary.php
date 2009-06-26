@@ -1,4 +1,4 @@
-<?PHP // $Id: glossary.php,v 1.8.2.2 2008/11/09 22:55:39 stronk7 Exp $
+<?PHP // $Id: glossary.php,v 1.8.2.3 2009/05/06 09:15:46 stronk7 Exp $
       // glossary.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -131,6 +131,7 @@ $string['importedcategories'] = 'Imported categories';
 $string['importedentries'] = 'Imported entries';
 $string['importentries'] = 'Import entries';
 $string['importentriesfromxml'] = 'Import entries from XML file';
+$string['invalidrate'] = 'Invalid glossary rate ($a)';
 $string['isglobal'] = 'Is this glossary global?';
 $string['linkcategory'] = 'Automatically link this category';
 $string['linking'] = 'Auto-linking';

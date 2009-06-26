@@ -1,4 +1,4 @@
-<?PHP  // $Id: lib.php,v 1.8.2.1 2008/01/24 20:29:31 skodak Exp $
+<?PHP  // $Id: lib.php,v 1.8.2.2 2009/04/22 21:29:23 skodak Exp $
 
 /// Library of functions and constants for module lams
 
@@ -90,18 +90,6 @@ function lams_cron () {
   global $CFG;
 
   return true;
-}
-
-function lams_grades($lamsid) {
-/// Must return an array of grades for a given instance of this module,
-/// indexed by user.  It also returns a maximum allowed grade.
-///
-///    $return->grades = array of grades;
-///    $return->maxgrade = maximum allowed grade;
-///
-///    return $return;
-
-  return NULL;
 }
 
 function lams_get_participants($lamsid) {

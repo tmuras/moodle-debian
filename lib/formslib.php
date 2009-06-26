@@ -1,4 +1,4 @@
-<?php // $Id: formslib.php,v 1.129.2.19 2008/12/01 07:09:44 tjhunt Exp $
+<?php // $Id: formslib.php,v 1.129.2.21 2009/03/18 07:08:25 tjhunt Exp $
 /**
  * formslib.php - library of classes for creating forms in Moodle, based on PEAR QuickForms.
  *
@@ -552,15 +552,17 @@ class moodleform {
         $mform->addElement('hidden', $repeathiddenname, $repeats);
         //value not to be overridden by submitted value
         $mform->setConstants(array($repeathiddenname=>$repeats));
-        for ($i=0; $i<$repeats; $i++) {
+        $namecloned = array();
+        for ($i = 0; $i < $repeats; $i++) {
             foreach ($elementobjs as $elementobj){
                 $elementclone = fullclone($elementobj);
                 $name = $elementclone->getName();
-                if (!empty($name)){
+                $namecloned[] = $name;
+                if (!empty($name)) {
                     $elementclone->setName($name."[$i]");
                 }
-                if (is_a($elementclone, 'HTML_QuickForm_header')){
-                    $value=$elementclone->_text;
+                if (is_a($elementclone, 'HTML_QuickForm_header')) {
+                    $value = $elementclone->_text;
                     $elementclone->setValue(str_replace('{no}', ($i+1), $value));
 
                 } else {
@@ -591,6 +593,12 @@ class moodleform {
                             $mform->setHelpButton($realelementname, $params);
                             break;
                         case 'disabledif' :
+                            foreach ($namecloned as $num => $name){
+                                if ($params[0] == $name){
+                                    $params[0] = $params[0]."[$i]";
+                                    break;
+                                }
+                            }
                             $params = array_merge(array($realelementname), $params);
                             call_user_func_array(array(&$mform, 'disabledIf'), $params);
                             break;
@@ -794,7 +802,8 @@ class MoodleQuickForm extends HTML_QuickForm_DHTMLRulesTableless {
             $this->_pageparams = '';
         }
         //no 'name' atttribute for form in xhtml strict :
-        $attributes = array('action'=>$action, 'method'=>$method, 'id'=>'mform'.$formcounter) + $target;
+        $attributes = array('action'=>$action, 'method'=>$method,
+                'accept-charset'=>'utf-8', 'id'=>'mform'.$formcounter) + $target;
         $formcounter++;
         $this->updateAttributes($attributes);
 

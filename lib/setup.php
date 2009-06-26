@@ -5,7 +5,7 @@
  * Normally this is only called by the main config.php file
  * Normally this file does not need to be edited.
  * @author Martin Dougiamas
- * @version $Id: setup.php,v 1.212.2.22 2009/01/06 13:09:13 skodak Exp $
+ * @version $Id: setup.php,v 1.212.2.24 2009/02/16 03:00:08 tjhunt Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package moodlecore
  */
@@ -88,6 +88,10 @@ global $HTTPSPAGEREQUIRED;
         trigger_error('Fatal: $CFG->wwwroot is not configured! Exiting.');
         die;
     }
+
+/// sometimes default PHP settings are borked on shared hosting servers, I wonder why they have to do that??
+    @ini_set('precision', 14); // needed for upgrades and gradebook
+
 
 /// store settings from config.php in array in $CFG - we can use it later to detect problems and overrides
     $CFG->config_php_settings = (array)$CFG;
@@ -237,6 +241,11 @@ global $HTTPSPAGEREQUIRED;
 /// Turn on SQL logging if required
     if (!empty($CFG->logsql)) {
         $db->LogSQL();
+        // And override ADODB's default logging time
+        if (isset($CFG->logsqlmintime)) {
+            global $ADODB_PERF_MIN;
+            $ADODB_PERF_MIN = $CFG->logsqlmintime;
+        }
     }
 
 /// Prevent warnings from roles when upgrading with debug on

@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.74.2.20 2009/01/16 04:47:36 tjhunt Exp $
+<?php  // $Id: questiontype.php,v 1.74.2.25 2009/04/01 15:48:57 skodak Exp $
 /**
  * The default questiontype class.
  *
@@ -229,22 +229,28 @@ class default_questiontype {
     }
 
     /**
-    * Saves or updates a question after editing by a teacher
+    * Saves (creates or updates) a question.
     *
     * Given some question info and some data about the answers
     * this function parses, organises and saves the question
     * It is used by {@link question.php} when saving new data from
     * a form, and also by {@link import.php} when importing questions
     * This function in turn calls {@link save_question_options}
-    * to save question-type specific options
-    * @param object $question the question object which should be updated
-    * @param object $form the form submitted by the teacher
-    * @param object $course the course we are in
+    * to save question-type specific data.
+    *
+    * Whether we are saving a new question or updating an existing one can be
+    * determined by testing !empty($question->id). If it is not empty, we are updating.
+    *
+    * The question will be saved in category $form->category.
+    *
+    * @param object $question the question object which should be updated. For a new question will be mostly empty.
+    * @param object $form the object containing the information to save, as if from the question editing form.
+    * @param object $course not really used any more.
     * @return object On success, return the new question object. On failure,
     *       return an object as follows. If the error object has an errors field,
     *       display that as an error message. Otherwise, the editing form will be
     *       redisplayed with validation errors, from validation_errors field, which
-    *       is itself an object, shown next to the form fields.
+    *       is itself an object, shown next to the form fields. (I don't think this is accurate any more.)
     */
     function save_question($question, $form, $course) {
         global $USER;
@@ -253,15 +259,15 @@ class default_questiontype {
         // question types.
 
         // First, save the basic question itself
-        $question->name               = trim($form->name);
-        $question->questiontext       = trim($form->questiontext);
+        $question->name = trim($form->name);
+        $question->questiontext = trim($form->questiontext);
         $question->questiontextformat = $form->questiontextformat;
-        $question->parent             = isset($form->parent)? $form->parent : 0;
+        $question->parent = isset($form->parent) ? $form->parent : 0;
         $question->length = $this->actual_number_of_questions($question);
         $question->penalty = isset($form->penalty) ? $form->penalty : 0;
 
         if (empty($form->image)) {
-            $question->image = "";
+            $question->image = '';
         } else {
             $question->image = $form->image;
         }
@@ -287,33 +293,18 @@ class default_questiontype {
             $question->defaultgrade = $form->defaultgrade;
         }
 
-        if (!empty($question->id) && !empty($form->categorymoveto)) { // Question already exists
-            list($movetocategory, $movetocontextid) = explode(',', $form->categorymoveto);
-            if ($movetocategory != $question->category){
-                question_require_capability_on($question, 'move');
-                $question->category = $movetocategory;
-                //don't need to test add permission of category we are moving question to.
-                //Only categories that we have permission to add
-                //a question to will get through the form cleaning code for the select box.
-            }
-            // keep existing unique stamp code
-            $question->stamp = get_field('question', 'stamp', 'id', $question->id);
+        list($question->category) = explode(',', $form->category);
+
+        if (!empty($question->id)) {
+        /// Question already exists, update.
             $question->modifiedby = $USER->id;
             $question->timemodified = time();
             if (!update_record('question', $question)) {
                 error('Could not update question!');
             }
-        } else {         // Question is a new one
-            if (isset($form->categorymoveto)){
-                // Doing save as new question, and we have move rights.
-                list($question->category, $notused) = explode(',', $form->categorymoveto);
-                //don't need to test add permission of category we are moving question to.
-                //Only categories that we have permission to add
-                //a question to will get through the form cleaning code for the select box.
-            } else {
-                // Really a new question.
-                list($question->category, $notused) = explode(',', $form->category);
-            }
+
+        } else {
+        /// New question.
             // Set the unique code
             $question->stamp = make_unique_id_code();
             $question->createdby = $USER->id;
@@ -321,13 +312,11 @@ class default_questiontype {
             $question->timecreated = time();
             $question->timemodified = time();
             if (!$question->id = insert_record('question', $question)) {
-                print_object($question);
                 error('Could not insert new question!');
             }
         }
 
         // Now to save all the answers and type-specific options
-
         $form->id = $question->id;
         $form->qtype = $question->qtype;
         $form->category = $question->category;
@@ -749,12 +738,15 @@ class default_questiontype {
     }
 
     // Used by the following function, so that it only returns results once per quiz page.
-    var $already_done = false;
+    var $htmlheadalreadydone = false; // no private in 1.9 yet!
     /**
      * If this question type requires extra CSS or JavaScript to function,
      * then this method will return an array of <link ...> tags that reference
      * those stylesheets. This function will also call require_js()
      * from ajaxlib.php, to get any necessary JavaScript linked in too.
+     *
+     * Remember that there may be more than one question of this type on a page.
+     * try to avoid including JS and CSS more than once.
      *
      * The two parameters match the first two parameters of print_question.
      *
@@ -766,32 +758,61 @@ class default_questiontype {
      * integer array keys, which have no significance.
      */
     function get_html_head_contributions(&$question, &$state) {
+        // We only do this once for this question type, no matter how often this
+        // method is called on one page.
+        if ($this->htmlheadalreadydone) {
+            return array();
+        }
+        $this->htmlheadalreadydone = true;
+
         // By default, we link to any of the files styles.css, styles.php,
         // script.js or script.php that exist in the plugin folder.
         // Core question types should not use this mechanism. Their styles
         // should be included in the standard theme.
+        return $this->find_standard_scripts_and_css();
+    }
 
-        // We only do this once
-        // for this question type, no matter how often this method is called.
-        if ($this->already_done) {
-            return array();
-        }
-        $this->already_done = true;
+    /**
+     * Like @see{get_html_head_contributions}, but this method is for CSS and
+     * JavaScript required on the question editing page question/question.php.
+     *
+     * @return an array of bits of HTML to add to the head of pages where
+     * this question is print_question-ed in the body. The array should use
+     * integer array keys, which have no significance.
+     */
+    function get_editing_head_contributions() {
+        // By default, we link to any of the files styles.css, styles.php,
+        // script.js or script.php that exist in the plugin folder.
+        // Core question types should not use this mechanism. Their styles
+        // should be included in the standard theme.
+        return $this->find_standard_scripts_and_css();
+    }
 
+    /**
+     * Utility method used by @see{get_html_head_contributions} and
+     * @see{get_editing_head_contributions}. This looks for any of the files
+     * styles.css, styles.php, script.js or script.php that exist in the plugin
+     * folder and ensures they get included.
+     *
+     * @return array as required by get_html_head_contributions or get_editing_head_contributions.
+     */
+    function find_standard_scripts_and_css() {
         $plugindir = $this->plugin_dir();
         $baseurl = $this->plugin_baseurl();
+
+        if (file_exists($plugindir . '/script.js')) {
+            require_js($baseurl . '/script.js');
+        }
+        if (file_exists($plugindir . '/script.php')) {
+            require_js($baseurl . '/script.php');
+        }
+
         $stylesheets = array();
         if (file_exists($plugindir . '/styles.css')) {
             $stylesheets[] = 'styles.css';
         }
         if (file_exists($plugindir . '/styles.php')) {
             $stylesheets[] = 'styles.php';
-        }
-        if (file_exists($plugindir . '/script.js')) {
-            require_js($baseurl . '/script.js');
-        }
-        if (file_exists($plugindir . '/script.php')) {
-            require_js($baseurl . '/script.php');
         }
         $contributions = array();
         foreach ($stylesheets as $stylesheet) {
@@ -1054,7 +1075,7 @@ class default_questiontype {
                     // print info about new penalty
                     // penalty is relevant only if the answer is not correct and further attempts are possible
                     if (($state->last_graded->raw_grade < $question->maxgrade / 1.01)
-                                and (QUESTION_EVENTCLOSEANDGRADE !== $state->event)) {
+                                and (QUESTION_EVENTCLOSEANDGRADE != $state->event)) {
 
                         if ('' !== $state->last_graded->penalty && ((float)$state->last_graded->penalty) > 0.0) {
                             // A penalty was applied so display it

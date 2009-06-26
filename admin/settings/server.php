@@ -1,4 +1,4 @@
-<?php // $Id: server.php,v 1.26.2.23 2008/12/14 23:30:58 jonathanharker Exp $
+<?php // $Id: server.php,v 1.26.2.29 2009/04/15 03:52:18 dongsheng Exp $
 
 // This file defines settingpages and externalpages under the "server" category
 
@@ -242,6 +242,16 @@ $ADMIN->add('server', new admin_externalpage('phpinfo', get_string('phpinfo'), "
 
 // "performance" settingpage
 $temp = new admin_settingpage('performance', get_string('performance', 'admin'));
+
+$temp->add(new admin_setting_configselect('extramemorylimit', get_string('extramemorylimit', 'admin'),
+                                          get_string('configextramemorylimit', 'admin'), '128M',
+                                          // if this option is set to 0, default 128M will be used
+                                          array( '64M' => '64M',
+                                                 '128M' => '128M',
+                                                 '256M' => '256M',
+                                                 '512M' => '512M',
+                                                 '1024M' => '1024M'
+                                             )));
 $temp->add(new admin_setting_special_selectsetup('cachetype', get_string('cachetype', 'admin'),
                                           get_string('configcachetype', 'admin'), '',
                                           array( '' => get_string('none'),

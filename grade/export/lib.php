@@ -1,4 +1,4 @@
-<?php // $Id: lib.php,v 1.45.2.6 2008/03/02 15:15:07 moodler Exp $
+<?php // $Id: lib.php,v 1.45.2.7 2009/04/29 20:57:32 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -191,8 +191,9 @@ class grade_export {
 
     /**
      * Prints preview of exported grades on screen as a feedback mechanism
+     * @param bool $require_user_idnumber true means skip users without idnumber
      */
-    function display_preview() {
+    function display_preview($require_user_idnumber=false) {
 
         print_heading(get_string('previewrows', 'grades'));
 
@@ -224,10 +225,11 @@ class grade_export {
                 break;
             }
             $user = $userdata->user;
-            // if (empty($user->idnumber)) {   // Not sure why this was here, ccommented out for MDL-13722
-            //     continue;
-            // }
-            
+            if ($require_user_idnumber and empty($user->idnumber)) {
+                // some exports require user idnumber
+                continue;
+            }
+
             $gradeupdated = false; // if no grade is update at all for this user, do not display this row
             $rowstr = '';
             foreach ($this->columns as $itemid=>$unused) {

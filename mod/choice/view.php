@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.102.2.8 2008/08/15 01:49:26 danmarsden Exp $
+<?php  // $Id: view.php,v 1.102.2.9 2009/02/09 09:52:59 danmarsden Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -34,9 +34,11 @@
             delete_records('choice_answers', 'id', $answer->id);
         }
     }
+    $navigation = build_navigation('', $cm);
+    print_header_simple(format_string($choice->name), "", $navigation, "", "", true,
+                  update_module_button($cm->id, $course->id, $strchoice), navmenu($course, $cm));
 
 /// Submit any new data if there is any
-
     if ($form = data_submitted() && has_capability('mod/choice:choose', $context)) {
         $timenow = time();
         if (has_capability('mod/choice:deleteresponses', $context)) {
@@ -52,16 +54,11 @@
         } else {
             choice_user_submit_response($answer, $choice, $USER->id, $course->id, $cm);
         }
-        redirect("view.php?id=$cm->id");
-        exit;
+        notify(get_string('choicesaved','choice'),'notifysuccess');
     }
 
 
 /// Display the choice and possibly results
-    $navigation = build_navigation('', $cm);
-    print_header_simple(format_string($choice->name), "", $navigation, "", "", true,
-                  update_module_button($cm->id, $course->id, $strchoice), navmenu($course, $cm));
-
     add_to_log($course->id, "choice", "view", "view.php?id=$cm->id", $choice->id, $cm->id);
 
     /// Check to see if groups are being used in this choice

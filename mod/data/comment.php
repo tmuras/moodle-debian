@@ -1,4 +1,4 @@
-<?php  // $Id: comment.php,v 1.19 2007/01/12 18:52:19 skodak Exp $
+<?php  // $Id: comment.php,v 1.19.4.1 2009/02/23 07:24:04 dongsheng Exp $
 
     require_once('../../config.php');
     require_once('lib.php');
@@ -28,8 +28,8 @@
     }
 
     require_login($course->id, false, $cm);
-
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    require_capability('mod/data:comment', $context);
 
     if ($commentid) {
         if (! $comment = get_record('data_comments', 'id', $commentid)) {

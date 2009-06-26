@@ -1,4 +1,4 @@
-<?php  //$Id: outcomeitem.php,v 1.15.2.7 2008/10/17 14:33:37 nicolasconnault Exp $
+<?php  //$Id: outcomeitem.php,v 1.15.2.8 2009/04/22 08:20:28 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -50,6 +50,8 @@ if ($mform->is_cancelled() || empty($CFG->enableoutcomes)) {
     redirect($returnurl);
 }
 
+$heading = get_string('outcomeitemsedit', 'grades');
+
 if ($grade_item = grade_item::fetch(array('id'=>$id, 'courseid'=>$courseid))) {
     // redirect if outcomeid present
     if (empty($grade_item->outcomeid)) {
@@ -69,6 +71,7 @@ if ($grade_item = grade_item::fetch(array('id'=>$id, 'courseid'=>$courseid))) {
     }
 
 } else {
+    $heading = get_string('newoutcomeitem', 'grades');
     $grade_item = new grade_item(array('courseid'=>$courseid, 'itemtype'=>'manual'), false);
     $item = $grade_item->get_record_data();
     $item->cmid = 0;
@@ -205,14 +208,7 @@ if ($data = $mform->get_data(false)) {
     redirect($returnurl);
 }
 
-$strgrades       = get_string('grades');
-$strgraderreport = get_string('graderreport', 'grades');
-$stroutcomesedit = get_string('outcomeitemsedit', 'grades');
-$stroutcome      = get_string('outcomeitem', 'grades');
-
-$navigation = grade_build_nav(__FILE__, $stroutcome, array('courseid' => $courseid));
-
-print_header_simple($strgrades . ': ' . $strgraderreport, ': ' . $stroutcomesedit, $navigation, '', '', true, '', navmenu($course));
+print_grade_page_head($courseid, 'edittree', null, $heading);
 
 if (!grade_outcome::fetch_all_available($COURSE->id)) {
     notice_yesno(get_string('nooutcomes', 'grades'), $CFG->wwwroot.'/grade/edit/outcome/course.php?id='.$courseid, $returnurl);

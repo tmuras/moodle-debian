@@ -1,4 +1,4 @@
-<?php  //$Id: edit_form.php,v 1.10.2.2 2008/03/03 10:21:42 nicolasconnault Exp $
+<?php  //$Id: edit_form.php,v 1.10.2.3 2009/04/22 08:40:31 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -143,7 +143,7 @@ class edit_scale_form extends moodleform {
 
             $options = explode(',', $data['scale']);
             if (count($options) < 2) {
-                $errors['scale'] = get_string('error');
+                $errors['scale'] = get_string('badlyformattedscale', 'grades');
             }
         }
 

@@ -1,4 +1,4 @@
-<?PHP // $Id: view.php,v 1.168.2.24 2008/12/01 22:06:55 skodak Exp $
+<?PHP // $Id: view.php,v 1.168.2.27 2009/04/09 08:30:10 skodak Exp $
 
 //  Display profile for a particular user
 
@@ -361,7 +361,14 @@
             print_row(get_string('courses').':', rtrim($courselisting,', '));
         }
     }
-
+    if (!isset($hiddenfields['firstaccess'])) {
+        if ($user->firstaccess) {
+            $datestring = userdate($user->firstaccess)."&nbsp; (".format_time(time() - $user->firstaccess).")";
+        } else {
+            $datestring = get_string("never");
+        }
+        print_row(get_string("firstaccess").":", $datestring);
+    }
     if (!isset($hiddenfields['lastaccess'])) {
         if ($user->lastaccess) {
             $datestring = userdate($user->lastaccess)."&nbsp; (".format_time(time() - $user->lastaccess).")";
@@ -377,15 +384,16 @@
     }
 
 /// Printing groups
-    $isseparategroups = ($course->groupmode == SEPARATEGROUPS and $course->groupmodeforce and
-                             !has_capability('moodle/site:accessallgroups', $coursecontext));
-    if (!$isseparategroups){
-        if ($usergroups = groups_get_all_groups($course->id, $user->id)){
-            $groupstr = '';
-            foreach ($usergroups as $group){
-                $groupstr .= ' <a href="'.$CFG->wwwroot.'/user/index.php?id='.$course->id.'&amp;group='.$group->id.'">'.format_string($group->name).'</a>,';
+    if (!isset($hiddenfields['groups'])) {
+        $isseparategroups = ($course->groupmode == SEPARATEGROUPS and !has_capability('moodle/site:accessallgroups', $coursecontext));
+        if (!$isseparategroups){
+            if ($usergroups = groups_get_all_groups($course->id, $user->id)){
+                $groupstr = '';
+                foreach ($usergroups as $group){
+                    $groupstr .= ' <a href="'.$CFG->wwwroot.'/user/index.php?id='.$course->id.'&amp;group='.$group->id.'">'.format_string($group->name).'</a>,';
+                }
+                print_row(get_string("group").":", rtrim($groupstr, ', '));
             }
-            print_row(get_string("group").":", rtrim($groupstr, ', '));
         }
     }
 /// End of printing groups

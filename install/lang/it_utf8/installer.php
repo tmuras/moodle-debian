@@ -16,7 +16,7 @@ $string['admindirsettingsub'] = 'Alcuni web host utilizzano la cartella /admin c
 Tutti i link che puntano ai file di amministrazione di Moodle terranno conto di questa variazione.';
 $string['bypassed'] = 'Aggirato';
 $string['cannotcreatelangdir'] = 'Non è possibile creare la cartella delle lingue.';
-$string['cannotcreatetempdir'] = 'Non è possibile creare la cartella temporanea.';
+$string['cannotcreatetempdir'] = 'Non è possibile creare la cartella temp';
 $string['cannotdownloadcomponents'] = 'Non è possibile scaricare componenti.';
 $string['cannotdownloadzipfile'] = 'Non è possibile scaricare file ZIP.';
 $string['cannotfindcomponent'] = 'Non è possibile trovare il componente.';
@@ -24,7 +24,7 @@ $string['cannotsavemd5file'] = 'Non è possibile salvare il file md5.';
 $string['cannotsavezipfile'] = 'Non è possibile salvare file ZIP.';
 $string['cannotunzipfile'] = 'Non è possibile decomprimere il file.';
 $string['caution'] = 'Attenzione';
-$string['check'] = 'Controlla';
+$string['check'] = 'Verifica';
 $string['chooselanguagehead'] = 'Scegli la lingua';
 $string['chooselanguagesub'] = 'Scegliete la lingua da usare durante l\'installazione. La lingua usata nel sito e dagli utenti potrà essere modificata in seguito.';
 $string['closewindow'] = 'Chiudi questa finestra';
@@ -118,9 +118,9 @@ $string['directorysettingssub'] = '<b>Indirizzo web:</b> Specificate l\'indirizz
 <b>Cartella di Moodle</b> Specificate il percorso assoluto della cartella dove state installando Moodle. Accertatevi che il nome della cartella tenga conto di eventuali lettere maiuscole o minuscole.
 <br/>
 <br/>
-<b>Cartella dei dati:</b> E\' la cartella dove Moodle inserirà i file caricati dagli utenti. Il web server (in genere \'nobody\' o \'apache\') DEVE avere i permessi di lettura e di scrittura su questa cartella. In aggiunta, la cartella dati non deve essere direttamente accessibile via web.';
+<b>Cartella dei dati:</b> E\' la cartella dove Moodle inserirà i file caricati dagli utenti. Il web server (in genere \'nobody\' o \'apache\') DEVE avere i permessi di lettura e di scrittura su questa cartella. In aggiunta, la cartella dei dati non deve essere direttamente accessibile via web.';
 $string['dirroot'] = 'Cartella di Moodle';
-$string['dirrooterror'] = 'L\'impostazione \'Cartella di Moodle\' sembra essere scorretta - non è possibile trovare un\'installazione di Moodle nel percorso specificato. Il valore sotto è stato ripristinato.';
+$string['dirrooterror'] = 'L\'impostazione \'Cartella di Moodle\' sembra essere errata - non è possibile trovare l\'installazione di Moodle nel percorso specificato. Il valore sotto riportato è stato ripristinato.';
 $string['download'] = 'Download';
 $string['downloadedfilecheckfailed'] = 'Il controllo del file scaricato non è andato a buon fine.';
 $string['downloadlanguagebutton'] = 'Scarica il language pack \"$a\";';
@@ -154,7 +154,7 @@ $string['globalsquotes'] = 'Gestione non sicura delle Globals';
 $string['globalsquoteserror'] = 'Correggere le impostazioni PHP: disabilitare register_globals e/o abilitare magic_quotes_gpc';
 $string['globalsquoteshelp'] = '<p>La combinazione Magic quotes disabilitata e Register Globals abilitata è sconsigliata.</p>
 
-<p>L\'impostazione consigliata pe ril vostro php.ini è: <b>magic_quotes_gpc = On</b> e <b>register_globals = Off</b>
+<p>L\'impostazione consigliata per il vostro php.ini è: <b>magic_quotes_gpc = On</b> e <b>register_globals = Off</b>
 
 <p>Qualora non abbiate accesso al file php.ini, potreste aggiungere le seguenti linee in un file .htaccess da salvare nella Cartella di Moodle:</p>
 <blockquote><div>php_value magic_quotes_gpc On</div></blockquote>
@@ -222,21 +222,22 @@ $string['postgres7'] = 'PostgreSQL (postgres7)';
 $string['previous'] = 'Precedente';
 $string['qtyperqpwillberemoved'] = 'Durante l\'aggiornamento, il tipo di domanda RQP sarà rimosso. Il sito non ha utilizzato tale tipo di domanda, per cui non si dovrebbe manifestare alcun problema.';
 $string['qtyperqpwillberemovedanyway'] = 'Durante l\'aggiornamento, il tipo di domanda RQP sarà rimosso. Il sito ha alcune domande RPQ nel database e queste non funzioneranno più a meno di reinstallare il codice da http://moodle.org/mod/data/view.php?d=13&amp;rid=797 prima di continuare con l\'aggiornamento.';
+$string['remotedownloaderror'] = 'Lo scaricamento delle componenti non è andato a buon fine. Verificate le impostazioni del proxy. L\'estensione PHP cURL è fortemente consigliata.<br /><br />Dovete scaricare manualmente il file <a href=\"$a->url\">$a->url</a>, copiarlo in \"$a->dest\" e decomprimerlo.';
 $string['remotedownloadnotallowed'] = 'Non è permesso scaricare i componenti su vostro server (allow_url_fopen è disabilitato). <br /><br /> È necessario scaricare manualmente il file <a href=\"$a->url\">$a->url</a>, copiarlo in \"$a->dest\" sul vostro server e scompattarlo la.';
 $string['report'] = 'Report';
 $string['restricted'] = 'Ridotto';
 $string['safemode'] = 'Safe Mode';
 $string['safemodeerror'] = 'Moodle può avere problemi con il safe mode impostato a on';
-$string['safemodehelp'] = '<p>Moodle può avere diversi problemi con il paramentro safemode impostato a on, non ultima l\'impossibilità  di creare nuovi file.</p>
-<p>Safemode è normalmente abiltato da paranoici web server pubblici, se è cosi l\'unica soluzine è trovare un nuovo web server per il tuo sito di Moodle.</p>
-<p>È possibile a continuare l\'installazione se si vuole, ma aspettatevi alcuni problemi dopo.</p>';
+$string['safemodehelp'] = '<p>Moodle può avere diversi problemi con l\'impostazione Safe Mode ad on, non ultima l\'impossibilità  di creare nuovi file.</p>
+<p>Safe mode è normalmente abiltato da paranoici web server pubblici, se è cosi l\'unica soluzione è trovare un nuovo web server per il tuo sito di Moodle.</p>
+<p>È possibile a continuare l\'installazione se si vuole, ma aspettatevi alcuni problemi in seguito.</p>';
 $string['serverchecks'] = 'Controlli Server';
 $string['sessionautostart'] = 'Session Auto Start';
 $string['sessionautostarterror'] = 'Dovrebbe essere impostata ad off';
 $string['sessionautostarthelp'] = '<p>Moodle richiede il supporto delle sessioni e non funziona senza.</p>
 <p>Le sessioni possono essere abilitate nel file php.ini ... cerca il parametro session.auto_start.</p>';
 $string['skipdbencodingtest'] = 'Salta il test della codifica del Database';
-$string['status'] = 'Status';
+$string['status'] = 'Stato';
 $string['thischarset'] = 'UTF-8';
 $string['thisdirection'] = 'ltr';
 $string['thislanguage'] = 'Italiano';
@@ -251,10 +252,10 @@ $string['welcomep50'] = 'L\'utilizzo delle applicazioni incluse in questo pacche
 $string['welcomep60'] = 'Le prossime pagine vi guideranno attraverso semplici passi per installare e configurare <strong>Moodle</strong> nel vostro computer. Potete utilizzare le impostazioni di default oppure modificarle per adeguarle alle vostre esigenze.';
 $string['welcomep70'] = 'Fate click sul pulsante \"Avanti\" per continuare l\'installazione di <strong>Moodle</strong>.';
 $string['wrongdestpath'] = 'Percorso della destinazione errato.';
-$string['wrongsourcebase'] = 'Indirizzo (URL) base errato.';
-$string['wrongzipfilename'] = 'Il nome del file ZIP è sbagliato.';
+$string['wrongsourcebase'] = 'Indirizzo (URL) sorgente errato.';
+$string['wrongzipfilename'] = 'Il nome del file ZIP è errato.';
 $string['wwwroot'] = 'Indirizzo web';
 $string['wwwrooterror'] = 'L\'indirizzo web sembra non essere valido - questa installazione di Moodle non sembra trovarsi dove indicato. L\'indirizzo è stato reimpostato';
 $string['xmlrpcrecommended'] = 'L\'installazione della estensione opzionale xmlrpc è utile per le funzionalità del Moodle Networking.';
-$string['ziprequired'] = 'Ora Moodle richiede l\'estensione Zip PHP. Gli esguibili info-ZIP o la libreria PclZip non è più usata.';
+$string['ziprequired'] = 'Ora Moodle richiede l\'estensione Zip PHP. Gli eseguibili info-ZIP o la libreria PclZip non è più utilizzata.';
 ?>

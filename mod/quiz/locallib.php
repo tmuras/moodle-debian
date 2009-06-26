@@ -1,4 +1,4 @@
-<?php  // $Id: locallib.php,v 1.127.2.13 2008/09/26 05:55:37 tjhunt Exp $
+<?php  // $Id: locallib.php,v 1.127.2.14 2009/03/18 05:16:43 tjhunt Exp $
 /**
  * Library of functions used by the quiz module.
  *
@@ -291,24 +291,6 @@ function quiz_get_all_question_grades($quiz) {
         }
     }
     return $grades;
-}
-
-/**
- * Get the best current grade for a particular user in a quiz.
- *
- * @param object $quiz the quiz object.
- * @param integer $userid the id of the user.
- * @return float the user's current grade for this quiz.
- */
-function quiz_get_best_grade($quiz, $userid) {
-    $grade = get_field('quiz_grades', 'grade', 'quiz', $quiz->id, 'userid', $userid);
-
-    // Need to detect errors/no result, without catching 0 scores.
-    if (is_numeric($grade)) {
-        return round($grade, $quiz->decimalpoints);
-    } else {
-        return NULL;
-    }
 }
 
 /**

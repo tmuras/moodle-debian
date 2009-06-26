@@ -1,4 +1,4 @@
-<?PHP // $Id: choice.php,v 1.6.4.3 2008/01/18 00:39:01 danmarsden Exp $
+<?PHP // $Id: choice.php,v 1.6.4.5 2009/03/18 23:05:09 danmarsden Exp $
       // choice.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -33,7 +33,7 @@ $string['notanswered'] = 'Not answered yet';
 $string['notopenyet'] = 'Sorry, this activity is not available until $a';
 $string['privacy'] = 'Privacy of results';
 $string['publish'] = 'Publish results';
-$string['publishafteranswer'] = 'Show results to a student after they answer';
+$string['publishafteranswer'] = 'Show results to students after they answer';
 $string['publishafterclose'] = 'Show results to students only after the choice is closed';
 $string['publishalways'] = 'Always show results to students';
 $string['publishanonymous'] = 'Publish anonymous results, do not show student names';
@@ -51,5 +51,6 @@ $string['taken'] = 'Taken';
 $string['timerestrict'] = 'Restrict answering to this time period';
 $string['viewallresponses'] = 'View $a responses';
 $string['yourselection'] = 'Your selection';
+$string['choicesaved'] = 'Your choice has been saved';
 
 ?>

@@ -1,4 +1,4 @@
-<?php //$Id: restore.php,v 1.44.2.4 2008/12/11 04:37:11 dongsheng Exp $
+<?php //$Id: restore.php,v 1.44.2.6 2009/03/30 10:04:57 dongsheng Exp $
     //This script is used to configure and execute the restore proccess.
 
     //Define some globals for all the script
@@ -147,7 +147,11 @@
 
     //Adjust some php variables to the execution of this script
     @ini_set("max_execution_time","3000");
-    raise_memory_limit("192M");
+    if (empty($CFG->extramemorylimit)) {
+        raise_memory_limit('128M');
+    } else {
+        raise_memory_limit($CFG->extramemorylimit);
+    }
 
     //Call the form, depending the step we are
 

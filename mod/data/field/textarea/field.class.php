@@ -1,4 +1,4 @@
-<?php // $Id: field.class.php,v 1.19 2007/02/26 06:56:09 toyomoyo Exp $
+<?php // $Id: field.class.php,v 1.19.2.2 2009/03/23 21:34:31 thepurpleblob Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //

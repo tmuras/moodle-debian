@@ -1,4 +1,4 @@
-<?php // $Id: mysql.class.php,v 1.38 2007/10/10 05:25:24 nicolasconnault Exp $
+<?php // $Id: mysql.class.php,v 1.38.2.3 2009/05/11 15:04:30 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -125,6 +125,8 @@ class XMLDBmysql extends XMLDBGenerator {
                     $dbtype .= '(' . $xmldb_length;
                     if (!empty($xmldb_decimals)) {
                         $dbtype .= ',' . $xmldb_decimals;
+                    } else {
+                        $dbtype .= ', 0'; // In MySQL, if length is specified, decimals are mandatory for FLOATs
                     }
                     $dbtype .= ')';
                 }
@@ -336,9 +338,9 @@ class XMLDBmysql extends XMLDBGenerator {
      */
     function getReservedWords() {
     /// This file contains the reserved words for MySQL databases
-    /// from http://dev.mysql.com/doc/refman/5.0/en/reserved-words.html
+    /// from http://dev.mysql.com/doc/refman/6.0/en/reserved-words.html
         $reserved_words = array (
-            'add', 'all', 'alter', 'analyze', 'and', 'as', 'asc',
+            'accessible', 'add', 'all', 'alter', 'analyze', 'and', 'as', 'asc',
             'asensitive', 'before', 'between', 'bigint', 'binary',
             'blob', 'both', 'by', 'call', 'cascade', 'case', 'change',
             'char', 'character', 'check', 'collate', 'column',
@@ -357,14 +359,14 @@ class XMLDBmysql extends XMLDBGenerator {
             'infile', 'inner', 'inout', 'insensitive', 'insert', 'int', 'int1',
             'int2', 'int3', 'int4', 'int8', 'integer', 'interval', 'into', 'is',
             'iterate', 'join', 'key', 'keys', 'kill', 'leading', 'leave', 'left',
-            'like', 'limit', 'lines', 'load', 'localtime', 'localtimestamp',
-            'lock', 'long', 'longblob', 'longtext', 'loop', 'low_priority',
-            'match', 'mediumblob', 'mediumint', 'mediumtext',
+            'like', 'limit', 'linear', 'lines', 'load', 'localtime', 'localtimestamp',
+            'lock', 'long', 'longblob', 'longtext', 'loop', 'low_priority', 'master_heartbeat_period',
+            'master_ssl_verify_server_cert', 'match', 'mediumblob', 'mediumint', 'mediumtext',
             'middleint', 'minute_microsecond', 'minute_second',
             'mod', 'modifies', 'natural', 'not', 'no_write_to_binlog',
             'null', 'numeric', 'on', 'optimize', 'option', 'optionally',
-            'or', 'order', 'out', 'outer', 'outfile', 'precision', 'primary',
-            'procedure', 'purge', 'raid0', 'read', 'reads', 'real',
+            'or', 'order', 'out', 'outer', 'outfile', 'overwrite', 'precision', 'primary',
+            'procedure', 'purge', 'raid0', 'range', 'read', 'read_only', 'read_write', 'reads', 'real',
             'references', 'regexp', 'release', 'rename', 'repeat', 'replace',
             'require', 'restrict', 'return', 'revoke', 'right', 'rlike', 'schema',
             'schemas', 'second_microsecond', 'select', 'sensitive',

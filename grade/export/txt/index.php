@@ -1,4 +1,4 @@
-<?php  //$Id: index.php,v 1.31.2.1 2007/12/07 01:40:45 toyomoyo Exp $
+<?php  //$Id: index.php,v 1.31.2.3 2009/05/04 13:14:17 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -39,13 +39,7 @@ $context = get_context_instance(CONTEXT_COURSE, $id);
 require_capability('moodle/grade:export', $context);
 require_capability('gradeexport/txt:view', $context);
 
-
-$strgrades = get_string('grades', 'grades');
-$actionstr = get_string('modulename', 'gradeexport_txt');
-$navigation = grade_build_nav(__FILE__, $actionstr, array('courseid' => $course->id));
-
-print_header($course->shortname.': '.get_string('grades'), $course->fullname, $navigation);
-print_grade_plugin_selector($id, 'export', 'txt');
+print_grade_page_head($COURSE->id, 'export', 'txt', get_string('exportto', 'grades') . ' ' . get_string('modulename', 'gradeexport_txt'));
 
 if (!empty($CFG->gradepublishing)) {
     $CFG->gradepublishing = has_capability('gradeexport/txt:publish', $context);
@@ -53,9 +47,17 @@ if (!empty($CFG->gradepublishing)) {
 
 $mform = new grade_export_form(null, array('includeseparator'=>true, 'publishing' => true));
 
+$groupmode    = groups_get_course_groupmode($course);   // Groups are being used
+$currentgroup = groups_get_course_group($course, true);
+if ($groupmode == SEPARATEGROUPS and !$currentgroup and !has_capability('moodle/site:accessallgroups', $context)) {
+    print_heading(get_string("notingroup"));
+    print_footer($course);
+    die;    
+}
+
 // process post information
 if ($data = $mform->get_data()) {
-    $export = new grade_export_txt($course, groups_get_course_group($course), '', false, false, $data->display, $data->decimals);
+    $export = new grade_export_txt($course, $currentgroup, '', false, false, $data->display, $data->decimals);
 
     // print the grades on screen for feedback
 

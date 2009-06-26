@@ -1,4 +1,4 @@
-<?php // $Id: resource.class.php,v 1.71.2.21 2009/01/08 02:19:44 jerome Exp $
+<?php // $Id: resource.class.php,v 1.71.2.26 2009/05/07 20:39:46 stronk7 Exp $
 
 /**
 * Extend the base resource class for file resources
@@ -570,7 +570,7 @@ class resource_file extends resource_base {
                      '<script type="text/javascript">'."\n".
                      '//<![CDATA['."\n".
                        'var FO = { movie:"'.$CFG->wwwroot.'/filter/mediaplugin/flvplayer.swf?file='.$cleanurl.'",'."\n".
-                         'width:"600", height:"400", majorversion:"6", build:"40", allowscriptaccess:"never", quality: "high" };'."\n".
+                         'width:"600", height:"400", majorversion:"6", build:"40", allowscriptaccess:"never", allowfullscreen:"true", quality: "high" };'."\n".
                        'UFO.create(FO, "'.$id.'");'."\n".
                      '//]]>'."\n".
                      '</script>'."\n";
@@ -706,7 +706,6 @@ class resource_file extends resource_base {
 
             if ($inpopup) {
                 echo "<div class=\"popupnotice\">(<a href=\"$fullurl\">$strdirectlink</a>)</div>";
-                echo "</div>"; // MDL-12098
                 print_footer($course); // MDL-12098
             } else {
                 print_spacer(20,20);
@@ -733,11 +732,11 @@ class resource_file extends resource_base {
 
         if (!empty($this->resource->reference) && file_exists($CFG->dirroot ."/mod/resource/type/file/externserverfile.php")) {
             include $CFG->dirroot ."/mod/resource/type/file/externserverfile.php";
-            if (function_exists(extern_server_file)) {
+            if (function_exists('extern_server_file')) {
                 return extern_server_file($this->resource->reference);
             }
         }
-        return md5($_SERVER['REMOTE_ADDR'].$CFG->resource_secretphrase);
+        return md5(getremoteaddr().$CFG->resource_secretphrase);
     }
 
     function setup_preprocessing(&$defaults){
@@ -791,8 +790,9 @@ class resource_file extends resource_base {
 
         $this->set_parameters(); // set the parameter array for the form
 
-        $mform->addElement('choosecoursefile', 'reference', get_string('location'));
+        $mform->addElement('choosecoursefile', 'reference', get_string('location'), null, array('maxlength' => 255, 'size' => 48));
         $mform->setDefault('reference', $CFG->resource_defaulturl);
+        $mform->addGroupRule('reference', array('value' => array(array(get_string('maximumchars', '', 255), 'maxlength', 255, 'client'))));
         $mform->addRule('name', null, 'required', null, 'client');
 
         if (!empty($CFG->resource_websearch)) {

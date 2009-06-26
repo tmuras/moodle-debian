@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.286.2.30 2009/01/23 02:10:11 tjhunt Exp $
+<?php // $Id: index.php,v 1.286.2.31 2009/02/13 15:46:35 stronk7 Exp $
 
 /// Check that config.php exists, if not then call the install script
     if (!file_exists('../config.php')) {
@@ -290,6 +290,7 @@
 
                 require_once($CFG->libdir.'/environmentlib.php');
                 print_heading(get_string('environment', 'admin'));
+                remove_dir($CFG->dataroot . '/environment'); /// Always delete downloaded env. info to force use of the released one. MDL-9796
                 if (!check_moodle_environment($release, $environment_results, true)) {
                     if (empty($CFG->skiplangupgrade)) {
                         print_box_start('generalbox', 'notice'); // MDL-8330

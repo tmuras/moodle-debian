@@ -1,4 +1,4 @@
-<?php // $Id: latex.php,v 1.9 2007/09/11 13:55:33 thepurpleblob Exp $
+<?php // $Id: latex.php,v 1.9.2.1 2009/03/31 10:23:53 skodak Exp $
     // latex.php
     // render TeX stuff using latex - this will not work on all platforms
     // or configurations. Only works on Linux and Mac with appropriate 
@@ -44,9 +44,11 @@
          * @return string the latex document
          */
         function construct_latex_document( $formula, $fontsize=12 ) {
-            // $fontsize don't affects to formula's size. $density can change size
-
             global $CFG;
+
+            $formula = tex_sanitize_formula($formula);
+
+            // $fontsize don't affects to formula's size. $density can change size
             $doc =  "\\documentclass[{$fontsize}pt]{article}\n"; 
             $doc .=  $CFG->filter_tex_latexpreamble;
             $doc .= "\\pagestyle{empty}\n";

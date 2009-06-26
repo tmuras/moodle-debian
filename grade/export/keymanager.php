@@ -1,4 +1,4 @@
-<?php  //$Id: index.php,v 1.22 2007/08/28 08:29:41 skodak Exp $
+<?php  //$Id: keymanager.php,v 1.2 2007/08/29 11:43:50 nicolasconnault Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -37,11 +37,7 @@ $context = get_context_instance(CONTEXT_COURSE, $id);
 
 require_capability('moodle/grade:export', $context);
 
-$strgrades = get_string('grades', 'grades');
-$navigation = grade_build_nav(__FILE__, null, array('courseid' => $course->id));
-
-print_header($course->shortname.': '.get_string('grades'), $course->fullname, $navigation);
-print_grade_plugin_selector($id, '', '');
+print_grade_page_head($course->id, 'export', 'keymanager', get_string('keymanager', 'grades'));
 
 $stredit         = get_string('edit');
 $strdelete       = get_string('delete');

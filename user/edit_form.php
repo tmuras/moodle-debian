@@ -1,4 +1,4 @@
-<?php //$Id: edit_form.php,v 1.24.2.10 2009/01/12 02:05:12 peterbulmer Exp $
+<?php //$Id: edit_form.php,v 1.24.2.11 2009/03/07 21:01:39 skodak Exp $
 
 require_once($CFG->dirroot.'/lib/formslib.php');
 
@@ -96,12 +96,13 @@ class user_edit_form extends moodleform {
                     }
                 }
             }
-            
+
+            /// Next the customisable profile fields
+            profile_definition_after_data($mform, $user->id);
+
+        } else {
+            profile_definition_after_data($mform, 0);
         }
-
-        /// Next the customisable profile fields
-        profile_definition_after_data($mform);
-
     }
 
     function validation($usernew, $files) {

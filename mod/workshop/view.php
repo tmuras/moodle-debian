@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.67.2.3 2008/01/21 13:39:52 nicolasconnault Exp $
+<?php  // $Id: view.php,v 1.67.2.5 2009/05/07 12:13:10 ericmerrill Exp $
 
 /*************************************************
     ACTIONS handled are:
@@ -68,7 +68,7 @@
     }
 
     // ...display header...
-    $navigation = build_navigation($action, $cm);    
+    $navigation = build_navigation($action, $cm);
     print_header_simple(format_string($workshop->name), "", $navigation,
                   "", "", true, update_module_button($cm->id, $course->id, $strworkshop), navmenu($course, $cm));
 
@@ -105,6 +105,11 @@
             echo "<td align=\"center\"><b>".get_string("overallgrade", "workshop")."</b></td></tr>\n";
             foreach ($submissions as $submission) {
                 $grade = workshop_submission_grade($workshop, $submission);
+                if ($workshop->wtype) {
+                    $gradinggrade = workshop_gradinggrade($workshop, $student);
+                } else { // ignore grading grades for simple assignments
+                    $gradinggrade = 0;
+                }
                 echo "<tr><td>".workshop_print_submission_title($workshop, $submission)."</td>\n";
                 if ($workshop->wtype) {
                     echo "<td align=\"center\">".workshop_print_user_assessments($workshop, $USER, $gradinggrade)."</td>";
@@ -168,10 +173,10 @@
                 echo "<tr align=\"center\"><td>";
                 echo "<input type=\"button\" value=\"".get_string("cancel").
                     "\" onclick=\"parent.location='../../course/view.php?id=$course->id';\">  ";
-                echo "<input type=\"button\" value=\"".get_string("continue").
-                    "\" onclick=\"document.password.submit();\" />";
-                echo "</td></tr></table>";
+                echo "<input type=\"submit\" value=\"".get_string("continue")."\"/>";
+                echo "</td></tr></table></form>";
                 print_simple_box_end();
+                print_footer($course);
                 exit();
             }
         }
@@ -361,7 +366,7 @@
             print_footer($course);
             exit;
         }
-        
+
         if (!empty($CFG->enablegroupings) && !empty($cm->groupingid) && !empty($users)) {
             $groupingusers = groups_get_grouping_members($cm->groupingid, 'u.id', 'u.id');
             foreach($users as $key => $user) {

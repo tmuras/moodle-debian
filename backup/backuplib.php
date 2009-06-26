@@ -1,4 +1,4 @@
-<?php //$Id: backuplib.php,v 1.179.2.38 2009/01/24 00:20:51 stronk7 Exp $
+<?php //$Id: backuplib.php,v 1.179.2.43 2009/05/07 23:53:14 stronk7 Exp $
     //This file contains all the function needed in the backup utility
     //except the mod-related funtions that are into every backuplib.php inside
     //every mod directory
@@ -235,7 +235,7 @@
         }
         rs_close($backup_users);
         //Gets the user data
-        $info[0][0] = get_string("userswithfiles");
+        $info[0][0] = get_string('userswithfiles', 'moodle');
         $info[0][1] = $count;
 
         return $info;
@@ -2323,6 +2323,12 @@
             $includedfiles = array();
         }
 
+        //Check if we support unicode modifiers in regular expressions. Cache it.
+        static $unicoderegexp;
+        if (!isset($unicoderegexp)) {
+            $unicoderegexp = @preg_match('/\pL/u', 'a'); // This will fail silenty, returning false,
+        }                                                // if regexp libraries don't support unicode
+
         //Check if preferences is ok. If it isn't set, we are
         //in a scheduled_backup to we are able to get a copy
         //from CFG->backup_preferences
@@ -2332,14 +2338,27 @@
             //We are in manual backups so global preferences must exist!!
             $mypreferences = $preferences;
         }
-
         //First, we check for every call to file.php inside the course
         $search = array($CFG->wwwroot.'/file.php/'.$mypreferences->backup_course,
-                        $CFG->wwwroot.'/file.php?file=/'.$mypreferences->backup_course);
+                        $CFG->wwwroot.'/file.php?file=/'.$mypreferences->backup_course,
+                        $CFG->wwwroot.'/file.php?file=%2f'.$mypreferences->backup_course,
+                        $CFG->wwwroot.'/file.php?file=%2F'.$mypreferences->backup_course);
 
-        $replace = array('$@FILEPHP@$','$@FILEPHP@$');
+        $replace = array('$@FILEPHP@$', '$@FILEPHP@$', '$@FILEPHP@$', '$@FILEPHP@$');
 
         $result = str_replace($search,$replace,$content);
+
+        // Now we look for any '$@FILEPHP@$' URLs, replacing:
+        //     - slashes and %2F by $@SLASH@$
+        //     - &forcedownload=1 &amp;forcedownload=1 and ?forcedownload=1 by $@FORCEDOWNLOAD@$
+        // This way, backup contents will be neutral and independent of slasharguments configuration. MDL-18799
+        // Based in $unicoderegexp, decide the regular expression to use
+        if ($unicoderegexp) { //We can use unicode modifiers
+            $search = '/(\$@FILEPHP@\$)((?:(?:\/|%2f|%2F))(?:(?:\([-;:@#&=\pL0-9\$~_.+!*\',]*?\))|[-;:@#&=\pL0-9\$~_.+!*\',]|%[a-fA-F0-9]{2}|\/)*)?(\?(?:(?:(?:\([-;:@#&=\pL0-9\$~_.+!*\',]*?\))|[-;:@#&=?\pL0-9\$~_.+!*\',]|%[a-fA-F0-9]{2}|\/)*))?(?<![,.;])/';
+        } else { //We cannot ue unicode modifiers
+            $search = '/(\$@FILEPHP@\$)((?:(?:\/|%2f|%2F))(?:(?:\([-;:@#&=a-zA-Z0-9\$~_.+!*\',]*?\))|[-;:@#&=a-zA-Z0-9\$~_.+!*\',]|%[a-fA-F0-9]{2}|\/)*)?(\?(?:(?:(?:\([-;:@#&=a-zA-Z0-9\$~_.+!*\',]*?\))|[-;:@#&=?a-zA-Z0-9\$~_.+!*\',]|%[a-fA-F0-9]{2}|\/)*))?(?<![,.;])/';
+        }
+        $result = preg_replace_callback($search, 'backup_process_filephp_uses', $result);
 
         foreach ($mypreferences->mods as $name => $info) {
         /// We only include the corresponding backuplib.php if it hasn't been included before
@@ -2397,6 +2416,21 @@
         if ($result != $content) {
             debugging('<br /><hr />'.s($content).'<br />changed to<br />'.s($result).'<hr /><br />');
         }
+
+        return $result;
+    }
+
+    /**
+     * Callback preg_replace function used by backup_encode_absolute_links()
+     * to process $@FILEPHP@$ URLs to get slasharguments independent URLs
+     */
+    function backup_process_filephp_uses($matches) {
+
+        // Replace slashes (plain and encoded) and forcedownload=1 parameter
+        $search = array('/', '%2f', '%2F', '?forcedownload=1', '&forcedownload=1', '&amp;forcedownload=1');
+        $replace = array('$@SLASH@$', '$@SLASH@$', '$@SLASH@$', '$@FORCEDOWNLOAD@$', '$@FORCEDOWNLOAD@$', '$@FORCEDOWNLOAD@$');
+
+        $result = $matches[1] . (isset($matches[2]) ? str_replace($search, $replace, $matches[2]) : '') . (isset($matches[3]) ? str_replace($search, $replace, $matches[3]) : '');
 
         return $result;
     }
@@ -2809,9 +2843,14 @@
             }
         }
 
-        // foreach context, call get_roles_on_exact_context insert into array
+        // foreach context, call get_roles_on_exact_context + get_roles_with_override_on_context() and insert into array
         foreach ($contexts as $context) {
-            if ($proles = get_roles_on_exact_context($context)) {
+            if ($proles = get_roles_on_exact_context($context)) { // Look for roles assignments
+                foreach ($proles as $prole) {
+                    $roles[$prole->id] = $prole;
+                }
+            }
+            if ($proles = get_roles_with_override_on_context($context)) { // Look for roles overrides
                 foreach ($proles as $prole) {
                     $roles[$prole->id] = $prole;
                 }

@@ -1,4 +1,4 @@
-<?PHP // $Id: data.php,v 1.53.4.18 2009/01/08 01:01:05 jerome Exp $
+<?PHP // $Id: data.php,v 1.53.4.20 2009/05/06 10:16:54 stronk7 Exp $
 
 $string['action'] = 'Action';
 $string['add'] = 'Add entry';
@@ -41,9 +41,10 @@ $string['configenablerssfeeds'] = 'This switch will enable the possibility of RS
 $string['confirmdeletefield'] = 'You are about to delete this field, are you sure?';
 $string['confirmdeleterecord'] = 'Are you sure you want to delete this entry?';
 $string['csstemplate'] = 'CSS template';
+$string['csvfailed'] = 'Unable to read the raw data from the CSV file';
 $string['csvfile'] = 'CSV file';
-$string['csvwithselecteddelimiter'] = '<acronym title=\"Comma Separated Values\">CSV</acronym> text with selected delimiter:';
 $string['csvimport'] = 'CSV file import';
+$string['csvwithselecteddelimiter'] = '<acronym title=\"Comma Separated Values\">CSV</acronym> text with selected delimiter:';
 $string['data:approve'] = 'Approve unapproved entries';
 $string['data:comment'] = 'Write comments';
 $string['data:managecomments'] = 'Manage comments';
@@ -105,6 +106,7 @@ $string['fieldname'] = 'Field name';
 $string['fieldoptions'] = 'Options (one per line)';
 $string['fields'] = 'Fields';
 $string['fieldids'] = 'Field ids';
+$string['fieldnotmatched'] = 'The following fields in your file are not known in this database: $a';
 $string['fieldupdated'] = 'Field updated';
 $string['fieldwidth'] = 'Width';
 $string['fieldwidthlistview'] = 'Width in list view';
@@ -129,6 +131,7 @@ $string['importsuccess'] = 'The preset has been successfully applied.';
 $string['insufficiententries'] = 'more entries needed to view this database';
 $string['intro'] = 'Introduction';
 $string['invalidfieldname'] = 'Please choose another name for this field';
+$string['invalidrate'] = 'Invalid database rate ($a)';
 $string['invalidurl'] = 'The URL you just entered is not valid';
 $string['jstemplate'] = 'Javascript template';
 $string['latitude'] = 'Latitude';

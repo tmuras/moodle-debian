@@ -1,4 +1,4 @@
-<?php
+<?php  // $Id: edit_random_form.php,v 1.6.2.3 2009/02/19 01:09:35 tjhunt Exp $
 /**
  * Defines the editing form for the random question type.
  *
@@ -35,6 +35,10 @@ class question_edit_random_form extends question_edit_form {
                 array('contexts' => $this->contexts->having_cap('moodle/question:useall')));
 
         $mform->addElement('advcheckbox', 'questiontext', get_string("recurse", "quiz"), null, null, array(0, 1));
+
+        $mform->addElement('hidden', 'name');
+        $mform->setType('name', PARAM_ALPHA);
+        $mform->setDefault('name', '');
 
         // Standard fields at the end of the form.
         $mform->addElement('hidden', 'questiontextformat', 0);

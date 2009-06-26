@@ -1,4 +1,4 @@
-<?php // $Id: lib.php,v 1.43.2.41 2008/09/19 10:02:30 scyrma Exp $
+<?php // $Id: lib.php,v 1.43.2.42 2009/03/02 21:36:50 mudrd8mz Exp $
 
 /**
  * Moodle tag library
@@ -28,7 +28,7 @@
  *
  * Tag set will create tags that need to be created.
  *
- * @version: $Id: lib.php,v 1.43.2.41 2008/09/19 10:02:30 scyrma Exp $
+ * @version: $Id: lib.php,v 1.43.2.42 2009/03/02 21:36:50 mudrd8mz Exp $
  * @licence http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package moodlecore
  * @subpackage tag
@@ -992,13 +992,11 @@ function tag_set_flag($tagids) {
 function tag_unset_flag($tagids) {
     global $CFG;
 
-    require_capability('moodle/tag:manage', get_context_instance(CONTEXT_SYSTEM));
-
     if ( is_array($tagids) ) {
         $tagids = implode(',', $tagids);
     }
     $timemodified = time();
-    return execute_sql("UPDATE {$CFG->prefix}tag tg SET tg.flag = 0, tg.timemodified = $timemodified WHERE tg.id IN ($tagids)", false);
+    return execute_sql("UPDATE {$CFG->prefix}tag SET flag = 0, timemodified = $timemodified WHERE id IN ($tagids)", false);
 }
 
 ?>

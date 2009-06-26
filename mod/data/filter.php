@@ -1,4 +1,4 @@
-<?php // $Id: filter.php,v 1.11 2007/01/04 18:23:58 skodak Exp $
+<?php // $Id: filter.php,v 1.11.4.1 2009/02/16 17:57:19 stronk7 Exp $
     //
     // This function provides automatic linking to data contents of text
     // fields where these fields have autolink enabled.
@@ -39,7 +39,7 @@
                             'AND d.id = dr.dataid ' .
                             'AND dr.id = dc.recordid ' .
                             "AND df.type = 'text' " .
-                            'AND df.param1 = 1';
+                            "AND " . sql_compare_text('df.param1', 1) . " = '1'";
 
             if (!$datacontents = get_records_sql($sql)) {
                 return $text;

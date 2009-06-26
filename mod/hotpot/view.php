@@ -1,4 +1,4 @@
-<?PHP // $Id: view.php,v 1.38.2.7 2008/12/10 06:30:24 dongsheng Exp $
+<?PHP // $Id: view.php,v 1.38.2.8 2009/05/01 08:06:09 dongsheng Exp $
     /// This page prints a hotpot quiz
     if (defined('HOTPOT_FIRST_ATTEMPT') && HOTPOT_FIRST_ATTEMPT==false) {
         // this script is being included (by attempt.php)
@@ -58,7 +58,7 @@
         if (!hotpot_is_visible($cm)) {
             $error = get_string("activityiscurrentlyhidden");
         // check network address
-        } else if ($hotpot->subnet && !address_in_subnet($_SERVER['REMOTE_ADDR'], $hotpot->subnet)) {
+        } else if ($hotpot->subnet && !address_in_subnet(getremoteaddr(), $hotpot->subnet)) {
             $error = get_string("subneterror", "quiz");
         // check number of attempts
         } else if ($hotpot->attempts && $hotpot->attempts <= count_records_select('hotpot_attempts', 'hotpot='.$hotpot->id.' AND userid='.$USER->id, 'COUNT(DISTINCT clickreportid)')) {

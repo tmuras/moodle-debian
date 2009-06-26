@@ -1,9 +1,9 @@
-<?php // $Id: locallib.php,v 1.71.2.4 2008/01/21 13:39:51 nicolasconnault Exp $
+<?php // $Id: locallib.php,v 1.71.2.5 2009/03/17 16:24:47 mark-nielsen Exp $
 /**
  * Local library file for Lesson.  These are non-standard functions that are used
  * only by Lesson.
  *
- * @version $Id: locallib.php,v 1.71.2.4 2008/01/21 13:39:51 nicolasconnault Exp $
+ * @version $Id: locallib.php,v 1.71.2.5 2009/03/17 16:24:47 mark-nielsen Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -1444,7 +1444,7 @@ function lesson_grade($lesson, $ntries, $userid = 0) {
                     $earned += $essayinfo->score;
                     $nmanual++;
                     $manualpoints += $answers[$attempt->answerid]->score;
-                } else {
+                } else if (!empty($attempt->answerid)) {
                     $earned += $answers[$attempt->answerid]->score;
                 }
             } else {

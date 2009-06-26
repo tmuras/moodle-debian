@@ -1,4 +1,4 @@
-<?php  // $Id: format.php,v 1.35.2.11 2008/08/28 13:43:25 thepurpleblob Exp $
+<?php  // $Id: format.php,v 1.35.2.12 2009/03/18 11:16:59 thepurpleblob Exp $
 /**
  * Base class for question import and export formats.
  *
@@ -239,7 +239,8 @@ class qformat_default {
 
         // check for errors before we continue
         if ($this->stoponerror and ($this->importerrors>0)) {
-            return false;
+            notify( get_string('importparseerror','quiz') );
+            return true;
         }
 
         // get list of valid answer grades

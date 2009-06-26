@@ -1,4 +1,4 @@
-<?php // $Id: lib.php,v 1.30.2.10 2008/08/28 17:42:01 skodak Exp $
+<?php // $Id: lib.php,v 1.30.2.14 2009/05/04 13:12:09 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -109,6 +109,12 @@ class grade_report {
     var $currentgroup;
 
     /**
+     * Current course group mode
+     * @var int $groupmode
+     */
+    var $groupmode;
+
+    /**
      * A HTML select element used to select the current group.
      * @var string $group_selector
      */
@@ -125,7 +131,6 @@ class grade_report {
      * @var string $groupwheresql
      */
     var $groupwheresql;
-
 
     /**
      * Constructor. Sets local copies of user preferences and initialises grade_tree.
@@ -156,6 +161,9 @@ class grade_report {
         // roles to be displayed in the gradebook
         $this->gradebookroles = $CFG->gradebookroles;
 
+        // Set up link to preferences page
+        $this->preferences_page = $CFG->wwwroot.'/grade/report/grader/preferences.php?id='.$courseid;
+
         // init gtree in child class
     }
 
@@ -182,7 +190,7 @@ class grade_report {
             } elseif (isset($CFG->$fullprefname)) {
                 $retval = get_user_preferences($fullprefname, $CFG->$fullprefname);
             } elseif (isset($CFG->$shortprefname)) {
-                $retval = get_user_preferences($fullprefname, $CFG->$shortprefname); 
+                $retval = get_user_preferences($fullprefname, $CFG->$shortprefname);
             } else {
                 $retval = null;
             }
@@ -292,12 +300,18 @@ class grade_report {
         global $CFG;
 
         /// find out current groups mode
-        $this->group_selector = groups_print_course_menu($this->course, $this->pbarurl, true);
-        $this->currentgroup = groups_get_course_group($this->course);
+        if ($this->groupmode = groups_get_course_groupmode($this->course)) {
+            $this->currentgroup = groups_get_course_group($this->course, true);
+            $this->group_selector = groups_print_course_menu($this->course, $this->pbarurl, true);
 
-        if ($this->currentgroup) {
-            $this->groupsql = " JOIN {$CFG->prefix}groups_members gm ON gm.userid = u.id ";
-            $this->groupwheresql = " AND gm.groupid = $this->currentgroup ";
+            if ($this->groupmode == SEPARATEGROUPS and !$this->currentgroup and !has_capability('moodle/site:accessallgroups', $this->context)) {
+                $this->currentgroup = -2; // means can not accesss any groups at all
+            }
+
+            if ($this->currentgroup) {
+                $this->groupsql = " JOIN {$CFG->prefix}groups_members gm ON gm.userid = u.id ";
+                $this->groupwheresql = " AND gm.groupid = $this->currentgroup ";
+            }
         }
     }
 
@@ -308,10 +322,11 @@ class grade_report {
      * @param string HTML
      */
     function get_sort_arrow($direction='move', $sort_link=null) {
-        $matrix = array('up' => 'asc', 'down' => 'desc', 'move' => 'desc');
+        $matrix = array('up' => 'desc', 'down' => 'asc', 'move' => 'desc');
         $strsort = $this->get_lang_string('sort' . $matrix[$direction]);
+
         $arrow = print_arrow($direction, $strsort, true);
-        $html = '<a href="'.$sort_link .'">' . $arrow . '</a>';
+        $html = '<a href="'.$sort_link .'" title="'.$strsort.'">' . $arrow . '</a>';
         return $html;
     }
 }

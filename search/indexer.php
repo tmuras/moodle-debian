@@ -30,15 +30,15 @@
 @ob_implicit_flush(true);
 @ob_end_flush();
 
-/**
-* includes and requires
-*/
-require_once('../config.php');
-require_once("$CFG->dirroot/search/lib.php");
+    /**
+    * includes and requires
+    */
+    require_once('../config.php');
+    require_once($CFG->dirroot.'/search/lib.php');
+
 //require_once("debugging.php");
 
-$separator = (array_key_exists('WINDIR', $_SERVER)) ? ';' : ':' ;
-    ini_set('include_path', $CFG->dirroot.'\search'.$separator.ini_get('include_path'));
+    ini_set('include_path', $CFG->dirroot.DIRECTORY_SEPARATOR.'search'.PATH_SEPARATOR.ini_get('include_path'));
 
 /// only administrators can index the moodle installation, because access to all pages is required
 
@@ -90,7 +90,7 @@ $separator = (array_key_exists('WINDIR', $_SERVER)) ? ';' : ':' ;
 
     if (!file_exists($index_path)) {
         mtrace("Data directory ($index_path) does not exist, attempting to create.");
-        if (!mkdir($index_path)) {
+        if (!mkdir($index_path, $CFG->directorypermissions)) {
             search_pexit("Error creating data directory at: $index_path. Please correct.");
         } 
         else {

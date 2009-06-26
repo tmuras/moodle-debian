@@ -1,8 +1,8 @@
-<?php // $Id: continue.php,v 1.39.2.8 2008/11/26 15:13:51 thepurpleblob Exp $
+<?php // $Id: continue.php,v 1.39.2.9 2009/03/17 16:24:47 mark-nielsen Exp $
 /**
  * Action for processing page answers by users
  *
- * @version $Id: continue.php,v 1.39.2.8 2008/11/26 15:13:51 thepurpleblob Exp $
+ * @version $Id: continue.php,v 1.39.2.9 2009/03/17 16:24:47 mark-nielsen Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -122,7 +122,7 @@
                     $expectedanswer = str_replace('#####', '.*', $expectedanswer);
                 }
                 // see if user typed in any of the correct answers
-                if (lesson_iscorrect($pageid, $answer->jumpto) and ($lesson->custom && $answer->score > 0) ) {
+                if ((!$lesson->custom && lesson_iscorrect($pageid, $answer->jumpto)) or ($lesson->custom && $answer->score > 0) ) {
                     if (!$useregexp) { // we are using 'normal analysis', which ignores case
                         if (preg_match('/^'.$expectedanswer.'$/i',$useranswer)) {
                             $ismatch = true;

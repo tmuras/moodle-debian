@@ -1,4 +1,4 @@
-<?php  //$Id: outcomeitem_form.php,v 1.12.2.14 2008/10/22 09:09:32 nicolasconnault Exp $
+<?php  //$Id: outcomeitem_form.php,v 1.12.2.15 2009/04/24 16:24:10 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -102,6 +102,9 @@ class edit_outcomeitem_form extends moodleform {
                 if ($cat->aggregation == GRADE_AGGREGATE_WEIGHTED_MEAN) {
                     $coefstring = ($coefstring=='' or $coefstring=='aggregationcoefweight') ? 'aggregationcoefweight' : 'aggregationcoef';
 
+                } else if ($cat->aggregation == GRADE_AGGREGATE_WEIGHTED_MEAN2) {
+                    $coefstring = ($coefstring=='' or $coefstring=='aggregationcoefextrasum') ? 'aggregationcoefextrasum' : 'aggregationcoef';
+
                 } else if ($cat->aggregation == GRADE_AGGREGATE_EXTRACREDIT_MEAN) {
                     $coefstring = ($coefstring=='' or $coefstring=='aggregationcoefextra') ? 'aggregationcoefextra' : 'aggregationcoef';
 
@@ -200,6 +203,9 @@ class edit_outcomeitem_form extends moodleform {
                     $aggcoef = '';
                     if ($parent_category->aggregation == GRADE_AGGREGATE_WEIGHTED_MEAN) {
                         $aggcoef = 'aggregationcoefweight';
+
+                    } else if ($parent_category->aggregation == GRADE_AGGREGATE_WEIGHTED_MEAN2) {
+                        $aggcoef = 'aggregationcoefextrasum';
 
                     } else if ($parent_category->aggregation == GRADE_AGGREGATE_EXTRACREDIT_MEAN) {
                         $aggcoef = 'aggregationcoefextra';

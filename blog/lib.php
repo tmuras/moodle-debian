@@ -1,4 +1,4 @@
-<?php //$Id: lib.php,v 1.80.2.16 2008/07/10 09:48:43 scyrma Exp $
+<?php //$Id: lib.php,v 1.80.2.18 2009/05/08 12:07:00 skodak Exp $
 
     /**
      * Library of functions and constants for blog
@@ -179,7 +179,7 @@
         echo '</td>';
 
         echo '<td class="topic starter"><div class="subject">'.$template['title'].'</div><div class="author">';
-        $fullname = fullname($user, $template['userid']);
+        $fullname = fullname($user, has_capability('moodle/site:viewfullnames', get_context_instance(CONTEXT_COURSE, $COURSE->id)));
         $by = new object();
         $by->name =  '<a href="'.$CFG->wwwroot.'/user/view.php?id='.
                     $user->id.'&amp;course='.$COURSE->id.'">'.$fullname.'</a>';
@@ -220,7 +220,7 @@
         echo '<div class="audience">'.$blogtype.'</div>';
 
         // Print whole message
-        echo format_text($template['body']);
+        echo $template['body'];
 
         /// Print attachments
         echo $attachedimages;

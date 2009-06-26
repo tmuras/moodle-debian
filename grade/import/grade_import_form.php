@@ -1,4 +1,4 @@
-<?php // $Id: grade_import_form.php,v 1.16.2.1 2008/07/04 20:48:18 skodak Exp $
+<?php // $Id: grade_import_form.php,v 1.16.2.2 2009/04/27 08:47:54 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -27,6 +27,8 @@ require_once($CFG->libdir.'/gradelib.php');
 
 class grade_import_form extends moodleform {
     function definition (){
+        global $COURSE;
+
         $mform =& $this->_form;
 
         if (isset($this->_customdata)) {  // hardcoding plugin names here is hacky
@@ -63,6 +65,8 @@ class grade_import_form extends moodleform {
         $options = array('10'=>10, '20'=>20, '100'=>100, '1000'=>1000, '100000'=>100000);
         $mform->addElement('select', 'previewrows', get_string('rowpreviewnum', 'grades'), $options); // TODO: localize
         $mform->setType('previewrows', PARAM_INT);
+        $mform->addElement('hidden', 'groupid', groups_get_course_group($COURSE));
+        $mform->setType('groupid', PARAM_INT);
         $this->add_action_buttons(false, get_string('uploadgrades', 'grades'));
     }
 }
@@ -70,7 +74,7 @@ class grade_import_form extends moodleform {
 class grade_import_mapping_form extends moodleform {
 
     function definition () {
-        global $CFG;
+        global $CFG, $COURSE;
         $mform =& $this->_form;
 
         // this is an array of headers
@@ -129,6 +133,8 @@ class grade_import_mapping_form extends moodleform {
         $mform->setType('separator', PARAM_ALPHA);
         $mform->addElement('hidden', 'separator', 'comma');
         $mform->setType('verbosescales', PARAM_INT);
+        $mform->addElement('hidden', 'groupid', groups_get_course_group($COURSE));
+        $mform->setType('groupid', PARAM_INT);
         $this->add_action_buttons(false, get_string('uploadgrades', 'grades'));
 
     }

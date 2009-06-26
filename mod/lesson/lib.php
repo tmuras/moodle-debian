@@ -1,8 +1,8 @@
-<?php  // $Id: lib.php,v 1.41.2.7 2009/01/09 06:16:52 tjhunt Exp $
+<?php  // $Id: lib.php,v 1.41.2.10 2009/04/09 11:19:50 skodak Exp $
 /**
  * Standard library of functions and constants for lesson
  *
- * @version $Id: lib.php,v 1.41.2.7 2009/01/09 06:16:52 tjhunt Exp $
+ * @version $Id: lib.php,v 1.41.2.10 2009/04/09 11:19:50 skodak Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package lesson
  **/
@@ -427,6 +427,19 @@ function lesson_grade_item_update($lesson, $grades=NULL) {
     if ($grades  === 'reset') {
         $params['reset'] = true;
         $grades = NULL;
+    } else if (!empty($grades)) {
+        // Need to calculate raw grade (Note: $grades has many forms)
+        if (is_object($grades)) {
+            $grades = array($grades->userid => $grades);
+        } else if (array_key_exists('userid', $grades)) {
+            $grades = array($grades['userid'] => $grades);
+        }
+        foreach ($grades as $key => $grade) {
+            if (!is_array($grade)) {
+                $grades[$key] = $grade = (array) $grade;
+            }
+            $grades[$key]['rawgrade'] = ($grade['rawgrade'] * $lesson->grade / 100);
+        }
     }
 
     return grade_update('mod/lesson', $lesson->course, 'mod', 'lesson', $lesson->id, 0, $grades, $params);
@@ -657,6 +670,14 @@ function lesson_reset_userdata($data) {
  */
 function lesson_get_extra_capabilities() {
     return array('moodle/site:accessallgroups');
+}
+
+/**
+ * Tells if files in moddata are trusted and can be served without XSS protection.
+ * @return bool true if file can be submitted by teacher only (trusted), false otherwise
+ */
+function lesson_is_moddata_trusted() {
+    return true;
 }
 
 ?>

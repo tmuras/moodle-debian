@@ -1,4 +1,4 @@
-<?php // $Id: accesslib.php,v 1.421.2.97 2009/01/14 04:44:08 tjhunt Exp $
+<?php // $Id: accesslib.php,v 1.421.2.105 2009/05/11 00:02:43 stronk7 Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -141,7 +141,6 @@ define('CONTEXT_SYSTEM', 10);
 define('CONTEXT_USER', 30);
 define('CONTEXT_COURSECAT', 40);
 define('CONTEXT_COURSE', 50);
-define('CONTEXT_GROUP', 60);
 define('CONTEXT_MODULE', 70);
 define('CONTEXT_BLOCK', 80);
 
@@ -160,12 +159,35 @@ define('ROLENAME_BOTH', 2);    // Both, like this:  Role alias (Original)
 
 require_once($CFG->dirroot.'/group/lib.php');
 
+if (!defined('MAX_CONTEXT_CACHE_SIZE')) { 
+    define('MAX_CONTEXT_CACHE_SIZE', 5000);
+}
+
 $context_cache    = array();    // Cache of all used context objects for performance (by level and instance)
 $context_cache_id = array();    // Index to above cache by id
 
 $DIRTYCONTEXTS = null; // dirty contexts cache
 $ACCESS = array(); // cache of caps for cron user switching and has_capability for other users (==not $USER)
 $RDEFS = array(); // role definitions cache - helps a lot with mem usage in cron
+
+/**
+ * Adds a context to the cache.
+ * @param object $context Context object to be cached
+ */
+function cache_context($context) {
+    global $context_cache, $context_cache_id;
+
+    // If there are too many items in the cache already, remove items until
+    // there is space
+    while (count($context_cache_id) >= MAX_CONTEXT_CACHE_SIZE) {
+        $first = array_shift($context_cache_id);
+        unset($context_cache[$first->contextlevel][$first->instanceid]);
+    }
+
+    // Add this context to the cache
+    $context_cache_id[$context->id] = $context;
+    $context_cache[$context->contextlevel][$context->instanceid] = $context;
+}
 
 function get_role_context_caps($roleid, $context) {
     //this is really slow!!!! - do not use above course context level!
@@ -960,6 +982,11 @@ function get_user_courses_bycap($userid, $cap, $accessdata, $doanything, $sort='
     } else {
         $fields = $basefields;
     }
+    // If any of the fields is '*', leave it alone, discarding the rest
+    // to avoid ambiguous columns under some silly DBs. See MDL-18746 :-D
+    if (in_array('*', $fields)) {
+        $fields = array('*');
+    }
     $coursefields = 'c.' .implode(',c.', $fields);
 
     $sort = trim($sort);
@@ -1252,9 +1279,9 @@ function get_user_access_sitewide($userid) {
             JOIN {$CFG->prefix}role_capabilities rco
               ON (rco.roleid=ra.roleid AND rco.contextid=sctx.id)
             WHERE ra.userid = $userid
-                  AND sctx.contextlevel <= ".CONTEXT_COURSE."
+              AND ctx.contextlevel <= ".CONTEXT_COURSECAT."
+              AND sctx.contextlevel <= ".CONTEXT_COURSE."
             ORDER BY sctx.depth, sctx.path, ra.roleid";
-
     $rs = get_recordset_sql($sql);
     if ($rs) {
         while ($rd = rs_fetch_next_record($rs)) {
@@ -2397,13 +2424,6 @@ function cleanup_contexts() {
               LEFT OUTER JOIN {$CFG->prefix}block_instance t
                 ON c.instanceid = t.id
               WHERE t.id IS NULL AND c.contextlevel = " . CONTEXT_BLOCK . "
-            UNION
-              SELECT c.contextlevel,
-                     c.instanceid
-              FROM {$CFG->prefix}context c
-              LEFT OUTER JOIN {$CFG->prefix}groups t
-                ON c.instanceid = t.id
-              WHERE t.id IS NULL AND c.contextlevel = " . CONTEXT_GROUP . "
            ";
     if ($rs = get_recordset_sql($sql)) {
         begin_sql();
@@ -2462,8 +2482,7 @@ function preload_course_contexts($courseid) {
 
     $rs = get_recordset_sql($sql);
     while($context = rs_fetch_next_record($rs)) {
-        $context_cache[$context->contextlevel][$context->instanceid] = $context;
-        $context_cache_id[$context->id] = $context;
+        cache_context($context);
     }
     rs_close($rs);
     $preloadedcourses[$courseid] = true;
@@ -2480,7 +2499,7 @@ function preload_course_contexts($courseid) {
 function get_context_instance($contextlevel, $instance=0) {
 
     global $context_cache, $context_cache_id, $CFG;
-    static $allowed_contexts = array(CONTEXT_SYSTEM, CONTEXT_USER, CONTEXT_COURSECAT, CONTEXT_COURSE, CONTEXT_GROUP, CONTEXT_MODULE, CONTEXT_BLOCK);
+    static $allowed_contexts = array(CONTEXT_SYSTEM, CONTEXT_USER, CONTEXT_COURSECAT, CONTEXT_COURSE, CONTEXT_MODULE, CONTEXT_BLOCK);
 
     if ($contextlevel === 'clearcache') {
         // TODO: Remove for v2.0
@@ -2515,8 +2534,7 @@ function get_context_instance($contextlevel, $instance=0) {
 
     /// Only add to cache if context isn't empty.
         if (!empty($context)) {
-            $context_cache[$contextlevel][$instance] = $context;    // Cache it for later
-            $context_cache_id[$context->id]          = $context;    // Cache it for later
+            cache_context($context);
         }
 
         return $context;
@@ -2559,8 +2577,7 @@ function get_context_instance($contextlevel, $instance=0) {
             }
 
             if (!empty($context)) {
-                $context_cache[$contextlevel][$instance] = $context;    // Cache it for later
-                $context_cache_id[$context->id] = $context;             // Cache it for later
+                cache_context($context);
             }
 
             $result[$instance] = $context;
@@ -2589,8 +2606,7 @@ function get_context_instance_by_id($id) {
     }
 
     if ($context = get_record('context', 'id', $id)) {   // Update the cache and return
-        $context_cache[$context->contextlevel][$context->instanceid] = $context;
-        $context_cache_id[$context->id] = $context;
+        cache_context($context);
         return $context;
     }
 
@@ -3456,14 +3472,6 @@ function print_context_name($context, $withprefix = true, $short = false) {
             }
             break;
 
-        case CONTEXT_GROUP: // 1 to 1 to course
-            if ($name = groups_get_group_name($context->instanceid)) {
-                if ($withprefix){
-                    $name = get_string('group').': '. $name;
-                }
-            }
-            break;
-
         case CONTEXT_MODULE: // 1 to 1 to course
             if ($cm = get_record('course_modules','id',$context->instanceid)) {
                 if ($module = get_record('modules','id',$cm->module)) {
@@ -3558,20 +3566,30 @@ function fetch_context_capabilities($context) {
             $cm = get_record('course_modules', 'id', $context->instanceid);
             $module = get_record('modules', 'id', $cm->module);
 
-            $extra = "";
             $modfile = "$CFG->dirroot/mod/$module->name/lib.php";
             if (file_exists($modfile)) {
                 include_once($modfile);
                 $modfunction = $module->name.'_get_extra_capabilities';
                 if (function_exists($modfunction)) {
-                    if ($extracaps = $modfunction()) {
-                        foreach ($extracaps as $key=>$value) {
-                            $extracaps[$key]= "'$value'";
-                        }
-                        $extra = implode(',', $extracaps);
-                        $extra = "OR name IN ($extra)";
-                    }
+                    $extracaps = $modfunction();
                 }
+            }
+            if(empty($extracaps)) {
+                $extracaps = array();
+            }
+
+            // All modules allow viewhiddenactivities. This is so you can hide
+            // the module then override to allow specific roles to see it.
+            // The actual check is in course page so not module-specific
+            $extracaps[]="moodle/course:viewhiddenactivities";
+            if (count($extracaps) == 1) {
+                $extra = "OR name = '".reset($extracaps)."'";
+            } else {
+                foreach ($extracaps as $key=>$value) {
+                    $extracaps[$key]= "'$value'";
+                }
+                $extra = implode(',', $extracaps);
+                $extra = "OR name IN ($extra)";
             }
 
             $SQL = "SELECT *
@@ -3742,33 +3760,14 @@ function get_child_contexts($context) {
             return array();
         break;
 
-        case CONTEXT_GROUP:
-            // No children.
-            return array();
-        break;
-
         case CONTEXT_COURSE:
             // Find
             // - module instances - easy
-            // - groups
             // - blocks assigned to the course-view page explicitly - easy
-            // - blocks pinned (note! we get all of them here, regardless of vis)
             $sql = " SELECT ctx.*
                      FROM {$CFG->prefix}context ctx
                      WHERE ctx.path LIKE '{$context->path}/%'
                            AND ctx.contextlevel IN (".CONTEXT_MODULE.",".CONTEXT_BLOCK.")
-                    UNION
-                     SELECT ctx.*
-                     FROM {$CFG->prefix}context ctx
-                     JOIN {$CFG->prefix}groups  g
-                       ON (ctx.instanceid=g.id AND ctx.contextlevel=".CONTEXT_GROUP.")
-                     WHERE g.courseid={$context->instanceid}
-                    UNION
-                     SELECT ctx.*
-                     FROM {$CFG->prefix}context ctx
-                     JOIN {$CFG->prefix}block_pinned  b
-                       ON (ctx.instanceid=b.blockid AND ctx.contextlevel=".CONTEXT_BLOCK.")
-                     WHERE b.pagetype='course-view'
             ";
             $rs  = get_recordset_sql($sql);
             $records = array();
@@ -3963,10 +3962,6 @@ function get_component_string($component, $contextlevel) {
             } else {
                 $string = get_string('course');
             }
-        break;
-
-        case CONTEXT_GROUP:
-            $string = get_string('group');
         break;
 
         case CONTEXT_MODULE:
@@ -4242,9 +4237,11 @@ function get_assignable_roles($context, $field='name', $rolenamedisplay=ROLENAME
 function get_assignable_roles_for_switchrole($context, $field='name', $rolenamedisplay=ROLENAME_ALIAS) {
     global $USER, $CFG;
 
-    if (!has_capability('moodle/role:assign', $context)) {
-        return array();
-    } 
+    if (!$CFG->allowuserswitchrolestheycantassign) { //config implemented for MDL-11313
+        if (!has_capability('moodle/role:assign', $context)) {
+            return array();
+        }
+    }
 
     $parents = get_parent_contexts($context);
     $parents[] = $context->id;
@@ -4260,7 +4257,9 @@ function get_assignable_roles_for_switchrole($context, $field='name', $rolenamed
                                                      {$CFG->prefix}role_capabilities rc
                                                WHERE ra.userid = $USER->id AND ra.contextid IN ($contexts)
                                                  AND raa.roleid = ra.roleid AND r.id = raa.allowassign
-                                                 AND r.id = rc.roleid AND rc.capability = 'moodle/course:view' AND rc.capability != 'moodle/site:doanything'
+                                                 AND r.id = rc.roleid AND rc.capability = 'moodle/course:view' AND rc.permission = " . CAP_ALLOW . "
+                                                 AND NOT EXISTS (SELECT 1 FROM {$CFG->prefix}role_capabilities irc
+                                                        WHERE irc.roleid = r.id AND irc.capability = 'moodle/site:doanything' AND irc.permission = " . CAP_ALLOW . ")
                                           ) inline_view
                                     WHERE ro.id = inline_view.id
                                  ORDER BY ro.sortorder ASC")) {

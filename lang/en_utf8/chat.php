@@ -1,4 +1,4 @@
-<?PHP // $Id: chat.php,v 1.5.8.6 2008/12/16 04:54:27 dongsheng Exp $ 
+<?PHP // $Id: chat.php,v 1.5.8.7 2009/03/11 02:21:46 dongsheng Exp $ 
       // chat.php - created with Moodle 1.7 beta + (2006101003)
 
 $string['autoscroll'] = 'Auto Scroll';
@@ -50,6 +50,7 @@ $string['nomessages'] = 'No messages yet';
 $string['normalkeepalive'] = 'KeepAlive';
 $string['normalstream'] = 'Stream';
 $string['noscheduledsession'] = 'No scheduled session';
+$string['notallowenter'] = 'You are not allow to enter the chat room.';
 $string['oldping'] = 'Disconnect timeout';
 $string['pastchats'] = 'Past chat sessions';
 $string['refreshroom'] = 'Refresh room';

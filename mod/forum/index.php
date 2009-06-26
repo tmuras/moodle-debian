@@ -1,4 +1,4 @@
-<?php  // $Id: index.php,v 1.104.2.12 2008/10/07 08:13:01 scyrma Exp $
+<?php  // $Id: index.php,v 1.104.2.13 2009/03/08 23:49:59 poltawski Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -121,12 +121,14 @@
     if (!is_null($subscribe) and !isguestuser() and !isguest()) {
         foreach ($modinfo->instances['forum'] as $forumid=>$cm) {
             $forum = $forums[$forumid];
+            $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id); 
             $cansub = false;
-            if (has_capability('mod/forum:viewdiscussion', $cm)) {
+
+            if (has_capability('mod/forum:viewdiscussion', $modcontext)) {
                 $cansub = true;
             }
             if ($cansub && $cm->visible == 0 &&
-                !has_capability('mod/forum:managesubscriptions', $cm)) 
+                !has_capability('mod/forum:managesubscriptions', $modcontext)) 
             {
                 $cansub = false;
             }

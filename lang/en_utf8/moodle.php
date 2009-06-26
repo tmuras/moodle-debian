@@ -1,4 +1,4 @@
-<?PHP // $Id: moodle.php,v 1.141.2.55 2009/01/27 06:35:44 tjhunt Exp $
+<?PHP // $Id: moodle.php,v 1.141.2.61 2009/03/11 10:35:57 stronk7 Exp $
       // moodle.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -278,6 +278,15 @@ $string['coursefiles'] = 'Course files';
 $string['courseformatdata'] = 'Course format data';
 $string['courseformats'] = 'Course formats';
 $string['coursegrades'] = 'Course grades';
+$string['coursehelpcategory'] = 'Position the course on the course listing and may make it easier for students to find it.';
+$string['coursehelpformat'] = 'The course main page will be displayed in this format.';
+$string['coursehelpnumberweeks'] = 'Number of weeks/topics displayed on the course main page.';
+$string['coursehelphiddensections'] = 'How the hidden sections in the course are displayed to students.';
+$string['coursehelpnewsitemsnumber'] = 'Number of recent items appearing on the course home page, in a news box down the right-hand side <br/>(0 means the news box won\'t appear)
+.';
+$string['coursehelpshowgrades'] = 'Enable the display of the gradebook. It does not prevent grades from being displayed within the individual activities.';
+$string['coursehelpmaximumupload'] = 'Define the largest size of file that can be uploaded by students in this course, limited by the site wide setting.';
+$string['coursehelpmetacourse'] = 'Set the course a metacourse. A meta course takes enrolments (and other role assignments) from a \"child\" course or courses.';
 $string['coursehidden'] = 'This course is currently unavailable to students';
 $string['courseimportnotaught'] = 'You don\'t seem to be an editing teacher in any other courses, there are no courses for you to import from.';
 $string['courseinfo'] = 'Course info';
@@ -306,6 +315,7 @@ $string['courserequestsupport'] = 'Supporting information to help the administra
 $string['courserestore'] = 'Course restore';
 $string['courses'] = 'Courses';
 $string['coursescategory'] = 'Courses in the same category';
+$string['coursesettings'] = 'Course default settings';
 $string['coursesmovedout'] = 'Courses moved out from $a';
 $string['coursespending'] = 'Courses pending approval';
 $string['coursestaught'] = 'Courses I have taught';
@@ -643,6 +653,7 @@ $string['files'] = 'Files';
 $string['filesfolders'] = 'Files/folders';
 $string['filloutallfields'] = 'Please fill out all fields in this form';
 $string['findmorecourses'] = 'Find more courses...';
+$string['firstaccess'] = 'First access';
 $string['firstdayofweek'] = '0';
 $string['firstname'] = 'First name';
 $string['firsttime'] = 'Is this your first time here?';
@@ -1211,6 +1222,7 @@ $string['potentialteachers'] = 'Potential teachers';
 $string['preferences'] = 'Preferences';
 $string['preferredlanguage'] = 'Preferred language';
 $string['preferredtheme'] = 'Preferred theme';
+$string['preprocessingbackupfile'] = 'Preprocessing backup file';
 $string['preview'] = 'Preview';
 $string['previewhtml'] = 'HTML Format Preview';
 $string['previeworchoose'] = 'Preview or choose a theme';
@@ -1378,6 +1390,7 @@ $string['showrecent'] = 'Show recent activity';
 $string['showreports'] = 'Show activity reports';
 $string['showsettings'] = 'Show settings';
 $string['showtheselogs'] = 'Show these logs';
+$string['showthishelpinlanguage'] = 'Show this help in language: $a';
 $string['since'] = 'Since';
 $string['sincelast'] = 'since last login';
 $string['site'] = 'Site';
@@ -1594,6 +1607,7 @@ $string['userprofilefor'] = 'User profile for $a';
 $string['users'] = 'Users';
 $string['usersnew'] = 'New users';
 $string['usersnoaccesssince'] = 'Inactive for more than';
+$string['userswithfiles'] = 'Users with files';
 $string['userzones'] = 'User zones';
 $string['usethiscourse'] = 'Use this course';
 $string['usingexistingcourse'] = 'Using existing course';
@@ -1632,8 +1646,7 @@ $string['weekshow'] = 'Show this week to $a';
 $string['welcometocourse'] = 'Welcome to $a';
 $string['welcometocoursetext'] = 'Welcome to $a->coursename!
 
-If you have not done so already, you should edit your profile page
-within the course so that we can learn more about you:
+If you have not done so already, you should edit your profile page so that we can learn more about you:
 
   $a->profileurl';
 $string['whattocallzip'] = 'What do you want to call the zip file?';

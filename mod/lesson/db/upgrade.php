@@ -1,4 +1,4 @@
-<?php  //$Id: upgrade.php,v 1.9.2.2 2008/05/01 20:52:57 skodak Exp $
+<?php  //$Id: upgrade.php,v 1.9.2.3 2009/03/06 18:44:54 mark-nielsen Exp $
 
 // This file keeps track of upgrades to 
 // the lesson module
@@ -56,14 +56,6 @@ function xmldb_lesson_upgrade($oldversion=0) {
         $result = $result && change_field_notnull($table, $field);
     }
 
-    if ($result && $oldversion < 2007072200) {
-        require_once($CFG->dirroot.'/mod/lesson/lib.php');
-        // too much debug output
-        $db->debug = false;
-        lesson_update_grades();
-        $db->debug = true;
-    }
-
 //===== 1.9.0 upgrade line ======//
 
     if ($result && $oldversion < 2007072201) {
@@ -79,6 +71,14 @@ function xmldb_lesson_upgrade($oldversion=0) {
         /// Launch rename field usegrademax to usemaxgrade
             $result = $result && rename_field($table, $field, 'usemaxgrade');
         }
+    }
+
+    if ($result && $oldversion < 2008112601) {
+        require_once($CFG->dirroot.'/mod/lesson/lib.php');
+        // too much debug output
+        $db->debug = false;
+        lesson_update_grades();
+        $db->debug = true;
     }
 
     return $result;

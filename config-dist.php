@@ -1,4 +1,4 @@
-<?PHP // $Id: config-dist.php,v 1.103.2.4 2008/06/30 15:00:25 thepurpleblob Exp $
+<?PHP // $Id: config-dist.php,v 1.103.2.5 2009/02/16 03:00:07 tjhunt Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // Moodle configuration file                                             //
@@ -259,6 +259,9 @@ $CFG->admin = 'admin';
 // The following setting will log every database query to a table called adodb_logsql.
 // Use this setting on a development server only, the table grows quickly!
 //     $CFG->logsql = true;
+// By default, only queries that take longer than 0.05 seconds are logged. To change that,
+// set the following variable. For example, to lot all queries:
+//     $CFG->logsqlmintime = 0.0;
 //
 // The following setting will turn on username logging into Apache log. For full details regarding setting
 // up of this function please refer to the install section of the document.

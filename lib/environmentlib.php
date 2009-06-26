@@ -1,4 +1,4 @@
-<?php  //$Id: environmentlib.php,v 1.27.2.3 2008/08/24 16:31:33 stronk7 Exp $
+<?php  //$Id: environmentlib.php,v 1.27.2.4 2009/02/08 21:30:06 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -471,7 +471,7 @@ function environment_check_php_extensions($version) {
         $result = new environment_results('php_extension');
         $result->setStatus(false);
         $result->setErrorCode(NO_VERSION_DATA_FOUND);
-        return $result;
+        return array($result);
     }
 
 /// Extract the php_extension part
@@ -480,7 +480,7 @@ function environment_check_php_extensions($version) {
         $result = new environment_results('php_extension');
         $result->setStatus(false);
         $result->setErrorCode(NO_PHP_EXTENSIONS_SECTION_FOUND);
-        return $result;
+        return array($result);
     }
 /// Iterate over extensions checking them and creating the needed environment_results
     foreach($data['#']['PHP_EXTENSIONS']['0']['#']['PHP_EXTENSION'] as $extension) {

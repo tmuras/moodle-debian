@@ -1,4 +1,4 @@
-<?php //$Id: langimport.php,v 1.36.2.9 2008/11/01 19:30:56 mudrd8mz Exp $
+<?php //$Id: langimport.php,v 1.36.2.10 2009/05/06 16:10:14 skodak Exp $
 ///This file only manages the installation of 1.6 lang packs.
 ///in downloads.moodle.org, they are store in separate directory /lang16
 ///in local server, they are stored in $CFG->dataroot/lang
@@ -50,8 +50,8 @@
 
             if (confirm_sesskey() and !empty($pack)) {
                 set_time_limit(0);
-                @mkdir ($CFG->dataroot.'/temp/');    //make it in case it's a fresh install, it might not be there
-                @mkdir ($CFG->dataroot.'/lang/');
+                @mkdir ($CFG->dataroot.'/temp/', $CFG->directorypermissions);    //make it in case it's a fresh install, it might not be there
+                @mkdir ($CFG->dataroot.'/lang/', $CFG->directorypermissions);
 
                 if (is_array($pack)) {
                     $packs = $pack;
@@ -167,8 +167,8 @@
                 }
             }
 
-            @mkdir ($CFG->dataroot.'/temp/');
-            @mkdir ($CFG->dataroot.'/lang/');
+            @mkdir ($CFG->dataroot.'/temp/', $CFG->directorypermissions);
+            @mkdir ($CFG->dataroot.'/lang/', $CFG->directorypermissions);
             foreach ($packs as $pack){    //for each of the remaining in the list, we
                 if ($pack == 'en_utf8') {    // no update for en_utf8
                     continue;

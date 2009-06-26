@@ -1,4 +1,4 @@
-<?php //$Id: block_activity_modules.php,v 1.15.2.3 2008/03/03 11:41:01 moodler Exp $
+<?php //$Id: block_activity_modules.php,v 1.15.2.4 2009/02/23 14:47:44 mjollnir_ Exp $
 
 class block_activity_modules extends block_list {
     function init() {
@@ -22,6 +22,10 @@ class block_activity_modules extends block_list {
             $course = $COURSE;
         } else {
             $course = get_record('course', 'id', $this->instance->pageid);
+        }
+
+        if (empty($course)) {
+            return '';
         }
 
         require_once($CFG->dirroot.'/course/lib.php');

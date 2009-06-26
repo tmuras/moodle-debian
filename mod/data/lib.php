@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.137.2.44 2009/01/08 01:01:05 jerome Exp $
+<?php  // $Id: lib.php,v 1.137.2.55 2009/04/21 14:13:15 stronk7 Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -164,6 +164,11 @@ class data_field_base {     // Base class for Database Field Types (see field/*/
             $content = get_field('data_content', 'content', 'fieldid', $this->field->id, 'recordid', $recordid);
         } else {
             $content = '';
+        }
+
+        // beware get_field returns false for new, empty records MDL-18567
+        if ($content===false) {
+            $content='';
         }
 
         $str = '<div title="'.s($this->field->description).'">';
@@ -394,7 +399,7 @@ function data_generate_default_template(&$data, $template, $recordid=0, $form=fa
         if ($update) {
             $newdata = new object();
             $newdata->id = $data->id;
-            $newdata->{$template} = $str;
+            $newdata->{$template} = addslashes($str);
             if (!update_record('data', $newdata)) {
                 notify('Error updating template');
             } else {
@@ -1302,6 +1307,9 @@ function data_get_ratings($recordid, $sort="u.firstname ASC") {
 // prints all comments + a text box for adding additional comment
 function data_print_comments($data, $record, $page=0, $mform=false) {
     global $CFG;
+    $cm = get_coursemodule_from_instance('data', $data->id);
+    $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $cancomment = has_capability('mod/data:comment', $context);
     echo '<a name="comments"></a>';
     if ($comments = get_records('data_comments','recordid',$record->id)) {
         foreach ($comments as $comment) {
@@ -1309,13 +1317,13 @@ function data_print_comments($data, $record, $page=0, $mform=false) {
         }
         echo '<br />';
     }
-    if (!isloggedin() or isguest()) {
+    if (!isloggedin() or isguest() or !$cancomment) {
         return;
     }
     $editor = optional_param('addcomment', 0, PARAM_BOOL);
     if (!$mform and !$editor) {
         echo '<div class="newcomment" style="text-align:center">';
-        echo '<a href="view.php?d='.$data->id.'&amp;page='.$page.'&amp;mode=single&amp;addcomment=1">'.get_string('addcomment', 'data').'</a>';
+        echo '<a href="view.php?d='.$data->id.'&amp;rid='.$record->id.'&amp;mode=single&amp;addcomment=1">'.get_string('addcomment', 'data').'</a>';
         echo '</div>';
     } else {
         if (!$mform) {
@@ -1832,7 +1840,7 @@ class PresetImporter {
         } else if (empty($newfields)) {
             error("New preset has no defined fields!");
         }
-        echo '<div class="overwritesettings"><label for="overwritesettings">'.get_string('overwritesettings', 'data').'</label>';
+        echo '<div class="overwritesettings"><label for="overwritesettings">'.get_string('overwritesettings', 'data');
         echo '<input id="overwritesettings" name="overwritesettings" type="checkbox" /></label></div>';
         echo '<input class="button" type="submit" value="'.$strcontinue.'" /></div></form></div>';
     }

@@ -1,4 +1,4 @@
-<?php  // $Id: index.php,v 1.201.2.7 2008/09/19 06:22:43 nicolasconnault Exp $
+<?php  // $Id: index.php,v 1.201.2.10 2009/04/25 21:18:24 stronk7 Exp $
        // index.php - the front page.
 
 ///////////////////////////////////////////////////////////////////////////
@@ -110,7 +110,7 @@
     $preferred_width_right = bounded_number(BLOCK_R_MIN_WIDTH, blocks_preferred_width($pageblocks[BLOCK_POS_RIGHT]),
                                             BLOCK_R_MAX_WIDTH);
     print_header($SITE->fullname, $SITE->fullname, 'home', '',
-                 '<meta name="description" content="'. s(strip_tags($SITE->summary)) .'" />',
+                 '<meta name="description" content="'. strip_tags(format_text($SITE->summary, FORMAT_HTML)) .'" />',
                  true, '', user_login_string($SITE).$langmenu);
 
 ?>
@@ -199,8 +199,11 @@
 
                     if (!empty($USER->id)) {
                         $SESSION->fromdiscussion = $CFG->wwwroot;
+                        $subtext = '';
                         if (forum_is_subscribed($USER->id, $newsforum)) {
-                            $subtext = get_string('unsubscribe', 'forum');
+                            if (!forum_is_forcesubscribed($newsforum)) {
+                                $subtext = get_string('unsubscribe', 'forum');
+                            }
                         } else {
                             $subtext = get_string('subscribe', 'forum');
                         }

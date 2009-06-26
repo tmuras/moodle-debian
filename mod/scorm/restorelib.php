@@ -1,4 +1,4 @@
-<?php //$Id: restorelib.php,v 1.29 2007/05/08 23:30:58 poltawski Exp $
+<?php //$Id: restorelib.php,v 1.29.2.1 2009/02/25 23:06:37 piers Exp $
     //This php script contains all the stuff to backup/restore
     //reservation mods
 
@@ -831,7 +831,7 @@
 
                 if ($result != $content) {
                     //Update record
-                    $scorm->summary = addslashes($result);
+                    $scorm->summary = addslashes_js($result);
                     $status = update_record("scorm",$scorm);
                     if (debugging()) {
                         if (!defined('RESTORE_SILENTLY')) {

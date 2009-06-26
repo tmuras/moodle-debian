@@ -1,4 +1,4 @@
-<?php //$Id: index.php,v 1.16 2007/10/10 06:34:23 nicolasconnault Exp $
+<?php //$Id: index.php,v 1.16.2.1 2009/03/18 14:08:32 sam_marshall Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -27,7 +27,7 @@
  * Compatibility redirection to reports
  */
 
-require '../config.php';
+require_once '../config.php';
 
 $id = required_param('id', PARAM_INT);
 redirect('report/index.php?id='.$id);

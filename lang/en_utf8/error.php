@@ -1,4 +1,4 @@
-<?PHP // $Id: error.php,v 1.26.2.20 2009/01/13 06:03:37 tjhunt Exp $
+<?PHP // $Id: error.php,v 1.26.2.24 2009/04/23 20:28:35 skodak Exp $
       // error.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -48,9 +48,11 @@ $string['groupalready'] = 'User already belongs to group $a';
 $string['groupexistforcourse'] = 'Group \"$a\" already exists for this course';
 $string['groupnotaddederror'] = 'Group \"$a\" not added';
 $string['groupunknown'] = 'Group $a not associated to specified course';
+$string['groupusernotmember'] = 'User is not member of this group.';
 $string['guestnoeditprofile'] = 'The guest user cannot edit their profile';
 $string['guestnoeditprofileother'] = 'The guest user profile cannot be edited';
 $string['guestsarenotallowed'] = 'The guest user is not allowed to do this';
+$string['invalidadminsettingname'] = 'Invalid admin setting ($a)';
 $string['invalidcontext'] = 'Invalid context';
 $string['invalidcourse'] = 'Invalid course';
 $string['invalidcourseid'] = 'You are trying to use an invalid course ID ($a)';

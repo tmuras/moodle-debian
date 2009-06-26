@@ -1,4 +1,4 @@
-<?php  // $Id: report.php,v 1.60.2.4 2008/10/31 00:56:05 danmarsden Exp $
+<?php  // $Id: report.php,v 1.60.2.6 2009/02/09 09:26:47 danmarsden Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -93,7 +93,7 @@
                     $myxls->write_string($row,3,$ug2);
 
                     if (isset($option_text)) {
-                        $myxls->write_string($row,4,format_string($useroption,true));
+                        $myxls->write_string($row,4,format_string($option_text,true));
                     }
                     $row++;
                     $pos=4;
@@ -206,7 +206,7 @@
     choice_show_results($choice, $course, $cm, $users, $format); //show table with students responses.
 
    //now give links for downloading spreadsheets. 
-    if (has_capability('mod/choice:downloadresponses',$context)) {
+    if (!empty($users) && has_capability('mod/choice:downloadresponses',$context)) {
         echo "<br />\n";
         echo "<table class=\"downloadreport\"><tr>\n";
         echo "<td>";

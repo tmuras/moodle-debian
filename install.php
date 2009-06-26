@@ -1,4 +1,4 @@
-<?php /// $Id: install.php,v 1.80.2.17 2008/11/19 09:46:38 skodak Exp $
+<?php /// $Id: install.php,v 1.80.2.19 2009/03/26 01:36:17 dongsheng Exp $
       /// install.php - helps admin user to create a config.php file
 
 /// If config.php exists already then we are not needed.
@@ -448,7 +448,8 @@ if ($INSTALL['stage'] == ENVIRONMENT) {
     $dbconnected = $db->Connect($INSTALL['dbhost'],$INSTALL['dbuser'],$INSTALL['dbpass'],$INSTALL['dbname']);
     error_reporting(7);  // Show errors
     if ($dbconnected) {
-    /// Execute environment check, printing results
+    /// Execute environment check, not printing results
+        @remove_dir($INSTALL['dataroot'] . '/environment'); /// Always delete downloaded env. info to force use of the released one. MDL-9796
         if (!check_moodle_environment($INSTALL['release'], $environment_results, false)) {
              $nextstage = ENVIRONMENT;
         }
@@ -907,6 +908,7 @@ function form_table($nextstage = WELCOME, $formaction = "install.php") {
                     error_reporting(7);  // Show errors
                     if ($dbconnected) {
                     /// Execute environment check, printing results
+                        @remove_dir($INSTALL['dataroot'] . '/environment'); /// Always delete downloaded env. info to force use of the released one. MDL-9796
                         check_moodle_environment($INSTALL['release'], $environment_results, true);
                     } else {
                     /// We never should reach this because DB has been tested before arriving here
@@ -1080,7 +1082,7 @@ function check_memory_limit() {
     }
 
     /// Otherwise, see if we can change it ourselves
-    @ini_set('memory_limit', '40M');
+    raise_memory_limit('40M');
     return ((int)str_replace('M', '', get_memory_limit()) >= 40);
 }
 

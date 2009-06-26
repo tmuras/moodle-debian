@@ -1,4 +1,4 @@
-<?php  // $Id: uploaduser.php,v 1.68.2.14 2008/10/18 00:10:00 arborrow Exp $
+<?php  // $Id: uploaduser.php,v 1.68.2.15 2009/05/13 05:35:38 jerome Exp $
 
 /// Bulk user registration script from a comma separated file
 /// Returns list of users with their user ids
@@ -961,7 +961,7 @@ function uu_allowed_auths() {
     $plugins = get_enabled_auth_plugins();
     $choices = array();
     foreach ($plugins as $plugin) {
-        $choices[$plugin] = get_string('auth_'.$plugin.'title', 'auth');
+        $choices[$plugin] = auth_get_plugin_title ($plugin);
     }
 
     return $choices;

@@ -1,4 +1,4 @@
-<?php // $Id: history.php,v 1.14.4.2 2008/05/02 04:07:32 dongsheng Exp $
+<?php // $Id: history.php,v 1.14.4.3 2009/04/26 21:12:56 stronk7 Exp $
       // For listing message histories between any two users
       
     require('../config.php');
@@ -20,10 +20,23 @@
         error("User ID 1 was incorrect");
     }
 
+    if ($user1->deleted) {
+        print_header();
+        print_heading(get_string('userdeleted').': '.$userid1);
+        print_footer();
+        die;
+    }
+
     if (has_capability('moodle/site:readallmessages', get_context_instance(CONTEXT_SYSTEM))) {             // Able to see any discussion
         $userid2 = optional_param('user2', $USER->id, PARAM_INT);
         if (! $user2 = get_record("user", "id", $userid2)) {  // Check
             error("User ID 2 was incorrect");
+        }
+        if ($user2->deleted) {
+            print_header();
+            print_heading(get_string('userdeleted').': '.$userid2);
+            print_footer();
+            die;
         }
     } else {
         $userid2 = $USER->id;    // Can only see messages involving yourself
