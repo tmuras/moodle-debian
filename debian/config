@@ -180,7 +180,7 @@ while [ "$STATE"  != 'notconfigured' -a "$STATE" != 'done' ]; do
 	  ;;
 
       dbu_pwempty)
-	  db_input critical moodle/pwempty|| true
+	  db_input critical moodle/pwempty || true
 	  STATE=dbu_password
 	  ;;
 

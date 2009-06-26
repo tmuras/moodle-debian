@@ -118,7 +118,7 @@ _Description: Warning - Moodle is not configured
 
 Template: moodle/db_populate
 Type: note
-_Description: Warning - Moodle database not populated.
+_Description: Warning - Moodle database not populated
  This install script may create the Moodle database, but the database needs to
  be populated by Moodle itself. Please launch Moodle immediately after this
  installation completes:
