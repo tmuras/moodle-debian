@@ -1,7 +1,9 @@
 moodle (1.9.5-1) UNRELEASED; urgency=low
 
   * New Upstream Version (closes: #475535, #514284, #515823)
-    (added notes/ and tag/ to debian/install)
+    - added notes/ and tag/ to debian/install
+    - drop CVE-2007-3215_phpmailer patch (merged upstream)
+
   * Merge with Ubuntu:
     - drop use of wwwconfig (closes: #389502, #302205)
     - debian/postinst: ucf fixes (fixes a hang)
@@ -34,8 +36,9 @@ moodle (1.9.5-1) UNRELEASED; urgency=low
   * Include whitespace warning at the end of generated config.php
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
+  * 
 
- -- Francois Marier <francois@debian.org>  Fri, 26 Jun 2009 14:40:49 +1200
+ -- Francois Marier <francois@debian.org>  Fri, 26 Jun 2009 14:52:08 +1200
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
