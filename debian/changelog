@@ -2,8 +2,6 @@ moodle (1.9.4.dfsg-1) UNRELEASED; urgency=low
 
   * New Upstream Version (closes: #475535, #514284, #515823)
     (added notes/ and tag/ to debian/install)
-  * Apply a patch from upstream to remove dangerous LaTeX characters
-    (CVE-2009-1171, closes: #522116)
   * Merge with Ubuntu:
     - drop use of wwwconfig (closes: #389502, #302205)
     - debian/postinst: ucf fixes (fixes a hang)
