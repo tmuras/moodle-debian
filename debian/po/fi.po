@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moodle 1.8.2-1.1\n"
 "Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
-"POT-Creation-Date: 2009-02-25 17:24-0800\n"
+"POT-Creation-Date: 2009-06-26 15:16+1200\n"
 "PO-Revision-Date: 2008-02-27 20:49+0200\n"
 "Last-Translator: Esko Arajärvi <edu@iki.fi>\n"
 "Language-Team: Finnish <debian-l10n-finnish@lists.debian.org>\n"
@@ -314,7 +314,7 @@ msgstr ""
 #: ../templates:16001
 #, fuzzy
 #| msgid "Warning - Moodle database tables not created"
-msgid "Warning - Moodle database not populated."
+msgid "Warning - Moodle database not populated"
 msgstr "Varoitus - Moodlen tietokantatauluja ei luotu"
 
 #. Type: note

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moodle 1.8.2-1.2\n"
 "Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
-"POT-Creation-Date: 2009-02-25 17:24-0800\n"
+"POT-Creation-Date: 2009-06-26 15:16+1200\n"
 "PO-Revision-Date: 2008-03-12 18:56+1030\n"
 "Last-Translator: Clytie Siddall <clytie@riverland.net.au>\n"
 "Language-Team: Vietnamese <vi-VN@googlegroups.com>\n"
@@ -318,7 +318,7 @@ msgstr ""
 #: ../templates:16001
 #, fuzzy
 #| msgid "Warning - Moodle database tables not created"
-msgid "Warning - Moodle database not populated."
+msgid "Warning - Moodle database not populated"
 msgstr "Cảnh báo — chưa tạo các bảng cơ sở dữ liệu Moodle."
 
 #. Type: note

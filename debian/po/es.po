@@ -32,7 +32,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: moodle\n"
 "Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
-"POT-Creation-Date: 2009-02-25 17:24-0800\n"
+"POT-Creation-Date: 2009-06-26 15:16+1200\n"
 "PO-Revision-Date: 2007-02-24 17:50+0100\n"
 "Last-Translator: Manuel Porras Peralta «Venturi» <venturi.debian@gmail.com>\n"
 "Language-Team: Debian Spanish <debian-l10n-spanish@lists.debian.org>\n"
@@ -351,7 +351,7 @@ msgstr ""
 #: ../templates:16001
 #, fuzzy
 #| msgid "Warning - Moodle database tables not created"
-msgid "Warning - Moodle database not populated."
+msgid "Warning - Moodle database not populated"
 msgstr "Advertencia - No se crearon las tablas de la base de datos Moodle"
 
 #. Type: note
