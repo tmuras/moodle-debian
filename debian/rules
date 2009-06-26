@@ -15,6 +15,7 @@ clean1:
 	dh_testdir
 	dh_testroot
 
+	debconf-updatepo
 	dh_clean 
 
 install: patch-stamp

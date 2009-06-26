@@ -24,6 +24,7 @@ moodle (1.9.5-1) UNRELEASED; urgency=low
   * Add a watch file
   * Update copyright file
   * Update uploaders field
+  * Move po-debconf to Builds-Depends (lintian error)
 
   Dependencies:
   * Depend on libjs-yui instead of yui (renamed after lenny)
@@ -38,7 +39,7 @@ moodle (1.9.5-1) UNRELEASED; urgency=low
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
 
- -- Francois Marier <francois@debian.org>  Fri, 26 Jun 2009 15:04:22 +1200
+ -- Francois Marier <francois@debian.org>  Fri, 26 Jun 2009 15:19:07 +1200
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
