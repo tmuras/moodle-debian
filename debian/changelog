@@ -1,4 +1,4 @@
-moodle (1.9.4.dfsg-1) UNRELEASED; urgency=low
+moodle (1.9.5-1) UNRELEASED; urgency=low
 
   * New Upstream Version (closes: #475535, #514284, #515823)
     (added notes/ and tag/ to debian/install)
@@ -13,7 +13,7 @@ moodle (1.9.4.dfsg-1) UNRELEASED; urgency=low
   * Drop support for apache 1.x and remove from debconf
   * Add swedish debconf translation (closes: #511202)
 
-  * Bump Standard-Version to 3.8.1
+  * Bump Standard-Version to 3.8.2
   * Bump debhelper compatibility to 7
   * Add lintian overrides for known customised libraries
   * Add new license files to delete (lintian warning)
@@ -35,7 +35,7 @@ moodle (1.9.4.dfsg-1) UNRELEASED; urgency=low
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
 
- -- Francois Marier <francois@debian.org>  Wed, 29 Apr 2009 18:57:26 +1200
+ -- Francois Marier <francois@debian.org>  Fri, 26 Jun 2009 14:40:49 +1200
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
