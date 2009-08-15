@@ -337,6 +337,8 @@ case "$1" in
 
 	[ ! -h /usr/share/moodle/lib/yui ] && ln -s /usr/share/javascript/yui /usr/share/moodle/lib/yui
 
+	[ ! -h /usr/share/moodle/lib/magpie ] && ln -s /usr/share/php/magpierss /usr/share/moodle/lib/magpie
+
 	# Care about the repository
 	repository=/var/lib/moodle
 	if [ -d $repository ]; then
