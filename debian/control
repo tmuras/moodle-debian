@@ -1,7 +1,7 @@
 Source: moodle
 Section: web
 Priority: optional
-Maintainer: Moodle Packaging Team <moodle-packaging@catalyst.net.nz>
+Maintainer: Moodle Packaging Team <pkg-moodle-maintainers@lists.alioth.debian.org>
 Uploaders: Francois Marier <francois@debian.org>, Penny Leach <penny@mjollnir.org>, Dan Poltawski <talktodan@gmail.com>
 Build-Depends: debhelper (>= 7), dpatch, po-debconf
 Standards-Version: 3.8.2
