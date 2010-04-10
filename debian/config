@@ -1,216 +1,26 @@
-#!/bin/sh -e
+#!/bin/sh
 
-# Source debconf library.
+set -e
+#set -x
+
 . /usr/share/debconf/confmodule
 
-db_version 2.0
-db_capb backup
+if [ -f /usr/share/dbconfig-common/dpkg/config ]; then
+	TEMPFILE=`tempfile`
+	cp /etc/moodle/config.php $TEMPFILE
+	#Change short tags into long tags
+	sed  -i '1 s/<?$/<?php/' $TEMPFILE
+	#We don't want config.php to include more files and possibly execute some code
+	sed  -i 's/include_once/\/\/include_once/' $TEMPFILE
+	#We don't want it to display any irrelevant messages
+	sed  -i 's/echo/\/\/echo/' $TEMPFILE
 
-STATE=start
-while [ "$STATE"  != 'notconfigured' -a "$STATE" != 'done' ]; do
-  case "$STATE" in
-      start|db_server)
-	  db_input critical moodle/db_server || true
-	  if ! db_go; then
-	      STATE=notconfigured
-	  else
-	      db_get moodle/db_server || true
-	      if [ -n "$RET" ]; then
-		  STATE=local_only
-	      fi
-	  fi
-	  ;;
-
-      local_only)
-	  db_input critical moodle/local_only || true
-	  if ! db_go; then
-	      STATE=notconfigured
-	  else
-	      db_get moodle/local_only || true
-	      if [ -n "$RET" ]; then
-		  if [ "$RET" = "true" ]; then
-		      STATE=https_only
-		  else
-		      STATE=fqdn_check
-		  fi
-	      fi
-	  fi
-	  ;;
-
-      fqdn_check)
-	  db_input critical moodle/fqdn_check || true
-	  if ! db_go; then
-	      STATE=notconfigured
-	  else
-	      db_get moodle/fqdn_check || true
-	      if [ -n "$RET" ]; then
-		  STATE=https_only
-	      fi
-	  fi
-	  ;;
-
-      https_only)
-	  db_input critical moodle/https_only || true
-	  if ! db_go; then
-	      STATE=notconfigured
-	  else
-	      db_get moodle/https_only || true
-	      if [ -n "$RET" ]; then
-		  STATE=db_host
-	      fi
-	  fi
-	  ;;
-
-      db_host)
-	  db_input low moodle/db_host || true
-	  if ! db_go; then
-	      STATE=notconfigured
-	  else
-	      db_get moodle/db_host || true
-	      if [ -n "$RET" ]; then
-		  STATE=db_create
-	      fi
-	  fi
-	  ;;
-
-      db_create)
-          db_get moodle/db_host || true
-          if [ "$RET" = "localhost" ]; then
-	      db_input critical moodle/db_create || true
-	      if ! db_go; then
-		  STATE=notconfigured
-	      else
-		  db_get moodle/db_create || true
-		  if [ -n "$RET" ]; then
-		      STATE=dba_password
-		  fi
-	      fi
-	  else
-	      # We only support DB creation on localhost.
-	      # There are too many variables (particularly for
-	      # postgresql) to support automated creation of remote
-	      # databases.
-	      #
-	      # Assumption: users who want remote databases don't need
-	      # our help creating them.
-	      db_set moodle/db_create false || true
-	      STATE=dba_password
-	  fi
-	  ;;
-
-      dba_password)
-          db_get moodle/db_create || true
-	  db_create="$RET"
-	  db_get moodle/db_server || true
-	  db_server="$RET"
-
-	  # We don't need a DBA password if the we're using a postgresql DB.
-          if [ "$db_server" = "mysql-server" ] && [ "$db_create" = "true" ]; then
-	      db_input critical moodle/dba_password || true
-	      db_input critical moodle/dba_confirm || true
-	      if ! db_go; then
-		  STATE=notconfigured
-	      else
-		  db_get moodle/dba_confirm || true
-		  CONFIRM="$RET"
-		  db_get moodle/dba_password || true
-		  PW="$RET"
-		  if [ "$PW" != "$CONFIRM" ]; then
-		      STATE=dba_pwmismatch
-		  else
-		      STATE=dbu_name
-		  fi
-	      fi
-	  else
-	      # We don't need the DBA password.
-	      STATE=dbu_name
-	  fi
-	  ;;
-
-      dba_pwmismatch)
-	  db_input critical moodle/pwmismatch || true
-	  STATE=dba_password
-	  ;;
-
-      dbu_name)
-	  db_input low moodle/dbu_name || true
-	  if ! db_go; then
-	      STATE=notconfigured
-	  else
-	      db_get moodle/dbu_name || true
-	      if [ -n "$RET" ]; then
-		  STATE=dbu_password
-	      fi
-	  fi
-	  ;;
-
-      dbu_password)
-	  db_input critical moodle/dbu_password || true
-	  db_input critical moodle/dbu_confirm || true
-	  if ! db_go; then
-	      STATE=notconfigured
-	  else
-	      db_get moodle/dbu_confirm || true
-	      CONFIRM="$RET"
-	      db_get moodle/dbu_password || true
-	      PW="$RET"
-	      if [ "$PW" != "$CONFIRM" ]; then
-		  STATE=dbu_pwmismatch
-	      else
-		  if [ -z "$PW" ] || [ -z "$CONFIRM" ]; then
-		      STATE=dbu_pwempty
-		  else
-		      case "$PW" in
-			  # Don't allow quoting characters at all.
-			  # They break stuff and aren't necessary.
-			  *"'"*|*'"'*|*\\*)
-			      STATE=dbu_pwillegalchar
-			      ;;
-			  *)
-			      db_get moodle/db_create || true
-			      if [ "$RET" = "true" ]; then
-				  STATE=db_populate
-			      else
-				  STATE=config_php_created
-			      fi
-		      esac
-		  fi
-	      fi
-	  fi
-	  ;;
-
-      dbu_pwempty)
-	  db_input critical moodle/pwempty || true
-	  STATE=dbu_password
-	  ;;
-
-      dbu_pwmismatch)
-	  db_input critical moodle/pwmismatch || true
-	  STATE=dbu_password
-	  ;;
-
-      dbu_pwillegalchar)
-	  db_input critical moodle/pwillegalchar || true
-	  STATE=dbu_password
-	  ;;
-
-      db_populate)
-	  db_input critical moodle/db_populate || true
-	  db_go || true
-	  STATE=done
-	  ;;
-
-      config_php_created)
-	  db_input critical moodle/config_php_created || true
-	  db_go || true
-	  STATE=done
-	  ;;
-
-  esac
-done
-
-if [ "$STATE" = 'notconfigured' ]; then
-    db_input critical moodle/notconfigured || true
-    db_go || true
-    exit 1
+#	dbc_debug=1
+	dbc_dbtypes="mysql, pgsql"
+	dbc_authmethod_user="password"
+	dbc_first_version="1.9.8"
+        dbc_load_include="php:$TEMPFILE"
+	dbc_load_include_args="-dCFG->dbname -sCFG->dbhost -pCFG->dbpass -uCFG->dbuser -tCFG->dbtype"
+	. /usr/share/dbconfig-common/dpkg/config
+	dbc_go moodle $@
 fi
