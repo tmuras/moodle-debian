@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.41.2.17 2009/02/13 06:11:59 tjhunt Exp $
+<?php  // $Id: questiontype.php,v 1.41.2.21 2010/01/14 21:56:42 pichetp Exp $
 
 ///////////////////
 /// MULTIANSWER /// (Embedded - cloze)
@@ -313,7 +313,7 @@ class embedded_cloze_qtype extends default_questiontype {
                             }
                         }
                     }
-                    if ($correctanswer) {
+                    if ($correctanswer  != '') {
                         $feedback = '<div class="correctness">';
                         $feedback .= get_string('correctansweris', 'quiz', s($correctanswer, true));
                         $feedback .= '</div>';
@@ -345,7 +345,7 @@ class embedded_cloze_qtype extends default_questiontype {
 
                 // Set up a default chosenanswer so that all non-empty wrong
                 // answers are highlighted red
-                if (empty($chosenanswer) && !empty($response)) {
+                if (empty($chosenanswer) && $response != '') {
                     $chosenanswer = new stdClass;
                     $chosenanswer->fraction = 0.0;
                 }

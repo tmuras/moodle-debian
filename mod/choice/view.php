@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.102.2.9 2009/02/09 09:52:59 danmarsden Exp $
+<?php  // $Id: view.php,v 1.102.2.11 2009/11/30 17:12:18 sam_marshall Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -28,7 +28,7 @@
         print_error('badcontext');
     }
 
-    if ($action == 'delchoice') {
+    if ($action == 'delchoice' and confirm_sesskey() and has_capability('mod/choice:choose', $context) and $choice->allowupdate) {
         if ($answer = get_record('choice_answers', 'choiceid', $choice->id, 'userid', $USER->id)) {
             //print_object($answer);
             delete_records('choice_answers', 'id', $answer->id);
@@ -39,7 +39,7 @@
                   update_module_button($cm->id, $course->id, $strchoice), navmenu($course, $cm));
 
 /// Submit any new data if there is any
-    if ($form = data_submitted() && has_capability('mod/choice:choose', $context)) {
+    if ($form = data_submitted() && has_capability('mod/choice:choose', $context) && confirm_sesskey()) {
         $timenow = time();
         if (has_capability('mod/choice:deleteresponses', $context)) {
             if ($action == 'delete') { //some responses need to be deleted     
@@ -66,7 +66,7 @@
     
     if ($groupmode) {
         groups_get_activity_group($cm, true);
-        groups_print_activity_menu($cm, 'view.php?id='.$id);
+        groups_print_activity_menu($cm, $CFG->wwwroot . '/mod/choice/view.php?id='.$id);
     }
     $allresponses = choice_get_response_data($choice, $cm, $groupmode);   // Big function, approx 6 SQL calls per user
 

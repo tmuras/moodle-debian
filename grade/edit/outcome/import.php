@@ -1,28 +1,20 @@
-<?php // $Id: import.php,v 1.1.2.9 2009/05/06 16:17:50 skodak Exp $
-// Allows a user to import outcomes (and associated scales)
+<?php
 
-///////////////////////////////////////////////////////////////////////////
-//                                                                       //
-// NOTICE OF COPYRIGHT                                                   //
-//                                                                       //
-// Moodle - Modular Object-Oriented Dynamic Learning Environment         //
-//          http://moodle.com                                            //
-//                                                                       //
-// Copyright (C) 1999 onwards  Martin Dougiamas  http://moodle.com       //
-//                                                                       //
-// This program is free software; you can redistribute it and/or modify  //
-// it under the terms of the GNU General Public License as published by  //
-// the Free Software Foundation; either version 2 of the License, or     //
-// (at your option) any later version.                                   //
-//                                                                       //
-// This program is distributed in the hope that it will be useful,       //
-// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
-// GNU General Public License for more details:                          //
-//                                                                       //
-//          http://www.gnu.org/copyleft/gpl.html                         //
-//                                                                       //
-///////////////////////////////////////////////////////////////////////////
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
 
 /// THIS SCRIPT IS CALLED WITH "require_once()" FROM index.php
 if (!defined('MOODLE_INTERNAL')) {
@@ -203,7 +195,6 @@ if ($handle = fopen($imported_file['userfile']['tmp_name'], 'r')) {
             print_box(get_string('importskippedoutcome', 'grades', $csv_data[$imported_headers['outcome_shortname']]));
             continue;
         }
-        break;
         // new outcome will be added, search for compatible existing scale...
         $scale = get_records_select('scale', 'name =\''. addslashes($csv_data[$imported_headers['scale_name']]) .'\' and scale =\''. addslashes($csv_data[$imported_headers['scale_items']]) .'\' and (courseid = '. $courseid .' or courseid = 0)');
 

@@ -1,4 +1,4 @@
-<?php  // $Id: datasetdefinitions_form.php,v 1.7.2.3 2009/02/19 01:09:34 tjhunt Exp $
+<?php  // $Id: datasetdefinitions_form.php,v 1.7.2.4 2009/05/24 21:06:34 pichetp Exp $
 /**
  * @package questionbank
  * @subpackage questiontypes
@@ -28,6 +28,13 @@ class question_dataset_dependent_definitions_form extends moodleform {
         global $QTYPES;
         $this->question = $question;
         $this->qtypeobj =& $QTYPES[$this->question->qtype];
+				// Validate the question category.
+				if (!$category = get_record('question_categories', 'id', $question->category)) {
+				    print_error('categorydoesnotexist', 'question', $returnurl);
+				}
+        $this->category = $category;
+        $this->categorycontext = get_context_instance_by_id($category->contextid);
+        
         parent::moodleform($submiturl);
     }
     function definition() {
@@ -106,6 +113,10 @@ class question_dataset_dependent_definitions_form extends moodleform {
         $mform->addElement('hidden', 'cmid');
         $mform->setType('cmid', PARAM_INT);
         $mform->setDefault('cmid', 0);
+
+        $mform->addElement('hidden', 'category');
+        $mform->setType('category', PARAM_RAW);
+        $mform->setDefault('category', array('contexts' => array($this->categorycontext)));
 
         $mform->setType('id', PARAM_INT);
         $mform->addElement('hidden', 'wizard', 'datasetitems');

@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.538.2.75 2009/05/08 21:05:18 skodak Exp $
+<?php  // $Id: lib.php,v 1.538.2.80 2010/02/25 10:16:15 stronk7 Exp $
    // Library of useful functions
 
 
@@ -58,6 +58,12 @@ function make_log_url($module, $url) {
             break;
         case 'notes':
             $url = "/notes/$url";
+            break;
+        case 'tag':
+            $url = "/tag/$url";
+            break;
+        case 'role':
+            $url = '/'.$url;
             break;
         default:
             $url = "/mod/$module/$url";
@@ -650,9 +656,7 @@ function print_log_xls($course, $user, $date, $order='l.time DESC', $modname,
         }
 
         $myxls->write($row, 0, $courses[$log->course], '');
-        // Excel counts from 1/1/1900
-        $excelTime=25569+$log->time/(3600*24);
-        $myxls->write($row, 1, $excelTime, $formatDate);
+        $myxls->write_date($row, 1, $log->time, $formatDate); // write_date() does conversion/timezone support. MDL-14934
         $myxls->write($row, 2, $log->ip, '');
         $fullname = fullname($log, has_capability('moodle/site:viewfullnames', get_context_instance(CONTEXT_COURSE, $course->id)));
         $myxls->write($row, 3, $fullname, '');
@@ -1183,7 +1187,9 @@ function &get_fast_modinfo(&$course, $userid=0) {
 
     // Ensure cache does not use too much RAM
     if (count($cache) > MAX_MODINFO_CACHE_SIZE) {
-        array_shift($cache);
+        reset($cache);
+        $key = key($cache);
+        unset($cache[$key]);
     }
 
     return $cache[$course->id];
@@ -1818,7 +1824,12 @@ function print_category_info($category, $depth, $showcourses = false) {
 
     $catlinkcss = $category->visible ? '' : ' class="dimmed" ';
 
-    $coursecount = count_records('course') <= FRONTPAGECOURSELIMIT;
+    static $coursecount = null;
+    if (null === $coursecount) {
+        // only need to check this once
+        $coursecount = count_records('course') <= FRONTPAGECOURSELIMIT;
+    }
+
     if ($showcourses and $coursecount) {
         $catimage = '<img src="'.$CFG->pixpath.'/i/course.gif" alt="" />';
     } else {

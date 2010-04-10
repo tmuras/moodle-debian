@@ -1,4 +1,4 @@
-<?php //$Id: index.php,v 1.13 2007/04/30 17:08:52 skodak Exp $
+<?php //$Id: index.php,v 1.13.2.1 2010/04/02 09:36:31 mudrd8mz Exp $
 
 require('../../config.php');
 require_once($CFG->libdir.'/adminlib.php');
@@ -118,7 +118,7 @@ foreach ($categories as $category) {
 
     if ($fields = get_records_select('user_info_field', "categoryid=$category->id", 'sortorder ASC')) {
         foreach ($fields as $field) {
-            $table->data[] = array($field->name, profile_field_icons($field));
+            $table->data[] = array(format_string($field->name), profile_field_icons($field));
         }
     }
 

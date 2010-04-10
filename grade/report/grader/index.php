@@ -1,27 +1,19 @@
-<?php // $Id: index.php,v 1.65.2.15 2009/05/05 11:52:03 skodak Exp $
+<?php
 
-///////////////////////////////////////////////////////////////////////////
-// NOTICE OF COPYRIGHT                                                   //
-//                                                                       //
-// Moodle - Modular Object-Oriented Dynamic Learning Environment         //
-//          http://moodle.org                                            //
-//                                                                       //
-// Copyright (C) 1999 onwards  Martin Dougiamas  http://moodle.com       //
-//                                                                       //
-// This program is free software; you can redistribute it and/or modify  //
-// it under the terms of the GNU General Public License as published by  //
-// the Free Software Foundation; either version 2 of the License, or     //
-// (at your option) any later version.                                   //
-//                                                                       //
-// This program is distributed in the hope that it will be useful,       //
-// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
-// GNU General Public License for more details:                          //
-//                                                                       //
-//          http://www.gnu.org/copyleft/gpl.html                         //
-//                                                                       //
-///////////////////////////////////////////////////////////////////////////
-
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 require_once '../../../config.php';
 require_once $CFG->libdir.'/gradelib.php';
@@ -205,6 +197,27 @@ echo '<div id="hiddentooltiproot">tooltip panel</div>';
 YAHOO.namespace("graderreport");
 
 function init() {
+    //MDL-21088 IE 7 vertical alignment was fixed thus making this unnecesary.
+    //TODO - remove this once sure the other fix is effective
+    /*if(navigator.appVersion.indexOf("MSIE 7")>0) {
+        // Adjust height of header c0 (firstname/surname cell) in case multiline grade items have pushed down
+        // the right hand table cells. Only a problem in IE7. This JS fixes IE7 but CAUSES alignment problems in other browsers.
+        // "heading_name_row" only exists if static students column is turned on
+        var rows = YAHOO.util.Dom.getElementsByClassName('heading_name_row');
+        if(rows && rows.length>0)
+        {
+            var header_cell_region = YAHOO.util.Dom.getRegion(rows[rows.length-1].firstChild);
+            if(header_cell_region)
+            {
+                var height = header_cell_region.bottom - header_cell_region.top;
+                if(!isNaN(height))
+                {
+                    YAHOO.util.Dom.setStyle('studentheader', 'height', height + 'px');
+                }
+            }
+        }
+    }*/
+
     // attach event listener to the table for mouseover and mouseout
     var table = document.getElementById('user-grades');
     YAHOO.util.Event.on(table, 'mouseover', YAHOO.graderreport.mouseoverHandler);
@@ -216,14 +229,14 @@ function init() {
         draggable: false,
         visible: false,
         close: false,
-        preventcontextoverlap: true
+        preventcontextoverlap: true,
+        underlay: 'none'
 
     });
 
     YAHOO.graderreport.panelEl.render(table);
 
     document.body.className += ' yui-skin-sam';
-
 }
 
 YAHOO.graderreport.mouseoverHandler = function (e) {
@@ -342,6 +355,7 @@ YAHOO.graderreport.mouseoutHandler = function (e) {
 
 
 YAHOO.util.Event.onDOMReady(init);
+
 //]]>
 </script>
 <?php

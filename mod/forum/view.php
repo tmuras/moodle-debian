@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.106.2.18 2009/01/19 01:36:18 dongsheng Exp $
+<?php  // $Id: view.php,v 1.106.2.20 2009/11/30 17:12:17 sam_marshall Exp $
 
     require_once('../../config.php');
     require_once('lib.php');
@@ -65,6 +65,11 @@
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
 /// Print header.
+
+    /// Add ajax-related libs
+    require_js(array('yui_yahoo', 'yui_event', 'yui_dom', 'yui_connection', 'yui_json'));
+    require_js($CFG->wwwroot . '/mod/forum/rate_ajax.js');
+
     $navigation = build_navigation('', $cm);
     print_header_simple(format_string($forum->name), "",
                  $navigation, "", "", true, $buttontext, navmenu($course, $cm));
@@ -79,7 +84,7 @@
     }
 
 /// find out current groups mode
-    groups_print_activity_menu($cm, 'view.php?id=' . $cm->id);
+    groups_print_activity_menu($cm, $CFG->wwwroot . '/mod/forum/view.php?id=' . $cm->id);
     $currentgroup = groups_get_activity_group($cm);
     $groupmode = groups_get_activity_groupmode($cm);
 

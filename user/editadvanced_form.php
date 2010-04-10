@@ -1,4 +1,4 @@
-<?php //$Id: editadvanced_form.php,v 1.14.2.12 2009/05/13 05:35:37 jerome Exp $
+<?php //$Id: editadvanced_form.php,v 1.14.2.18 2010/01/14 20:46:32 mudrd8mz Exp $
 
 require_once($CFG->dirroot.'/lib/formslib.php');
 
@@ -16,7 +16,9 @@ class user_editadvanced_form extends moodleform {
 
         /// Add some extra hidden fields
         $mform->addElement('hidden', 'id');
+        $mform->setType('id', PARAM_INT);
         $mform->addElement('hidden', 'course', $COURSE->id);
+        $mform->setType('course', PARAM_INT);
 
         /// Print the required moodle fields first
         $mform->addElement('header', 'moodle', $strgeneral);
@@ -34,6 +36,9 @@ class user_editadvanced_form extends moodleform {
         $mform->setHelpButton('auth', array('authchange', get_string('chooseauthmethod','auth')));
         $mform->setAdvanced('auth');
 
+        if (!empty($CFG->passwordpolicy)){
+            $mform->addElement('static', 'passwordpolicyinfo', '', print_password_policy());
+        }
         $mform->addElement('passwordunmask', 'newpassword', get_string('newpassword'), 'size="20"');
         $mform->setHelpButton('newpassword',array('newpassword', get_string('leavetokeep')));
         $mform->setType('newpassword', PARAM_RAW);
@@ -130,7 +135,7 @@ class user_editadvanced_form extends moodleform {
         if (empty($usernew->username)) {
             //might be only whitespace
             $err['username'] = get_string('required');
-        } else if (!$user or $user->username !== $usernew->username) {
+        } else if (!$user or $user->username !== stripslashes($usernew->username)) {
             //check new username does not exist
             if (record_exists('user', 'username', $usernew->username, 'mnethostid', $CFG->mnet_localhost_id)) {
                 $err['username'] = get_string('usernameexists');
@@ -149,7 +154,7 @@ class user_editadvanced_form extends moodleform {
         }
 
         if (!$user or $user->email !== stripslashes($usernew->email)) {
-            if (!validate_email($usernew->email)) {
+            if (!validate_email(stripslashes($usernew->email))) {
                 $err['email'] = get_string('invalidemail');
             } else if (record_exists('user', 'email', $usernew->email, 'mnethostid', $CFG->mnet_localhost_id)) {
                 $err['email'] = get_string('emailexists');

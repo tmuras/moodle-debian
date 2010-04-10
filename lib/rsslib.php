@@ -1,4 +1,4 @@
-<?php  // $Id: rsslib.php,v 1.52.2.4 2008/09/16 08:55:43 moodler Exp $
+<?php  // $Id: rsslib.php,v 1.52.2.7 2010/01/15 14:36:48 sam_marshall Exp $
        // This file contains all the common stuff to be used in RSS System
 
 //This function returns the icon (from theme) with the link to rss/file.php
@@ -212,6 +212,15 @@ function rss_add_items($items) {
             //Include the category if exists (some rss readers will use it to group items)
             if (isset($item->category)) {
                 $result .= rss_full_tag('category',3,false,$item->category);
+            }
+            if (isset($item->tags)) {
+                $attributes = array();
+                if (isset($item->tagscheme)) {
+                    $attributes['domain'] = s($item->tagscheme);
+                }
+                foreach ($item->tags as $tag) {
+                    $result .= rss_full_tag('category', 3, false, $tag, $attributes);
+                }
             }
             $result .= rss_full_tag('title',3,false,strip_tags($item->title));
             $result .= rss_full_tag('link',3,false,$item->link);
@@ -462,7 +471,6 @@ function rss_get_form($act='none', $url='', $rssid='', $preferredtitle='', $shar
     $returnstring = '';
 
     $returnstring .= '<form action="'. $CFG->wwwroot .'/blocks/rss_client/block_rss_client_action.php" method="post" id="block_rss">'."\n";
-    print_location_comment(__FILE__,__LINE__);
     $returnstring .= '<div id="rss_table">'."\n";
     if ($act == 'rssedit') {
         $returnstring .= $strupdatefeed;
@@ -521,8 +529,9 @@ function rss_get_form($act='none', $url='', $rssid='', $preferredtitle='', $shar
     }
 
     $returnstring .= '" />&nbsp;'. $validatestring ."\n";
-    // $returnstring .= '</div></form>'."\n"; // Avoiding nested forms... Ugly temporary hack #8922
-    return $returnstring . print_location_comment(__FILE__, __LINE__, true);
+    $returnstring .= '</div></form>'."\n";
+    
+    return $returnstring;
 }
 
 

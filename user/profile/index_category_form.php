@@ -1,4 +1,4 @@
-<?php //$Id: index_category_form.php,v 1.3.4.1 2007/11/23 22:12:36 skodak Exp $
+<?php //$Id: index_category_form.php,v 1.3.4.4 2009/11/04 12:16:18 jmg324 Exp $
 
 require_once($CFG->dirroot.'/lib/formslib.php');
 
@@ -14,7 +14,9 @@ class category_form extends moodleform {
 
         /// Add some extra hidden fields
         $mform->addElement('hidden', 'id');
+        $mform->setType('id', PARAM_INT);
         $mform->addElement('hidden', 'action', 'editcategory');
+        $mform->setType('action', PARAM_ACTION);
 
         $mform->addElement('text', 'name', get_string('profilecategoryname', 'admin'), 'maxlength="255" size="30"');
         $mform->setType('name', PARAM_MULTILANG);
@@ -31,10 +33,19 @@ class category_form extends moodleform {
 
         $data  = (object)$data;
 
-        $category = get_record('user_info_category', 'id', $data->id);
+        $duplicate = record_exists('user_info_category', 'name', $data->name);
 
         /// Check the name is unique
-        if ($category and ($category->name !== $data->name) and (record_exists('user_info_category', 'name', $data->name))) {
+        if (!empty($data->id)) { // we are editing an existing record
+            $olddata = get_record('user_info_category', 'id', $data->id);
+            // name has changed, new name in use, new name in use by another record
+            $dupfound = (($olddata->name !== $data->name) && $duplicate && ($data->id != $duplicate->id));
+        }
+        else { // new profile category
+            $dupfound = $duplicate;
+        }
+        
+        if ($dupfound ) {
             $errors['name'] = get_string('profilecategorynamenotunique', 'admin');
         }
 

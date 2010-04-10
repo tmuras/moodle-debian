@@ -1,4 +1,4 @@
-<?php // $Id: texdebug.php,v 1.20.2.4 2009/03/26 19:06:29 stronk7 Exp $
+<?php // $Id: texdebug.php,v 1.20.2.5 2010/04/01 17:10:58 skodak Exp $
       // This function fetches math. images from the data directory
       // If not, it obtains the corresponding TeX expression from the cache_tex db table
       // and uses mimeTeX to create the image file
@@ -25,7 +25,7 @@
     require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM), $USER->id); /// Required cap to run this. MDL-18552
 
     $query = urldecode($_SERVER['QUERY_STRING']);
-    error_reporting(E_ALL);
+    error_reporting(DEBUG_ALL);
     $output = '';
 
     // look up in cache if required

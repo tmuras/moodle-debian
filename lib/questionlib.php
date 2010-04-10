@@ -1,4 +1,4 @@
-<?php  // $Id: questionlib.php,v 1.119.2.27 2009/03/30 09:15:37 tjhunt Exp $
+<?php  // $Id: questionlib.php,v 1.119.2.29 2010/02/05 16:36:59 tjhunt Exp $
 /**
  * Code for handling and processing questions
  *
@@ -861,7 +861,7 @@ function get_question_states(&$questions, $cmoptions, $attempt, $lastattemptid =
                 $sql = "SELECT $statefields".
                        "  FROM {$CFG->prefix}question_states s,".
                        "       {$CFG->prefix}question_sessions n".
-                       " WHERE s.id = n.newgraded".
+                       " WHERE s.id = n.newest".
                        "   AND n.attemptid = '$lastattemptid'".
                        "   AND n.questionid = '$i'";
                 if (!$laststate = get_record_sql($sql)) {
@@ -2080,7 +2080,10 @@ function get_import_export_formats( $type ) {
         if ($provided) {
             $formatname = get_string($fileformat, 'quiz');
             if ($formatname == "[[$fileformat]]") {
-                $formatname = $fileformat;  // Just use the raw folder name
+                $formatname = get_string($fileformat, 'qformat_'.$fileformat);
+                if ($formatname == "[[$fileformat]]") {
+                    $formatname = $fileformat;  // Just use the raw folder name
+                }
             }
             $fileformatnames[$fileformat] = $formatname;
         }

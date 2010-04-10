@@ -1,4 +1,4 @@
-<?php // $Id: edit.php,v 1.107.2.12 2008/11/07 05:50:08 tjhunt Exp $
+<?php // $Id: edit.php,v 1.107.2.13 2009/06/05 09:18:35 tjhunt Exp $
 /**
  * Page to edit quizzes
  *
@@ -263,7 +263,7 @@
         /// Parse input for question -> grades
             if (preg_match('!^q([0-9]+)$!', $key, $matches)) {
                 $key = $matches[1];
-                $quiz->grades[$key] = $value;
+                $quiz->grades[$key] = clean_param($value, PARAM_INTEGER);
                 quiz_update_question_instance($quiz->grades[$key], $key, $quiz->instance);
 
             /// Parse input for ordering info
@@ -271,6 +271,7 @@
                 $key = $matches[1];
                 // Make sure two questions don't overwrite each other. If we get a second
                 // question with the same position, shift the second one along to the next gap.
+                $value = clean_param($value, PARAM_INTEGER);
                 while (array_key_exists($value, $questions)) {
                     $value++;
                 }
@@ -298,7 +299,7 @@
         }
 
         // If rescaling is required save the new maximum
-        $maxgrade = optional_param('maxgrade', -1, PARAM_NUMBER);
+        $maxgrade = optional_param('maxgrade', -1, PARAM_INTEGER);
         if ($maxgrade >= 0) {
             if (!quiz_set_grade($maxgrade, $quiz)) {
                 error('Could not set a new maximum grade for the quiz');

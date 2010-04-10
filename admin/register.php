@@ -1,4 +1,4 @@
-<?php  // $Id: register.php,v 1.25.2.3 2009/01/20 03:16:06 tjhunt Exp $
+<?php  // $Id: register.php,v 1.25.2.4 2009/05/27 03:00:05 jerome Exp $
        // register.php - allows admin to register their site on moodle.org
 
     require_once('../config.php');
@@ -42,7 +42,7 @@
 
     echo "<form id=\"mform1\" class=\"mform\" action=\"http://moodle.org/register/\" method=\"post\">\n";
     echo '<fieldset id="registration">';
-    echo '<legend>Registration Information</legend>';
+    echo '<legend>'.get_string("registrationinfotitle").'</legend>';
 
     echo "<!-- The following hidden variables are to help prevent fake entries being sent. -->\n";
     echo "<!-- Together they form a key.  If any of these change between updates then the entry  -->\n";

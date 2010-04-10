@@ -1,5 +1,5 @@
 <?php
-// $Id: header.php,v 1.2 2007/01/04 10:23:07 jamiesensei Exp $
+// $Id: header.php,v 1.2.10.1 2009/06/13 17:24:41 skodak Exp $
 
 require_once 'HTML/QuickForm/header.php';
 
@@ -15,6 +15,10 @@ class MoodleQuickForm_header extends HTML_QuickForm_header
      * @var string
      */
     var $_helpbutton='';
+
+    function MoodleQuickForm_header($elementName = null, $text = null) {
+        parent::HTML_QuickForm_header($elementName, $text);
+    }
 
     // {{{ accept()
 

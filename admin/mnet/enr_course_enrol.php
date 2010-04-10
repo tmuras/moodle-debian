@@ -1,4 +1,4 @@
-<?PHP  // $Id: enr_course_enrol.php,v 1.8.4.2 2008/04/02 06:09:58 dongsheng Exp $
+<?PHP  // $Id: enr_course_enrol.php,v 1.8.4.3 2009/05/18 02:28:06 peterbulmer Exp $
        // enrol_config.php - allows admin to edit all enrollment variables
        //                    Yes, enrol is correct English spelling.
 
@@ -85,9 +85,21 @@
     $mnet_request->set_method('enrol/mnet/enrol.php/course_enrolments');
     $mnet_request->add_param($course->remoteid, 'int');
     $mnet_request->send($mnet_peer);
-    $all_enrolled_users = $mnet_request->response;
-
+    $raw_all_enrolled_users = $mnet_request->response;
     unset($mnet_request);
+
+    $all_enrolled_users = array();
+    if (!empty($raw_all_enrolled_users)) {
+        // Try to repair keying of remote users array, numeric usernames get lost in the fracas
+        foreach ($raw_all_enrolled_users as $username => $userdetails) {
+            if (empty($userdetails['username']) || !is_numeric($username)) {
+                //Not able to repair, or no need to repair
+                $all_enrolled_users[$username] = $userdetails;
+            } else {
+                $all_enrolled_users[$userdetails['username']] = $userdetails;
+            }
+        }
+    }
     
     $select = '';
     $all_enrolled_usernames = '';

@@ -1,4 +1,4 @@
-<?PHP // $Id: role.php,v 1.47.2.18 2008/12/10 02:57:51 tjhunt Exp $
+<?PHP // $Id: role.php,v 1.47.2.22 2009/12/30 17:17:10 stronk7 Exp $
       // role.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -10,6 +10,7 @@ $string['allsiteusers'] = 'All site users';
 $string['assignroles'] = 'Assign roles';
 $string['assignrolesin'] = 'Assign roles in $a';
 $string['assignglobalroles'] = 'Assign system roles';
+$string['backup:userinfo'] = 'Backup user data';
 $string['blog:create'] = 'Create new blog entries';
 $string['blog:manageentries'] = 'Edit and manage entries';
 $string['blog:manageofficialtags'] = 'Manage official tags';
@@ -32,6 +33,8 @@ $string['course:bulkmessaging'] = 'Send a message to many people';
 $string['course:changefullname'] = 'Change course full name';
 $string['course:changeshortname'] = 'Change course short name';
 $string['course:changeidnumber'] = 'Change course ID number';
+$string['course:changecategory'] = 'Change course category';
+$string['course:changesummary'] = 'Change course summary';
 $string['course:create'] = 'Create courses';
 $string['course:delete'] = 'Delete courses';
 $string['course:manageactivities'] = 'Manage activities';
@@ -126,6 +129,9 @@ $string['resetrole'] = 'Reset to defaults';
 $string['resetrolenolegacy'] = 'Clear permissions';
 $string['resetrolesure'] = 'Are you sure that you want to reset role \"$a->name ($a->shortname)\" to defaults?<p></p>The defaults are taken from the selected legacy capability ($a->legacytype).';
 $string['resetrolesurenolegacy'] = 'Are you sure that you want to clear all permissions defined in this role \"$a->name ($a->shortname)\"?';
+$string['restore:rolldates'] = 'Allowed to roll activity configuration dates on restore';
+$string['restore:createuser'] = 'Create users on restore';
+$string['restore:userinfo'] = 'Restore user data';
 $string['risks'] = 'Risks';
 $string['role:assign'] = 'Assign roles to users';
 $string['role:manage'] = 'Create and manage roles';

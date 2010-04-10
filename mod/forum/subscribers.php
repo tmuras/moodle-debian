@@ -1,4 +1,4 @@
-<?php  // $Id: subscribers.php,v 1.40.2.3 2008/12/11 07:02:10 tjhunt Exp $
+<?php  // $Id: subscribers.php,v 1.40.2.5 2009/11/30 17:12:17 sam_marshall Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -50,7 +50,7 @@
     }
 
 /// Check to see if groups are being used in this forum
-    groups_print_activity_menu($cm, "subscribers.php?id=$forum->id");
+    groups_print_activity_menu($cm, $CFG->wwwroot . "/mod/forum/subscribers.php?id=$forum->id");
     $currentgroup = groups_get_activity_group($cm);
     $groupmode = groups_get_activity_groupmode($cm);
 
@@ -94,7 +94,7 @@
     $strforums      = get_string("forums", "forum");
 
     $searchtext = optional_param('searchtext', '', PARAM_RAW);
-    if ($frm = data_submitted()) {
+    if ($frm = data_submitted() and confirm_sesskey()) {
 
 /// A form was submitted so process the input
         if (!empty($frm->add) and !empty($frm->addselect)) {

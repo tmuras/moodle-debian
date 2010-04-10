@@ -1,4 +1,4 @@
-<?php  // $Id: view.php,v 1.70.2.30 2009/05/06 17:24:29 stronk7 Exp $
+<?php  // $Id: view.php,v 1.70.2.33 2009/11/30 17:12:16 sam_marshall Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -296,10 +296,17 @@
     }
 
 /// Check to see if groups are being used here
-    $returnurl = 'view.php?d='.$data->id.'&amp;search='.s($search).'&amp;sort='.s($sort).'&amp;order='.s($order).'&amp;';
+    $returnurl = $CFG->wwwroot . '/mod/data/view.php?d='.$data->id.'&amp;search='.s($search).'&amp;sort='.s($sort).'&amp;order='.s($order).'&amp;';
     groups_print_activity_menu($cm, $returnurl);
     $currentgroup = groups_get_activity_group($cm);
     $groupmode = groups_get_activity_groupmode($cm);
+
+    // deletect entries not approved yet and show hint instead of not found error
+    if ($record and $data->approval and !$record->approved and $record->userid != $USER->id and !has_capability('mod/data:manageentries', $context)) {
+        if (!$currentgroup or $record->groupid == $currentgroup or $record->groupid == 0) {
+            print_error('notapproved', 'data');
+        }
+    }
 
     print_heading(format_string($data->name));
 
@@ -426,6 +433,11 @@
 
         $ilike = sql_ilike(); //Be case-insensitive
 
+        // Init some variables to be used by advanced search
+        $advsearchselect = '';
+        $advwhere        = '';
+        $advtables       = '';
+
     /// Find the field we are sorting on
         if ($sort <= 0 or !$sortfield = data_get_field_from_id($sort, $data)) {
 
@@ -469,9 +481,9 @@
                         $searchselect .= " AND $val->field $ilike '%{$val->data}%'";
                         continue;
                     }
-                    $tables .= ', '.$CFG->prefix.'data_content c'.$key.' ';
-                    $where .= ' AND c'.$key.'.recordid = r.id';
-                    $searchselect .= ' AND ('.$val->sql.') ';
+                    $advtables .= ', '.$CFG->prefix.'data_content c'.$key.' ';
+                    $advwhere .= ' AND c'.$key.'.recordid = r.id';
+                    $advsearchselect .= ' AND ('.$val->sql.') ';
                 }
             } else if ($search) {
                 $searchselect = " AND (cs.content $ilike '%$search%' OR u.firstname $ilike '%$search%' OR u.lastname $ilike '%$search%' ) ";
@@ -506,9 +518,9 @@
                         $searchselect .= " AND $val->field $ilike '%{$val->data}%'";
                         continue;
                     }
-                    $tables .= ', '.$CFG->prefix.'data_content c'.$key.' ';
-                    $where .= ' AND c'.$key.'.recordid = r.id AND c'.$key.'.fieldid = '.$key;
-                    $searchselect .= ' AND ('.$val->sql.') ';
+                    $advtables .= ', '.$CFG->prefix.'data_content c'.$key.' ';
+                    $advwhere .= ' AND c'.$key.'.recordid = r.id AND c'.$key.'.fieldid = '.$key;
+                    $advsearchselect .= ' AND ('.$val->sql.') ';
                 }
             } else if ($search) {
                 $searchselect = " AND (cs.content $ilike '%$search%' OR u.firstname $ilike '%$search%' OR u.lastname $ilike '%$search%' ) ";
@@ -519,7 +531,7 @@
 
     /// To actually fetch the records
 
-        $fromsql    = "FROM $tables $where $groupselect $approveselect $searchselect";
+        $fromsql    = "FROM $tables $advtables $where $advwhere $groupselect $approveselect $searchselect $advsearchselect";
         $sqlselect  = "SELECT $what $fromsql $sortorder";
         $sqlcount   = "SELECT $count $fromsql";   // Total number of records when searching
         $sqlrids    = "SELECT tmp.id FROM ($sqlselect) tmp";
@@ -528,7 +540,7 @@
     /// Work out the paging numbers and counts
 
         $totalcount = count_records_sql($sqlcount);
-        if (empty($searchselect)) {
+        if (empty($searchselect) && empty($advsearchselect)) {
             $maxcount = $totalcount;
         } else {
             $maxcount = count_records_sql($sqlmax);
