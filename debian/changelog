@@ -1,3 +1,11 @@
+moodle (1.9.8-1) UNRELEASED; urgency=low
+
+  * New Upstream Version (closes: #475535)
+  * Package rewritten from scratch
+  * Updated copyright with two new entires
+ 
+ -- Tomasz Muras <tomasz@muras.eu>  Sun, 28 Mar 2010 23:59:59 +0000
+
 moodle (1.9.5-1) UNRELEASED; urgency=low
 
   * New Upstream Version (closes: #475535, #514284, #515823, #526543)
