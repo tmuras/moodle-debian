@@ -1,4 +1,4 @@
-<?php // $Id: rate_ajax.php,v 1.1.2.2 2009/01/17 19:30:08 stronk7 Exp $
+<?php // $Id: rate_ajax.php,v 1.1.2.3 2009/06/03 19:59:16 skodak Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -123,7 +123,7 @@
             $oldrating->rating = $rate;
             $oldrating->time   = time();
             if (!update_record('forum_ratings', $oldrating)) {
-                print_error('cannotupdaterate', 'error', '', (object)array('id'=>$post->id, 'rating'=>$rate));
+                error("Could not update an old rating ($post->id = $rate)");
             }
         }
 

@@ -1,4 +1,4 @@
-<?PHP // $Id: index.php,v 1.194.2.21 2009/04/28 18:50:12 skodak Exp $
+<?PHP // $Id: index.php,v 1.194.2.23 2010/02/04 04:37:31 rwijaya Exp $
 
 //  Lists all the users within a given course
 
@@ -679,7 +679,7 @@
 
 
         if ($userlist)  {
-            $usersprinted = array();
+            $usersprinted = array();            
             while ($user = rs_fetch_next_record($userlist)) {
                 if (in_array($user->id, $usersprinted)) { /// Prevent duplicates by r.hidden - MDL-13935
                     continue;
@@ -717,11 +717,19 @@
                 } else {
                     $usercontext = $user->context;
                 }
+                
+                $contextcanviewdetails = has_capability('moodle/user:viewdetails', $context);
+                $usercontextcanviewdetails = has_capability('moodle/user:viewdetails', $usercontext);
 
-                if ($piclink = ($USER->id == $user->id || has_capability('moodle/user:viewdetails', $context) || has_capability('moodle/user:viewdetails', $usercontext))) {
-                    $profilelink = '<strong><a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.$course->id.'">'.fullname($user).'</a></strong>';
+                if ($piclink = ($USER->id == $user->id || $contextcanviewdetails || $usercontextcanviewdetails)) {
+                    if ($usercontextcanviewdetails) {
+                        $canviewfullname = has_capability('moodle/site:viewfullnames', $usercontext);
+                    } else {
+                        $canviewfullname = has_capability('moodle/site:viewfullnames', $context);
+                    } 
+                    $profilelink = '<strong><a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.$course->id.'">'.fullname($user, $canviewfullname).'</a></strong>';
                 } else {
-                    $profilelink = '<strong>'.fullname($user).'</strong>';
+                    $profilelink = '<strong>'.fullname($user, has_capability('moodle/site:viewfullnames', $context)).'</strong>';
                 }
 
                 $data = array (
@@ -787,7 +795,7 @@
 
     }
 
-    if ($bulkoperations && $totalcount > ($perpage*3)) {
+    if (has_capability('moodle/site:viewparticipants', $context) && $totalcount > ($perpage*3)) {
         echo '<form action="index.php" class="searchform"><div><input type="hidden" name="id" value="'.$course->id.'" />'.get_string('search').':&nbsp;'."\n";
         echo '<input type="text" name="search" value="'.s($search).'" />&nbsp;<input type="submit" value="'.get_string('search').'" /></div></form>'."\n";
     }

@@ -29,9 +29,7 @@
         $lang = "en";
     }
 
-    if ($httpsrequired) {
-        // this is an ugly hack to allow partial operation of editor on pages that require https when loginhttps enabled
-        // please note that some popups still show nonsecurre items and fullscreen may not function properly in IE
+    if ($httpsrequired or (!empty($_SERVER['HTTPS']) and $_SERVER['HTTPS'] != 'off')) {
         $url = preg_replace('|https?://[^/]+|', '', $CFG->wwwroot).'/lib/editor/htmlarea/';
     } else {
         $url = $CFG->wwwroot.'/lib/editor/htmlarea/';
@@ -56,7 +54,7 @@
 // Version 3.0 developed by Mihai Bazon.
 //   http://dynarch.com/mishoo
 //
-// $Id: htmlarea.php,v 1.24.2.5 2008/07/10 04:11:34 scyrma Exp $
+// $Id: htmlarea.php,v 1.24.2.8 2009/08/27 03:21:33 jerome Exp $
 
 if (typeof _editor_url == "string") {
     // Leave exactly one backslash at the end of _editor_url
@@ -721,7 +719,7 @@ HTMLArea.prototype.generate = function () {
     // create the IFRAME
     var iframe = document.createElement("iframe");
 
-    iframe.src = "about:blank";
+    iframe.src = "<?php echo $url; ?>blank.html";
 
     iframe.className = "iframe";
 

@@ -1,4 +1,4 @@
-<?PHP // $Id: grades.php,v 1.111.2.67 2009/05/08 20:08:53 skodak Exp $
+<?PHP // $Id: grades.php,v 1.111.2.70 2010/04/02 12:01:56 wildgirl Exp $
       // grades.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -24,7 +24,7 @@ $string['aggregateonlygradedhelp'] = 'Nonexistent grades are either treated as m
 $string['aggregateoutcomes'] = 'Include outcomes in aggregation';
 $string['aggregateoutcomeshelp'] = 'Including outcomes in aggregation may not lead to the desired overall grade, so you have the option to include or leave them out.';
 $string['aggregatesubcats'] = 'Aggregate including subcategories';
-$string['aggregatesubcatshelp'] = 'The aggregation is usually done only with immediate children, it is also possible to aggregate grades in all subcategories excluding other aggregated grades.';
+$string['aggregatesubcatshelp'] = 'The aggregation is usually done only with immediate children, it is also possible to aggregate including individual grades in all subcategories excluding other aggregated grades.';
 $string['aggregatesum'] = 'Sum of grades';
 $string['aggregatesonly'] = 'Aggregates only';
 $string['aggregateweightedmean'] = 'Weighted mean of grades';
@@ -256,6 +256,7 @@ $string['gradessettings'] = 'Grade settings';
 $string['gradepreferences'] = 'Grade preferences';
 $string['gradepreferenceshelp'] = 'Grade preferences Help';
 $string['grades'] = 'Grades';
+$string['gradesforuser'] = 'Grades for $a->user';
 $string['gradesonly'] = 'Grades only';
 $string['gradetype'] = 'Grade type';
 $string['gradetypehelp'] = 'Specifies the type of grade used: none (no grading possible), value (enables the maximum and minimum grade settings), scale (enables the scale setting) or text (feedback only). Only value and scale grade types may be aggregated. The grade type for an activity-based grade item is set on the update activity page.';
@@ -276,6 +277,10 @@ $string['hidelocks'] = 'Hide locks';
 $string['hidenooutcomes'] = 'Show outcomes';
 $string['hidefeedback'] = 'Hide feedback';
 $string['hideranges'] = 'Hide ranges';
+$string['hidetotalifhiddenitems'] = 'Hide totals if they contain hidden items';
+$string['hidetotalifhiddenitemsdescription'] = 'Whether totals which contain hidden grade items are shown to students (calculated either excluding or including hidden items) or replaced with a hyphen.';
+$string['hidetotalshowexhiddenitems'] = 'Show totals excluding hidden items';
+$string['hidetotalshowinchiddenitems'] = 'Show totals including hidden items';
 $string['hideverbose'] = 'Hide $a->category$a->itemmodule $a->itemname';
 $string['highgradeascending'] = 'Sort by high grade ascending';
 $string['highgradedescending'] = 'Sort by high grade descending';

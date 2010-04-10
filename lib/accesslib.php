@@ -1,4 +1,4 @@
-<?php // $Id: accesslib.php,v 1.421.2.105 2009/05/11 00:02:43 stronk7 Exp $
+<?php // $Id: accesslib.php,v 1.421.2.108 2009/10/08 04:52:16 ericmerrill Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -180,7 +180,8 @@ function cache_context($context) {
     // If there are too many items in the cache already, remove items until
     // there is space
     while (count($context_cache_id) >= MAX_CONTEXT_CACHE_SIZE) {
-        $first = array_shift($context_cache_id);
+        $first = reset($context_cache_id);
+        unset($context_cache_id[$first->id]);
         unset($context_cache[$first->contextlevel][$first->instanceid]);
     }
 
@@ -1117,10 +1118,12 @@ function get_user_courses_bycap($userid, $cap, $accessdata, $doanything, $sort='
         $c = make_context_subobj($c);
 
         if (has_capability_in_accessdata($cap, $c->context, $accessdata, $doanything)) {
-            $courses[] = $c;
-            if ($limit > 0 && $cc++ > $limit) {
+            if ($limit > 0 && $cc >= $limit) {
                 break;
             }
+            
+            $courses[] = $c;
+            $cc++;
         }
     }
     rs_close($rs);
@@ -4465,6 +4468,20 @@ function get_users_by_capability($context, $capability, $fields='', $sort='',
         $defaultroleinteresting = false;
     }
 
+    // is the default role interesting? does it have
+    // a relevant rolecap? (we use this a lot later)
+    if (($isfrontpage or is_inside_frontpage($context)) and !empty($CFG->defaultfrontpageroleid) and in_array((int)$CFG->defaultfrontpageroleid, $roleids, true)) {
+        if (!empty($CFG->fullusersbycapabilityonfrontpage)) {
+            // new in 1.9.6 - full support for defaultfrontpagerole MDL-19039
+            $frontpageroleinteresting = true;
+        } else {
+            // old style 1.9.0-1.9.5 - much faster + fewer negative override problems on frontpage
+            $frontpageroleinteresting = ($context->contextlevel == CONTEXT_COURSE);
+        }
+    } else {
+        $frontpageroleinteresting = false;
+    }
+
     //
     // Prepare query clauses
     //
@@ -4551,9 +4568,7 @@ function get_users_by_capability($context, $capability, $fields='', $sort='',
     if (!$negperm) { 
 
         // at the frontpage, and all site users have it - easy!
-        if ($isfrontpage && !empty($CFG->defaultfrontpageroleid)
-            && in_array((int)$CFG->defaultfrontpageroleid, $roleids, true)) {
-            
+        if ($frontpageroleinteresting) {
             return get_records_sql("SELECT $fields
                                     FROM {$CFG->prefix}user u
                                     WHERE u.deleted = 0
@@ -4630,7 +4645,7 @@ function get_users_by_capability($context, $capability, $fields='', $sort='',
     }
 
     if ($context->contextlevel == CONTEXT_SYSTEM
-        || $isfrontpage
+        || $frontpageroleinteresting
         || $defaultroleinteresting) {
 
         // Handle system / sitecourse / defaultrole-with-perhaps-neg-overrides
@@ -4732,6 +4747,11 @@ function get_users_by_capability($context, $capability, $fields='', $sort='',
 
             // Did the last user end up with a positive permission?
             if ($lastuserid !=0) {
+                if ($frontpageroleinteresting) {
+                    // add frontpage role if interesting
+                    $ras[] = array('roleid' => $CFG->defaultfrontpageroleid,
+                                   'depth'  => $context->depth);
+                }
                 if ($defaultroleinteresting) {
                     // add the role at the end of $ras
                     $ras[] = array( 'roleid' => $CFG->defaultuserroleid,
@@ -4776,6 +4796,11 @@ function get_users_by_capability($context, $capability, $fields='', $sort='',
 
     // Prune last entry if necessary
     if ($lastuserid !=0) {
+        if ($frontpageroleinteresting) {
+            // add frontpage role if interesting
+            $ras[] = array('roleid' => $CFG->defaultfrontpageroleid,
+                           'depth'  => $context->depth);
+        }
         if ($defaultroleinteresting) {
             // add the role at the end of $ras
             $ras[] = array( 'roleid' => $CFG->defaultuserroleid,

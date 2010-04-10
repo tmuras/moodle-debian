@@ -1,4 +1,4 @@
-<?PHP // $Id: config.php,v 1.8.8.1 2008/02/27 13:41:08 andreabix Exp $
+<?PHP // $Id: config.php,v 1.8.8.2 2009/05/25 08:11:35 dongsheng Exp $
 
 ////////////////////////////////////////////////////////////////////////////////
 /// This file contains a few configuration variables that control 
@@ -12,7 +12,7 @@ $THEME->sheets = array('fw_layout','fw_color','fw_fonts');
 /// stylesheet files you want included in this theme, and in what order
 ////////////////////////////////////////////////////////////////////////////////
 
-$THEME->standardsheets = array('styles_layout');
+$THEME->standardsheets = array('styles_layout', 'styles_color');
 ///$THEME->standardsheets = true;
 
 /// This variable can be set to an array containing

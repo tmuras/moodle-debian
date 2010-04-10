@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.46.2.12 2009/01/14 07:03:11 tjhunt Exp $
+<?php // $Id: index.php,v 1.46.2.16 2009/12/16 00:51:28 andyjdavis Exp $
 /**
  * This page lists all the instances of quiz in a particular course
  *
@@ -43,9 +43,30 @@
         die;
     }
 
+// Check if we need the closing date header
+    $showclosingheader = false;
+    $showfeedback = false;
+    foreach ($quizzes as $quiz) {
+        if ($quiz->timeclose!=0) {
+            $showclosingheader=true;
+        }
+        if (quiz_has_feedback($quiz->id)) {
+            $showfeedback=true;
+        }
+        if($showclosingheader && $showfeedback) {
+            break;
+        }
+    }
+
 // Configure table for displaying the list of instances.
-    $headings = array(get_string('name'), get_string('quizcloses', 'quiz'));
-    $align = array('left', 'left');
+    $headings = array(get_string('name'));
+    $align = array('left');
+
+    if ($showclosingheader) {
+        array_push($headings, get_string('quizcloses', 'quiz'));
+        array_push($align, 'left');
+    }
+
     if ($course->format == 'weeks' or $course->format == 'weekscss') {
         array_unshift($headings, get_string('week'));
     } else {
@@ -60,8 +81,12 @@
         array_push($align, 'left');
         $showing = 'stats';
     } else if (has_any_capability(array('mod/quiz:reviewmyattempts', 'mod/quiz:attempt'), $coursecontext)) {
-        array_push($headings, get_string('bestgrade', 'quiz'), get_string('feedback', 'quiz'));
-        array_push($align, 'left', 'left');
+        array_push($headings, get_string('grade', 'quiz'));
+        array_push($align, 'left');
+        if ($showfeedback) {
+            array_push($headings, get_string('feedback', 'quiz'));
+            array_push($align, 'left');
+        }
         $showing = 'scores';  // default
     }
 
@@ -98,7 +123,7 @@
         // Close date.
         if ($quiz->timeclose) {
             $data[] = userdate($quiz->timeclose);
-        } else {
+        } else if ($showclosingheader) {
             $data[] = '';
         }
 
@@ -129,7 +154,9 @@
                 }
             }
             $data[] = $grade;
-            $data[] = $feedback;
+            if ($showfeedback) {
+                $data[] = $feedback;
+            }
         }
 
         $table->data[] = $data;

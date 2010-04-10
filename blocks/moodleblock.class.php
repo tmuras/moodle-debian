@@ -1,10 +1,10 @@
-<?php  // $Id: moodleblock.class.php,v 1.92.2.9 2008/08/06 05:08:36 skodak Exp $
+<?php  // $Id: moodleblock.class.php,v 1.92.2.12 2009/08/13 08:14:31 skodak Exp $
 
 /**
  * This file contains the parent class for moodle blocks, block_base.
  *
  * @author Jon Papaioannou
- * @version  $Id: moodleblock.class.php,v 1.92.2.9 2008/08/06 05:08:36 skodak Exp $
+ * @version  $Id: moodleblock.class.php,v 1.92.2.12 2009/08/13 08:14:31 skodak Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package blocks
  */
@@ -783,7 +783,7 @@ class block_base {
      * @return boolean
      * @todo finish documenting this function
      */
-    function user_can_addto(&$page) {
+    function user_can_addto($page) {
         return true;
     }
 

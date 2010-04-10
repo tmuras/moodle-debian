@@ -1,4 +1,4 @@
-<?php // $Id: testclient.php,v 1.2.2.3 2008/04/22 06:16:17 dongsheng Exp $
+<?php // $Id: testclient.php,v 1.2.2.4 2010/04/01 17:10:58 skodak Exp $
 /**
  * A service browser for remote Moodles
  *
@@ -17,7 +17,7 @@ require_once $CFG->dirroot.'/mnet/xmlrpc/client.php';
 $context = get_context_instance(CONTEXT_SYSTEM);
 require_capability('moodle/site:config', $context);
 
-error_reporting(E_ALL);
+error_reporting(DEBUG_ALL);
 
 // Some HTML sugar
 echo '<?xml version="1.0" encoding="utf-8"?>';

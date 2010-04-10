@@ -17,7 +17,7 @@
 // |          Bertrand Mansion <bmansion@mamasam.com>                     |
 // +----------------------------------------------------------------------+
 //
-// $Id: button.php,v 1.3 2007/05/27 05:01:51 jamiesensei Exp $
+// $Id: button.php,v 1.3.4.1 2009/06/13 17:24:41 skodak Exp $
 
 require_once("HTML/QuickForm/button.php");
 
@@ -38,6 +38,9 @@ class MoodleQuickForm_button extends HTML_QuickForm_button
      * @var string
      */
     var $_helpbutton='';
+    function MoodleQuickForm_button($elementName=null, $value=null, $attributes=null) {
+        parent::HTML_QuickForm_button($elementName, $value, $attributes);
+    }
     /**
      * set html for help button
      *

@@ -1,4 +1,4 @@
-<?php // $Id: insert_image.php,v 1.9 2007/01/27 23:23:44 skodak Exp $
+<?php // $Id: insert_image.php,v 1.9.8.2 2009/06/09 04:58:39 jonathanharker Exp $
 
     require("../../../../config.php");
 
@@ -10,6 +10,12 @@
     @header('Content-Type: text/html; charset=utf-8');
 
     $upload_max_filesize = get_max_upload_file_size($CFG->maxbytes);
+
+    if ($httpsrequired or (!empty($_SERVER['HTTPS']) and $_SERVER['HTTPS'] != 'off')) {
+        $url = preg_replace('|https?://[^/]+|', '', $CFG->wwwroot).'/lib/editor/htmlarea/';
+    } else {
+        $url = $CFG->wwwroot.'/lib/editor/htmlarea/';
+    }
 
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
@@ -90,9 +96,9 @@ function onPreview() {
   img.src = url;
   var win = null;
   if (!document.all) {
-    win = window.open("about:blank", "ha_imgpreview", "toolbar=no,menubar=no,personalbar=no,innerWidth=100,innerHeight=100,scrollbars=no,resizable=yes");
+    win = window.open("<?php echo $url ?>blank.html", "ha_imgpreview", "toolbar=no,menubar=no,personalbar=no,innerWidth=100,innerHeight=100,scrollbars=no,resizable=yes");
   } else {
-    win = window.open("about:blank", "ha_imgpreview", "channelmode=no,directories=no,height=100,width=100,location=no,menubar=no,resizable=yes,scrollbars=no,toolbar=no");
+    win = window.open("<?php echo $url ?>blank.html", "ha_imgpreview", "channelmode=no,directories=no,height=100,width=100,location=no,menubar=no,resizable=yes,scrollbars=no,toolbar=no");
   }
   preview_window = win;
   var doc = win.document;
@@ -269,7 +275,7 @@ form { margin-bottom: 0px; margin-top: 0px; }
       ?>
       </td>
       <td width="45%" valign="top"><?php print_string("preview","editor");?>:<br />
-      <iframe id="ipreview" name="ipreview" src="about:blank" style="width: 100%; height: 200px;"></iframe>
+      <iframe id="ipreview" name="ipreview" src="<?php echo $url ?>blank.html" style="width: 100%; height: 200px;"></iframe>
       </td>
     </tr>
   </table>

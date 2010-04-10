@@ -1,4 +1,4 @@
-<?PHP // $Id: config.php,v 1.7.2.1 2008/02/19 07:52:38 urs_hunkler Exp $
+<?PHP // $Id: config.php,v 1.7.2.2 2009/05/25 08:11:35 dongsheng Exp $
 
 ////////////////////////////////////////////////////////////////////////////////
 /// This file contains a few configuration variables that control 
@@ -13,7 +13,7 @@ $THEME->sheets = array('user_styles');
 ////////////////////////////////////////////////////////////////////////////////
 
 
-$THEME->standardsheets = array('styles_layout');
+$THEME->standardsheets = array('styles_layout', 'styles_color');
 
 /// This variable can be set to an array containing
 /// filenames from the *STANDARD* theme.  If the 

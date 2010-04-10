@@ -1,4 +1,4 @@
-<?php //$Id: choosecoursefileorimsrepo.php,v 1.2.4.1 2008/08/20 22:00:10 danmarsden Exp $
+<?php //$Id: choosecoursefileorimsrepo.php,v 1.2.4.2 2009/05/29 04:16:11 samhemelryk Exp $
 global $CFG;
 require_once "$CFG->libdir/form/group.php";
 
@@ -63,7 +63,11 @@ class MoodleQuickForm_choosecoursefileorimsrepo extends MoodleQuickForm_group
         global $CFG, $COURSE;
         $this->_elements = array();
 
-        $this->_elements[0] =& MoodleQuickForm::createElement('text', 'value', '', array('size'=>'48'));
+        if (!is_array($this->getAttributes()) || !array_key_exists('size', $this->getAttributes())) {
+            $this->updateAttributes(array('size' => 48));
+        }
+
+        $this->_elements[0] =& MoodleQuickForm::createElement('text', 'value', '', $this->getAttributes());
         $this->_elements[1] =& MoodleQuickForm::createElement('button', 'popup', get_string('chooseafile', 'resource') .' ...');
 
         $button =& $this->_elements[1];

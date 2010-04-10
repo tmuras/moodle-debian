@@ -1,4 +1,4 @@
-<?php  // $Id: lib.php,v 1.70.2.14 2009/04/09 09:30:32 skodak Exp $
+<?php  // $Id: lib.php,v 1.70.2.15 2009/06/09 05:12:02 samhemelryk Exp $
 
 define('RESOURCE_LOCALPATH', 'LOCALPATH');
 
@@ -535,7 +535,7 @@ function resource_get_types() {
         $type->modclass = MOD_CLASS_RESOURCE;
         $type->name = $resourcetype;
         $type->type = "resource&amp;type=$resourcetype";
-        $type->typestr = get_string("resourcetype$resourcetype", 'resource');
+        $type->typestr = resource_get_name($resourcetype);
         $types[] = $type;
     }
 

@@ -1,4 +1,4 @@
-<?php // $Id: editlib.php,v 1.76.2.10 2008/11/27 11:50:20 tjhunt Exp $
+<?php // $Id: editlib.php,v 1.76.2.13 2009/07/15 04:04:23 tjhunt Exp $
 /**
  * Functions used to show question editing interface
  *
@@ -162,6 +162,7 @@ function question_list($contexts, $pageurl, $categoryandcontext, $cm = null,
         $showquestiontext = false, $addcontexts = array()) {
     global $USER, $CFG, $THEME, $COURSE;
 
+    $lastchangedid=optional_param('lastchanged',0,PARAM_INT);
     list($categoryid, $contextid)=  explode(',', $categoryandcontext);
 
     $qtypemenu = question_type_menu();
@@ -297,6 +298,9 @@ function question_list($contexts, $pageurl, $categoryandcontext, $cm = null,
         }
         if ($showquestiontext) {
             $nameclass .= ' header';
+        }
+        if ($question->id==$lastchangedid) {
+            $nameclass='highlight';
         }
         if ($nameclass) {
             $nameclass = 'class="' . $nameclass . '"';
@@ -564,8 +568,10 @@ function question_showbank($tabname, $contexts, $pageurl, $cm, $page, $perpage, 
             $questionnames .= '<br />'.get_string('questionsinuse', 'quiz');
         }
         notice_yesno(get_string("deletequestionscheck", "quiz", $questionnames),
-                    $pageurl->out_action(array('deleteselected'=>$questionlist, 'confirm'=>md5($questionlist))),
-                    $pageurl->out_action());
+                    $pageurl->out_action(),
+                    $pageurl->out(true),
+                    array('deleteselected'=>$questionlist, 'confirm'=>md5($questionlist)),
+                    $pageurl->params(), 'post', 'get');
 
         echo '</td></tr>';
         echo '</table>';

@@ -1,4 +1,4 @@
-<?php // $Id: coursefiles.php,v 1.13.8.4 2009/05/08 08:52:42 skodak Exp $
+<?php // $Id: coursefiles.php,v 1.13.8.6 2009/06/09 04:58:38 jonathanharker Exp $
 
 //  Manage all uploaded files in a course file area
 
@@ -25,7 +25,6 @@
     $text    = optional_param('text', '', PARAM_RAW);
     $confirm = optional_param('confirm', 0, PARAM_BOOL);
 
-
     if (! $course = get_record("course", "id", $id) ) {
         error("That's an invalid course id");
     }
@@ -40,6 +39,11 @@
     function html_header($course, $wdir, $formfield=""){
 
         global $CFG;
+        if (!empty($_SERVER['HTTPS']) and $_SERVER['HTTPS'] != 'off') {
+            $url = preg_replace('|https?://[^/]+|', '', $CFG->wwwroot).'/lib/editor/htmlarea/';
+        } else {
+            $url = $CFG->wwwroot.'/lib/editor/htmlarea/';
+        }
 
         ?>
         <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
@@ -142,7 +146,7 @@
 
             var prev = window.parent.ipreview;
             if(prev != null) {
-                prev.location.replace('about:blank');
+                prev.location.replace('<?php echo $url ?>blank.html');
             }
             var uploader = window.parent.document.forms['uploader'];
             if(uploader != null) {

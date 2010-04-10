@@ -1,4 +1,4 @@
-<?php // $Id: question.php,v 1.49.2.3 2009/03/30 09:15:38 tjhunt Exp $
+<?php // $Id: question.php,v 1.49.2.5 2009/11/19 17:59:55 tjhunt Exp $
 /**
  * Page for editing questions using the new form library.
  *
@@ -141,7 +141,9 @@ if ($mform->is_cancelled()){
     if ($inpopup) {
         close_window();
     } else {
-        redirect($returnurl);
+        $nexturl = new moodle_url($returnurl);
+        $nexturl->param('lastchanged', $question->id);
+        redirect($nexturl->out());
     }
 } elseif ($fromform = $mform->get_data()) {
     /// If we are saving as a copy, break the connection to the old question.
@@ -199,7 +201,9 @@ if ($mform->is_cancelled()){
             notify(get_string('changessaved'), '');
             close_window(3);
         } else {
-            redirect($returnurl);
+            $nexturl = new moodle_url($returnurl);
+            $nexturl->param('lastchanged',$question->id);
+            redirect($nexturl->out());
         }
     } else {
         $nexturlparams = array('returnurl'=>$returnurl);
