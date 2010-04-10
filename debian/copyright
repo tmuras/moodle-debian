@@ -32,6 +32,8 @@ Public License can be found in /usr/share/common-licenses/GPL-2 file.
 	TinyMCE, licensed under the LGPL
 	bennu, licensed under the LGPL
 	domxmlphp4-php5, licensed under the LGPL
+	Zend_Search_Lucene, licensed under the BSD
+	simpletestlib, licensed under the GPL
 
 LGPL can be found in the file /usr/share/common-licenses/LGPL,
 GPL can be found in the file /usr/share/common-licenses/GPL, and
