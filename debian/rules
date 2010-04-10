@@ -75,6 +75,11 @@ binary-indep:
 	chmod 755 debian/moodle/usr/share/moodle/filter/algebra/algebra2tex.pl
 	chmod 755 debian/moodle/usr/share/moodle/admin/process_email.php
 	
+	#un-bundle libraries
+	rm -rf debian/moodle/usr/share/moodle/lib/smarty
+	rm -rf debian/moodle/usr/share/moodle/lib/yui
+	rm -rf debian/moodle/usr/share/moodle/lib/magpie
+	
 	dh_lintian
 	dh_gconf
 	dh_icons
