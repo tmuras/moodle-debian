@@ -49,7 +49,21 @@ binary-indep:
 	dh_installwm
 	dh_installxfonts
 	dh_bugfiles
+	
+	#remove unnecessary licence files
+	rm debian/moodle/usr/share/moodle/lib/adodb/license.txt
+	rm debian/moodle/usr/share/moodle/lib/editor/htmlarea/license.txt
+	rm debian/moodle/usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/license.txt
+	rm debian/moodle/usr/share/moodle/lib/bennu/LICENSE.txt
+	rm debian/moodle/usr/share/moodle/lib/phpmailer/LICENSE
+	rm debian/moodle/usr/share/moodle/lib/simpletestlib/LICENSE
+	rm debian/moodle/usr/share/moodle/search/Zend/LICENSE.txt
+	rm debian/moodle/usr/share/moodle/lib/smarty/COPYING.lib
+	rm debian/moodle/usr/share/moodle/lib/pear/HTTP/WebDAV/COPYING
+	rm debian/moodle/usr/share/moodle/lib/pear/HTTP/WebDAV/LICENSE
+	
 	rm debian/moodle/usr/share/moodle/filter/tex/*mimetex*
+	
 	dh_lintian
 	dh_gconf
 	dh_icons
