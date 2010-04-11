@@ -61,6 +61,7 @@ binary-indep:
 	rm debian/moodle/usr/share/moodle/lib/smarty/COPYING.lib
 	rm debian/moodle/usr/share/moodle/lib/pear/HTTP/WebDAV/COPYING
 	rm debian/moodle/usr/share/moodle/lib/pear/HTTP/WebDAV/LICENSE
+	rm debian/moodle/usr/share/moodle/filter/mediaplugin/flvplayer.README.txt
 	
 	#remove unnecessary files
 	rm debian/moodle/usr/share/moodle/filter/tex/*mimetex*
