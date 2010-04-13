@@ -21,6 +21,14 @@ if [ -f /etc/moodle/config.php ]; then
 fi
 
 db_input critical moodle/www
+db_go
+db_get moodle/www
+www="$RET"
+if [ ! `echo "$www" | egrep "^http"` ]; then
+        www="http://$www"
+	db_set moodle/www "$www"
+fi
+
 #	dbc_debug=1
 dbc_dbtypes="mysql, pgsql"
 dbc_authmethod_user="password"

@@ -1,5 +1,6 @@
 Template: moodle/www
 Type: string
 Default: http://localhost/moodle
-_Description: Your Moodle site URL:
- Please enter the website URL.
+Description: Your Moodle site URL 2.
+ Please enter the website URL - now!
+
