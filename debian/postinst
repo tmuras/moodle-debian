@@ -100,13 +100,13 @@ apache_config() {
 	tmp=`echo $wwwroot | sed 's#^https*://[^/]*/*##'`
 
 	if [ -n "$tmp" ]; then
-		alias=<<EOS
+		tmp_alias=<<EOS
 #Uncomment the line below if you want to use alias
 #This will not work well with virtual hosts
 #Alias /${tmp} /usr/share/moodle/
 EOS
 	else
-	alias=<<EOS
+	tmp_alias=<<EOS
 #You can't use alias becuse you Moodls is not in a sub-directory
 #Create appropriate virtual host insted.
 EOS
@@ -154,17 +154,18 @@ EOF
 
 dbc_first_version="1.9.8-1"
 dbc_go moodle $@
-wwwroot="http://localhost/moodle"
+#wwwroot="http://localhost/moodle"
 
 case "$1" in
     configure)
 #	tempcfile=`tempfile`
-#	cfile=/etc/moodle/config.php
-#	moodledir=/usr/share/moodle
 	moodle_config
+	apache_config
 #	ucf --debconf-ok $tempfile $cfile
 #	chmod 640 $cfile
 #	chown www-data:www-data $cfile
+	cfile=/etc/moodle/config.php
+	moodledir=/usr/share/moodle
 
 #        if [ -r /etc/moodle/config.php ]; then
         [ -f $moodledir/config.php ] && rm $moodledir/config.php
