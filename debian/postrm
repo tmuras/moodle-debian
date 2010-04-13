@@ -4,6 +4,7 @@
 # see: dh_installdeb(1)
 
 set -e
+#set -x
 
 # summary of how this script can be called:
 #        * <postrm> `remove'
@@ -27,7 +28,15 @@ if [ -f /usr/share/dbconfig-common/dpkg/postrm ]; then
 fi
 
 case "$1" in
-    purge|remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+    purge)
+        rm -rf /usr/share/moodle
+        ucf --purge /etc/moodle/config.php
+        ucf --purge /etc/cron.d/moodle
+        rm -rf /etc/moodle
+        rm -rf /var/lib/moodle
+        rm -f /etc/cron.d/moodle
+        ;;
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
     ;;
 
     *)

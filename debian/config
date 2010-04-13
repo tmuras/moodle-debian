@@ -20,8 +20,8 @@ if [ -f /etc/moodle/config.php ]; then
 
 fi
 
-db_input critical moodle/www
-db_go
+db_input critical moodle/www || true
+db_go || true
 db_get moodle/www
 www="$RET"
 if [ ! `echo "$www" | egrep "^http"` ]; then
