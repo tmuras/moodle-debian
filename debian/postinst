@@ -28,13 +28,13 @@ fi
 . /usr/share/dbconfig-common/dpkg/postinst
 
 check_php5mysql_notinstalled() {
-    dpkg -s php5-mysql | grep Status | grep -q installed >/dev/null 2>&1 && return 0
-    return 1
+    dpkg -s php5-mysql | grep Status | grep -q installed >/dev/null 2>&1 && return 1
+    return 0
 }
 
 check_php5psql_notinstalled() {
-    dpkg -s php5-pgsql | grep Status | grep -q installed >/dev/null 2>&1 && return 0
-    return 1
+    dpkg -s php5-pgsql | grep Status | grep -q installed >/dev/null 2>&1 && return 1
+    return 0
 }
 
 moodle_config() {
@@ -224,13 +224,13 @@ case "$1" in
 
         [ ! -h /usr/share/moodle/lib/magpie ] && ln -s /usr/share/php/magpierss /usr/share/moodle/lib/magpie
 
-	if [ "$dbc_dbtype" = "mysql" -a check_php5mysql_notinstalled ]; then
+	if [ "$dbc_dbtype" = "mysql" ] && check_php5mysql_notinstalled ; then
 		echo 'Error - You have specified that you wish to use a mysql' >&2
 	        echo 'database, but php5-mysql is not installed. You must install' >&2
 		echo 'php5-mysql before you can complete your moodle installation.' >&2
 	fi
 
-	if [ "$dbc_dbtype" = "postgresql" -a check_php5psql_notinstalled ]; then
+	if [ "$dbc_dbtype" = "postgresql" ] && check_php5psql_notinstalled ; then
 		echo 'Error - You have specified that you wish to use a postgresql' >&2
 		echo 'database, but php5-pgsql is not installed. You must install' >&2
 		echo 'php5-pgsql before you can complete your moodle installation.' >&2
