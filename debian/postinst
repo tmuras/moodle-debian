@@ -102,7 +102,20 @@ apache_config() {
 	local tmp
 	local tempfile=`tempfile`
 	local cfile="/etc/moodle/apache.conf"
+	local php_settings
 
+	php_settings="<IfModule mod_php5.c>
+        php_flag magic_quotes_gpc Off
+        php_flag magic_quotes_runtime Off
+        php_flag file_uploads On
+        php_flag short_open_tag On
+        php_flag session.auto_start Off
+        php_flag session.bug_compat_warn Off
+
+        php_value upload_max_filesize 2M
+        php_value post_max_size 2M
+</IfModule>"
+	
 	db_get moodle/www
 	wwwroot="$RET"
 	
@@ -110,12 +123,12 @@ apache_config() {
 	tmp=`echo $wwwroot | sed 's#^https*://[^/]*/*##'`
 
 	if [ -n "$tmp" ]; then
-		tmp_alias=`echo "#Uncomment the line below if you want to use alias
+		tmp_alias="#Uncomment the line below if you want to use alias
 #This will not work well with virtual hosts
-#Alias /${tmp} /usr/share/moodle/"`
+#Alias /${tmp} /usr/share/moodle/"
 	else
-		tmp_alias=`echo "#You can't use alias becuse you Moodls is not in a sub-directory
-#Create appropriate virtual host insted."`
+		tmp_alias="#You can't use alias becuse you Moodls is not in a sub-directory
+#Create appropriate virtual host insted."
 	fi
 
 	cat > $tempfile <<EOF
@@ -131,21 +144,11 @@ AllowOverride None
 order deny,allow
 deny from all
 
-#comment out the line below to allow remote access
 allow from 127.0.0.0/255.0.0.0
+#comment out the line below to allow remote access
+#allow from all
 
-<IfModule mod_php5.c>
-        php_flag magic_quotes_gpc Off
-        php_flag magic_quotes_runtime Off
-        php_flag file_uploads On
-        php_flag short_open_tag On
-        php_flag session.auto_start Off
-        php_flag session.bug_compat_warn Off
-
-        php_value upload_max_filesize 2M
-        php_value post_max_size 2M
-</IfModule>
-
+${php_settings}
 
 <IfModule mod_dir.c>
         DirectoryIndex index.php
@@ -169,9 +172,10 @@ EOF
         DocumentRoot /usr/share/moodle/
         <Directory /usr/share/moodle/>
                 Options Indexes FollowSymLinks MultiViews
-                AllowOverride All
+                AllowOverride None
                 Order allow,deny
                 allow from all
+${php_settings}
         </Directory>
 
         ErrorLog \${APACHE_LOG_DIR}/error.log
@@ -223,6 +227,12 @@ case "$1" in
         [ ! -h /usr/share/moodle/lib/yui ] && ln -s /usr/share/javascript/yui /usr/share/moodle/lib/yui
 
         [ ! -h /usr/share/moodle/lib/magpie ] && ln -s /usr/share/php/magpierss /usr/share/moodle/lib/magpie
+
+	repository=/var/lib/moodle
+        if [ -d $repository ]; then
+            chown -R www-data:www-data $repository
+            chmod 0750 $repository
+        fi
 
 	if [ "$dbc_dbtype" = "mysql" ] && check_php5mysql_notinstalled ; then
 		echo 'Error - You have specified that you wish to use a mysql' >&2
