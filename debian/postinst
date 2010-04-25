@@ -145,6 +145,7 @@ order deny,allow
 deny from all
 
 allow from 127.0.0.0/255.0.0.0
+allow from localhost
 #comment out the line below to allow remote access
 #allow from all
 

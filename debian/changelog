@@ -1,8 +1,12 @@
 moodle (1.9.8-1) UNRELEASED; urgency=low
 
-  * New Upstream Version (closes: #475535)
-  * Package rewritten from scratch
-  * Updated copyright with two new entires
+  * New Upstream Version (closes: #475535, #526543, #574757, #576189)
+  * Package rewritten from scratch (closes: #551399, #302205)
+  * Updated copyright with two new entires (closes: #526543)
+  * Drop use of wwwconfig (closes: #389502, #302205)
+  * Not creating Apache config autimatically (closes: #555672)
+  * Added "allow from localhost" (closes: #551402)
+  * Asking for wwwroot during the installation (closes: #302207)
  
  -- Tomasz Muras <tomasz@muras.eu>  Sun, 28 Mar 2010 23:59:59 +0000
 
