@@ -81,6 +81,9 @@ binary-indep:
 	rm -rf debian/moodle/usr/share/moodle/lib/yui
 	rm -rf debian/moodle/usr/share/moodle/lib/magpie
 	
+	#this one is just deleted
+	rm -f debian/moodle/lib/soap/nusoap.php
+	
 	dh_lintian
 	dh_gconf
 	dh_icons

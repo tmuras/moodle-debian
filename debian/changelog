@@ -7,6 +7,7 @@ moodle (1.9.8-1) UNRELEASED; urgency=low
   * Not creating Apache config autimatically (closes: #555672)
   * Added "allow from localhost" (closes: #551402)
   * Asking for wwwroot during the installation (closes: #302207)
+  * Removing nusoap as it's not necessary for PHP 5 (closes: #529573)
  
  -- Tomasz Muras <tomasz@muras.eu>  Sun, 28 Mar 2010 23:59:59 +0000
 
