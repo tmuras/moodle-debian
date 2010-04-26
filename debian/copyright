@@ -35,10 +35,22 @@ Public License can be found in /usr/share/common-licenses/GPL-2 file.
 	Zend_Search_Lucene, licensed under the BSD
 	simpletestlib, licensed under the GPL
 	FLV player, licensed under the GPL v2 or later
+	fpdf script "Protection", licensed under the same license as fpdf
 
 LGPL can be found in the file /usr/share/common-licenses/LGPL,
 GPL can be found in the file /usr/share/common-licenses/GPL, and
 BSD license can be found in the file /usr/share/common-licenses/BSD
+
+--------------------------------------------------------------------------------
+fpdf License
+Software: FPDF
+Version:  1.53
+Date:     2004-12-31
+Author:   Olivier PLATHEY
+License:  Freeware
+
+You may use, modify and redistribute this software as you wish.
+--------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 htmlArea License (based on BSD license)
