@@ -229,6 +229,10 @@ case "$1" in
 
         [ ! -h /usr/share/moodle/lib/magpie ] && ln -s /usr/share/php/magpierss /usr/share/moodle/lib/magpie
 
+	[ ! -h /usr/share/moodle/lib/fpdf/font ] && ln -s /usr/share/php/fpdf/font /usr/share/moodle/lib/fpdf/font
+	[ ! -h /usr/share/moodle/lib/fpdf/fpdf.php ] && ln -s /usr/share/php/fpdf/fpdf.php /usr/share/moodle/lib/fpdf/fpdf.php
+
+
 	repository=/var/lib/moodle
         if [ -d $repository ]; then
             chown -R www-data:www-data $repository
