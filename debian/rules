@@ -51,6 +51,7 @@ binary-indep:
 	dh_bugfiles
 	
 	#remove unnecessary licence files
+#	rm debian/moodle/usr/share/moodle/COPYING.txt
 	rm debian/moodle/usr/share/moodle/lib/adodb/license.txt
 	rm debian/moodle/usr/share/moodle/lib/editor/htmlarea/license.txt
 	rm debian/moodle/usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/license.txt
@@ -82,6 +83,7 @@ binary-indep:
 	rm -r debian/moodle/usr/share/moodle/lib/magpie
 	rm -r debian/moodle/usr/share/moodle/lib/fpdf/font
 	rm  debian/moodle/usr/share/moodle/lib/fpdf/fpdf.php
+	rm -r debian/moodle/usr/share/moodle/lib/pclzip
 	
 	#this one is just deleted
 	rm  debian/moodle/usr/share/moodle/lib/soap/nusoap.php

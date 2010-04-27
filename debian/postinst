@@ -232,6 +232,7 @@ case "$1" in
 	[ ! -h /usr/share/moodle/lib/fpdf/font ] && ln -s /usr/share/php/fpdf/font /usr/share/moodle/lib/fpdf/font
 	[ ! -h /usr/share/moodle/lib/fpdf/fpdf.php ] && ln -s /usr/share/php/fpdf/fpdf.php /usr/share/moodle/lib/fpdf/fpdf.php
 
+	[ ! -h /usr/share/moodle/lib/pclzip ] && ln -s /usr/share/php/libphp-pclzip /usr/share/moodle/lib/pclzip
 
 	repository=/var/lib/moodle
         if [ -d $repository ]; then
