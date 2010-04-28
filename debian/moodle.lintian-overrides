@@ -4,6 +4,7 @@ moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/jscripts
 moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/tiny_mce_popup.js
 moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/tiny_mce_src.js
 moodle: embedded-php-library usr/share/moodle/lib/phpmailer/class.phpmailer.php
+moodle: embedded-php-library usr/share/moodle/lib/simpletestlib/unit_tester.php
 
 #Moodle uses markdown extra but only 'standard' version is packaged in Debian
 moodle: embedded-php-library usr/share/moodle/lib/markdown.php
