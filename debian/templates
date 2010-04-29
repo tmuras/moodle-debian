@@ -1,6 +1,7 @@
 Template: moodle/www
 Type: string
 Default: http://localhost/moodle
-Description: Your Moodle site URL 2.
- Please enter the website URL - now!
-
+Description: Please enter the URL for the Moodle site:
+ Enter the URL you would like for your Moodle site. 
+ You will need to configure Apache correctly, this package will
+ only provide you with the templates for Apache configs.

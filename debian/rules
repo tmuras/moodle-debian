@@ -84,6 +84,7 @@ binary-indep:
 	rm -r debian/moodle/usr/share/moodle/lib/fpdf/font
 	rm  debian/moodle/usr/share/moodle/lib/fpdf/fpdf.php
 	rm -r debian/moodle/usr/share/moodle/lib/pclzip
+	rm debian/moodle/usr/share/moodle/lib/snoopy/*
 	
 	#this one is just deleted
 	rm  debian/moodle/usr/share/moodle/lib/soap/nusoap.php
