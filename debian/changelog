@@ -1,14 +1,18 @@
 moodle (1.9.8-1) UNRELEASED; urgency=low
 
-  [Tomas Muras]
-  * New Upstream Version (closes: #475535, #526543, #574757, #576189)
-  * Package rewritten from scratch (closes: #551399, #302205)
-  * Updated copyright with two new entires (closes: #526543)
-  * Drop use of wwwconfig (closes: #389502, #302205)
-  * Not creating Apache config autimatically (closes: #555672)
-  * Added "allow from localhost" (closes: #551402)
-  * Asking for wwwroot during the installation (closes: #302207)
-  * Removing nusoap as it's not necessary for PHP 5 (closes: #529573)
+  [Tomasz Muras]
+  * New Upstream Version (closes: #475535).
+  * Added information about flvplayer to copyright (closes: #526543).
+  * phpCAS XSS vulnerability fixed in mainstream Moodle 1.9.8 (closes: #574757).
+  * Several security issues fixed in upstream (closes: #576189).
+  * Moodle depends on postgresql or MySQL (closes: #551399).
+  * Re-written to use dbconfig-common (closes: #302205).
+  * Updated copyright with two new entires (closes: #526543).
+  * Drop use of wwwconfig (closes: #389502).
+  * Package is now not creating Apache config automatically (closes: #555672). It's up to the user to configure the webserver but package provides the templates.
+  * Added "allow from localhost" (closes: #551402).
+  * Asking for wwwroot during the installation (closes: #302207).
+  * Removing nusoap as it's not necessary for PHP 5 (closes: #529573).
 
   [Xavier Oswald]
   * Add myself as uploader.
