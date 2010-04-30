@@ -1,11 +1,17 @@
-This package was debianized by 
-Tomasz Muras <tomasz@muras.eu> on Sun, 28 Mar 2010 20:35:13 +0100
-
-It was downloaded from http://www.moodle.org
+Format-Specification: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=135
+Name: moodle
+Maintainer: Tomasz Muras <tomasz@muras.eu>, Xavier Oswald <xoswald@debian.org>
+Source: http://www.moodel.org
 
 Upstream Author: Martin Dougiamas <martin@dougiamas.com>
 
-Copyright (C) 2000-2010 Martin Dougiamas
+Files: debian/*
+Copyright: 2010 Tomasz Muras <tomasz@muras.eu>
+           2010 Xavier Oswald <xoswald@debian.org>
+License: GPL-2+
+
+Files: *
+Copyright: 2009-2010, Martin Dougiamas <martin@dougiamas.com>
 
 License:
 	This program is free software; you can redistribute it and/or modify

@@ -1,5 +1,6 @@
 moodle (1.9.8-1) UNRELEASED; urgency=low
 
+  [Tomas Muras]
   * New Upstream Version (closes: #475535, #526543, #574757, #576189)
   * Package rewritten from scratch (closes: #551399, #302205)
   * Updated copyright with two new entires (closes: #526543)
@@ -8,52 +9,27 @@ moodle (1.9.8-1) UNRELEASED; urgency=low
   * Added "allow from localhost" (closes: #551402)
   * Asking for wwwroot during the installation (closes: #302207)
   * Removing nusoap as it's not necessary for PHP 5 (closes: #529573)
- 
- -- Tomasz Muras <tomasz@muras.eu>  Sun, 28 Mar 2010 23:59:59 +0000
 
-moodle (1.9.5-1) UNRELEASED; urgency=low
+  [Xavier Oswald]
+  * Add myself as uploader.
+  * Bump Stadards-Version to 3.8.4.
+  * debian/copyright: update with DEP-5 format proposal.
 
-  * New Upstream Version (closes: #475535, #514284, #515823, #526543)
-    - added notes/ and tag/ to debian/install
-    - drop CVE-2007-3215_phpmailer patch (merged upstream)
-
-  * Merge with Ubuntu:
-    - drop use of wwwconfig (closes: #389502, #302205)
-    - debian/postinst: ucf fixes (fixes a hang)
-    - significantly rewrote postinst and other maintainer scripts to improve
-      user experience and package maintainability
-
-  * Remove preinst (no more direct upgrades from sarge)
-  * Remove PHP4 support from the Apache config file we provide
-  * Drop support for apache 1.x and remove from debconf (closes: #484858)
-  * Add swedish debconf translation (closes: #511202)
-
-  * Bump Standard-Version to 3.8.3
+  [Francois Marier]
   * Bump debhelper compatibility to 7
-  * Add lintian overrides for known customised libraries
-  * Add lintian overrides for known GPL libraries
-  * Add new license files to delete (lintian warning)
-  * Compress the deb with bzip2
   * Add a watch file
-  * Update copyright file
-  * Update maintainer email address
-  * Update uploaders field
-  * Move po-debconf to Builds-Depends (lintian error)
-
-  Dependencies:
-  * Depend on libjs-yui instead of yui (renamed after lenny)
-  * Add dependency on unzip
-  * Recommend php5-xmlrpc and aspell
-  * Suggest clamav
-  * Demoted mimetex to recommended
-
-  Generated config:
+  * debian/control (dependencies)
+    - Depend on libjs-yui instead of yui (renamed after lenny)
+    - Add dependency on unzip
+    - Recommend php5-xmlrpc and aspell
+    - Suggest clamav
+    - Demoted mimetex to recommended
   * Turn 'dbpersist' on by default in the generated config.php
   * Include whitespace warning at the end of generated config.php
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
 
- -- Francois Marier <francois@debian.org>  Thu, 15 Oct 2009 13:49:47 +1300
+ -- Tomasz Muras <tomasz@muras.eu>  Sun, 28 Mar 2010 23:59:59 +0000
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 

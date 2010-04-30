@@ -2,9 +2,9 @@ Source: moodle
 Section: web
 Priority: optional
 Maintainer: Moodle Packaging Team <pkg-moodle-maintainers@lists.alioth.debian.org>
-Uploaders: Penny Leach <penny@mjollnir.org>, Dan Poltawski <talktodan@gmail.com>
+Uploaders: Penny Leach <penny@mjollnir.org>, Dan Poltawski <talktodan@gmail.com>, Xavier Oswald <xoswald@debian.org>
 Build-Depends: debhelper (>= 7), quilt, po-debconf
-Standards-Version: 3.8.3
+Standards-Version: 3.8.4
 Homepage: http://www.moodle.org/
 Vcs-Git: git://git.debian.org/git/pkg-moodle/moodle.git
 Vcs-Browser: http://git.debian.org/?p=pkg-moodle/moodle.git;a=summary
