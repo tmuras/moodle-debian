@@ -125,7 +125,7 @@ apache_config() {
 	if [ -n "$tmp" ]; then
 		tmp_alias="#Uncomment the line below if you want to use alias
 #This will not work well with virtual hosts
-#Alias /${tmp} /usr/share/moodle/"
+Alias /${tmp} /usr/share/moodle/"
 	else
 		tmp_alias="#You can't use alias becuse you Moodls is not in a sub-directory
 #Create appropriate virtual host insted."
