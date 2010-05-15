@@ -1,57 +1,64 @@
 Moodle quickstart for Debian
 ----------------------------
 
-USAGE
+INSTALLATION
 
-  The application should be available at http://localhost/moodle/ after
-  install.
-
-  If you want to continue with setup and table creation from a remote browser
-  in another host, you should edit the file /etc/moodle/apache.conf,
-  removing the comment (#) from the line "allow from all" and restart apache.
+  After installation, Moodle will not be available/exposed by default.
+ 
+INSTALLATION WITH VIRTUAL HOST
+  If you would like to use a virtual host edit file (as a root user):
+  /etc/moodle/apache.vhost.conf
   
-  Note that if you do not remove this comment (#), no one will have remote
-  access to your moodle installation and only local users on that
-  machine will be able to access moodle.
+  * make sure that ServerName is correct (the host should match what
+    you provided during the installation).
+  * enter correct email address for ServerAdmin.
 
-QUICKSTART
+  If you would like to keep your Apache logs separate for Moodle, change:
+  * ErrorLog
+  * CustomLog
+  to a location of your choice (i.e. ${APACHE_LOG_DIR}/moodle.error.log).
 
-  DATABASE CREATION
+  Save the file and link it to your Apache configuration:
+  ln -s /etc/moodle/apache.vhost.conf /etc/apache2/sites-enabled/moodle
 
-  For the correct database and user creation during the package installation
-  you need to have a database admin account and the password for that account.
+  Restart Apache:
+  /etc/init.d/apache restart
 
-  In PostgreSQL you should verify that you have the right access policy in 
-  /etc/postgresql/pg_hba.conf.
+  Go to the Moodle URL and finish installation - follow instructions on screen.
+ 
+VIRTUAL HOST EXAMPLE
+  To configure Moodle on the URL: www.example.com. The URL should be configured
+  already and point to the IP of the server.
 
-  You should change your PostgreSQL server configuration to use passwords to 
-  authenticate users writing in your /etc/postgresql/pg_hba.conf file:
+  During the package installation request www.example.com URL:
+  Please enter the URL for the Moodle site: www.example.com
 
-  local   all         all                                       password
-  host    all         all   127.0.0.1         255.255.255.255   password
+  Review /etc/moodle/apache.vhost.conf - it should contain valid entries already.
 
-  Before restarting the postmaster you should check that the admin user
-  has a password to access the database.
+  Execute as root:
+  ln -s /etc/moodle/apache.vhost.conf /etc/apache2/sites-enabled/moodle
+  /etc/init.d/apache restart
+  
+  Go to www.example.com and finish installation.
 
-  You can do this by executing in a shell while being root:
-  su - postgres
-  psql template1
-  (and inside the psql shell)
-  ALTER USER postgres password 'new_pass';
-  \q
+INSTALLATION WITH ALIAS DIRECTIVE
+  If you decide to use Apache Alias directive, Moodle site will be available
+  for all the virtual hosts you may have.
+  You can use Alias only if the URL you have selected during package installation
+  has a non-empty path, e.g. www.example.com/moodle.
 
-  For further information about PostgreSQL users and passwords refer to
-  the documentation available in the postgresql-doc package.
+  Apache configuration file is located at /etc/moodle/apache.conf to enable it:
+  ln -s /etc/moodle/apache.conf /etc/apache2/conf.d/moodle
 
-  Then, restart the postmaster with /etc/init.d/postgresql restart.
+  Restart Apache:
+  /etc/init.d/apache2 restart
 
-  TABLE CREATION
-
-  In order to create the database tables you need to point your browser to
-  http://localhost/moodle/admin . You need to have network access to your
-  database, you can enable it in /etc/mysql/my.cnf (just comment the
-  skip-networking line) for MySQL, and in /etc/postgresql/pg_hba.conf
-  (the above pg_hba example should work) for PostgreSQL.
-
-  Remember to restart the database with /etc/init.d/<database> restart if you
-  change that files.
+  By default Moodle installation will only be available from localhost, to make 
+  it available from any IP, edit /etc/moodle/apache.conf and comment out the line:
+  #allow from all
+  and restart Apache.
+  
+UNINSTALLATION
+  After uninstalling Moodle, remove any symoblic links created for Apache, e.g.:
+  * /etc/apache2/sites-enabled/moodle
+  * /etc/apache2/conf.d/moodle
