@@ -33,6 +33,7 @@ case "$1" in
         ucf --purge /etc/moodle/config.php
         ucf --purge /etc/moodle/apache.conf
         ucf --purge /etc/cron.d/moodle
+	ucf --purge /etc/moodle/apache.vhost.conf
         rm -rf /etc/moodle
         rm -rf /var/lib/moodle
         rm -f /etc/cron.d/moodle
