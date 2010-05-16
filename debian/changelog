@@ -1,5 +1,6 @@
 moodle (1.9.8-1) UNRELEASED; urgency=low
 
+  [ Tomasz Muras ]
   [Tomasz Muras]
   * New Upstream Version (closes: #475535).
   * Added information about flvplayer to copyright (closes: #526543).
@@ -9,7 +10,9 @@ moodle (1.9.8-1) UNRELEASED; urgency=low
   * Re-written to use dbconfig-common (closes: #302205).
   * Updated copyright with two new entires (closes: #526543).
   * Drop use of wwwconfig (closes: #389502).
-  * Package is now not creating Apache config automatically (closes: #555672). It's up to the user to configure the webserver but package provides the templates.
+  * Package is now not creating Apache config automatically (closes: #555672).
+    It's up to the user to configure the webserver but package provides the
+    templates.
   * Added "allow from localhost" (closes: #551402).
   * Asking for wwwroot during the installation (closes: #302207).
   * Removing nusoap as it's not necessary for PHP 5 (closes: #529573).
@@ -18,6 +21,7 @@ moodle (1.9.8-1) UNRELEASED; urgency=low
   * Add myself as uploader.
   * Bump Stadards-Version to 3.8.4.
   * debian/copyright: update with DEP-5 format proposal.
+  * Switch to dpkg-source 3.0 (quilt) format
 
   [Francois Marier]
   * Bump debhelper compatibility to 7
@@ -33,7 +37,7 @@ moodle (1.9.8-1) UNRELEASED; urgency=low
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
 
- -- Tomasz Muras <tomasz@muras.eu>  Sun, 28 Mar 2010 23:59:59 +0000
+ -- Xavier Oswald <xoswald@debian.org>  Sun, 16 May 2010 17:14:19 +0200
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
