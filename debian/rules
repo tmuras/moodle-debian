@@ -36,7 +36,7 @@ binary-indep:
 #	dh_installemacsen
 #	dh_installifupdown
 	dh_installinfo
-	dh_pysupport
+#	dh_pysupport
 	dh_installinit
 	dh_installmenu
 	dh_installmime
@@ -48,7 +48,7 @@ binary-indep:
 	dh_installudev
 	dh_installwm
 	dh_installxfonts
-	dh_bugfiles
+#	dh_bugfiles
 	
 	#remove unnecessary licence files
 #	rm debian/moodle/usr/share/moodle/COPYING.txt
