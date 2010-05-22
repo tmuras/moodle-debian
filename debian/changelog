@@ -1,7 +1,7 @@
 moodle (1.9.8-1) UNRELEASED; urgency=low
 
-  [ Tomasz Muras ]
   [Tomasz Muras]
+  * New Maintainer (closes: #581229, #574969).
   * New Upstream Version (closes: #475535).
   * Added information about flvplayer to copyright (closes: #526543).
   * phpCAS XSS vulnerability fixed in mainstream Moodle 1.9.8 (closes: #574757).
@@ -37,7 +37,7 @@ moodle (1.9.8-1) UNRELEASED; urgency=low
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
 
- -- Xavier Oswald <xoswald@debian.org>  Sun, 16 May 2010 17:14:19 +0200
+ -- Tomasz Muras <nexor1984@gmail.com>  Sat, 22 May 2010 13:02:39 +0100
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 
