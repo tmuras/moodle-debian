@@ -1,4 +1,4 @@
-moodle (1.9.8-1) UNRELEASED; urgency=low
+moodle (1.9.8-1) unstable; urgency=low
 
   [Tomasz Muras]
   * New Maintainer (closes: #581229, #574969).
@@ -37,7 +37,7 @@ moodle (1.9.8-1) UNRELEASED; urgency=low
   * Set the path to du, unzip and zip
   * Fix a warning with E_STRICT is turned on
 
- -- Tomasz Muras <nexor1984@gmail.com>  Sat, 22 May 2010 13:02:39 +0100
+ -- Xavier Oswald <xoswald@debian.org>  Sun, 20 Jun 2010 16:02:14 +0200
 
 moodle (1.8.2.dfsg-4) unstable; urgency=high
 

@@ -7,7 +7,7 @@
 # This special exception was added by Craig Small in version 0.37 of dh-make.
 
 # Uncomment this to turn on verbose mode.
-export DH_VERBOSE=1
+#export DH_VERBOSE=1
 
 clean:
 	dh_testdir
@@ -68,7 +68,7 @@ binary-indep:
 	rm debian/moodle/usr/share/moodle/filter/tex/*mimetex*
 	rm debian/moodle/usr/share/moodle/search/.cvsignore
 	rm debian/moodle/usr/share/moodle/mod/chat/chatd.php
-		
+	
 	#fix permissions
 	find debian/moodle/usr -type f -exec chmod 644 {} \;
 	find debian/moodle/usr -type d -exec chmod 755 {} \;
@@ -87,7 +87,7 @@ binary-indep:
 	rm debian/moodle/usr/share/moodle/lib/snoopy/*
 	
 	#this one is just deleted
-	rm  debian/moodle/usr/share/moodle/lib/soap/nusoap.php
+	rm debian/moodle/usr/share/moodle/lib/soap/nusoap.php
 	
 	dh_lintian
 	dh_gconf
@@ -108,4 +108,3 @@ binary-indep:
 binary-arch:
 
 binary: binary-indep binary-arch
-

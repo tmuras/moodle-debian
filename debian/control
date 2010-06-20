@@ -2,7 +2,7 @@ Source: moodle
 Section: web
 Priority: optional
 Maintainer: Moodle Packaging Team <pkg-moodle-maintainers@lists.alioth.debian.org>
-Uploaders: Penny Leach <penny@mjollnir.org>, Dan Poltawski <talktodan@gmail.com>, Xavier Oswald <xoswald@debian.org>
+Uploaders: Penny Leach <penny@mjollnir.org>, Dan Poltawski <talktodan@gmail.com>, Xavier Oswald <xoswald@debian.org>, Tomasz Muras <nexor1984@gmail.com>
 Build-Depends: debhelper (>= 7), quilt, po-debconf
 Standards-Version: 3.8.4
 Homepage: http://www.moodle.org/
