@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.35.2.6 2008/10/08 08:25:03 nicolasconnault Exp $
+<?php // $Id: index.php,v 1.35.2.7 2010/05/26 08:39:37 skodak Exp $
 
     require_once("../../config.php");
     require_once("lib.php");
@@ -59,6 +59,7 @@
 
         $cm->timedue        = $cms[$cm->id]->timedue;
         $cm->assignmenttype = $cms[$cm->id]->assignmenttype;
+        $cm->idnumber       = get_field('course_modules', 'idnumber', 'id', $cm->id); //hack
 
         //Show dimmed if the mod is hidden
         $class = $cm->visible ? '' : 'class="dimmed"';

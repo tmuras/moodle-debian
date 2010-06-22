@@ -1,4 +1,4 @@
-<?php  // $Id: import.php,v 1.21.2.8 2009/03/12 14:42:27 thepurpleblob Exp $
+<?php  // $Id: import.php,v 1.21.2.9 2010/04/08 18:11:41 stronk7 Exp $
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // NOTICE OF COPYRIGHT                                                   //
@@ -92,9 +92,12 @@
             @apache_child_terminate();
         }
 
-        //Fix mac/dos newlines
+        // Fix mac/dos newlines and clean BOM
+        // TODO: Switch to cvslib when possible
+        $textlib = textlib_get_instance();
         $text = my_file_get_contents($filename);
         $text = preg_replace('!\r\n?!',"\n",$text);
+        $text = $textlib->trim_utf8_bom($text); // remove Unicode BOM from first line
         $fp = fopen($filename, "w");
         fwrite($fp, $text);
         fclose($fp);

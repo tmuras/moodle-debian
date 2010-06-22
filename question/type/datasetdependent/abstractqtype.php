@@ -1,4 +1,4 @@
-<?php  // $Id: abstractqtype.php,v 1.16.2.6 2009/11/19 10:48:16 skodak Exp $
+<?php  // $Id: abstractqtype.php,v 1.16.2.7 2010/05/07 22:08:27 pichetp Exp $
 
 ///////////////////////////////////////////////////////////////
 /// ABSTRACT SUPERCLASS FOR QUSTION TYPES THAT USE DATASETS ///
@@ -468,8 +468,13 @@ class question_dataset_dependent_questiontype extends default_questiontype {
                         }
                         $itemcount++;
                         }
-                        //update item count
-                        $datasetdef->itemcount =$itemcount;
+                        //update item count to olditemcount if 
+                        // at least this number of items has been recover from the database
+                        if( $olditemcount <= $itemcount ) {
+                            $datasetdef->itemcount = $olditemcount;
+                        } else {
+                            $datasetdef->itemcount = $itemcount ;
+                        }
                         update_record('question_dataset_definitions', $datasetdef);
                     } // end of  copy the dataitems
                 }// end of  copy the datasetdef

@@ -2,7 +2,7 @@
 /**
  * This script lists student attempts
  *
- * @version $Id: report.php,v 1.98.2.50 2010/02/04 04:37:32 rwijaya Exp $
+ * @version $Id: report.php,v 1.98.2.52 2010/04/30 13:15:40 tjhunt Exp $
  * @author Martin Dougiamas, Tim Hunt and others.
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package quiz
@@ -27,20 +27,6 @@ class quiz_report extends quiz_default_report {
         // Only print headers if not asked to download data
         if (!$download = optional_param('download', NULL)) {
             $this->print_header_and_tabs($cm, $course, $quiz, "overview");
-        }
-
-        if($attemptids = optional_param('attemptid', array(), PARAM_INT)) {
-            //attempts need to be deleted
-            require_capability('mod/quiz:deleteattempts', $context);
-            $attemptids = optional_param('attemptid', array(), PARAM_INT);
-            foreach($attemptids as $attemptid) {
-                add_to_log($course->id, 'quiz', 'delete attempt', 'report.php?id=' . $cm->id,
-                        $attemptid, $cm->id);
-                quiz_delete_attempt($attemptid, $quiz);
-            }
-            //No need for a redirect, any attemptids that do not exist are ignored.
-            //So no problem if the user refreshes and tries to delete the same attempts
-            //twice.
         }
 
         // Work out some display options - whether there is feedback, and whether scores should be shown.
@@ -118,7 +104,7 @@ class quiz_report extends quiz_default_report {
             }
         }
         $nostudents = false;
-        if (!$students = get_users_by_capability($context, array('mod/quiz:reviewmyattempts', 'mod/quiz:attempt'),'','','','','','',false)){
+        if (!$students = get_users_by_capability($context, array('mod/quiz:reviewmyattempts', 'mod/quiz:attempt'),'id,1','','','','','',false)){
             notify(get_string('nostudentsyet'));
             $nostudents = true;
             $studentslist = '';
@@ -129,16 +115,34 @@ class quiz_report extends quiz_default_report {
         if (empty($currentgroup)) {
             // all users who can attempt quizzes
             $groupstudentslist = '';
+            $groupstudents = array();
             $allowedlist = $studentslist;
         } else {
             // all users who can attempt quizzes and who are in the currently selected group
-            if (!$groupstudents = get_users_by_capability($context, 'mod/quiz:attempt','','','','',$currentgroup,'',false)){
+            if (!$groupstudents = get_users_by_capability($context, array('mod/quiz:reviewmyattempts', 'mod/quiz:attempt'),'id,1','','','',$currentgroup,'',false)){
                 notify(get_string('nostudentsingroup'));
                 $nostudents = true;
                 $groupstudents = array();
             }
             $groupstudentslist = join(',', array_keys($groupstudents));
             $allowedlist = $groupstudentslist;
+        }
+
+        if ($students && ($attemptids = optional_param('attemptid', array(), PARAM_INT)) && confirm_sesskey()) {
+            //attempts need to be deleted
+            require_capability('mod/quiz:deleteattempts', $context);
+            foreach ($attemptids as $attemptid) {
+                $attempt = get_record('quiz_attempts', 'id', $attemptid);
+                if ($groupstudents && !in_array($attempt->userid, $groupstudents)) {
+                    continue;
+                }
+                add_to_log($course->id, 'quiz', 'delete attempt', 'report.php?id=' . $cm->id,
+                        $attemptid, $cm->id);
+                quiz_delete_attempt($attempt, $quiz);
+            }
+            //No need for a redirect, any attemptids that do not exist are ignored.
+            //So no problem if the user refreshes and tries to delete the same attempts
+            //twice.
         }
 
         if (!$nostudents || ($attemptsmode == QUIZ_REPORT_ATTEMPTS_ALL)){
@@ -607,6 +611,7 @@ class quiz_report extends quiz_default_report {
                             '" onsubmit="return confirm(\''.$strreallydel.'\');">';
                     echo '<div style="display: none;">';
                     echo $reporturlwithdisplayoptions->hidden_params_out();
+                    echo '<input type="hidden" name="sesskey" value="' . sesskey() . '">';
                     echo '</div>';
                     echo '<div>';
     

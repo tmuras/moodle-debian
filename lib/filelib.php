@@ -1,4 +1,4 @@
-<?php //$Id: filelib.php,v 1.50.2.32 2009/11/24 08:44:43 moodler Exp $
+<?php //$Id: filelib.php,v 1.50.2.33 2010/05/12 12:05:37 tjhunt Exp $
 
 define('BYTESERVING_BOUNDARY', 's1k2o3d4a5k6s7'); //unique string constant
 
@@ -496,7 +496,7 @@ function mimeinfo($element, $filename) {
         $mimeinfo = get_mimetypes_array();
     }
 
-    if (eregi('\.([a-z0-9]+)$', $filename, $match)) {
+    if (preg_match('/\.([a-zA-Z0-9]+)$/', $filename, $match)) {
         if (isset($mimeinfo[strtolower($match[1])][$element])) {
             return $mimeinfo[strtolower($match[1])][$element];
         } else {

@@ -1,4 +1,4 @@
-<?php //$Id: restorelib.php,v 1.283.2.94 2010/03/22 22:10:33 stronk7 Exp $
+<?php //$Id: restorelib.php,v 1.283.2.97 2010/05/28 09:18:03 stronk7 Exp $
     //Functions used in restore
 
     require_once($CFG->libdir.'/gradelib.php');
@@ -200,11 +200,31 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
         return $status;
     }
 
+    /**
+     * This function decodes some well-know links to course
+     */
+    function course_decode_content_links($content, $restore) {
+
+        global $CFG;
+
+        // Links to course
+        $searchstring = '/\$@(COURSEVIEWBYID)\*([0-9]+)@\$/';
+        $replacestring= $CFG->wwwroot . '/course/view.php?id=' . $restore->course_id;
+        $result = preg_replace($searchstring, $replacestring, $content);
+
+        return $result;
+    }
+
     //This function is called from all xxxx_decode_content_links_caller(),
     //its task is to ask all modules (maybe other linkable objects) to restore
     //links to them.
     function restore_decode_content_links_worker($content,$restore) {
         global $CFG;
+
+        // Course links decoder
+        $content = course_decode_content_links($content, $restore);
+
+        // Module links decoders
         foreach($restore->mods as $name => $info) {
             $function_name = $name."_decode_content_links";
             if (function_exists($function_name)) {
@@ -3617,6 +3637,10 @@ define('RESTORE_GROUPS_GROUPINGS', 3);
                                 $sca->userid = $user->new_id;
                             } else {
                                 $sca->userid = $USER->id;
+                            }
+                            // If course scale, recode the course field
+                            if ($sca->courseid != 0) {
+                                $sca->courseid = $restore->course_id;
                             }
                             // If scale is standard, if user lacks perms to manage standar scales
                             // 'downgrade' them to course scales

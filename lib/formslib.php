@@ -1,4 +1,4 @@
-<?php // $Id: formslib.php,v 1.129.2.23 2009/09/26 16:24:57 skodak Exp $
+<?php // $Id: formslib.php,v 1.129.2.24 2010/05/13 01:40:36 moodler Exp $
 /**
  * formslib.php - library of classes for creating forms in Moodle, based on PEAR QuickForms.
  *
@@ -19,6 +19,11 @@
  * @author  Jamie Pratt
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  */
+
+if (!defined('MOODLE_INTERNAL')) {
+    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
+}
+
 
 //setup.php icludes our hacked pear libs first
 require_once 'HTML/QuickForm.php';

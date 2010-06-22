@@ -1,4 +1,6 @@
-<?php //$Id: header.php,v 1.41.2.8 2008/04/22 05:55:34 moodler Exp $
+<?php //$Id: header.php,v 1.41.2.9 2010/06/01 03:32:37 moodler Exp $
+
+defined('MOODLE_INTERNAL') || die();
 
 /// Sets up blocks and navigation for index.php
 

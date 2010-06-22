@@ -1,4 +1,4 @@
-<?PHP // $Id: langconfig.php,v 1.7.2.2 2008/11/04 16:27:57 stronk7 Exp $ 
+<?PHP // $Id: langconfig.php,v 1.7.2.3 2010/05/25 08:43:36 mudrd8mz Exp $ 
       // langconfig.php - created with Moodle 1.7 beta + (2006101003)
 
 
@@ -11,6 +11,7 @@ $string['locale'] = 'en_AU.UTF-8';
 $string['localewin'] = 'English_Australia.1252';
 $string['localewincharset'] = '';
 $string['oldcharset'] = 'ISO-8859-1';
+$string['parentlanguage'] = '';
 $string['strftimedate'] = '%%d %%B %%Y';
 $string['strftimedateshort'] = '%%d %%B';
 $string['strftimedatetime'] = '%%d %%B %%Y, %%I:%%M %%p';
@@ -26,6 +27,7 @@ $string['strftimetime'] = '%%I:%%M %%p';
 $string['thischarset'] = 'UTF-8';
 $string['thisdirection'] = 'ltr';
 $string['thislanguage'] = 'English';
+$string['thislanguageint'] = 'English';
 $string['thousandssep'] = ','; // thousands separator, for some languages it is '.' or ' '
 
 ?>
