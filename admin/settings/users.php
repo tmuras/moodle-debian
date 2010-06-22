@@ -1,4 +1,4 @@
-<?php // $Id: users.php,v 1.26.2.17 2009/05/13 05:35:38 jerome Exp $
+<?php // $Id: users.php,v 1.26.2.18 2010/04/10 15:11:49 iarenaza Exp $
 
 // This file defines settingpages and externalpages under the "users" category
 
@@ -25,7 +25,7 @@ if ($hassiteconfig
                                             get_string('alternatelogin', 'auth', htmlspecialchars($CFG->wwwroot.'/login/index.php')), ''));
     $temp->add(new admin_setting_configtext('forgottenpasswordurl', get_string('forgottenpasswordurl', 'auth'),
                                             get_string('forgottenpassword', 'auth'), ''));
-    $temp->add(new admin_setting_configtextarea('auth_instructions', get_string('instructions', 'auth'),
+    $temp->add(new admin_setting_confightmltextarea('auth_instructions', get_string('instructions', 'auth'),
                                                 get_string('authinstructions', 'auth'), ''));
     $temp->add(new admin_setting_configtext('allowemailaddresses', get_string('allowemailaddresses', 'admin'), get_string('configallowemailaddresses', 'admin'), '', PARAM_NOTAGS));
     $temp->add(new admin_setting_configtext('denyemailaddresses', get_string('denyemailaddresses', 'admin'), get_string('configdenyemailaddresses', 'admin'), '', PARAM_NOTAGS));

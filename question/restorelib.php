@@ -1,4 +1,4 @@
-<?php // $Id: restorelib.php,v 1.30.2.6 2009/01/20 03:16:05 tjhunt Exp $
+<?php // $Id: restorelib.php,v 1.30.2.7 2010/06/10 14:58:37 tjhunt Exp $
 /**
  * Question bank restore code.
  *
@@ -115,7 +115,7 @@
                     if ($nextcatid == 0){
                         break;
                     }
-                    $catid == $nextcatid;
+                    $catid = $nextcatid;
                     $catno--;
                 }
                 $tocontext = get_context_instance(CONTEXT_COURSECAT, $catid);

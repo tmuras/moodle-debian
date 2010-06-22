@@ -1,4 +1,9 @@
-<?php // $Id: uploaduser_form.php,v 1.4.2.7 2008/03/26 02:46:48 dongsheng Exp $
+<?php // $Id: uploaduser_form.php,v 1.4.2.8 2010/05/13 01:40:36 moodler Exp $
+
+if (!defined('MOODLE_INTERNAL')) {
+    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
+}
+
 require_once $CFG->libdir.'/formslib.php';
 
 class admin_uploaduser_form1 extends moodleform {

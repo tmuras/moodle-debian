@@ -4,7 +4,7 @@
  * adminlib.php - Contains functions that only administrators will ever need to use
  *
  * @author Martin Dougiamas and many others
- * @version  $Id: adminlib.php,v 1.153.2.74 2009/05/01 10:21:58 tjhunt Exp $
+ * @version  $Id: adminlib.php,v 1.153.2.75 2010/04/10 15:11:50 iarenaza Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package moodlecore
  */
@@ -1913,6 +1913,25 @@ class admin_setting_configtextarea extends admin_setting_configtext {
         return format_admin_setting($this, $this->visiblename,
                 '<div class="form-textarea" ><textarea rows="'.$this->rows.'" cols="'.$this->cols.'" id="'.$this->get_id().'" name="'.$this->get_full_name().'">'.s($data).'</textarea></div>',
                 $this->description, true, '', $defaultinfo, $query);
+    }
+}
+
+/**
+ * General text area with html editor.
+ */
+class admin_setting_confightmltextarea extends admin_setting_configtext {
+
+    function admin_setting_confightmltextarea($name, $visiblename, $description, $defaultsetting, $paramtype=PARAM_RAW) {
+        parent::admin_setting_configtext($name, $visiblename, $description, $defaultsetting, $paramtype);
+    }
+
+    function output_html($data, $query='') {
+        global $CFG;
+
+        $CFG->adminusehtmleditor = can_use_html_editor();
+        $return = '<div class="form-htmlarea">'.print_textarea($CFG->adminusehtmleditor, 15, 60, 0, 0, $this->get_full_name(), $data, 0, true).'</div>';
+
+        return format_admin_setting($this, $this->visiblename, $return, $this->description, false, '', NULL, $query);
     }
 }
 

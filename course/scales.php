@@ -1,4 +1,4 @@
-<?php // $Id: scales.php,v 1.32.2.2 2009/01/27 06:35:44 tjhunt Exp $
+<?php // $Id: scales.php,v 1.32.2.3 2010/04/09 08:33:06 arborrow Exp $
       // Allows a creator to edit custom scales, and also display help about scales
 
     require_once("../config.php");
@@ -73,7 +73,7 @@
     } else {
         if (has_capability('moodle/course:managescales', $context)) {
             echo "<p align=\"center\">(";
-            print_string("scalestip");
+            print_string("scalestip2");
             echo ")</p>";
         }
     }

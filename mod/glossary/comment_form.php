@@ -1,4 +1,8 @@
-<?php //$Id: comment_form.php,v 1.10 2007/01/05 04:51:48 jamiesensei Exp $
+<?php //$Id: comment_form.php,v 1.10.4.1 2010/05/13 01:40:38 moodler Exp $
+
+if (!defined('MOODLE_INTERNAL')) {
+    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
+}
 
 require_once $CFG->libdir.'/formslib.php';
 

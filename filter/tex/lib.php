@@ -1,4 +1,4 @@
-<?php  //$Id: lib.php,v 1.1.2.6 2009/04/20 21:24:00 stronk7 Exp $
+<?php  //$Id: lib.php,v 1.1.2.7 2010/04/10 00:17:45 iarenaza Exp $
 
 function tex_filter_get_executable($debug=false) {
     global $CFG;
@@ -84,6 +84,13 @@ function filter_tex_updatedcallback($name) {
 
     delete_records('cache_filters', 'filter', 'tex');
     delete_records('cache_filters', 'filter', 'algebra');
+
+    if (!(is_file($CFG->filter_tex_pathlatex) && is_executable($CFG->filter_tex_pathlatex) &&
+          is_file($CFG->filter_tex_pathdvips) && is_executable($CFG->filter_tex_pathdvips) &&
+          is_file($CFG->filter_tex_pathconvert) && is_executable($CFG->filter_tex_pathconvert))) {
+        // LaTeX, dvips or convert are not available, and mimetex can only produce GIFs so...
+        set_config('filter_tex_convertformat', 'gif');
+    }
 }
 
 ?>

@@ -1,4 +1,4 @@
-<?PHP // $Id: format.php,v 1.12.4.16 2010/03/15 10:39:42 gbateson Exp $
+<?PHP // $Id: format.php,v 1.12.4.17 2010/06/10 23:37:23 gbateson Exp $
 ////////////////////////////////////////////////////////////////////////////
 /// Hotpotatoes 5.0 and 6.0 Format
 ///
@@ -520,7 +520,7 @@ class qformat_hotpot extends qformat_default {
         return $this->hotpot_prepare_str($title);
     }
     function hotpot_get_instructions(&$xml) {
-        $text = $xml->xml_value('hotpot-config-file,instructions');
+        $text = $xml->xml_value('hotpot-config-file,'.$xml->quiztype.',instructions');
         if (empty($text)) {
             $text = "Hot Potatoes $xml->quiztype";
         }

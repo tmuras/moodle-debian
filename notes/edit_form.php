@@ -1,4 +1,8 @@
-<?php  // $Id: edit_form.php,v 1.5.2.2 2008/11/30 19:25:49 skodak Exp $
+<?php  // $Id: edit_form.php,v 1.5.2.3 2010/05/13 01:40:38 moodler Exp $
+
+if (!defined('MOODLE_INTERNAL')) {
+    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
+}
 
 require_once($CFG->libdir.'/formslib.php');
 

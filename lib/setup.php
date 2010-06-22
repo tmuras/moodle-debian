@@ -5,7 +5,7 @@
  * Normally this is only called by the main config.php file
  * Normally this file does not need to be edited.
  * @author Martin Dougiamas
- * @version $Id: setup.php,v 1.212.2.29 2010/02/18 11:50:18 jamiesensei Exp $
+ * @version $Id: setup.php,v 1.212.2.30 2010/05/21 11:39:44 skodak Exp $
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package moodlecore
  */
@@ -92,6 +92,10 @@ global $HTTPSPAGEREQUIRED;
 /// sometimes default PHP settings are borked on shared hosting servers, I wonder why they have to do that??
     @ini_set('precision', 14); // needed for upgrades and gradebook
 
+/// New versions of HTML Purifier are not compatible with PHP 4
+    if (version_compare(phpversion(), "5.0.5") < 0) {
+        $CFG->enablehtmlpurifier = 0;
+    }
 
 /// store settings from config.php in array in $CFG - we can use it later to detect problems and overrides
     $CFG->config_php_settings = (array)$CFG;
@@ -255,7 +259,6 @@ global $HTTPSPAGEREQUIRED;
     } else {
         $originaldatabasedebug = -1;
     }
-
 
 /// For now, only needed under apache (and probably unstable in other contexts)
     if (function_exists('register_shutdown_function')) {

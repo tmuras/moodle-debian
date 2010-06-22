@@ -1,4 +1,4 @@
-<?php  // $Id: request_form.php,v 1.11.2.5 2009/09/26 16:23:34 skodak Exp $
+<?php  // $Id: request_form.php,v 1.11.2.6 2010/05/13 01:40:37 moodler Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -30,6 +30,10 @@
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package course
  *//** */
+
+if (!defined('MOODLE_INTERNAL')) {
+    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
+}
 
 require_once($CFG->libdir.'/formslib.php');
 

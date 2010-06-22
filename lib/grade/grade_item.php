@@ -1,4 +1,4 @@
-<?php // $Id: grade_item.php,v 1.130.2.36 2010/03/31 13:50:58 tjhunt Exp $
+<?php // $Id: grade_item.php,v 1.130.2.37 2010/04/15 16:37:07 tjhunt Exp $
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -883,7 +883,7 @@ class grade_item extends grade_object {
      * @return object Grade_category
      */
     function load_item_category() {
-        if (empty($this->category->id)) {
+        if (empty($this->item_category->id)) {
             $this->item_category = $this->get_item_category();
         }
         return $this->item_category;

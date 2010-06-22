@@ -1,4 +1,8 @@
-<?php  //$Id: delete_category_form.php,v 1.1.2.4 2009/09/26 16:23:34 skodak Exp $
+<?php  //$Id: delete_category_form.php,v 1.1.2.5 2010/05/13 01:40:37 moodler Exp $
+
+if (!defined('MOODLE_INTERNAL')) {
+    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
+}
 
 require_once($CFG->libdir.'/formslib.php');
 require_once($CFG->libdir . '/questionlib.php');

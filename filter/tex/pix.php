@@ -1,4 +1,4 @@
-<?PHP // $Id: pix.php,v 1.28.2.2 2010/04/01 17:10:58 skodak Exp $
+<?PHP // $Id: pix.php,v 1.28.2.3 2010/04/10 00:17:45 iarenaza Exp $
       // This function fetches math. images from the data directory
       // If not, it obtains the corresponding TeX expression from the cache_tex db table
       // and uses mimeTeX to create the image file
@@ -38,7 +38,7 @@
     }
 
     if (!file_exists($pathname)) {
-        $md5 = str_replace('.gif','',$image);
+        $md5 = str_replace(".{$CFG->filter_tex_convertformat}",'',$image);
         if ($texcache = get_record('cache_filters', 'filter', 'tex', 'md5key', $md5)) {
             if (!file_exists($CFG->dataroot.'/filter/tex')) {
                 make_upload_directory('filter/tex');
