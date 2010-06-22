@@ -1,3 +1,10 @@
+moodle (1.9.9-1) unstable; urgency=low
+
+  * Rewritten debian/rules 
+  * Removed unnecessary usr/share/moodle/update-notifier 
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Tue, 22 Jun 2010 19:44:52 +0100
+
 moodle (1.9.8-1) unstable; urgency=low
 
   [Tomasz Muras]
