@@ -2,8 +2,11 @@ moodle (1.9.9-1) unstable; urgency=low
 
   * Rewritten debian/rules 
   * Removed unnecessary usr/share/moodle/update-notifier 
+  * New Upstream Version: 1.9.9
+  * New upstream fixes CVE-2010-1619 (closes: #585425)
+  * New upstream fixes MSA-10-0011 (closes: #586280)
 
- -- Tomasz Muras <nexor1984@gmail.com>  Tue, 22 Jun 2010 19:44:52 +0100
+ -- Tomasz Muras <nexor1984@gmail.com>  Wed, 23 Jun 2010 21:00:39 +0100
 
 moodle (1.9.8-1) unstable; urgency=low
 
