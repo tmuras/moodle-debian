@@ -34,18 +34,17 @@ Public License can be found in /usr/share/common-licenses/GPL-2 file.
 	ipatlas, licensed under the GPL
 	PHPMailer, licensed under the LGPL
 	Smarty, licensed under the LGPL
-	htmlArea, licensed under a BSD license (see below)
+	htmlArea, licensed under a BSD-based license (see below)
 	TinyMCE, licensed under the LGPL
 	bennu, licensed under the LGPL
 	domxmlphp4-php5, licensed under the LGPL
-	Zend_Search_Lucene, licensed under the BSD
+	Zend_Search_Lucene, licensed under the BSD (see below)
 	simpletestlib, licensed under the GPL
 	FLV player, licensed under the GPL v2 or later
 	fpdf script "Protection", licensed under the same license as fpdf
 
 LGPL can be found in the file /usr/share/common-licenses/LGPL,
 GPL can be found in the file /usr/share/common-licenses/GPL, and
-BSD license can be found in the file /usr/share/common-licenses/BSD
 
 --------------------------------------------------------------------------------
 fpdf License
@@ -88,3 +87,35 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Zend_Search_Lucene License
+Copyright (c) 2006, Zend Technologies USA, Inc.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+
+    * Neither the name of Zend Technologies USA, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived from this
+      software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+--------------------------------------------------------------------------------
+

@@ -1,3 +1,12 @@
+moodle (1.9.9-2) unstable; urgency=low
+
+  * Fixed JS includes for YUI library (closes: #589612)
+  * Bumped standards version to 3.9.0
+  * Moved BSD licenses into copyright (fixes lintian warning)
+  * Setting DM-Upload-Allowed as agreed with Xavier Oswald <xoswald@debian.org>
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Thu, 22 Jul 2010 23:23:22 +0100
+
 moodle (1.9.9-1) unstable; urgency=low
 
   * Rewritten debian/rules 
