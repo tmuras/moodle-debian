@@ -49,6 +49,15 @@ binary:
 	rm -r debian/moodle/usr/share/moodle/lib/pclzip
 	rm debian/moodle/usr/share/moodle/lib/snoopy/*
 	
+	#Remove whole mediaplugin filter as it contains flash file without the source
+	#Without that flash file, the plugin is rather useless
+	rm -r debian/moodle/usr/share/moodle/filter/mediaplugin
+	
+	#Remove non-free swf files (would need to go to contrib)
+	rm debian/moodle/usr/share/moodle/lib/flashdetect/flashupgrade.swf
+	rm debian/moodle/usr/share/moodle/lib/swfobject/flashupgrade.swf
+	rm debian/moodle/usr/share/moodle/lib/mp3player/mp3player.swf
+	
 	#this one is just deleted
 	rm debian/moodle/usr/share/moodle/lib/soap/nusoap.php
 	dh binary-indep --remaining

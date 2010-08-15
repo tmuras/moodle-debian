@@ -10,6 +10,6 @@ moodle: embedded-php-library usr/share/moodle/lib/simpletestlib/unit_tester.php
 moodle: embedded-php-library usr/share/moodle/lib/markdown.php
 
 # Both of these are distributed under the GPLv2 or later, they are fine
-moodle: non-free-flash usr/share/moodle/filter/mediaplugin/flvplayer.swf
-moodle: non-free-flash usr/share/moodle/filter/mediaplugin/mp3player.swf
-moodle: non-free-flash usr/share/moodle/lib/mp3player/mp3player.swf
+#moodle: non-free-flash usr/share/moodle/filter/mediaplugin/flvplayer.swf
+#moodle: non-free-flash usr/share/moodle/filter/mediaplugin/mp3player.swf
+#moodle: non-free-flash usr/share/moodle/lib/mp3player/mp3player.swf
