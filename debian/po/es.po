@@ -1,0 +1,57 @@
+# moodle po-debconf translation to Spanish
+# Copyright (C) 2010 Software in the Public Interest
+# This file is distributed under the same license as the moodle package.
+#
+# Changes:
+#   - Initial translation
+#       Francisco Javier Cuadrado <fcocuadrado@gmail.com>, 2010
+#
+# Traductores, si no conocen el formato PO, merece la pena leer la
+# documentación de gettext, especialmente las secciones dedicadas a este
+# formato, por ejemplo ejecutando:
+#       info -n '(gettext)PO Files'
+#       info -n '(gettext)Header Entry'
+#
+# Equipo de traducción al español, por favor lean antes de traducir
+# los siguientes documentos:
+#
+#   - El proyecto de traducción de Debian al español
+#     http://www.debian.org/intl/spanish/
+#     especialmente las notas y normas de traducción en
+#     http://www.debian.org/intl/spanish/notas
+#
+#   - La guía de traducción de po's de debconf:
+#     /usr/share/doc/po-debconf/README-trans
+#     o http://www.debian.org/intl/l10n/po-debconf/README-trans
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: moodle 1.9.8-2\n"
+"Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
+"POT-Creation-Date: 2010-07-15 23:04+0100\n"
+"PO-Revision-Date: 2010-07-25 16:16+0100\n"
+"Last-Translator: Francisco Javier Cuadrado <fcocuadrado@gmail.com>\n"
+"Language-Team: Debian l10n Spanish <debian-l10n-spanish@lists.debian.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "URL for the Moodle site:"
+msgstr "URL del sitio de Moodle:"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "Please enter the URL from which Moodle should serve pages."
+msgstr "Introduzca la URL desde la que Moodle debería servir las páginas."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "The moodle package does not perform any automatic web server configuration, but does provide basic configuration templates for Apache."
+msgstr "El paquete de moodle no realiza ninguna configuración automática del servidor web, pero sí que proporciona plantillas básicas para la configuración de Apache."
+

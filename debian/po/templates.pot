@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
-"POT-Creation-Date: 2010-05-21 23:33+0100\n"
+"POT-Creation-Date: 2010-07-18 17:42+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -19,15 +19,20 @@ msgstr ""
 
 #. Type: string
 #. Description
-#: ../templates:1002
-msgid "Please enter the URL for the Moodle site:"
+#: ../templates:2001
+msgid "URL for the Moodle site:"
 msgstr ""
 
 #. Type: string
 #. Description
-#: ../templates:1002
+#: ../templates:2001
+msgid "Please enter the URL from which Moodle should serve pages."
+msgstr ""
+
+#. Type: string
+#. Description
+#: ../templates:2001
 msgid ""
-"Enter the URL you would like for your Moodle site. You will need to "
-"configure Apache correctly, this package will only provide you with the "
-"templates for Apache configs."
+"The moodle package does not perform any automatic web server configuration, "
+"but does provide basic configuration templates for Apache."
 msgstr ""

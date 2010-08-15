@@ -1,3 +1,22 @@
+moodle (1.9.9-3) UNRELEASED; urgency=low
+
+  [ Jonathan Wiltshire ]
+  * Debconf templates and debian/control reviewed by the debian-l10n-
+    english team as part of the Smith review project. Closes: #588871
+  * Debconf translation updates:
+     - Russian (closes: #589247)
+     - Czech (closes: #589265)
+     - Swedish (closes: #589270)
+     - French (closes: #589510)
+     - German (closes: #590120)
+     - Spanish (closes: #590449)
+     - Portugese (closes: #590556)
+
+  [ Tomasz Muras ]
+  * New debconf translation - Polish 
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Sun, 15 Aug 2010 13:29:23 +0100
+
 moodle (1.9.9-2) unstable; urgency=low
 
   * Fixed JS includes for YUI library (closes: #589612)

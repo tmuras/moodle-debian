@@ -16,8 +16,8 @@ Depends: ${misc:Depends}, libapache2-mod-php5 | php5-cgi, php5-mysql | php5-pgsq
 Pre-Depends: debconf (>= 0.5) | debconf-2.0
 Recommends: postgresql | mysql-server, php5-ldap, php5-xmlrpc, aspell, mimetex
 Suggests: clamav
-Description: Course Management System for Online Learning
- Moodle (Modular Object-Oriented Dynamic Learning Environment) is a course 
- management system - a software package designed to help educators create 
- quality online courses. One of the main advantages of Moodle over other 
+Description: course management system for online learning
+ Moodle (Modular Object-Oriented Dynamic Learning Environment) is a course
+ management system - a software package designed to help educators create
+ quality online courses. One of the main advantages of Moodle over other
  systems is a strong grounding in social constructionist pedagogy.

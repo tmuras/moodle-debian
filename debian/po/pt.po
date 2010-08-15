@@ -1,0 +1,43 @@
+# Translation of moodle's debconf messages to Portuguese
+# Copyright (C) 2010 the moodle's copyright holder
+# This file is distributed under the same license as the moodle package.
+#
+# Américo Monteiro <a_monteiro@netcabo.pt>, 2010.
+msgid ""
+msgstr ""
+"Project-Id-Version: moodle 1.9.8-2\n"
+"Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
+"POT-Creation-Date: 2010-07-15 23:04+0100\n"
+"PO-Revision-Date: 2010-07-27 00:38+0100\n"
+"Last-Translator: Américo Monteiro <a_monteiro@netcabo.pt>\n"
+"Language-Team: Portuguese <traduz@debianpt.org>\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Lokalize 1.0\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "URL for the Moodle site:"
+msgstr "URL para o site do Moodle:"
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid "Please enter the URL from which Moodle should serve pages."
+msgstr ""
+"Por favor indique o URL a partir do qual o Moodle deve servir páginas."
+
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"The moodle package does not perform any automatic web server configuration, "
+"but does provide basic configuration templates for Apache."
+msgstr ""
+"O pacote moodle não executa nenhuma configuração automática de servidor "
+"web, mas disponibiliza modelos de configuração básica para o Apache."
+
