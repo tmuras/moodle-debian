@@ -1,4 +1,4 @@
-moodle (1.9.9-3) UNRELEASED; urgency=low
+moodle (1.9.9.dfsg-1) unstable; urgency=low
 
   [ Jonathan Wiltshire ]
   * Debconf templates and debian/control reviewed by the debian-l10n-
@@ -14,8 +14,10 @@ moodle (1.9.9-3) UNRELEASED; urgency=low
 
   [ Tomasz Muras ]
   * New debconf translation - Polish 
+  * Removed .swf files as non-free (closes: #591201)
+  * Fixed generation of config.php for postgres (thanks Giles Westwood)
 
- -- Tomasz Muras <nexor1984@gmail.com>  Sun, 15 Aug 2010 13:29:23 +0100
+ -- Tomasz Muras <nexor1984@gmail.com>  Sun, 15 Aug 2010 21:19:10 +0100
 
 moodle (1.9.9-2) unstable; urgency=low
 
