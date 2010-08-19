@@ -1,3 +1,9 @@
+moodle (1.9.9.dfsg-2) unstable; urgency=low
+
+  * Enable HTML purifier by default
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Thu, 19 Aug 2010 21:01:03 +0100
+
 moodle (1.9.9.dfsg-1) unstable; urgency=low
 
   [ Jonathan Wiltshire ]

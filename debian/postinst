@@ -77,6 +77,9 @@ moodle_config() {
 
  \$CFG->respectsessionsettings = true;
 
+ # For improved security, make sure html purifier is used.
+ \$CFG->enablehtmlpurifier = true;
+
         if (file_exists("\$CFG->dirroot/lib/setup.php"))  {       // Do not edit
                 include_once("\$CFG->dirroot/lib/setup.php");
         } else {
