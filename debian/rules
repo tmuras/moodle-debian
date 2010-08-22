@@ -52,8 +52,8 @@ binary:
 	#Remove whole mediaplugin filter as it contains flash file without the source
 	#Without that flash file, the plugin is rather useless
 	#but we keep it because it breaks Moodle if it's removed fully
-	rm -r debian/moodle/usr/share/moodle/filter/mediaplugin/flvplayer.swf
-	rm -r debian/moodle/usr/share/moodle/filter/mediaplugin/mp3player.swf
+	#rm -r debian/moodle/usr/share/moodle/filter/mediaplugin/flvplayer.swf
+	#rm -r debian/moodle/usr/share/moodle/filter/mediaplugin/mp3player.swf
 	
 	#Remove non-free swf files (would need to go to contrib)
 	rm debian/moodle/usr/share/moodle/lib/flashdetect/flashupgrade.swf
