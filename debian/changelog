@@ -2,11 +2,12 @@ moodle (1.9.9.dfsg2-1) unstable; urgency=low
 
   * Enable HTML purifier by default
   * Added Janapenese translation (closes: #593808)
-  * Removed from source swf files without a source code 
+  * Removed from source swf files without a source code
+    and added README.source
   * Updated bundled HTML purifier library - fix for
     CVE-2010-2479 (closes: #593301) 
 
- -- Tomasz Muras <nexor1984@gmail.com>  Tue, 24 Aug 2010 20:22:45 +0100
+ -- Tomasz Muras <nexor1984@gmail.com>  Tue, 24 Aug 2010 20:35:29 +0100
 
 moodle (1.9.9.dfsg-1) unstable; urgency=low
 

@@ -1,0 +1,5 @@
+Two .swf files were removed from the upstream source:
+ * filter/mediaplugin/flvplayer.swf
+ * filter/mediaplugin/mp3player.swf
+The reason is lack of the source code. Hopefully Moodle will
+change the flash player, see: http://tracker.moodle.org/browse/MDL-23870
