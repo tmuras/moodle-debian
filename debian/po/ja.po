@@ -4,10 +4,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: moodle 1.9.9.dfsg-1\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2010-07-27 10:33+0200\n"
-"PO-Revision-Date: 2010-08-01 08:04-0400\n"
+"Project-Id-Version: moodle 1.9.9.dfsg2-1\n"
+"Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
+"POT-Creation-Date: 2010-07-18 17:42+0100\n"
+"PO-Revision-Date: 2010-09-14 15:04+0900\n"
 "Last-Translator: Hideki Yamane <henrich@debian.org>\n"
 "Language-Team: Japanese <debian-japanese@lists.debian.org>\n"
 "MIME-Version: 1.0\n"
@@ -16,18 +16,22 @@ msgstr ""
 
 #. Type: string
 #. Description
-#: ../templates:1001
-msgid "Please enter the URL for the Moodle site:"
-msgstr "Moodle サイトの URL を入力してください:"
+#: ../templates:2001
+msgid "URL for the Moodle site:"
+msgstr "Moodle サイトの URL:"
 
 #. Type: string
 #. Description
-#: ../templates:1001
-msgid ""
-"Enter the URL you would like for your Moodle site. You will need to "
-"configure Apache correctly, this package will only provide you with the "
-"templates for Apache configs."
-msgstr ""
-"Moodle に使いたいサイトの URL を入力してください。このパッケージは Apache "
-"の設定テンプレートを提供するだけなので、Apache を正しく設定する必要があります。"
+#: ../templates:2001
+msgid "Please enter the URL from which Moodle should serve pages."
+msgstr "Moodle が提供しているページの URL を入力してください。"
 
+#. Type: string
+#. Description
+#: ../templates:2001
+msgid ""
+"The moodle package does not perform any automatic web server configuration, "
+"but does provide basic configuration templates for Apache."
+msgstr ""
+"moodle パッケージは自動的なウェブサーバ設定を行いませんが、Apache 向けに基本"
+"的な設定テンプレートを提供します。"
