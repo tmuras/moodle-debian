@@ -1,0 +1,12 @@
+Index: moodle/lib/ajax/ajaxlib.php
+===================================================================
+--- moodle/lib/weblib.php	2010/10/02 16:34:42	1.1465
++++ moodle/lib/weblib.php	2010/10/06 12:42:17	1.1466
+@@ -1445,7 +1445,6 @@
+ 
+     switch ($format) {
+         case FORMAT_PLAIN:
+-        case FORMAT_MARKDOWN:
+             return $text;
+ 
+         default:

@@ -1,3 +1,12 @@
+moodle (1.9.9.dfsg2-2) lucid; urgency=low
+
+  * Added Romanian translation
+  * Updated Japanese translation (closes: #596820)
+  * Updated embedded CAS to 1.1.3
+  * Added patch for MDL-24523
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Thu, 28 Oct 2010 21:15:32 +0100
+
 moodle (1.9.9.dfsg2-1) unstable; urgency=low
 
   * Enable HTML purifier by default
