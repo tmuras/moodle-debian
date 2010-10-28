@@ -64,7 +64,7 @@ binary:
 	rm debian/moodle/usr/share/moodle/lib/soap/nusoap.php
 	
 	#removing file from previous version of CAS
-	rm debian/moodle/usr/share/moodle/cas/CAS/CAS/PGTStorage/pgt-db.php
+	rm debian/moodle/usr/share/moodle/auth/cas/CAS/CAS/PGTStorage/pgt-db.php
 	dh binary-indep --remaining
 	
 %:
