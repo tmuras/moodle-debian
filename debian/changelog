@@ -2,11 +2,18 @@ moodle (1.9.9.dfsg2-2) lucid; urgency=low
 
   * Added Romanian translation
   * Updated Japanese translation (closes: #596820)
-  * Updated embedded CAS to 1.1.3
-  * Added patch for MDL-24523
-  * Added patch for MDL-24810 and upgrade customized HTML Purifier to 4.2.0 
+  * Backporting security fixes from Moodle 1.9.10 (closes: #601384)
+     - Updated embedded CAS to 1.1.3
+     - Added patch for MDL-24523:
+       clean_text() not filtering text in markdown format
+     - Added patch for MDL-24810 and upgraded customized HTML Purifier to 4.2.0 
+     - Added patch for MDL-24258:
+       students can delete their forum posts later than $CFG->maxeditingtime 
+       under certain conditions
+     - Added patch for MDL-23377:
+       Can't delete quiz attempts in course without enrolled students
 
- -- Tomasz Muras <nexor1984@gmail.com>  Thu, 28 Oct 2010 22:24:17 +0100
+ -- Tomasz Muras <nexor1984@gmail.com>  Sat, 30 Oct 2010 11:12:33 +0100
 
 moodle (1.9.9.dfsg2-1) unstable; urgency=low
 
