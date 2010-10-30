@@ -1,4 +1,4 @@
-moodle (1.9.9.dfsg2-2) lucid; urgency=low
+moodle (1.9.9.dfsg2-2) unstable; urgency=low
 
   * Added Romanian translation
   * Updated Japanese translation (closes: #596820)
@@ -13,7 +13,7 @@ moodle (1.9.9.dfsg2-2) lucid; urgency=low
      - Added patch for MDL-23377:
        Can't delete quiz attempts in course without enrolled students
 
- -- Tomasz Muras <nexor1984@gmail.com>  Sat, 30 Oct 2010 11:12:33 +0100
+ -- Tomasz Muras <nexor1984@gmail.com>  Sat, 30 Oct 2010 12:19:28 +0100
 
 moodle (1.9.9.dfsg2-1) unstable; urgency=low
 
