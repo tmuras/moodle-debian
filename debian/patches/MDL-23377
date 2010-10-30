@@ -1,0 +1,25 @@
+Index: moodle/mod/quiz/report/overview/report.php
+===================================================================
+--- moodle.orig/mod/quiz/report/overview/report.php	2010-10-30 11:24:10.062453998 +0100
++++ moodle/mod/quiz/report/overview/report.php	2010-10-30 11:33:20.092453319 +0100
+@@ -128,11 +128,19 @@
+             $allowedlist = $groupstudentslist;
+         }
+ 
+-        if ($students && ($attemptids = optional_param('attemptid', array(), PARAM_INT)) && confirm_sesskey()) {
++        if (($attemptids = optional_param('attemptid', array(), PARAM_INT)) && confirm_sesskey()) {
+             //attempts need to be deleted
+             require_capability('mod/quiz:deleteattempts', $context);
+             foreach ($attemptids as $attemptid) {
+                 $attempt = get_record('quiz_attempts', 'id', $attemptid);
++                if (!$attempt || $attempt->quiz != $quiz->id || $attempt->preview != 0) {
++                    // Ensure the attempt exists, and belongs to this quiz. If not skip.
++                    continue;
++                }
++                if ($attemptsmode != QUIZ_REPORT_ATTEMPTS_ALL && !array_key_exists($attempt->userid, $students)) {
++                    // Ensure the attempt belongs to a student included in the report. If not skip.
++                    continue;
++                }
+                 if ($groupstudents && !in_array($attempt->userid, $groupstudents)) {
+                     continue;
+                 }
