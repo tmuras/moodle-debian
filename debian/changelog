@@ -1,3 +1,10 @@
+moodle (2.0.1+dfsg1) unstable; urgency=low
+
+  * New upstream version: 2.0.1 (Build: 20110204)
+  * 
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Mon, 07 Feb 2011 00:42:20 +0000
+
 moodle (1.9.9.dfsg2-2) unstable; urgency=low
 
   * Added Romanian translation
