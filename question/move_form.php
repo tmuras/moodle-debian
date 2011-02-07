@@ -1,4 +1,4 @@
-<?php  // $Id$
+<?php
 
 if (!defined('MOODLE_INTERNAL')) {
     die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
@@ -25,4 +25,4 @@ class question_move_form extends moodleform {
         $mform->setType('delete', PARAM_INT);
     }
 }
-?>
+

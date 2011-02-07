@@ -43,27 +43,27 @@ class MoodleQuickForm_advcheckbox extends HTML_QuickForm_advcheckbox{
         if ($values === null){
             $values = array(0, 1);
         }
-        
+
         if (!is_null($attributes['group'])) {
-            
+
             $this->_group = 'checkboxgroup' . $attributes['group'];
             unset($attributes['group']);
             if (is_null($attributes)) {
                 $attributes = array();
-                $attributes['class'] .= " $this->_group"; 
+                $attributes['class'] .= " $this->_group";
             } elseif (is_array($attributes)) {
                 if (isset($attributes['class'])) {
                     $attributes['class'] .= " $this->_group";
                 } else {
-                    $attributes['class'] = $this->_group; 
+                    $attributes['class'] = $this->_group;
                 }
             } elseif ($strpos = stripos($attributes, 'class="')) {
                 $attributes = str_ireplace('class="', 'class="' . $this->_group . ' ', $attributes);
             } else {
                 $attributes .= ' class="' . $this->_group . '"';
-            } 
-        } 
-        
+            }
+        }
+
         parent::HTML_QuickForm_advcheckbox($elementName, $elementLabel, $text, $attributes, $values);
     } //end constructor
 
@@ -76,18 +76,7 @@ class MoodleQuickForm_advcheckbox extends HTML_QuickForm_advcheckbox{
      * @param string $function function name to call to get html
      */
     function setHelpButton($helpbuttonargs, $function='helpbutton'){
-        if (!is_array($helpbuttonargs)){
-            $helpbuttonargs=array($helpbuttonargs);
-        }else{
-            $helpbuttonargs=$helpbuttonargs;
-        }
-        //we do this to to return html instead of printing it
-        //without having to specify it in every call to make a button.
-        if ('helpbutton' == $function){
-            $defaultargs=array('', '', 'moodle', true, false, '', true);
-            $helpbuttonargs=$helpbuttonargs + $defaultargs ;
-        }
-        $this->_helpbutton=call_user_func_array($function, $helpbuttonargs);
+        debugging('component setHelpButton() is not used any more, please use $mform->setHelpButton() instead');
     }
     /**
      * get html for help button
@@ -140,4 +129,3 @@ class MoodleQuickForm_advcheckbox extends HTML_QuickForm_advcheckbox{
     } //end func getFrozenHtml
 
 }
-?>

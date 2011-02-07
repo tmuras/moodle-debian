@@ -1,11 +1,12 @@
-<?php //$Id: backup_scheduled.php,v 1.38.2.4 2008/12/15 21:28:02 stronk7 Exp $
+<?php
     //This file contains all the code needed to execute scheduled backups
+
+require_once($CFG->libdir.'/eventslib.php');
 
 //This function is executed via moodle cron
 //It prepares all the info and execute backups as necessary
 function schedule_backup_cron() {
-
-    global $CFG;
+    global $CFG, $DB;
 
     $status = true;
 
@@ -33,7 +34,7 @@ function schedule_backup_cron() {
         //for info in backup_logs to unlock status as necessary
         $timetosee = 1800;   //Half an hour looking for activity
         $timeafter = time() - $timetosee;
-        $numofrec = count_records_select ("backup_log","time > $timeafter");
+        $numofrec = $DB->count_records_select ("backup_log","time > ? AND backuptype = ?", array($timeafter, 'scheduledbackup'));
         if (!$numofrec) {
             $timetoseemin = $timetosee/60;
             mtrace("    No activity in last ".$timetoseemin." minutes. Unlocking status");
@@ -57,7 +58,11 @@ function schedule_backup_cron() {
     //Delete old_entries from backup tables
     if ($status) {
         mtrace("    Deleting old data");
-        $status = backup_delete_old_data();
+        if (!backup_delete_old_data()) {;
+            $errorstr = "An error occurred deleting old backup data";
+            add_to_backup_log(time(),$preferences->backup_course,$errorstr,'scheduledbackup');
+            mtrace("    ".$errorstr);
+        }
     }
 
     //Now we get a list of courses in the server
@@ -66,33 +71,33 @@ function schedule_backup_cron() {
         //First of all, we delete everything from backup tables related to deleted courses
         mtrace("        Skipping deleted courses");
         $skipped = 0;
-        if ($bckcourses = get_records('backup_courses')) {
+        if ($bckcourses = $DB->get_records('backup_courses')) {
             foreach($bckcourses as $bckcourse) {
                 //Search if it exists
-                if (!$exists = get_record('course', 'id', "$bckcourse->courseid")) {
+                if (!$exists = $DB->get_record('course', array('id'=>$bckcourse->courseid))) {
                     //Doesn't exist, so delete from backup tables
-                    delete_records('backup_courses', 'courseid', "$bckcourse->courseid");
-                    delete_records('backup_log', 'courseid', "$bckcourse->courseid");
+                    $DB->delete_records('backup_courses', array('courseid'=>$bckcourse->courseid));
+                    $DB->delete_records('backup_log', array('courseid'=>$bckcourse->courseid));
                     $skipped++;
                 }
             }
         }
         mtrace("            $skipped courses");
         //Now process existing courses
-        $courses = get_records("course");
+        $courses = $DB->get_records("course");
         //For each course, we check (insert, update) the backup_course table
         //with needed data
         foreach ($courses as $course) {
             if ($status) {
                 mtrace("        $course->fullname");
                 //We check if the course exists in backup_course
-                $backup_course = get_record("backup_courses","courseid",$course->id);
+                $backup_course = $DB->get_record("backup_courses", array("courseid"=>$course->id));
                 //If it doesn't exist, create
                 if (!$backup_course) {
                     $temp_backup_course->courseid = $course->id;
-                    $newid = insert_record("backup_courses",$temp_backup_course);
+                    $newid = $DB->insert_record("backup_courses",$temp_backup_course);
                     //And get it from db
-                    $backup_course = get_record("backup_courses","id",$newid);
+                    $backup_course = $DB->get_record("backup_courses", array("id"=>$newid));
                 }
                 //If it doesn't exist now, error
                 if (!$backup_course) {
@@ -104,7 +109,7 @@ function schedule_backup_cron() {
                 $skipped = false;
                 if (!$course->visible && ($now - $course->timemodified) > 31*24*60*60) {  //Hidden + unmodified last month
                     mtrace("            SKIPPING - hidden+unmodified");
-                    set_field("backup_courses","laststatus","3","courseid",$backup_course->courseid);
+                    $DB->set_field("backup_courses","laststatus","3", array("courseid"=>$backup_course->courseid));
                     $skipped = true;
                 }
                 //Now we backup every non skipped course with nextstarttime < now
@@ -115,18 +120,18 @@ function schedule_backup_cron() {
                     if ($backup_course->laststatus != 2) {
                         //Set laststarttime
                         $starttime = time();
-                        set_field("backup_courses","laststarttime",$starttime,"courseid",$backup_course->courseid);
+                        $DB->set_field("backup_courses","laststarttime",$starttime, array("courseid"=>$backup_course->courseid));
                         //Set course status to unfinished, the process will reset it
-                        set_field("backup_courses","laststatus","2","courseid",$backup_course->courseid);
+                        $DB->set_field("backup_courses","laststatus","2", array("courseid"=>$backup_course->courseid));
                         //Launch backup
                         $course_status = schedule_backup_launch_backup($course,$starttime);
                         //Set lastendtime
-                        set_field("backup_courses","lastendtime",time(),"courseid",$backup_course->courseid);
+                        $DB->set_field("backup_courses","lastendtime",time(), array("courseid"=>$backup_course->courseid));
                         //Set laststatus
                         if ($course_status) {
-                            set_field("backup_courses","laststatus","1","courseid",$backup_course->courseid);
+                            $DB->set_field("backup_courses","laststatus","1", array("courseid"=>$backup_course->courseid));
                         } else {
-                            set_field("backup_courses","laststatus","0","courseid",$backup_course->courseid);
+                            $DB->set_field("backup_courses","laststatus","0", array("courseid"=>$backup_course->courseid));
                         }
                     }
                 }
@@ -134,7 +139,7 @@ function schedule_backup_cron() {
                 //Now, calculate next execution of the course
                 $nextstarttime = schedule_backup_next_execution ($backup_course,$backup_config,$now,$admin->timezone);
                 //Save it to db
-                set_field("backup_courses","nextstarttime",$nextstarttime,"courseid",$backup_course->courseid);
+                $DB->set_field("backup_courses","nextstarttime",$nextstarttime, array("courseid"=>$backup_course->courseid));
                 //Print it to screen as necessary
                 $showtime = "undefined";
                 if ($nextstarttime > 0) {
@@ -149,7 +154,7 @@ function schedule_backup_cron() {
     if (!empty($CFG->loglifetime)) {
         mtrace("    Deleting old logs");
         $loglifetime = $now - ($CFG->loglifetime * 86400);
-        delete_records_select("backup_log", "laststarttime < '$loglifetime'");
+        $DB->delete_records_select("backup_log", "laststarttime < ?", array($loglifetime));
     }
 
     //Send email to admin if necessary
@@ -158,11 +163,11 @@ function schedule_backup_cron() {
         $message = "";
 
         //Get info about the status of courses
-        $count_all = count_records('backup_courses');
-        $count_ok = count_records('backup_courses','laststatus','1');
-        $count_error = count_records('backup_courses','laststatus','0');
-        $count_unfinished = count_records('backup_courses','laststatus','2');
-        $count_skipped = count_records('backup_courses','laststatus','3');
+        $count_all = $DB->count_records('backup_courses');
+        $count_ok = $DB->count_records('backup_courses', array('laststatus'=>'1'));
+        $count_error = $DB->count_records('backup_courses', array('laststatus'=>'0'));
+        $count_unfinished = $DB->count_records('backup_courses', array('laststatus'=>'2'));
+        $count_skipped = $DB->count_records('backup_courses', array('laststatus'=>'3'));
 
         //Build the message text
         //Summary
@@ -182,7 +187,7 @@ function schedule_backup_cron() {
             //Set message priority
             $admin->priority = 1;
             //Reset unfinished to error
-            set_field('backup_courses','laststatus','0','laststatus','2');
+            $DB->set_field('backup_courses','laststatus','0', array('laststatus'=>'2'));
         } else {
             $message .= "  ".get_string('backupfinished')."\n";
         }
@@ -196,9 +201,17 @@ function schedule_backup_cron() {
         $subject = $prefix.get_string("scheduledbackupstatus");
 
         //Send the message
-        email_to_user($admin,$admin,$subject,$message);
+        $eventdata = new stdClass();
+        $eventdata->modulename        = 'moodle';
+        $eventdata->userfrom          = $admin;
+        $eventdata->userto            = $admin;
+        $eventdata->subject           = $subject;
+        $eventdata->fullmessage       = $message;
+        $eventdata->fullmessageformat = FORMAT_PLAIN;
+        $eventdata->fullmessagehtml   = '';
+        $eventdata->smallmessage      = '';
+        message_send($eventdata);
     }
-
 
     //Everything is finished stop backup_sche_running
     backup_set_config("backup_sche_running","0");
@@ -245,14 +258,10 @@ function schedule_backup_launch_backup($course,$starttime = 0) {
 //This function saves to backup_log all the needed process info
 //to use it later.  NOTE: If $starttime = 0 no info in saved
 function schedule_backup_log($starttime,$courseid,$message) {
+    global $DB;
 
     if ($starttime) {
-        $log->courseid = $courseid;
-        $log->time = time();
-        $log->laststarttime = $starttime;
-        $log->info = addslashes($message);
-
-        insert_record ("backup_log",$log);
+        add_to_backup_log($starttime,$courseid,$message, 'scheduledbackup');
     }
 
 }
@@ -297,8 +306,7 @@ function schedule_backup_next_execution ($backup_course,$backup_config,$now,$tim
 //This function implements all the needed code to prepare a course
 //to be in backup (insert temp info into backup temp tables).
 function schedule_backup_course_configure($course,$starttime = 0) {
-
-    global $CFG;
+    global $CFG, $DB;
 
     $status = true;
 
@@ -370,7 +378,7 @@ function schedule_backup_course_configure($course,$starttime = 0) {
        //Checks for the required files/functions to backup every mod
         //And check if there is data about it
         $count = 0;
-        if ($allmods = get_records("modules") ) {
+        if ($allmods = $DB->get_records("modules") ) {
             foreach ($allmods as $mod) {
                 $modname = $mod->name;
                 $modfile = "$CFG->dirroot/mod/$modname/backuplib.php";
@@ -421,7 +429,7 @@ function schedule_backup_course_configure($course,$starttime = 0) {
                     $preferences->mods[$mod->modname]->instances[$mod->instance]->backup = $preferences->mods[$mod->modname]->backup;
                     $preferences->mods[$mod->modname]->instances[$mod->instance]->userinfo = $preferences->mods[$mod->modname]->userinfo;
                     // there isn't really a nice way to do this...
-                    $preferences->mods[$mod->modname]->instances[$mod->instance]->name = get_field($mod->modname,'name','id',$mod->instance);
+                    $preferences->mods[$mod->modname]->instances[$mod->instance]->name = $DB->get_field($mod->modname,'name', array('id'=>$mod->instance));
                 }
             }
         }
@@ -465,7 +473,7 @@ function schedule_backup_course_configure($course,$starttime = 0) {
         $preferences->keep_name = $keep_name;
 
         //Roleasignments
-        $roles = get_records('role', '', '', 'sortorder');
+        $roles = get_all_roles();
         foreach ($roles as $role) {
             $preferences->backuproleassignments[$role->id] = $role;
         }
@@ -484,7 +492,7 @@ function schedule_backup_course_configure($course,$starttime = 0) {
     //Calculate necesary info to backup modules
     if ($status) {
         schedule_backup_log($starttime,$course->id,"    calculating modules data");
-        if ($allmods = get_records("modules") ) {
+        if ($allmods = $DB->get_records("modules") ) {
             foreach ($allmods as $mod) {
                 $modname = $mod->name;
                 $modbackup = $modname."_backup_mods";
@@ -847,5 +855,3 @@ function schedule_backup_course_delete_old_files($preferences,$starttime=0) {
     }
     return $status;
 }
-
-?>

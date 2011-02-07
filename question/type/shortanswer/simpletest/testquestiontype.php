@@ -1,4 +1,4 @@
-<?php  // $Id$
+<?php
 /**
  * Unit tests for (some of) question/type/shortanswer/questiontype.php.
  *
@@ -15,14 +15,15 @@ if (!defined('MOODLE_INTERNAL')) {
 require_once($CFG->dirroot . '/question/type/questiontype.php');
 
 class question_shortanswer_qtype_test extends UnitTestCase {
+    public static $includecoverage = array('question/type/questiontype.php', 'question/type/shortanswer/questiontype.php');
     var $qtype;
-    
+
     function setUp() {
         $this->qtype = new question_shortanswer_qtype();
     }
-    
+
     function tearDown() {
-        $this->qtype = null;   
+        $this->qtype = null;
     }
 
     function test_name() {
@@ -123,7 +124,7 @@ class question_shortanswer_qtype_test extends UnitTestCase {
         $state->responses = array('' => 'frog');
         $this->assertFalse($this->qtype->check_response($question, $state));
 
-        $state->responses = array('' => "fred\'s");
+        $state->responses = array('' => "fred's");
         $this->assertEqual($this->qtype->check_response($question, $state), 17);
 
         $state->responses = array('' => '12*13');
@@ -164,6 +165,10 @@ class question_shortanswer_qtype_test extends UnitTestCase {
 
         $state->responses = array('' => "\'");
         $teststate->responses = array('' => "\'");
+        $this->assertTrue($this->qtype->compare_responses($question, $state, $teststate));
+
+        $state->responses = array('' => "'");
+        $teststate->responses = array('' => "'");
         $this->assertTrue($this->qtype->compare_responses($question, $state, $teststate));
 
         $state->responses = array('' => 'frog*toad');
@@ -209,6 +214,21 @@ class question_shortanswer_qtype_test extends UnitTestCase {
         $this->assertFalse($this->qtype->compare_responses($question, $state, $teststate));
     }
 
+    function test_test_response() {
+        $answer = new stdClass;
+        $answer->id = 1;
+        $answer->answer = 'entrance';
+        $answer->fraction = 1;
+        $question = new stdClass;
+        $question->options->answers = array(
+            1 => $answer,
+        );
+        $question->options->usecase = 0;
+        $state = new stdClass;
+        $state->responses[''] = 'Entrance';
+        $this->assertTrue($this->qtype->test_response($question, $state, $answer));
+    }
+
     function test_get_correct_responses() {
         $answer1 = new stdClass;
         $answer1->id = 17;
@@ -244,4 +264,4 @@ class question_shortanswer_qtype_test extends UnitTestCase {
     }
 }
 
-?>
+

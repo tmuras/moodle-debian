@@ -1,4 +1,4 @@
-<?php // $Id: index.php,v 1.46.2.16 2009/12/16 00:51:28 andyjdavis Exp $
+<?php
 /**
  * This page lists all the instances of quiz in a particular course
  *
@@ -10,11 +10,14 @@
     require_once("locallib.php");
 
     $id = required_param('id', PARAM_INT);
-    if (!$course = get_record("course", "id", $id)) {
-        error("Course ID is incorrect");
+    $PAGE->set_url('/mod/quiz/index.php', array('id'=>$id));
+    if (!$course = $DB->get_record('course', array('id' => $id))) {
+        print_error('invalidcourseid');
     }
     $coursecontext = get_context_instance(CONTEXT_COURSE, $id);
     require_login($course->id);
+    $PAGE->set_pagelayout('incourse');
+
     add_to_log($course->id, "quiz", "view all", "index.php?id=$course->id", "");
 
 // Print the header
@@ -30,18 +33,18 @@
                    </div>
                  </form>";
     }
-    $navlinks = array();
-    $navlinks[] = array('name' => $strquizzes, 'link' => '', 'type' => 'activity');
-    $navigation = build_navigation($navlinks);
-
-    print_header_simple($strquizzes, '', $navigation,
-                 '', '', true, $streditquestions, navmenu($course));
+    $PAGE->navbar->add($strquizzes);
+    $PAGE->set_title($strquizzes);
+    $PAGE->set_button($streditquestions);
+    $PAGE->set_heading($course->fullname);
+    echo $OUTPUT->header();
 
 // Get all the appropriate data
     if (!$quizzes = get_all_instances_in_course("quiz", $course)) {
         notice(get_string('thereareno', 'moodle', $strquizzes), "../../course/view.php?id=$course->id");
         die;
     }
+    $sections = get_all_sections($course->id);
 
 // Check if we need the closing date header
     $showclosingheader = false;
@@ -50,7 +53,7 @@
         if ($quiz->timeclose!=0) {
             $showclosingheader=true;
         }
-        if (quiz_has_feedback($quiz->id)) {
+        if (quiz_has_feedback($quiz)) {
             $showfeedback=true;
         }
         if($showclosingheader && $showfeedback) {
@@ -67,11 +70,7 @@
         array_push($align, 'left');
     }
 
-    if ($course->format == 'weeks' or $course->format == 'weekscss') {
-        array_unshift($headings, get_string('week'));
-    } else {
-        array_unshift($headings, get_string('section'));
-    }
+    array_unshift($headings, get_string('sectionname', 'format_'.$course->format));
     array_unshift($align, 'center');
 
     $showing = '';  // default
@@ -88,8 +87,16 @@
             array_push($align, 'left');
         }
         $showing = 'scores';  // default
+
+        $scores = $DB->get_records_sql_menu('
+                SELECT qg.quiz, qg.grade
+                FROM {quiz_grades} qg
+                JOIN {quiz} q ON q.id = qg.quiz
+                WHERE q.course = ? AND qg.userid = ?',
+                array($course->id, $USER->id));
     }
 
+    $table = new html_table();
     $table->head = $headings;
     $table->align = $align;
 
@@ -105,6 +112,7 @@
         if ($quiz->section != $currentsection) {
             if ($quiz->section) {
                 $strsection = $quiz->section;
+                $strsection = get_section_name($course, $sections[$quiz->section]);
             }
             if ($currentsection) {
                 $learningtable->data[] = 'hr';
@@ -130,27 +138,24 @@
         if ($showing == 'stats') {
             // The $quiz objects returned by get_all_instances_in_course have the necessary $cm
             // fields set to make the following call work.
-            $attemptcount = quiz_num_attempt_summary($quiz, $quiz);
-            if ($attemptcount) {
-                $data[] = "<a$class href=\"report.php?id=$quiz->coursemodule\">$attemptcount</a>";
-            } else {
-                $data[] = '';
-            }
-        } else if ($showing == 'scores') {
+            $data[] = quiz_attempt_summary_link_to_reports($quiz, $cm, $context);
 
+        } else if ($showing == 'scores') {
             // Grade and feedback.
-            $bestgrade = quiz_get_best_grade($quiz, $USER->id);
             $attempts = quiz_get_user_attempts($quiz->id, $USER->id, 'all');
             list($someoptions, $alloptions) = quiz_get_combined_reviewoptions($quiz, $attempts, $context);
 
             $grade = '';
             $feedback = '';
-            if ($quiz->grade && !is_null($bestgrade)) {
+            if ($quiz->grade && array_key_exists($quiz->id, $scores)) {
                 if ($alloptions->scores) {
-                    $grade = "$bestgrade / $quiz->grade";
+                    $a = new stdClass;
+                    $a->grade = quiz_format_grade($quiz, $scores[$quiz->id]);
+                    $a->maxgrade = quiz_format_grade($quiz, $quiz->grade);
+                    $grade = get_string('outofshort', 'quiz', $a);
                 }
                 if ($alloptions->overallfeedback) {
-                    $feedback = quiz_feedback_for_grade($bestgrade, $quiz->id);
+                    $feedback = quiz_feedback_for_grade($scores[$quiz->id], $quiz, $context, $cm);
                 }
             }
             $data[] = $grade;
@@ -164,8 +169,8 @@
 
 // Display the table.
     echo '<br />';
-    print_table($table);
+    echo html_writer::table($table);
 
 // Finish the page
-    print_footer($course);
-?>
+    echo $OUTPUT->footer();
+

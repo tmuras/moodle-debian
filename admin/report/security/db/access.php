@@ -1,4 +1,4 @@
-<?php  // $Id: access.php,v 1.1.2.2 2009/01/15 20:16:13 skodak Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -23,14 +23,14 @@
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
 
-$report_security_capabilities = array(
+$capabilities = array(
 
     'report/security:view' => array(
         'riskbitmask' => RISK_CONFIG,
         'captype' => 'read',
         'contextlevel' => CONTEXT_SYSTEM,
-        'legacy' => array(
-            'admin' => CAP_ALLOW
+        'archetypes' => array(
+            'manager' => CAP_ALLOW
         ),
     )
 );

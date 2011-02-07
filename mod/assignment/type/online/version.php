@@ -1,11 +1,11 @@
-<?PHP // $Id: version.php,v 1.3 2007/10/10 16:09:52 skodak Exp $
+<?php
 
 ////////////////////////////////////////////////////////////////////////////////
 //  Code fragment to define the module version etc.
 //  This fragment is called by /admin/index.php
 ////////////////////////////////////////////////////////////////////////////////
 
-$plugin->version   = 2005042900;
-$plugin->requires  = 2007101000;
+$plugin->version   = 2010090501;
+$plugin->requires  = 2010090501;
 
-?>
+

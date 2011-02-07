@@ -1,19 +1,19 @@
-<?php  // $Id: grade.php,v 1.1.2.1 2007/11/02 16:19:56 tjhunt Exp $
+<?php
 
     require_once("../../config.php");
 
     $id   = required_param('id', PARAM_INT);          // Course module ID
 
     if (! $cm = get_coursemodule_from_id('quiz', $id)) {
-        error('Course Module ID was incorrect');
+        print_error('invalidcoursemodule');
     }
 
-    if (! $quiz = get_record('quiz', 'id', $cm->instance)) {
-        error('quiz ID was incorrect');
+    if (! $quiz = $DB->get_record('quiz', array('id' => $cm->instance))) {
+        print_error('invalidquizid');
     }
 
-    if (! $course = get_record('course', 'id', $quiz->course)) {
-        error('Course is misconfigured');
+    if (! $course = $DB->get_record('course', array('id' => $quiz->course))) {
+        print_error('coursemisconf');
     }
 
     require_login($course->id, false, $cm);
@@ -24,4 +24,4 @@
         redirect('view.php?id='.$cm->id);
     }
 
-?>
+

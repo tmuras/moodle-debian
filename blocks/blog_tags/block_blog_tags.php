@@ -1,4 +1,6 @@
-<?PHP //$Id: block_blog_tags.php,v 1.28.2.7 2008/07/17 04:22:11 scyrma Exp $
+<?php
+
+//TODO: fix these sloppy constant names or move them elsewhere!
 
 define('BLOGDEFAULTTIMEWITHIN', 90);
 define('BLOGDEFAULTNUMBEROFTAGS', 20);
@@ -8,8 +10,7 @@ require_once($CFG->dirroot .'/blog/lib.php');
 
 class block_blog_tags extends block_base {
     function init() {
-        $this->version = 2007101509;
-        $this->title = get_string('blocktagstitle', 'blog');
+        $this->title = get_string('pluginname', 'block_blog_tags');
     }
 
     function instance_allow_multiple() {
@@ -32,18 +33,20 @@ class block_blog_tags extends block_base {
 
         // load userdefined title and make sure it's never empty
         if (empty($this->config->title)) {
-            $this->title = get_string('blocktagstitle','blog');
+            $this->title = get_string('pluginname', 'block_blog_tags');
         } else {
             $this->title = $this->config->title;
         }
     }
 
     function get_content() {
-
-        global $CFG, $SITE, $COURSE, $USER;
+        global $CFG, $SITE, $USER, $DB, $OUTPUT;
 
         if (empty($CFG->usetags) || empty($CFG->bloglevel)) {
             $this->content->text = '';
+            if ($this->page->user_is_editing()) {
+                $this->content->text = get_string('tagsaredisabled', 'tag');
+            }
             return $this->content;
         }
 
@@ -61,34 +64,39 @@ class block_blog_tags extends block_base {
             return $this->content;
         }
 
-        if (empty($this->instance)) {
-            $this->content = '';
-            return $this->content;
-        }
-
         $this->content = new stdClass;
         $this->content->text = '';
         $this->content->footer = '';
 
         /// Get a list of tags
-
         $timewithin = time() - $this->config->timewithin * 24 * 60 * 60; /// convert to seconds
 
-        $sql  = 'SELECT t.id, t.tagtype, t.rawname, t.name, COUNT(DISTINCT ti.id) AS ct ';
-        $sql .= "FROM {$CFG->prefix}tag t, {$CFG->prefix}tag_instance ti, {$CFG->prefix}post p ";
-        $sql .= 'WHERE t.id = ti.tagid ';
-        $sql .= 'AND p.id = ti.itemid ';
-        $sql .= 'AND ti.itemtype = \'post\' ';
+        $context = $this->page->context;
 
-        // admins should be able to read all tags      
+        // admins should be able to read all tags
+        $type = '';
         if (!has_capability('moodle/user:readuserblogs', get_context_instance(CONTEXT_SYSTEM))) {
-            $sql .= 'AND (p.publishstate = \'site\' or p.publishstate=\'public\') ';
+            $type = " AND (p.publishstate = 'site' or p.publishstate='public')";
         }
-        $sql .= "AND ti.timemodified > {$timewithin} ";
-        $sql .= 'GROUP BY t.id, t.tagtype, t.name, t.rawname ';
-        $sql .= 'ORDER BY ct DESC, t.name ASC';
 
-        if ($tags = get_records_sql($sql, 0, $this->config->numberoftags)) {
+        $sql  = "SELECT t.id, t.tagtype, t.rawname, t.name, COUNT(DISTINCT ti.id) AS ct
+                   FROM {tag} t, {tag_instance} ti, {post} p, {blog_association} ba
+                  WHERE t.id = ti.tagid AND p.id = ti.itemid
+                        $type
+                        AND ti.itemtype = 'post'
+                        AND ti.timemodified > $timewithin";
+
+        if ($context->contextlevel == CONTEXT_MODULE) {
+            $sql .= " AND ba.contextid = $context->id AND p.id = ba.blogid ";
+        } else if ($context->contextlevel == CONTEXT_COURSE) {
+            $sql .= " AND ba.contextid = $context->id AND p.id = ba.blogid ";
+        }
+
+        $sql .= "
+               GROUP BY t.id, t.tagtype, t.name, t.rawname
+               ORDER BY ct DESC, t.name ASC";
+
+        if ($tags = $DB->get_records_sql($sql, null, 0, $this->config->numberoftags)) {
 
         /// There are 2 things to do:
         /// 1. tags with the same count should have the same size class
@@ -127,79 +135,31 @@ class block_blog_tags extends block_base {
         /// Accessibility: markup as a list.
             $this->content->text .= "\n<ul class='inline-list'>\n";
             foreach ($etags as $tag) {
+                $blogurl = new moodle_url('/blog/index.php');
+
                 switch ($CFG->bloglevel) {
                     case BLOG_USER_LEVEL:
-                        $filtertype = 'user';
-                        $filterselect = $USER->id;
-                    break;
-
-                    case BLOG_GROUP_LEVEL:
-                        $filtertype = 'group';
-                        $filterselect = groups_get_course_group($COURSE);
-                    break;
-
-                    case BLOG_COURSE_LEVEL:
-                        $filtertype = 'course';
-                        if (isset($COURSE->id)) {
-                            $filterselect = $COURSE->id;
-                        } else {
-                            $filterselect = $this->instance->pageid;
-                        }
+                        $blogurl->param('userid', $USER->id);
                     break;
 
                     default:
-                        if (isset($COURSE->id) && $COURSE->id != SITEID) {
-                            $filtertype = 'course';
-                            $filterselect = $COURSE->id;
-                        } else {
-                            $filtertype = 'site';
-                            $filterselect = SITEID;
+                        if ($context->contextlevel == CONTEXT_MODULE) {
+                            $blogurl->param('modid', $context->instanceid);
+                        } else if ($context->contextlevel == CONTEXT_COURSE) {
+                            $blogurl->param('courseid', $context->instanceid);
                         }
+
                     break;
                 }
 
-                $link = $CFG->wwwroot.'/blog/index.php?filtertype='.$filtertype.'&amp;filterselect='.$filterselect.'&amp;tagid='.$tag->id;
-                $this->content->text .= '<li><a href="'.$link.'" '.
-                                        'class="'.$tag->class.'" '.
-                                        'title="'.get_string('numberofentries','blog',$tag->ct).'">'.
-                                        tag_display_name($tag) .'</a></li> ';
+                $blogurl->param('tagid', $tag->id);
+                $link = html_writer::link($blogurl, tag_display_name($tag), array('class'=>$tag->class, 'title'=>get_string('numberofentries','blog',$tag->ct)));
+                $this->content->text .= '<li>' . $link . '</li> ';
             }
             $this->content->text .= "\n</ul>\n";
 
         }
         return $this->content;
-    }
-
-    function instance_config_print() {
-        global $CFG;
-
-    /// set up the numberoftags select field
-        $numberoftags = array();
-        for($i=1;$i<=50;$i++) $numberoftags[$i] = $i;
-
-    //// set up the timewithin select field
-        $timewithin = array();
-        $timewithin[10]  = get_string('numdays', '', 10);
-        $timewithin[30]  = get_string('numdays', '', 30);
-        $timewithin[60]  = get_string('numdays', '', 60);
-        $timewithin[90]  = get_string('numdays', '', 90);
-        $timewithin[120] = get_string('numdays', '', 120);
-        $timewithin[240] = get_string('numdays', '', 240);
-        $timewithin[365] = get_string('numdays', '', 365);
-
-    /// set up sort select field
-        $sort = array();
-        $sort['name'] = get_string('tagtext', 'blog');
-        $sort['id']   = get_string('tagdatelastused', 'blog');
-
-
-        if (is_file($CFG->dirroot .'/blocks/'. $this->name() .'/config_instance.html')) {
-            print_simple_box_start('center', '', '', 5, 'blockconfigglobal');
-            include($CFG->dirroot .'/blocks/'. $this->name() .'/config_instance.html');
-            print_simple_box_end();
-        } else {
-            notice(get_string('blockconfigbad'), str_replace('blockaction=', 'dummy=', qualified_me()));
-        }
     }
 }
 
@@ -221,4 +181,4 @@ function blog_tags_sort($a, $b) {
     }
 }
 
-?>
+

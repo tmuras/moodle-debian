@@ -1,179 +1,224 @@
-<?php // $Id: user.php,v 1.30.2.7 2008/07/05 14:53:31 skodak Exp $
+<?php
 
-// Display user activity reports for a course
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-    require_once('../../config.php');
-    require_once('lib.php');
-    // Course ID
-    $course  = required_param('course', PARAM_INT);
-    // User ID
-    $id      = optional_param('id', 0, PARAM_INT);
-    $mode    = optional_param('mode', 'posts', PARAM_ALPHA);
-    $page    = optional_param('page', 0, PARAM_INT);
-    $perpage = optional_param('perpage', 5, PARAM_INT);
+/**
+ * Display user activity reports for a course
+ *
+ * @package mod-forum
+ * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
-    if (empty($id)) {         // See your own profile by default
-        require_login();
-        $id = $USER->id;
-    }
+require_once('../../config.php');
+require_once('lib.php');
 
-    if (! $user = get_record("user", "id", $id)) {
-        error("User ID is incorrect");
-    }
+// Course ID
+$course  = optional_param('course', SITEID, PARAM_INT);
+// User ID
+$id      = optional_param('id', 0, PARAM_INT);
+$mode    = optional_param('mode', 'posts', PARAM_ALPHA);
+$page    = optional_param('page', 0, PARAM_INT);
+$perpage = optional_param('perpage', 5, PARAM_INT);
 
-    if (! $course = get_record("course", "id", $course)) {
-        error("Course id is incorrect.");
-    }
+$url = new moodle_url('/mod/forum/user.php');
+if ($course !== SITEID) {
+    $url->param('course', $course);
+}
+if ($id !== 0) {
+    $url->param('id', $id);
+}
+if ($mode !== 'posts') {
+    $url->param('mode', $mode);
+}
+$PAGE->set_url($url);
+$PAGE->set_pagelayout('standard');
 
-    $syscontext = get_context_instance(CONTEXT_SYSTEM);
-    $usercontext   = get_context_instance(CONTEXT_USER, $id);
+if (empty($id)) {         // See your own profile by default
+    require_login();
+    $id = $USER->id;
+}
 
-    // do not force parents to enrol
-    if (!get_record('role_assignments', 'userid', $USER->id, 'contextid', $usercontext->id)) {
-        require_course_login($course);
-    }
+$user = $DB->get_record("user", array("id" => $id), '*', MUST_EXIST);
+$course = $DB->get_record("course", array("id" => $course), '*', MUST_EXIST);
 
-    if ($user->deleted) {
-        print_header();
-        print_heading(get_string('userdeleted'));
-        print_footer($course);
-        die;
-    }
+$syscontext = get_context_instance(CONTEXT_SYSTEM);
+$usercontext   = get_context_instance(CONTEXT_USER, $id);
 
-    add_to_log($course->id, "forum", "user report",
-            "user.php?course=$course->id&amp;id=$user->id&amp;mode=$mode", "$user->id"); 
+// do not force parents to enrol
+if (!$DB->get_record('role_assignments', array('userid' => $USER->id, 'contextid' => $usercontext->id))) {
+    require_course_login($course);
+} else {
+    $PAGE->set_course($course);
+}
 
-    $strforumposts   = get_string('forumposts', 'forum');
-    $strparticipants = get_string('participants');
-    $strmode         = get_string($mode, 'forum');
-    $fullname        = fullname($user, has_capability('moodle/site:viewfullnames', $syscontext));
+if ($user->deleted) {
+    echo $OUTPUT->header();
+    echo $OUTPUT->heading(get_string('userdeleted'));
+    echo $OUTPUT->footer();
+    die;
+}
 
-    $navlinks = array();
-    if (has_capability('moodle/course:viewparticipants', get_context_instance(CONTEXT_COURSE, $course->id)) || has_capability('moodle/site:viewparticipants', $syscontext)) {
-        $navlinks[] = array('name' => $strparticipants, 'link' => "$CFG->wwwroot/user/index.php?id=$course->id", 'type' => 'core');
-    }
-    $navlinks[] = array('name' => $fullname, 'link' => "$CFG->wwwroot/user/view.php?id=$user->id&amp;course=$course->id", 'type' => 'title');
-    $navlinks[] = array('name' => $strforumposts, 'link' => '', 'type' => 'title');
-    $navlinks[] = array('name' => $strmode, 'link' => '', 'type' => 'title');
+add_to_log($course->id, "forum", "user report",
+        "user.php?course=$course->id&amp;id=$user->id&amp;mode=$mode", "$user->id");
 
-    $navigation = build_navigation($navlinks);
+$strforumposts   = get_string('forumposts', 'forum');
+$strparticipants = get_string('participants');
+$strmode         = get_string($mode, 'forum');
+$fullname        = fullname($user, has_capability('moodle/site:viewfullnames', $syscontext));
 
-    print_header("$course->shortname: $fullname: $strmode", $course->fullname,$navigation);
+$link = null;
+if (has_capability('moodle/course:viewparticipants', get_context_instance(CONTEXT_COURSE, $course->id)) || has_capability('moodle/site:viewparticipants', $syscontext)) {
+    $link = new moodle_url('/user/index.php',array('id'=>$course->id));
+}
 
+$PAGE->navigation->extend_for_user($user);
+$PAGE->set_title("$course->shortname: $fullname: $strmode");
+$PAGE->set_heading($course->fullname);
+echo $OUTPUT->header();
+echo $OUTPUT->heading($fullname);
 
-    $currenttab = $mode;
-    $showroles = 1;
-    include($CFG->dirroot.'/user/tabs.php');   /// Prints out tabs as part of user page
+switch ($mode) {
+    case 'posts' :
+        $searchterms = array('userid:'.$user->id);
+        $extrasql = '';
+        break;
 
+    default:
+        $searchterms = array('userid:'.$user->id);
+        $extrasql = 'AND p.parent = 0';
+        break;
+}
 
-    switch ($mode) {
-        case 'posts' :
-            $searchterms = array('userid:'.$user->id);
-            $extrasql = '';
-            break;
+echo '<div class="user-content">';
 
-        default:
-            $searchterms = array('userid:'.$user->id);
-            $extrasql = 'AND p.parent = 0';
-            break;
-    }
-
-    echo '<div class="user-content">';
-
-    if ($course->id == SITEID) {
-        if (empty($CFG->forceloginforprofiles) || isloggedin()) {
-            // Search throughout the whole site.
-            $searchcourse = 0;
-        } else {
-            $searchcourse = SITEID;
-        }
+if ($course->id == SITEID) {
+    if (empty($CFG->forceloginforprofiles) || isloggedin()) {
+        // Search throughout the whole site.
+        $searchcourse = 0;
     } else {
-        // Search only for posts the user made in this course.
-        $searchcourse = $course->id;
+        $searchcourse = SITEID;
     }
+} else {
+    // Search only for posts the user made in this course.
+    $searchcourse = $course->id;
+}
 
-    // Get the posts.
-    if ($posts = forum_search_posts($searchterms, $searchcourse, $page*$perpage, $perpage,
-                                    $totalcount, $extrasql)) {
+// Get the posts.
+if ($posts = forum_search_posts($searchterms, $searchcourse, $page*$perpage, $perpage, $totalcount, $extrasql)) {
 
-        print_paging_bar($totalcount, $page, $perpage,
-                         "user.php?id=$user->id&amp;course=$course->id&amp;mode=$mode&amp;perpage=$perpage&amp;");
+    require_once($CFG->dirroot.'/rating/lib.php');
 
-        $discussions = array();
-        $forums      = array();
-        $cms         = array();
+    $baseurl = new moodle_url('user.php', array('id' => $user->id, 'course' => $course->id, 'mode' => $mode, 'perpage' => $perpage));
+    echo $OUTPUT->paging_bar($totalcount, $page, $perpage, $baseurl);
 
-        foreach ($posts as $post) {
+    $discussions = array();
+    $forums      = array();
+    $cms         = array();
 
-            if (!isset($discussions[$post->discussion])) {
-                if (! $discussion = get_record('forum_discussions', 'id', $post->discussion)) {
-                    error('Discussion ID was incorrect');
-                }
-                $discussions[$post->discussion] = $discussion;
-            } else {
-                $discussion = $discussions[$post->discussion];
+    //todo Rather than retrieving the ratings for each post individually it would be nice to do them in groups
+    //however this requires creating arrays of posts with each array containing all of the posts from a particular forum,
+    //retrieving the ratings then reassembling them all back into a single array sorted by post.modified (descending)
+    $rm = new rating_manager();
+    $ratingoptions = new stdclass();
+    $ratingoptions->plugintype = 'mod';
+    $ratingoptions->pluginname = 'forum';
+
+    foreach ($posts as $post) {
+
+        if (!isset($discussions[$post->discussion])) {
+            if (! $discussion = $DB->get_record('forum_discussions', array('id' => $post->discussion))) {
+                print_error('invaliddiscussionid', 'forum');
             }
-
-            if (!isset($forums[$discussion->forum])) {
-                if (! $forum = get_record('forum', 'id', $discussion->forum)) {
-                    error("Could not find forum $discussion->forum");
-                }
-                $forums[$discussion->forum] = $forum;
-            } else {
-                $forum = $forums[$discussion->forum];
-            }
-
-            $ratings = null;
-            if ($forum->assessed) {
-                if ($scale = make_grades_menu($forum->scale)) {
-                    $ratings =new object();
-                    $ratings->scale = $scale;
-                    $ratings->assesstimestart = $forum->assesstimestart;
-                    $ratings->assesstimefinish = $forum->assesstimefinish;
-                    $ratings->allow = false;
-                }
-            }
-
-            if (!isset($cms[$forum->id])) {
-                if (!$cm = get_coursemodule_from_instance('forum', $forum->id)) {
-                    error('Course Module ID was incorrect');
-                }
-                $cms[$forum->id] = $cm;
-                unset($cm); // do not use cm directly, it would break caching
-            }
-
-            $fullsubject = "<a href=\"view.php?f=$forum->id\">".format_string($forum->name,true)."</a>";
-            if ($forum->type != 'single') {
-                $fullsubject .= " -> <a href=\"discuss.php?d=$discussion->id\">".format_string($discussion->name,true)."</a>";
-                if ($post->parent != 0) {
-                    $fullsubject .= " -> <a href=\"discuss.php?d=$post->discussion&amp;parent=$post->id\">".format_string($post->subject,true)."</a>";
-                }
-            }
-
-            if ($course->id == SITEID && has_capability('moodle/site:config', $syscontext)) {
-                $postcoursename = get_field('course', 'shortname', 'id', $forum->course);
-                $fullsubject = '<a href="'.$CFG->wwwroot.'/course/view.php?id='.$forum->course.'">'.$postcoursename.'</a> -> '. $fullsubject;
-            }
-
-            $post->subject = $fullsubject;
-
-            $fulllink = "<a href=\"discuss.php?d=$post->discussion#p$post->id\">".
-                         get_string("postincontext", "forum")."</a>";
-
-            forum_print_post($post, $discussion, $forum, $cms[$forum->id], $course, false, false, false, $ratings, $fulllink);
-            echo "<br />";
-        }
-
-        print_paging_bar($totalcount, $page, $perpage,
-                         "user.php?id=$user->id&amp;course=$course->id&amp;mode=$mode&amp;perpage=$perpage&amp;");
-    } else {
-        if ($mode == 'posts') {
-            print_heading(get_string('noposts', 'forum'));
+            $discussions[$post->discussion] = $discussion;
         } else {
-            print_heading(get_string('nodiscussionsstartedby', 'forum'));
+            $discussion = $discussions[$post->discussion];
         }
-    }
-    echo '</div>';
-    print_footer($course);
 
-?>
+        if (!isset($forums[$discussion->forum])) {
+            if (! $forum = $DB->get_record('forum', array('id' => $discussion->forum))) {
+                print_error('invalidforumid', 'forum');
+            }
+            //hold onto forum cm and context for when we load ratings
+            if ($forumcm = get_coursemodule_from_instance('forum', $forum->id)) {
+                $forum->cm = $forumcm;
+                $forumcontext = get_context_instance(CONTEXT_MODULE, $forum->cm->id);
+                $forum->context = $forumcontext;
+            }
+            $forums[$discussion->forum] = $forum;
+        } else {
+            $forum = $forums[$discussion->forum];
+        }
+
+        //load ratings
+        if ($forum->assessed!=RATING_AGGREGATE_NONE) {
+            $ratingoptions->context = $forum->context;
+            $ratingoptions->items = array($post);
+            $ratingoptions->aggregate = $forum->assessed;//the aggregation method
+            $ratingoptions->scaleid = $forum->scale;
+            $ratingoptions->userid = $user->id;
+            if ($forum->type == 'single' or !$discussion->id) {
+                $ratingoptions->returnurl = "$CFG->wwwroot/mod/forum/view.php?id={$forum->cm->id}";
+            } else {
+                $ratingoptions->returnurl = "$CFG->wwwroot/mod/forum/discuss.php?d=$discussion->id";
+            }
+            $ratingoptions->assesstimestart = $forum->assesstimestart;
+            $ratingoptions->assesstimefinish = $forum->assesstimefinish;
+
+            $updatedpost = $rm->get_ratings($ratingoptions);
+            //updating the array this way because we're iterating over a collection and updating them one by one
+            $posts[$updatedpost[0]->id] = $updatedpost[0];
+        }
+
+        if (!isset($cms[$forum->id])) {
+            $cm = get_coursemodule_from_instance('forum', $forum->id, 0, false, MUST_EXIST);
+            $cms[$forum->id] = $cm;
+            unset($cm); // do not use cm directly, it would break caching
+        }
+
+        $fullsubject = "<a href=\"view.php?f=$forum->id\">".format_string($forum->name,true)."</a>";
+        if ($forum->type != 'single') {
+            $fullsubject .= " -> <a href=\"discuss.php?d=$discussion->id\">".format_string($discussion->name,true)."</a>";
+            if ($post->parent != 0) {
+                $fullsubject .= " -> <a href=\"discuss.php?d=$post->discussion&amp;parent=$post->id\">".format_string($post->subject,true)."</a>";
+            }
+        }
+
+        if ($course->id == SITEID && has_capability('moodle/site:config', $syscontext)) {
+            $postcoursename = $DB->get_field('course', 'shortname', array('id'=>$forum->course));
+            $fullsubject = '<a href="'.$CFG->wwwroot.'/course/view.php?id='.$forum->course.'">'.$postcoursename.'</a> -> '. $fullsubject;
+        }
+
+        $post->subject = $fullsubject;
+
+        $fulllink = "<a href=\"discuss.php?d=$post->discussion#p$post->id\">".
+            get_string("postincontext", "forum")."</a>";
+
+        forum_print_post($post, $discussion, $forum, $cms[$forum->id], $course, false, false, false, $fulllink);
+        echo "<br />";
+    }
+
+    echo $OUTPUT->paging_bar($totalcount, $page, $perpage, $baseurl);
+} else {
+    if ($mode == 'posts') {
+        echo $OUTPUT->heading(get_string('noposts', 'forum'));
+    } else {
+        echo $OUTPUT->heading(get_string('nodiscussionsstartedby', 'forum'));
+    }
+}
+echo '</div>';
+echo $OUTPUT->footer();
+

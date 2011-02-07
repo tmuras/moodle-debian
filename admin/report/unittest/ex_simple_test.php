@@ -6,7 +6,6 @@
  * @copyright &copy; 2006 The Open University
  * @author N.D.Freear@open.ac.uk, T.J.Hunt@open.ac.uk
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @version $Id: ex_simple_test.php,v 1.1.2.5 2009/11/30 01:16:23 andyjdavis Exp $
  * @package SimpleTestEx
  */
 
@@ -24,13 +23,20 @@ require_once($CFG->libdir . '/simpletestlib/test_case.php');
  */
 class AutoGroupTest extends TestSuite {
 
-    var $thorough;
     var $showsearch;
 
-    function AutoGroupTest($showsearch, $thorough, $test_name = null) {
+    function AutoGroupTest($showsearch, $test_name = null) {
         $this->TestSuite($test_name);
         $this->showsearch = $showsearch;
-        $this->thorough = $thorough;
+    }
+
+    function run(&$reporter) {
+        global $UNITTEST;
+
+        $UNITTEST->running = true;
+        $return = parent::run($reporter);
+        unset($UNITTEST->running);
+        return $return;
     }
 
     function setLabel($test_name) {
@@ -59,8 +65,7 @@ class AutoGroupTest extends TestSuite {
                 if ($file != 'CVS' && $file != '.git' && !in_array($file_path, $this->ignorefolders)) {
                     $this->_recurseFolders($file_path);
                 }
-            } elseif (preg_match('/simpletest(\/|\\\\)test.*\.php$/', $file_path) ||
-                    ($this->thorough && preg_match('/simpletest(\/|\\\\)slowtest.*\.php$/', $file_path))) {
+            } elseif (preg_match('/simpletest(\/|\\\\)test.*\.php$/', $file_path)) {
 
                 $s_count++;
                 // OK, found: this shows as a 'Notice' for any 'simpletest/test*.php' file.
@@ -207,4 +212,3 @@ class BadAutoGroupTest extends BadTest { }
 class AutoGroupTestNotice extends Notice { }
 
 class FindFileNotice extends Notice { }
-?>

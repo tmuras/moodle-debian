@@ -1,157 +1,144 @@
-<?php  // $Id: reviewquestion.php,v 1.16.10.9 2009/01/16 04:47:35 tjhunt Exp $
+<?php
 /**
- * This page prints a review of a particular question attempt
+ * This page prints a review of a particular question attempt.
+ * This page is expected to only be used in a popup window.
  *
- * @author Martin Dougiamas and many others. This has recently been completely
- *         rewritten by Alex Smith, Julian Sedding and Gustav Delius as part of
- *         the Serving Mathematics project
- *         {@link http://maths.york.ac.uk/serving_maths}
+ * @author Martin Dougiamas, Tim Hunt and many others.
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
  * @package quiz
  */
 
-    require_once('../../config.php');
+    require_once(dirname(__FILE__) . '/../../config.php');
     require_once('locallib.php');
 
-    // Either stateid or (attemptid AND questionid) must be given
+    $attemptid = required_param('attempt', PARAM_INT); // attempt id
+    $questionid = required_param('question', PARAM_INT); // question id
     $stateid = optional_param('state', 0, PARAM_INT); // state id
-    $attemptid = optional_param('attempt', 0, PARAM_INT); // attempt id
-    $questionid = optional_param('question', 0, PARAM_INT); // attempt id
-    $number = optional_param('number', 0, PARAM_INT);  // question number
 
+    $url = new moodle_url('/mod/quiz/reviewquestion.php', array('attempt'=>$attemptid,'question'=>$questionid));
+    if ($stateid !== 0) {
+        $url->param('state', $stateid);
+    }
+    $PAGE->set_url($url);
+    $PAGE->set_pagelayout('popup');
+
+    $attemptobj = quiz_attempt::create($attemptid);
+
+/// Check login.
+    require_login($attemptobj->get_courseid(), false, $attemptobj->get_cm());
+    $attemptobj->check_review_capability();
+
+/// Create an object to manage all the other (non-roles) access rules.
+    $accessmanager = $attemptobj->get_access_manager(time());
+    $options = $attemptobj->get_review_options();
+
+/// Permissions checks for normal users who do not have quiz:viewreports capability.
+    if (!$attemptobj->has_capability('mod/quiz:viewreports')) {
+    /// Can't review during the attempt - send them back to the attempt page.
+        if (!$attemptobj->is_finished()) {
+            echo $OUTPUT->header();
+            echo $OUTPUT->notification(get_string('cannotreviewopen', 'quiz'));
+            echo $OUTPUT->close_window_button();
+            echo $OUTPUT->footer();
+            die;
+        }
+    /// Can't review other users' attempts.
+        if (!$attemptobj->is_own_attempt()) {
+            echo $OUTPUT->header();
+            echo $OUTPUT->notification(get_string('notyourattempt', 'quiz'));
+            echo $OUTPUT->close_window_button();
+            echo $OUTPUT->footer();
+            die;
+        }
+
+    /// Can't review unless Students may review -> Responses option is turned on.
+        if (!$options->responses) {
+            $accessmanager = $attemptobj->get_access_manager(time());
+            echo $OUTPUT->header();
+            echo $OUTPUT->notification($accessmanager->cannot_review_message($attemptobj->get_review_options()));
+            echo $OUTPUT->close_window_button();
+            echo $OUTPUT->footer();
+            die;
+        }
+    }
+
+/// Load the questions and states.
+    $questionids = array($questionid);
+    $attemptobj->load_questions($questionids);
+    $attemptobj->load_question_states($questionids);
+
+/// If it was asked for, load another state, instead of the latest.
     if ($stateid) {
-        if (! $state = get_record('question_states', 'id', $stateid)) {
-            error('Invalid state id');
-        }
-        if (! $attempt = get_record('quiz_attempts', 'uniqueid', $state->attempt)) {
-            error('No such attempt ID exists');
-        }
-    } elseif ($attemptid) {
-        if (! $attempt = get_record('quiz_attempts', 'id', $attemptid)) {
-            error('No such attempt ID exists');
-        }
-        if (! $neweststateid = get_field('question_sessions', 'newest', 'attemptid', $attempt->uniqueid, 'questionid', $questionid)) {
-            // newest_state not set, probably because this is an old attempt from the old quiz module code
-            if (! $state = get_record('question_states', 'question', $questionid, 'attempt', $attempt->uniqueid)) {
-                error('Invalid question id');
-            }
-        } else {
-            if (! $state = get_record('question_states', 'id', $neweststateid)) {
-                error('Invalid state id');
-            }
-        }
-    } else {
-        error('Parameter missing');
-    }
-    if (! $question = get_record('question', 'id', $state->question)) {
-        error('Question for this state is missing');
-    }
-    if (! $quiz = get_record('quiz', 'id', $attempt->quiz)) {
-        error('Course module is incorrect');
-    }
-    if (! $course = get_record('course', 'id', $quiz->course)) {
-        error('Course is misconfigured');
-    }
-    if (! $cm = get_coursemodule_from_instance('quiz', $quiz->id, $course->id)) {
-        error('Course Module ID was incorrect');
+        $attemptobj->load_specific_question_state($questionid, $stateid);
     }
 
-    require_login($course->id, false, $cm);
-    $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+/// Work out the base URL of this page.
+    $baseurl = $CFG->wwwroot . '/mod/quiz/reviewquestion.php?attempt=' .
+            $attemptobj->get_attemptid() . '&amp;question=' . $questionid;
 
-    if (!has_capability('mod/quiz:viewreports', $context)) {
-        if (!$attempt->timefinish) {
-            redirect('attempt.php?q='.$quiz->id);
-        }
-        require_capability('mod/quiz:reviewmyattempts', $context);
-        // If not even responses are to be shown in review then we
-        // don't allow any review
-        if (!($quiz->review & QUIZ_REVIEW_RESPONSES)) {
-            print_error("noreview", "quiz");
-        }
-        if ((time() - $attempt->timefinish) > 120) { // always allow review right after attempt
-            if ((!$quiz->timeclose or time() < $quiz->timeclose) and !($quiz->review & QUIZ_REVIEW_OPEN)) {
-                print_error("noreviewuntil", "quiz", '', userdate($quiz->timeclose));
-            }
-            if ($quiz->timeclose and time() >= $quiz->timeclose and !($quiz->review & QUIZ_REVIEW_CLOSED)) {
-                print_error("noreview", "quiz");
-            }
-        }
-        if ($attempt->userid != $USER->id) {
-            error('This is not your attempt!');
-        }
-    }
-
-    //add_to_log($course->id, 'quiz', 'review', "review.php?id=$cm->id&amp;attempt=$attempt->id", "$quiz->id", "$cm->id");
+/// Log this review.
+    add_to_log($attemptobj->get_courseid(), 'quiz', 'review', 'reviewquestion.php?attempt=' .
+            $attemptobj->get_attemptid() . '&question=' . $questionid .
+            ($stateid ? '&state=' . $stateid : ''),
+            $attemptobj->get_quizid(), $attemptobj->get_cmid());
 
 /// Print the page header
+    $attemptobj->get_question_html_head_contributions($questionid);
+    $PAGE->set_title($attemptobj->get_course()->shortname . ': '.format_string($attemptobj->get_quiz_name()));
+    $PAGE->set_heading($COURSE->fullname);
+    echo $OUTPUT->header();
 
-    $strquizzes = get_string('modulenameplural', 'quiz');
+/// Print infobox
+    $rows = array();
 
-    $question->maxgrade = get_field('quiz_question_instances', 'grade', 'quiz', $quiz->id, 'question', $question->id);
-    // Some of the questions code is optimised to work with several questions
-    // at once so it wants the question to be in an array. 
-    $questions = array($question->id => &$question);
-    // Add additional questiontype specific information to the question objects.
-    if (!get_question_options($questions)) {
-        error("Unable to load questiontype specific question information");
-    }
-
-    $baseurl = $CFG->wwwroot . '/mod/quiz/reviewquestion.php?question=' . $question->id . '&amp;number=' . $number . '&amp;attempt=';
-    $quiz->thispageurl = $baseurl . $attempt->id;
-    $quiz->cmid = $cm->id;
-
-    $session = get_record('question_sessions', 'attemptid', $attempt->uniqueid, 'questionid', $question->id);
-    $state->sumpenalty = $session->sumpenalty;
-    $state->manualcomment = $session->manualcomment;
-    restore_question_state($question, $state);
-    $state->last_graded = $state;
-
-    $options = quiz_get_reviewoptions($quiz, $attempt, $context);
-    $options->validation = ($state->event == QUESTION_EVENTVALIDATE);
-    $options->history = (has_capability('mod/quiz:viewreports', $context) and !$attempt->preview) ? 'all' : 'graded';
-
-    $questionids = array($question->id);
-    $states = array($question->id => &$state);
-    $headtags = get_html_head_contributions($questionids, $questions, $states);
-    print_header('', '', '', '', $headtags);
-
-    echo '<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>'; // for overlib
-
-/// Print heading
-    print_heading(format_string($question->name));
-
-    /// Print infobox
-    $table->align  = array("right", "left");
-    if ($attempt->userid <> $USER->id) {
+/// User picture and name.
+    if ($attemptobj->get_userid() <> $USER->id) {
         // Print user picture and name
-        $student = get_record('user', 'id', $attempt->userid);
-        $picture = print_user_picture($student, $course->id, $student->picture, false, true);
-        $table->data[] = array($picture, fullname($student, true));
+        $student = $DB->get_record('user', array('id' => $attemptobj->get_userid()));
+        $picture = $OUTPUT->user_picture($student, array('courseid'=>$attemptobj->get_courseid()));
+        $rows[] = '<tr><th scope="row" class="cell">' . $picture . '</th><td class="cell"><a href="' .
+                $CFG->wwwroot . '/user/view.php?id=' . $student->id . '&amp;course=' . $attemptobj->get_courseid() . '">' .
+                fullname($student, true) . '</a></td></tr>';
     }
-    // print quiz name
-    $table->data[] = array(get_string('modulename', 'quiz').':', format_string($quiz->name));
-    if (has_capability('mod/quiz:viewreports', $context) and count($attempts = get_records_select('quiz_attempts', "quiz = '$quiz->id' AND userid = '$attempt->userid'", 'attempt ASC')) > 1) {
-        // print list of attempts
-        $attemptlist = '';
-        foreach ($attempts as $at) {
-            $attemptlist .= ($at->id == $attempt->id)
-                ? '<b>'.$at->attempt.'</b>, '
-                : '<a href="' . $baseurl . $at->id . '">'.$at->attempt.'</a>, ';
+
+/// Quiz name.
+    $rows[] = '<tr><th scope="row" class="cell">' . get_string('modulename', 'quiz') .
+            '</th><td class="cell">' . format_string($attemptobj->get_quiz_name()) . '</td></tr>';
+
+/// Question name.
+    $rows[] = '<tr><th scope="row" class="cell">' . get_string('question', 'quiz') .
+            '</th><td class="cell">' . format_string(
+            $attemptobj->get_question($questionid)->name) . '</td></tr>';
+
+/// Other attempts at the quiz.
+    if ($attemptobj->has_capability('mod/quiz:viewreports')) {
+        $attemptlist = $attemptobj->links_to_other_attempts($baseurl);
+        if ($attemptlist) {
+            $rows[] = '<tr><th scope="row" class="cell">' . get_string('attempts', 'quiz') .
+                    '</th><td class="cell">' . $attemptlist . '</td></tr>';
         }
-        $table->data[] = array(get_string('attempts', 'quiz').':', trim($attemptlist, ' ,'));
-    }
-    if ($state->timestamp) {
-        // print time stamp
-        $table->data[] = array(get_string("completedon", "quiz").':', userdate($state->timestamp));
-    }
-    // Print info box unless it is empty
-    if ($table->data) {
-        print_table($table);
     }
 
-    print_question($question, $state, $number, $quiz, $options);
+/// Timestamp of this action.
+    $timestamp = $attemptobj->get_question_state($questionid)->timestamp;
+    if ($timestamp) {
+        $rows[] = '<tr><th scope="row" class="cell">' . get_string('completedon', 'quiz') .
+                '</th><td class="cell">' . userdate($timestamp) . '</td></tr>';
+    }
 
-    print_footer();
+/// Now output the summary table, if there are any rows to be shown.
+    if (!empty($rows)) {
+        echo '<table class="generaltable generalbox quizreviewsummary"><tbody>', "\n";
+        echo implode("\n", $rows);
+        echo "\n</tbody></table>\n";
+    }
 
-?>
+/// Print the question in the requested state.
+    if ($stateid) {
+        $baseurl .= '&amp;state=' . $stateid;
+    }
+    $attemptobj->print_question($questionid, true, $baseurl);
+
+/// Finish the page
+    echo $OUTPUT->footer();
+

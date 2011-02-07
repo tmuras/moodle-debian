@@ -1,20 +1,25 @@
-<?php  // $Id: export_form.php,v 1.1.2.2 2008/05/31 15:03:34 robertall Exp $
+<?php
 
 if (!defined('MOODLE_INTERNAL')) {
     die('Direct access to this script is forbidden!');
 }
 require_once($CFG->libdir . '/formslib.php');
+require_once($CFG->libdir . '/csvlib.class.php');
 
 class mod_data_export_form extends moodleform {
     var $_datafields = array();
+    var $_cm;
+
      // @param string $url: the url to post to
      // @param array $datafields: objects in this database
-    function mod_data_export_form($url, $datafields) {
+    function mod_data_export_form($url, $datafields, $cm) {
         $this->_datafields = $datafields;
+        $this->_cm = $cm;
         parent::moodleform($url);
     }
 
     function definition() {
+        global $CFG;
         $mform =& $this->_form;
         $mform->addElement('header', 'notice', get_string('chooseexportformat', 'data'));
         $choices = csv_import_reader::get_delimiter_list();
@@ -33,7 +38,7 @@ class mod_data_export_form extends moodleform {
         $mform->setDefault('exporttype', 'csv');
         if (array_key_exists('cfg', $choices)) {
             $mform->setDefault('delimiter_name', 'cfg');
-        } else if (get_string('listsep') == ';') {
+        } else if (get_string('listsep', 'langconfig') == ';') {
             $mform->setDefault('delimiter_name', 'semicolon');
         } else {
             $mform->setDefault('delimiter_name', 'comma');
@@ -44,7 +49,7 @@ class mod_data_export_form extends moodleform {
                 $mform->addElement('advcheckbox', 'field_'.$field->field->id, '<div title="' . s($field->field->description) . '">' . $field->field->name . '</div>', ' (' . $field->name() . ')', array('group'=>1));
                 $mform->setDefault('field_'.$field->field->id, 1);
             } else {
-                $a = new object;
+                $a = new stdClass();
                 $a->fieldtype = $field->name();
                 $mform->addElement('static', 'unsupported'.$field->field->id, $field->field->name, get_string('unsupportedexport', 'data', $a));
             }
@@ -55,4 +60,4 @@ class mod_data_export_form extends moodleform {
 
 }
 
-?>
+

@@ -1,4 +1,5 @@
-<?php // $Id: format.php,v 1.12.4.2 2008/08/28 10:04:23 thepurpleblob Exp $
+<?php
+
 
 ////////////////////////////////////////////////////////////////////////////
 /// Blackboard 6.0 Format
@@ -14,7 +15,6 @@
  * @subpackage importexport
  */
 require_once ("$CFG->libdir/xmlize.php");
-require_once ("$CFG->libdir/tcpdf/html_entity_decode_php4.php");
 
 class qformat_blackboard extends qformat_default {
 
@@ -23,44 +23,10 @@ class qformat_blackboard extends qformat_default {
     }
 
 
-/********************************
-
-    function readdata($filename) {
-    /// Returns complete file with an array, one item per line
-
-        if (is_readable($filename)) {
-
-            $zip = zip_open($filename);
-            $zip_entry = $zip_read($zip);
-            if (strstr($zip_entry_name($zip_entry), "imsmanifest") == 0)
-              $zip_entry = $zip_read($zip); // skip past manifest file
-
-            if (zip_entry_open($zip, $zip_entry, "r")) {
-
-              $strbuf = zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
-              $buf = explode("\n", $strbuf);
-              zip_entry_close($zip_entry);
-              zip_close($zip);
-              return $buf;
-
-            } else {
-
-              zip_close($zip);
-              return false;
-
-            }
-
-        }
-
-        return false;
-    }
-
-********************************/
-
   function readquestions ($lines) {
     /// Parses an array of lines into an array of questions,
     /// where each item is a question object as defined by
-    /// readquestion(). 
+    /// readquestion().
 
     $text = implode($lines, " ");
     $xml = xmlize($text, 0);
@@ -81,37 +47,36 @@ class qformat_blackboard extends qformat_default {
 // Process Essay Questions
 //----------------------------------------
 function process_essay($xml, &$questions ) {
-  
+
     if (isset($xml["POOL"]["#"]["QUESTION_ESSAY"])) {
-    	$essayquestions = $xml["POOL"]["#"]["QUESTION_ESSAY"];
+        $essayquestions = $xml["POOL"]["#"]["QUESTION_ESSAY"];
     }
     else {
-    	return;
-    }	
-    
+        return;
+    }
+
     foreach ($essayquestions as $essayquestion) {
-        
+
         $question = $this->defaultquestion();
-        
-        $question->qtype = ESSAY;	
-        
+
+        $question->qtype = ESSAY;
+
         // determine if the question is already escaped html
         $ishtml = $essayquestion["#"]["BODY"][0]["#"]["FLAGS"][0]["#"]["ISHTML"][0]["@"]["value"];
 
         // put questiontext in question object
         if ($ishtml) {
-            $question->questiontext = html_entity_decode_php4(trim($essayquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]));
+            $question->questiontext = html_entity_decode(trim($essayquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]));
         }
-        $question->questiontext = addslashes($question->questiontext);
-        
+
         // put name in question object
         $question->name = substr($question->questiontext, 0, 254);
         $question->answer = '';
         $question->feedback = '';
         $question->fraction = 0;
-        
+
         $questions[] = $question;
-    } 	
+    }
 }
 
 //----------------------------------------
@@ -127,7 +92,7 @@ function process_tf($xml, &$questions) {
     }
 
     for ($i = 0; $i < sizeof ($tfquestions); $i++) {
-      
+
         $question = $this->defaultquestion();
 
         $question->qtype = TRUEFALSE;
@@ -140,11 +105,11 @@ function process_tf($xml, &$questions) {
 
         // put questiontext in question object
         if ($ishtml) {
-            $question->questiontext = html_entity_decode_php4(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]));
+            $question->questiontext = html_entity_decode(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]),ENT_QUOTES,'UTF-8');
         }
-        $question->questiontext = addslashes($question->questiontext);
+        $question->questiontext = $question->questiontext;
         // put name in question object
-        $question->name = substr($question->questiontext, 0, 254);
+        $question->name = shorten_text($question->questiontext, 254);
 
         $choices = $thisquestion["#"]["ANSWER"];
 
@@ -155,12 +120,12 @@ function process_tf($xml, &$questions) {
 
         if (strcmp($id, $correct_answer) == 0) {  // true is correct
             $question->answer = 1;
-            $question->feedbacktrue = addslashes(trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]));
-            $question->feedbackfalse = addslashes(trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]));
+            $question->feedbacktrue = trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]);
+            $question->feedbackfalse = trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]);
         } else {  // false is correct
             $question->answer = 0;
-            $question->feedbacktrue = addslashes(trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]));
-            $question->feedbackfalse = addslashes(trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]));
+            $question->feedbacktrue = trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]);
+            $question->feedbackfalse = trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]);
         }
         $question->correctanswer = $question->answer;
         $questions[] = $question;
@@ -193,12 +158,12 @@ function process_mc($xml, &$questions) {
 
         // put questiontext in question object
         if ($ishtml) {
-            $question->questiontext = html_entity_decode_php4(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]));
+            $question->questiontext = html_entity_decode(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]),ENT_QUOTES,'UTF-8');
         }
-        $question->questiontext = addslashes($question->questiontext);
+        $question->questiontext = $question->questiontext;
 
         // put name of question in question object, careful of length
-        $question->name = substr($question->questiontext, 0, 254);
+        $question->name = shorten_text($question->questiontext, 254);
 
         $choices = $thisquestion["#"]["ANSWER"];
         for ($j = 0; $j < sizeof ($choices); $j++) {
@@ -206,9 +171,9 @@ function process_mc($xml, &$questions) {
             $choice = trim($choices[$j]["#"]["TEXT"][0]["#"]);
             // put this choice in the question object.
             if ($ishtml) {
-                $question->answer[$j] = html_entity_decode_php4($choice);
+                $question->answer[$j] = html_entity_decode($choice,ENT_QUOTES,'UTF-8');
             }
-            $question->answer[$j] = addslashes($question->answer[$j]);
+            $question->answer[$j] = $question->answer[$j];
 
             $id = $choices[$j]["@"]["id"];
             $correct_answer_id = $thisquestion["#"]["GRADABLE"][0]["#"]["CORRECTANSWER"][0]["@"]["answer_id"];
@@ -216,15 +181,15 @@ function process_mc($xml, &$questions) {
             if (strcmp ($id, $correct_answer_id) == 0) {
                 $question->fraction[$j] = 1;
                 if ($ishtml) {
-                    $question->feedback[$j] = html_entity_decode_php4(trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]));
+                    $question->feedback[$j] = html_entity_decode(trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]),ENT_QUOTES,'UTF-8');
                 }
-                $question->feedback[$j] = addslashes($question->feedback[$j]);
+                $question->feedback[$j] = $question->feedback[$j];
             } else {
                 $question->fraction[$j] = 0;
                 if ($ishtml) {
-                    $question->feedback[$j] = html_entity_decode_php4(trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]));
+                    $question->feedback[$j] = html_entity_decode(trim(@$thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]),ENT_QUOTES,'UTF-8');
                 }
-                $question->feedback[$j] = addslashes($question->feedback[$j]);
+                $question->feedback[$j] = $question->feedback[$j];
             }
         }
         $questions[] = $question;
@@ -259,11 +224,11 @@ function process_ma($xml, &$questions) {
 
         // put questiontext in question object
         if ($ishtml) {
-            $question->questiontext = html_entity_decode_php4(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]));
+            $question->questiontext = html_entity_decode(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]),ENT_QUOTES,'UTF-8');
         }
-        $question->questiontext = addslashes($question->questiontext);
+        $question->questiontext = $question->questiontext;
         // put name of question in question object
-        $question->name = substr($question->questiontext, 0, 254);
+        $question->name = shorten_text($question->questiontext, 254);
 
         $choices = $thisquestion["#"]["ANSWER"];
         $correctanswers = $thisquestion["#"]["GRADABLE"][0]["#"]["CORRECTANSWER"];
@@ -272,7 +237,7 @@ function process_ma($xml, &$questions) {
 
             $choice = trim($choices[$j]["#"]["TEXT"][0]["#"]);
             // put this choice in the question object.
-            $question->answer[$j] = addslashes($choice);
+            $question->answer[$j] = $choice;
 
             $correctanswercount = sizeof($correctanswers);
             $id = $choices[$j]["@"]["id"];
@@ -285,12 +250,12 @@ function process_ma($xml, &$questions) {
                 }
 
             }
-            if ($iscorrect) { 
+            if ($iscorrect) {
                 $question->fraction[$j] = floor(100000/$correctanswercount)/100000; // strange behavior if we have more than 5 decimal places
-                $question->feedback[$j] = addslashes(trim($thisquestion["#"]["GRADABLE"][$j]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]));
+                $question->feedback[$j] = trim($thisquestion["#"]["GRADABLE"][$j]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]);
             } else {
                 $question->fraction[$j] = 0;
-                $question->feedback[$j] = addslashes(trim($thisquestion["#"]["GRADABLE"][$j]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]));
+                $question->feedback[$j] = trim($thisquestion["#"]["GRADABLE"][$j]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]);
             }
         }
 
@@ -323,31 +288,31 @@ function process_fib($xml, &$questions) {
 
         // put questiontext in question object
         if ($ishtml) {
-            $question->questiontext = html_entity_decode_php4(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]));
+            $question->questiontext = html_entity_decode(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]),ENT_QUOTES,'UTF-8');
         }
-        $question->questiontext = addslashes($question->questiontext);
+        $question->questiontext = $question->questiontext;
         // put name of question in question object
-        $question->name = substr($question->questiontext, 0, 254);
+        $question->name = shorten_text($question->questiontext, 254);
 
         $answer = trim($thisquestion["#"]["ANSWER"][0]["#"]["TEXT"][0]["#"]);
 
-        $question->answer[] = addslashes($answer);
+        $question->answer[] = $answer;
         $question->fraction[] = 1;
         $question->feedback = array();
 
         if (is_array( $thisquestion['#']['GRADABLE'][0]['#'] )) {
-            $question->feedback[0] = addslashes(trim($thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]));
+            $question->feedback[0] = trim($thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_CORRECT"][0]["#"]);
         }
         else {
             $question->feedback[0] = '';
-        }      
+        }
         if (is_array( $thisquestion["#"]["GRADABLE"][0]["#"] )) {
-            $question->feedback[1] = addslashes(trim($thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]));
+            $question->feedback[1] = trim($thisquestion["#"]["GRADABLE"][0]["#"]["FEEDBACK_WHEN_INCORRECT"][0]["#"]);
         }
         else {
             $question->feedback[1] = '';
-        }        
-         
+        }
+
         $questions[] = $question;
     }
 }
@@ -377,11 +342,11 @@ function process_matching($xml, &$questions) {
 
         // put questiontext in question object
         if ($ishtml) {
-            $question->questiontext = html_entity_decode_php4(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]));
+            $question->questiontext = html_entity_decode(trim($thisquestion["#"]["BODY"][0]["#"]["TEXT"][0]["#"]),ENT_QUOTES,'UTF-8');
         }
-        $question->questiontext = addslashes($question->questiontext);
+        $question->questiontext = $question->questiontext;
         // put name of question in question object
-        $question->name = substr($question->questiontext, 0, 254);
+        $question->name = shorten_text($question->questiontext, 254);
 
         $choices = $thisquestion["#"]["CHOICE"];
         for ($j = 0; $j < sizeof ($choices); $j++) {
@@ -390,9 +355,9 @@ function process_matching($xml, &$questions) {
 
             $choice = $choices[$j]["#"]["TEXT"][0]["#"];
             $choice_id = $choices[$j]["@"]["id"];
-          
-            $question->subanswers[] = addslashes(trim($choice));
- 
+
+            $question->subanswers[] = trim($choice);
+
             $correctanswers = $thisquestion["#"]["GRADABLE"][0]["#"]["CORRECTANSWER"];
             for ($k = 0; $k < sizeof ($correctanswers); $k++) {
 
@@ -408,7 +373,7 @@ function process_matching($xml, &$questions) {
                         if (strcmp ($current_ans_id, $answer_id) == 0) {
 
                             $answer = $answer["#"]["TEXT"][0]["#"];
-                            $question->subquestions[] = addslashes(trim($answer));
+                            $question->subquestions[] = trim($answer);
                             break;
 
                         }
@@ -420,13 +385,13 @@ function process_matching($xml, &$questions) {
                 }
 
             }
-           
+
         }
 
         $questions[] = $question;
-          
+
     }
 }
 
 }
-?>
+

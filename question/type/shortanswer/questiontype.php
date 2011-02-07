@@ -1,4 +1,19 @@
-<?php  // $Id: questiontype.php,v 1.20.2.13 2010/01/14 01:17:37 pichetp Exp $
+<?php
+
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 ///////////////////
 /// SHORTANSWER ///
@@ -22,83 +37,96 @@ class question_shortanswer_qtype extends default_questiontype {
         return 'shortanswer';
     }
 
+    function has_wildcards_in_responses($question, $subqid) {
+        return true;
+    }
+
     function extra_question_fields() {
-        return array('question_shortanswer','answers','usecase');
+        return array('question_shortanswer', 'answers', 'usecase');
     }
 
     function questionid_column_name() {
         return 'question';
     }
 
+    function move_files($questionid, $oldcontextid, $newcontextid) {
+        parent::move_files($questionid, $oldcontextid, $newcontextid);
+        $this->move_files_in_answers($questionid, $oldcontextid, $newcontextid);
+    }
+
+    protected function delete_files($questionid, $contextid) {
+        parent::delete_files($questionid, $contextid);
+        $this->delete_files_in_answers($questionid, $contextid);
+    }
+
     function save_question_options($question) {
+        global $DB;
         $result = new stdClass;
 
-        if (!$oldanswers = get_records('question_answers', 'question', $question->id, 'id ASC')) {
-            $oldanswers = array();
-        }
+        $context = $question->context;
 
-        $answers = array();
-        $maxfraction = -1;
+        $oldanswers = $DB->get_records('question_answers',
+                array('question' => $question->id), 'id ASC');
 
         // Insert all the new answers
-        foreach ($question->answer as $key => $dataanswer) {
-            // Check for, and ingore, completely blank answer from the form.
-            if (trim($dataanswer) == '' && $question->fraction[$key] == 0 &&
-                    html_is_blank($question->feedback[$key])) {
+        $answers = array();
+        $maxfraction = -1;
+        foreach ($question->answer as $key => $answerdata) {
+            // Check for, and ignore, completely blank answer from the form.
+            if (trim($answerdata) == '' && $question->fraction[$key] == 0 &&
+                    html_is_blank($question->feedback[$key]['text'])) {
                 continue;
             }
 
-            if ($oldanswer = array_shift($oldanswers)) {  // Existing answer, so reuse it
-                $answer = $oldanswer;
-                $answer->answer   = trim($dataanswer);
-                $answer->fraction = $question->fraction[$key];
-                $answer->feedback = $question->feedback[$key];
-                if (!update_record("question_answers", $answer)) {
-                    $result->error = "Could not update quiz answer! (id=$answer->id)";
-                    return $result;
-                }
-            } else {    // This is a completely new answer
-                $answer = new stdClass;
-                $answer->answer   = trim($dataanswer);
+            // Update an existing answer if possible.
+            $answer = array_shift($oldanswers);
+            if (!$answer) {
+                $answer = new stdClass();
                 $answer->question = $question->id;
-                $answer->fraction = $question->fraction[$key];
-                $answer->feedback = $question->feedback[$key];
-                if (!$answer->id = insert_record("question_answers", $answer)) {
-                    $result->error = "Could not insert quiz answer!";
-                    return $result;
-                }
+                $answer->answer = '';
+                $answer->feedback = '';
+                $answer->id = $DB->insert_record('question_answers', $answer);
             }
+
+            $answer->answer   = trim($answerdata);
+            $answer->fraction = $question->fraction[$key];
+            $answer->feedback = $this->import_or_save_files($question->feedback[$key],
+                    $context, 'question', 'answerfeedback', $answer->id);
+            $answer->feedbackformat = $question->feedback[$key]['format'];
+            $DB->update_record('question_answers', $answer);
+
             $answers[] = $answer->id;
             if ($question->fraction[$key] > $maxfraction) {
                 $maxfraction = $question->fraction[$key];
             }
         }
 
+        // Delete any left over old answer records.
+        $fs = get_file_storage();
+        foreach($oldanswers as $oldanswer) {
+            $fs->delete_area_files($context->id, 'question', 'answerfeedback', $oldanswer->id);
+            $DB->delete_records('question_answers', array('id' => $oldanswer->id));
+        }
+
         $question->answers = implode(',', $answers);
         $parentresult = parent::save_question_options($question);
-        if($parentresult !== null) { // Parent function returns null if all is OK
+        if ($parentresult !== null) {
+            // Parent function returns null if all is OK
             return $parentresult;
         }
 
-        // delete old answer records
-        if (!empty($oldanswers)) {
-            foreach($oldanswers as $oa) {
-                delete_records('question_answers', 'id', $oa->id);
-            }
+        // Perform sanity checks on fractional grades
+        if ($maxfraction != 1) {
+            $result->noticeyesno = get_string('fractionsnomax', 'quiz', $maxfraction * 100);
+            return $result;
         }
 
-        /// Perform sanity checks on fractional grades
-        if ($maxfraction != 1) {
-            $maxfraction = $maxfraction * 100;
-            $result->noticeyesno = get_string("fractionsnomax", "quiz", $maxfraction);
-            return $result;
-        } else {
-            return true;
-        }
+        return true;
     }
 
     function print_question_formulation_and_controls(&$question, &$state, $cmoptions, $options) {
         global $CFG;
+        $context = $this->get_context_by_category_id($question->category);
     /// This implementation is also used by question type 'numerical'
         $readonly = empty($options->readonly) ? '' : 'readonly="readonly"';
         $formatoptions = new stdClass;
@@ -111,12 +139,11 @@ class question_shortanswer_qtype extends default_questiontype {
         $questiontext = format_text($question->questiontext,
                 $question->questiontextformat,
                 $formatoptions, $cmoptions->course);
-        $image = get_question_image($question);
 
         /// Print input controls
 
-        if (isset($state->responses['']) && $state->responses[''] != '') {
-            $value = ' value="'.s($state->responses[''], true).'" ';
+        if (isset($state->responses['']) && $state->responses['']!='') {
+            $value = ' value="'.s($state->responses['']).'" ';
         } else {
             $value = ' value="" ';
         }
@@ -129,6 +156,7 @@ class question_shortanswer_qtype extends default_questiontype {
         if ($options->feedback) {
             $class = question_get_feedback_class(0);
             $feedbackimg = question_get_feedback_image(0);
+            //this is OK for the first answer with a good response
             foreach($question->options->answers as $answer) {
 
                 if ($this->test_response($question, $state, $answer)) {
@@ -136,7 +164,8 @@ class question_shortanswer_qtype extends default_questiontype {
                     $class = question_get_feedback_class($answer->fraction);
                     $feedbackimg = question_get_feedback_image($answer->fraction);
                     if ($answer->feedback) {
-                        $feedback = format_text($answer->feedback, true, $formatoptions, $cmoptions->course);
+                        $answer->feedback = quiz_rewrite_question_urls($answer->feedback, 'pluginfile.php', $context->id, 'question', 'answerfeedback', array($state->attempt, $state->question), $answer->id);
+                        $feedback = format_text($answer->feedback, $answer->feedbackformat, $formatoptions, $cmoptions->course);
                     }
                     break;
                 }
@@ -144,7 +173,12 @@ class question_shortanswer_qtype extends default_questiontype {
         }
 
         /// Removed correct answer, to be displayed later MDL-7496
-        include("$CFG->dirroot/question/type/shortanswer/display.html");
+        include($this->get_display_html_path());
+    }
+
+    function get_display_html_path() {
+        global $CFG;
+        return $CFG->dirroot.'/question/type/shortanswer/display.html';
     }
 
     function check_response(&$question, &$state) {
@@ -166,7 +200,7 @@ class question_shortanswer_qtype extends default_questiontype {
     function test_response(&$question, $state, $answer) {
         // Trim the response before it is saved in the database. See MDL-10709
         $state->responses[''] = trim($state->responses['']);
-        return $this->compare_string_with_wildcard(stripslashes_safe($state->responses['']),
+        return $this->compare_string_with_wildcard($state->responses[''],
                 $answer->answer, !$question->options->usecase);
     }
 
@@ -195,58 +229,27 @@ class question_shortanswer_qtype extends default_questiontype {
     function get_correct_responses(&$question, &$state) {
         $response = parent::get_correct_responses($question, $state);
         if (is_array($response)) {
-            $response[''] = addslashes(str_replace('\*', '*', stripslashes($response[''])));
+            $response[''] = str_replace('\*', '*', $response['']);
         }
         return $response;
     }
-
-/// RESTORE FUNCTIONS /////////////////
-
-    /*
-     * Restores the data in the question
-     *
-     * This is used in question/restorelib.php
+    /**
+     * @param object $question
+     * @return mixed either a integer score out of 1 that the average random
+     * guess by a student might give or an empty string which means will not
+     * calculate.
      */
-    function restore($old_question_id,$new_question_id,$info,$restore) {
-
-        $status = parent::restore($old_question_id, $new_question_id, $info, $restore);
-
-        if ($status) {
-            $extraquestionfields = $this->extra_question_fields();
-            $questionextensiontable = array_shift($extraquestionfields);
-
-            //We have to recode the answers field (a list of answers id)
-            $questionextradata = get_record($questionextensiontable, $this->questionid_column_name(), $new_question_id);
-            if (isset($questionextradata->answers)) {
-                $answers_field = "";
-                $in_first = true;
-                $tok = strtok($questionextradata->answers, ",");
-                while ($tok) {
-                    // Get the answer from backup_ids
-                    $answer = backup_getid($restore->backup_unique_code,"question_answers",$tok);
-                    if ($answer) {
-                        if ($in_first) {
-                            $answers_field .= $answer->new_id;
-                            $in_first = false;
-                        } else {
-                            $answers_field .= ",".$answer->new_id;
-                        }
-                    }
-                    // Check for next
-                    $tok = strtok(",");
-                }
-                // We have the answers field recoded to its new ids
-                $questionextradata->answers = $answers_field;
-                // Update the question
-                $status = $status && update_record($questionextensiontable, $questionextradata);
+    function get_random_guess_score($question) {
+        $answers = &$question->options->answers;
+        foreach($answers as $aid => $answer) {
+            if ('*' == trim($answer->answer)){
+                return $answer->fraction;
             }
         }
-
-        return $status;
+        return 0;
     }
 
-
-        /**
+    /**
     * Prints the score obtained and maximum score available plus any penalty
     * information
     *
@@ -269,6 +272,7 @@ class question_shortanswer_qtype extends default_questiontype {
         maximum grade available and a warning if a penalty was applied for the
         attempt and displays the overall grade obtained counting all previous
         responses (and penalties) */
+
         global $QTYPES ;
         // MDL-7496 show correct answer after "Incorrect"
         $correctanswer = '';
@@ -288,43 +292,34 @@ class question_shortanswer_qtype extends default_questiontype {
             echo ' ';
             print_string('duplicateresponse', 'quiz');
         }
-        if (!empty($question->maxgrade) && $options->scores) {
+        if ($question->maxgrade > 0 && $options->scores) {
             if (question_state_is_graded($state->last_graded)) {
                 // Display the grading details from the last graded state
                 $grade = new stdClass;
-                $grade->cur = round($state->last_graded->grade, $cmoptions->decimalpoints);
-                $grade->max = $question->maxgrade;
-                $grade->raw = round($state->last_graded->raw_grade, $cmoptions->decimalpoints);
-
+                $grade->cur = question_format_grade($cmoptions, $state->last_graded->grade);
+                $grade->max = question_format_grade($cmoptions, $question->maxgrade);
+                $grade->raw = question_format_grade($cmoptions, $state->last_graded->raw_grade);
                 // let student know wether the answer was correct
-                echo '<div class="correctness ';
-                if ($state->last_graded->raw_grade >= $question->maxgrade/1.01) { // We divide by 1.01 so that rounding errors dont matter.
-                    echo ' correct">';
-                    print_string('correct', 'quiz');
-                } else if ($state->last_graded->raw_grade > 0) {
-                    echo ' partiallycorrect">';
-                    print_string('partiallycorrect', 'quiz');
-                    // MDL-7496
-                    if ($correctanswer != '') {
-                        echo ('<div class="correctness">');
-                        print_string('correctansweris', 'quiz', s($correctanswer, true));
-                        echo ('</div>');
-                    }
-                } else {
-                    echo ' incorrect">';
-                    // MDL-7496
-                    print_string('incorrect', 'quiz');
-                    if ($correctanswer != '') {
-                        echo ('<div class="correctness">');
-                        print_string('correctansweris', 'quiz', s($correctanswer, true));
-                        echo ('</div>');
-                    }
+                $class = question_get_feedback_class($state->last_graded->raw_grade /
+                        $question->maxgrade);
+                echo '<div class="correctness ' . $class . '">' . get_string($class, 'quiz');
+                if ($correctanswer  != '' && ($class == 'partiallycorrect' || $class == 'incorrect')) {
+                    echo ('<div class="correctness">');
+                    print_string('correctansweris', 'quiz', s($correctanswer));
+                    echo ('</div>');
                 }
                 echo '</div>';
 
                 echo '<div class="gradingdetails">';
                 // print grade for this submission
-                print_string('gradingdetails', 'quiz', $grade);
+                print_string('gradingdetails', 'quiz', $grade) ;
+                // A unit penalty for numerical was applied so display it
+                // a temporary solution for unit rendering in numerical
+                // waiting for the new question engine code for a permanent one
+                if(isset($state->options->raw_unitpenalty) && $state->options->raw_unitpenalty > 0.0 ){
+                    echo ' ';
+                    print_string('unitappliedpenalty','qtype_numerical',question_format_grade($cmoptions, $state->options->raw_unitpenalty ));
+                }
                 if ($cmoptions->penaltyscheme) {
                     // print details of grade adjustment due to penalties
                     if ($state->last_graded->raw_grade > $state->last_graded->grade){
@@ -335,9 +330,8 @@ class question_shortanswer_qtype extends default_questiontype {
                     // penalty is relevant only if the answer is not correct and further attempts are possible
                     if (($state->last_graded->raw_grade < $question->maxgrade) and (QUESTION_EVENTCLOSEANDGRADE != $state->event)) {
                         if ('' !== $state->last_graded->penalty && ((float)$state->last_graded->penalty) > 0.0) {
-                            // A penalty was applied so display it
-                            echo ' ';
-                            print_string('gradingdetailspenalty', 'quiz', $state->last_graded->penalty);
+                            echo ' ' ;
+                            print_string('gradingdetailspenalty', 'quiz', question_format_grade($cmoptions, $state->last_graded->penalty));
                         } else {
                             /* No penalty was applied even though the answer was
                             not correct (eg. a syntax error) so tell the student
@@ -357,6 +351,7 @@ class question_shortanswer_qtype extends default_questiontype {
      * Alternate DB table prefix may be used to facilitate data deletion.
      */
     function generate_test($name, $courseid = null) {
+        global $DB;
         list($form, $question) = parent::generate_test($name, $courseid);
         $question->category = $form->category;
 
@@ -374,11 +369,38 @@ class question_shortanswer_qtype extends default_questiontype {
         $form->partiallycorrectfeedback = 'Not bad';
 
         if ($courseid) {
-            $course = get_record('course', 'id', $courseid);
+            $course = $DB->get_record('course', array('id' => $courseid));
         }
 
-        return $this->save_question($question, $form, $course);
+        return $this->save_question($question, $form);
     }
+
+    function check_file_access($question, $state, $options, $contextid, $component,
+            $filearea, $args) {
+        if ($component == 'question' && $filearea == 'answerfeedback') {
+            $answers = &$question->options->answers;
+            if (isset($state->responses[''])) {
+                $response = $state->responses[''];
+            } else {
+                $response = '';
+            }
+            $answerid = reset($args); // itemid is answer id.
+            if (empty($options->feedback)) {
+                return false;
+            }
+            foreach($answers as $answer) {
+                if ($this->test_response($question, $state, $answer)) {
+                    return true;
+                }
+            }
+            return false;
+
+        } else {
+            return parent::check_file_access($question, $state, $options, $contextid, $component,
+                    $filearea, $args);
+        }
+    }
+
 }
 //// END OF CLASS ////
 
@@ -386,4 +408,4 @@ class question_shortanswer_qtype extends default_questiontype {
 //// INITIATION - Without this line the question type is not in use... ///
 //////////////////////////////////////////////////////////////////////////
 question_register_questiontype(new question_shortanswer_qtype());
-?>
+

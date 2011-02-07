@@ -1,12 +1,31 @@
-<?php // $Id: version.php,v 1.69.2.5 2009/05/04 08:11:15 stronk7 Exp $
+<?php
 
-////////////////////////////////////////////////////////////////////////////////
-//  Code fragment to define the module version etc.
-//  This fragment is called by /admin/index.php
-////////////////////////////////////////////////////////////////////////////////
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-$module->version  = 2007101513;
-$module->requires = 2007101509;  // Requires this Moodle version
+/**
+ * Code fragment to define the module version etc.
+ * This fragment is called by /admin/index.php
+ *
+ * @package mod-forum
+ * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+$module->version  = 2010111500;
+$module->requires = 2010111002;  // Requires this Moodle version
 $module->cron     = 60;
 
-?>
+

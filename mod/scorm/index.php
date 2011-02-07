@@ -1,39 +1,44 @@
-<?php // $Id: index.php,v 1.25.2.4 2008/02/20 06:18:52 moodler Exp $
+<?php
 
     require_once("../../config.php");
-    require_once("locallib.php");
+    require_once($CFG->dirroot.'/mod/scorm/locallib.php');
 
     $id = required_param('id', PARAM_INT);   // course id
 
+    $PAGE->set_url('/mod/scorm/index.php', array('id'=>$id));
+
     if (!empty($id)) {
-        if (! $course = get_record("course", "id", $id)) {
-            error("Course ID is incorrect");
+        if (!$course = $DB->get_record('course', array('id'=>$id))) {
+            print_error('invalidcourseid');
         }
     } else {
-        error('A required parameter is missing');
+        print_error('missingparameter');
     }
 
     require_course_login($course);
+    $PAGE->set_pagelayout('incourse');
 
     add_to_log($course->id, "scorm", "view all", "index.php?id=$course->id", "");
 
     $strscorm = get_string("modulename", "scorm");
     $strscorms = get_string("modulenameplural", "scorm");
-    $strweek = get_string("week");
-    $strtopic = get_string("topic");
+    $strsectionname  = get_string('sectionname', 'format_'.$course->format);
     $strname = get_string("name");
     $strsummary = get_string("summary");
     $strreport = get_string("report",'scorm');
     $strlastmodified = get_string("lastmodified");
 
-    $navlinks = array();
-    $navlinks[] = array('name' => $strscorms, 'link' => '', 'type' => 'activity');
-    $navigation = build_navigation($navlinks);
+    $PAGE->set_title($strscorms);
+    $PAGE->set_heading($course->fullname);
+    $PAGE->navbar->add($strscorms);
+    echo $OUTPUT->header();
 
-    print_header_simple("$strscorms", "", $navigation,
-                 "", "", true, "", navmenu($course));
+    $usesections = course_format_uses_sections($course->format);
+    if ($usesections) {
+        $sections = get_all_sections($course->id);
+    }
 
-    if ($course->format == "weeks" or $course->format == "topics") {
+    if ($usesections) {
         $sortorder = "cw.section ASC";
     } else {
         $sortorder = "m.timemodified DESC";
@@ -44,11 +49,10 @@
         exit;
     }
 
-    if ($course->format == "weeks") {
-        $table->head  = array ($strweek, $strname, $strsummary, $strreport);
-        $table->align = array ("center", "left", "left", "left");
-    } else if ($course->format == "topics") {
-        $table->head  = array ($strtopic, $strname, $strsummary, $strreport);
+    $table = new html_table();
+
+    if ($usesections) {
+        $table->head  = array ($strsectionname, $strname, $strsummary, $strreport);
         $table->align = array ("center", "left", "left", "left");
     } else {
         $table->head  = array ($strlastmodified, $strname, $strsummary, $strreport);
@@ -59,9 +63,9 @@
 
         $context = get_context_instance(CONTEXT_MODULE,$scorm->coursemodule);
         $tt = "";
-        if ($course->format == "weeks" or $course->format == "topics") {
+        if ($usesections) {
             if ($scorm->section) {
-                $tt = "$scorm->section";
+                $tt = get_section_name($course, $sections[$scorm->section]);
             }
         } else {
             $tt = userdate($scorm->timemodified);
@@ -80,21 +84,22 @@
             $report = scorm_grade_user($scorm, $USER->id);
             $reportshow = get_string('score','scorm').": ".$report;
         }
+        $options = (object)array('noclean'=>true);
         if (!$scorm->visible) {
            //Show dimmed if the mod is hidden
            $table->data[] = array ($tt, "<a class=\"dimmed\" href=\"view.php?id=$scorm->coursemodule\">".format_string($scorm->name)."</a>",
-                                   format_text($scorm->summary), $reportshow);
+                                   format_module_intro('scorm', $scorm, $scorm->coursemodule), $reportshow);
         } else {
            //Show normal if the mod is visible
            $table->data[] = array ($tt, "<a href=\"view.php?id=$scorm->coursemodule\">".format_string($scorm->name)."</a>",
-                                   format_text($scorm->summary), $reportshow);
+                                   format_module_intro('scorm', $scorm, $scorm->coursemodule), $reportshow);
         }
     }
 
     echo "<br />";
 
-    print_table($table);
+    echo html_writer::table($table);
 
-    print_footer($course);
+    echo $OUTPUT->footer();
 
-?>
+

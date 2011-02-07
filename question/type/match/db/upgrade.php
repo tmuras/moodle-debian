@@ -1,6 +1,6 @@
-<?php  // $Id: upgrade.php,v 1.1.10.1 2007/11/02 16:20:27 tjhunt Exp $
+<?php
 
-// This file keeps track of upgrades to 
+// This file keeps track of upgrades to
 // the match qtype plugin
 //
 // Sometimes, changes between versions involve
@@ -9,30 +9,54 @@
 //
 // The upgrade function in this file will attempt
 // to perform all the necessary actions to upgrade
-// your older installtion to the current version.
+// your older installation to the current version.
 //
 // If there's something it cannot do itself, it
 // will tell you what you need to do.
 //
 // The commands in here will all be database-neutral,
-// using the functions defined in lib/ddllib.php
+// using the methods of database_manager class
+//
+// Please do not forget to use upgrade_set_timeout()
+// before any action that may take longer time to finish.
 
-function xmldb_qtype_match_upgrade($oldversion=0) {
+function xmldb_qtype_match_upgrade($oldversion) {
+    global $CFG, $DB, $QTYPES;
 
-    global $CFG, $THEME, $db;
+    $dbman = $DB->get_manager();
 
-    $result = true;
+    if ($oldversion < 2009072100) {
 
-/// And upgrade begins here. For each one, you'll need one 
-/// block of code similar to the next one. Please, delete 
-/// this comment lines once this file start handling proper
-/// upgrade code.
+        // Define field questiontextformat to be added to question_match_sub
+        $table = new xmldb_table('question_match_sub');
+        $field = new xmldb_field('questiontextformat', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'questiontext');
 
-/// if ($result && $oldversion < YYYYMMDD00) { //New version in version.php
-///     $result = result of "/lib/ddllib.php" function calls
-/// }
+        // Conditionally launch add field questiontextformat
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
 
-    return $result;
+        // In the past, question_match_sub.questiontext assumed to contain
+        // content of the same form as question.questiontextformat. If we are
+        // using the HTML editor, then convert FORMAT_MOODLE content to FORMAT_HTML.
+        $rs = $DB->get_recordset_sql('
+                SELECT qms.*, q.oldquestiontextformat
+                FROM {question_match_sub} qms
+                JOIN {question} q ON qms.question = q.id');
+        foreach ($rs as $record) {
+            if ($CFG->texteditors !== 'textarea' && $record->oldquestiontextformat == FORMAT_MOODLE) {
+                $record->questiontext = text_to_html($record->questiontext, false, false, true);
+                $record->questiontextformat = FORMAT_HTML;
+            } else {
+                $record->questiontextformat = $record->oldquestiontextformat;
+            }
+            $DB->update_record('question_match_sub', $record);
+        }
+        $rs->close();
+
+        // match savepoint reached
+        upgrade_plugin_savepoint(true, 2009072100, 'qtype', 'match');
+    }
+
+    return true;
 }
-
-?>

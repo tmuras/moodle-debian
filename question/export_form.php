@@ -1,4 +1,4 @@
-<?php  // $Id$
+<?php
 
 if (!defined('MOODLE_INTERNAL')) {
     die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
@@ -13,24 +13,25 @@ class question_export_form extends moodleform {
 
         $defaultcategory   = $this->_customdata['defaultcategory'];
         $contexts   = $this->_customdata['contexts'];
-        $defaultfilename = $this->_customdata['defaultfilename'];
 //--------------------------------------------------------------------------------
         $mform->addElement('header','fileformat',get_string('fileformat','quiz'));
         $fileformatnames = get_import_export_formats('export');
         $radioarray = array();
-        foreach ($fileformatnames as $id => $fileformatname) {
-            $radioarray[] = &MoodleQuickForm::createElement('radio','format','',$fileformatname,$id);
+        $i = 0 ;
+        foreach ($fileformatnames as $shortname => $fileformatname) {
+            $currentgrp1 = array();
+            $currentgrp1[] = &$mform->createElement('radio','format','',$fileformatname,$shortname);
+            $mform->addGroup($currentgrp1,"formathelp[$i]",'',array('<br />'),false);
+            $mform->addHelpButton("formathelp[$i]", $shortname, 'qformat_'.$shortname);
+            $i++ ;
         }
-        $mform->addGroup($radioarray,'format','',array('<br />'),false);
-        $mform->setHelpButton('format', array('export', get_string('exportquestions', 'quiz'), 'quiz'));
-        $mform->addRule('format',null,'required',null,'client'); 
-
+        $mform->addRule("formathelp[0]",null,'required',null,'client');
 //--------------------------------------------------------------------------------
         $mform->addElement('header','general', get_string('general', 'form'));
 
-        $mform->addElement('questioncategory', 'category', get_string('category','quiz'), compact('contexts'));
+        $mform->addElement('questioncategory', 'category', get_string('exportcategory', 'question'), compact('contexts'));
         $mform->setDefault('category', $defaultcategory);
-        $mform->setHelpButton('category', array('exportcategory', get_string('exportcategory','question'), 'quiz'));
+        $mform->addHelpButton('category', 'exportcategory', 'question');
 
         $categorygroup = array();
         $categorygroup[] =& $mform->createElement('checkbox', 'cattofile', '', get_string('tofilecategory', 'question'));
@@ -39,21 +40,18 @@ class question_export_form extends moodleform {
         $mform->disabledIf('categorygroup', 'cattofile', 'notchecked');
         $mform->setDefault('cattofile', 1);
         $mform->setDefault('contexttofile', 1);
-        
 
 //        $fileformatnames = get_import_export_formats('export');
 //        $mform->addElement('select', 'format', get_string('fileformat','quiz'), $fileformatnames);
 //        $mform->setDefault('format', 'gift');
-//        $mform->setHelpButton('format', array('export', get_string('exportquestions', 'quiz'), 'quiz'));
 
-        $mform->addElement('text', 'exportfilename', get_string('exportname', 'quiz'), array('size'=>40));
-        $mform->setDefault('exportfilename', $defaultfilename);
-        $mform->setType('exportfilename', PARAM_CLEANFILE);
-
+        // set a template for the format select elements
+        $renderer =& $mform->defaultRenderer();
+        $template = "{help} {element}\n";
+        $renderer->setGroupElementTemplate($template, 'format');
 
 //--------------------------------------------------------------------------------
         $this->add_action_buttons(false, get_string('exportquestions', 'quiz'));
 //--------------------------------------------------------------------------------
     }
 }
-?>

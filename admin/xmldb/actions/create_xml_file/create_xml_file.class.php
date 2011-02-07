@@ -1,4 +1,4 @@
-<?php // $Id: create_xml_file.class.php,v 1.5 2007/10/10 05:25:28 nicolasconnault Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -66,7 +66,7 @@ class create_xml_file extends XMLDBAction {
 
     /// Get the dir containing the file
         $dirpath = required_param('dir', PARAM_PATH);
-        $dirpath = $CFG->dirroot . stripslashes_safe($dirpath);
+        $dirpath = $CFG->dirroot . $dirpath;
         $file = $dirpath . '/install.xml';
 
     /// Some variables
@@ -105,4 +105,4 @@ class create_xml_file extends XMLDBAction {
         return $result;
     }
 }
-?>
+

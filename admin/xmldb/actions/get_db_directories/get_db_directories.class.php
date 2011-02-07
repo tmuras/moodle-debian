@@ -1,32 +1,34 @@
-<?php // $Id: get_db_directories.class.php,v 1.8.2.4 2009/11/20 14:26:25 stronk7 Exp $
+<?php
 
-///////////////////////////////////////////////////////////////////////////
-//                                                                       //
-// NOTICE OF COPYRIGHT                                                   //
-//                                                                       //
-// Moodle - Modular Object-Oriented Dynamic Learning Environment         //
-//          http://moodle.com                                            //
-//                                                                       //
-// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
-//           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
-//                                                                       //
-// This program is free software; you can redistribute it and/or modify  //
-// it under the terms of the GNU General Public License as published by  //
-// the Free Software Foundation; either version 2 of the License, or     //
-// (at your option) any later version.                                   //
-//                                                                       //
-// This program is distributed in the hope that it will be useful,       //
-// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
-// GNU General Public License for more details:                          //
-//                                                                       //
-//          http://www.gnu.org/copyleft/gpl.html                         //
-//                                                                       //
-///////////////////////////////////////////////////////////////////////////
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-/// This class will check all the db directories existing under the
-/// current Moodle installation, sending them to the SESSION->dbdirs array
+/**
+ * @package   xmldb-editor
+ * @copyright 2003 onwards Eloy Lafuente (stronk7) {@link http://stronk7.com}
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
+/**
+ * This class will will check all the db directories existing under the
+ * current Moodle installation, sending them to the SESSION->dbdirs array
+ *
+ * @package   xmldb-editor
+ * @copyright 2003 onwards Eloy Lafuente (stronk7) {@link http://stronk7.com}
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class get_db_directories extends XMLDBAction {
 
     /**
@@ -73,8 +75,8 @@ class get_db_directories extends XMLDBAction {
         }
 
     /// get list of all dirs and create objects with status
-        $db_direcotries = get_db_directories();
-        foreach ($db_direcotries as $path) {
+        $db_directories = get_db_directories();
+        foreach ($db_directories as $path) {
             $dbdir = new stdClass;
             $dbdir->path = $path;
             if (!isset($XMLDB->dbdirs[$dbdir->path])) {
@@ -90,4 +92,4 @@ class get_db_directories extends XMLDBAction {
         return true;
     }
 }
-?>
+

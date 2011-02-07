@@ -1,4 +1,4 @@
-<?php  // $Id: mod.php,v 1.4.4.2 2008/11/29 14:30:55 skodak Exp $
+<?php
 
     if (!defined('MOODLE_INTERNAL')) {
         die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
@@ -11,4 +11,3 @@
         echo "$activityreport</a>\n";
         echo '</p>';
     }
-?>

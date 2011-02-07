@@ -1,4 +1,4 @@
-<?php // $Id: load_xml_files.class.php,v 1.3 2007/10/10 05:25:17 nicolasconnault Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -7,7 +7,7 @@
 // Moodle - Modular Object-Oriented Dynamic Learning Environment         //
 //          http://moodle.com                                            //
 //                                                                       //
-// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
+// Copyright (C) 1999 onwards Martin Dougiamas     http://dougiamas.com  //
 //           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
 //                                                                       //
 // This program is free software; you can redistribute it and/or modify  //
@@ -76,7 +76,7 @@ class load_xml_files extends XMLDBAction {
                 if (!$dbdir->path_exists) {
                     continue;
                 }
-                $xmldb_file = new XMLDBFile($dbdir->path . '/install.xml');
+                $xmldb_file = new xmldb_file($dbdir->path . '/install.xml');
             /// Set dbdir as necessary
                 if ($xmldb_file->fileExists()) {
                     $dbdir->xml_exists = true;
@@ -95,4 +95,4 @@ class load_xml_files extends XMLDBAction {
         return $result;
     }
 }
-?>
+

@@ -16,8 +16,8 @@
 //
 function AICCapi() {
     // Standard Data Type Definition
-    CMIString256 = '^[\\u0000-\\uffff]{0,255}$';
-    CMIString4096 = '^[\\u0000-\\uffff]{0,4096}$';
+    CMIString256 = '^.{0,255}$';
+    CMIString4096 = '^.{0,4096}$';
     CMITime = '^([0-2]{1}[0-9]{1}):([0-5]{1}[0-9]{1}):([0-5]{1}[0-9]{1})(\.[0-9]{1,2})?$';
     CMITimespan = '^([0-9]{2,4}):([0-9]{2}):([0-9]{2})(\.[0-9]{1,2})?$';
     CMIInteger = '^\\d+$';
@@ -26,6 +26,7 @@ function AICCapi() {
     CMIIdentifier = '^\\w{1,255}$';
     CMIFeedback = CMIString256; // This must be redefined
     CMIIndex = '[._](\\d+).';
+
     // Vocabulary Data Type Definition
     CMIStatus = '^passed$|^completed$|^failed$|^incomplete$|^browsed$';
     CMIStatus2 = '^passed$|^completed$|^failed$|^incomplete$|^browsed$|^not attempted$';
@@ -33,6 +34,7 @@ function AICCapi() {
     CMIType = '^true-false$|^choice$|^fill-in$|^matching$|^performance$|^sequencing$|^likert$|^numeric$';
     CMIResult = '^correct$|^wrong$|^unanticipated$|^neutral$|^([0-9]{0,3})?(\.[0-9]{1,2})?$';
     NAVEvent = '^previous$|^continue$';
+
     // Children lists
     cmi_children = 'core, suspend_data, launch_data, comments, objectives, student_data, student_preference, interactions';
     core_children = 'student_id, student_name, lesson_location, credit, lesson_status, entry, score, total_time, lesson_mode, exit, session_time';
@@ -42,12 +44,14 @@ function AICCapi() {
     student_data_children = 'attempt_number, tries, mastery_score, max_time_allowed, time_limit_action';
     student_preference_children = 'audio, language, speed, text';
     interactions_children = 'id, objectives, time, type, correct_responses, weighting, student_response, result, latency';
+
     // Data ranges
     score_range = '0#100';
     audio_range = '-1#100';
     speed_range = '-100#100';
     weighting_range = '-100#100';
     text_range = '-1#1';
+
     // The AICC data model
     var datamodel =  {
         'cmi._children':{'defaultvalue':cmi_children, 'mod':'r', 'writeerror':'402'},
@@ -56,7 +60,7 @@ function AICCapi() {
         'cmi.core.student_id':{'defaultvalue':'<?php echo $userdata->student_id ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.core.student_name':{'defaultvalue':'<?php echo $userdata->student_name ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.core.lesson_location':{'defaultvalue':'<?php echo isset($userdata->{'cmi.core.lesson_location'})?$userdata->{'cmi.core.lesson_location'}:'' ?>', 'format':CMIString256, 'mod':'rw', 'writeerror':'405'},
-        'cmi.core.credit':{'defaultvalue':'<?php echo $userdata->credit ?>', 'mod':'r', 'writeerror':'403'},  
+        'cmi.core.credit':{'defaultvalue':'<?php echo $userdata->credit ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.core.lesson_status':{'defaultvalue':'<?php echo isset($userdata->{'cmi.core.lesson_status'})?$userdata->{'cmi.core.lesson_status'}:'' ?>', 'format':CMIStatus, 'mod':'rw', 'writeerror':'405'},
         'cmi.core.exit':{'defaultvalue':'<?php echo isset($userdata->{'cmi.core.exit'})?$userdata->{'cmi.core.exit'}:'' ?>', 'format':CMIExit, 'mod':'w', 'readerror':'404', 'writeerror':'405'},
         'cmi.core.entry':{'defaultvalue':'<?php echo $userdata->entry ?>', 'mod':'r', 'writeerror':'403'},
@@ -70,6 +74,7 @@ function AICCapi() {
         'cmi.suspend_data':{'defaultvalue':'<?php echo isset($userdata->{'cmi.suspend_data'})?$userdata->{'cmi.suspend_data'}:'' ?>', 'format':CMIString4096, 'mod':'rw', 'writeerror':'405'},
         'cmi.launch_data':{'defaultvalue':'<?php echo isset($userdata->datafromlms)?$userdata->datafromlms:'' ?>', 'mod':'r', 'writeerror':'403'},
         'cmi.comments':{'defaultvalue':'<?php echo isset($userdata->{'cmi.comments'})?$userdata->{'cmi.comments'}:'' ?>', 'format':CMIString4096, 'mod':'rw', 'writeerror':'405'},
+        // deprecated evaluation attributes
         'cmi.evaluation.comments._count':{'defaultvalue':'0', 'mod':'r', 'writeerror':'402'},
         'cmi.evaluation.comments._children':{'defaultvalue':comments_children, 'mod':'r', 'writeerror':'402'},
         'cmi.evaluation.comments.n.content':{'defaultvalue':'', 'pattern':CMIIndex, 'format':CMIString256, 'mod':'rw', 'writeerror':'405'},
@@ -115,6 +120,7 @@ function AICCapi() {
         'cmi.interactions.n.latency':{'pattern':CMIIndex, 'format':CMITimespan, 'mod':'w', 'readerror':'404', 'writeerror':'405'},
         'nav.event':{'defaultvalue':'', 'format':NAVEvent, 'mod':'w', 'readerror':'404', 'writeerror':'405'}
     };
+
     //
     // Datamodel inizialization
     //
@@ -125,6 +131,7 @@ function AICCapi() {
         cmi.student_data = new Object();
         cmi.student_preference = new Object();
         cmi.interactions = new Object();
+        // deprecated evaluation attributes
         cmi.evaluation = new Object();
         cmi.evaluation.comments = new Object();
 
@@ -151,6 +158,7 @@ function AICCapi() {
             preg_match('/\_(\d+)\./', $element, $matches);
             if (count($matches) > 0 && $current_objective != $matches[1]) {
                 $current_objective = $matches[1];
+                $count++;
                 $end = strpos($element,$matches[1])+strlen($matches[1]);
                 $subelement = substr($element,0,$end);
                 echo '    '.$subelement." = new Object();\n";
@@ -170,8 +178,8 @@ function AICCapi() {
 
     if (cmi.core.lesson_status == '') {
         cmi.core.lesson_status = 'not attempted';
-    } 
-    
+    }
+
     //
     // API Methods definition
     //
@@ -192,7 +200,14 @@ function AICCapi() {
         }
         return "false";
     }
-    
+
+
+<?php
+    // pull in the TOC callback
+    include_once($CFG->dirroot.'/mod/scorm/datamodels/callback.js.php');
+ ?>
+
+
     function LMSFinish (param) {
         errorCode = "0";
         if (param == "") {
@@ -201,15 +216,18 @@ function AICCapi() {
                 result = StoreData(cmi,true);
                 if (nav.event != '') {
                     if (nav.event == 'continue') {
-                        setTimeout('top.nextSCO();',500);
+                        setTimeout('scorm_get_next();',500);
                     } else {
-                        setTimeout('top.prevSCO();',500);
+                        setTimeout('scorm_get_prev();',500);
                     }
                 } else {
                     if (<?php echo $scorm->auto ?> == 1) {
-                        setTimeout('top.nextSCO();',500);
+                        setTimeout('scorm_get_next();',500);
                     }
-                }    
+                }
+                // trigger TOC update
+                var sURL = "<?php echo $CFG->wwwroot; ?>" + "/mod/scorm/prereqs.php?a=<?php echo $scorm->id ?>&scoid=<?php echo $scoid ?>&attempt=<?php echo $attempt ?>&mode=<?php echo $mode ?>&currentorg=<?php echo $currentorg ?>&sesskey=<?php echo sesskey(); ?>";
+                YAHOO.util.Connect.asyncRequest('GET', sURL, this.connectPrereqCallback, null);
                 return "true";
             } else {
                 errorCode = "301";
@@ -219,7 +237,7 @@ function AICCapi() {
         }
         return "false";
     }
-    
+
     function LMSGetValue (element) {
         errorCode = "0";
         if (Initialized) {
@@ -235,7 +253,7 @@ function AICCapi() {
                         while ((i < elementIndexes.length) && (typeof eval(subelement) != "undefined")) {
                             subelement += '.'+elementIndexes[i++];
                         }
-                            if (subelement == element) {
+                        if (subelement == element) {
                             errorCode = "0";
                             return eval(element);
                         } else {
@@ -273,7 +291,7 @@ function AICCapi() {
         }
         return "";
     }
-    
+
     function LMSSetValue (element,value) {
         errorCode = "0";
         if (Initialized) {
@@ -299,7 +317,7 @@ function AICCapi() {
                                         }
                                         if (elementIndexes[i+1] == eval(subelement+'.'+elementIndex+'._count')) {
                                             eval(subelement+'.'+elementIndex+'._count++;');
-                                        } 
+                                        }
                                         if (elementIndexes[i+1] > eval(subelement+'.'+elementIndex+'._count')) {
                                             errorCode = "201";
                                         }
@@ -367,7 +385,7 @@ function AICCapi() {
         }
         return "false";
     }
-    
+
     function LMSCommit (param) {
         errorCode = "0";
         if (param == "") {
@@ -382,11 +400,11 @@ function AICCapi() {
         }
         return "false";
     }
-    
+
     function LMSGetLastError () {
         return errorCode;
     }
-    
+
     function LMSGetErrorString (param) {
         if (param != "") {
             var errorString = new Array();
@@ -406,7 +424,7 @@ function AICCapi() {
            return "";
         }
     }
-    
+
     function LMSGetDiagnostic (param) {
         if (param == "") {
             param = errorCode;
@@ -497,8 +515,7 @@ function AICCapi() {
         if (storetotaltime) {
             if (cmi.core.lesson_mode == 'normal') {
                 if (cmi.core.credit == 'credit') {
-                    cmi.core.lesson_status = 'completed';
-                    if (cmi.student_data.mastery_score != '') {
+                    if (cmi.student_data.mastery_score != '' && cmi.core.score.raw != '') {
                         if (cmi.core.score.raw >= cmi.student_data.mastery_score) {
                             cmi.core.lesson_status = 'passed';
                         } else {
@@ -508,7 +525,7 @@ function AICCapi() {
                 }
             }
             if (cmi.core.lesson_mode == 'browse') {
-                if (datamodel['cmi.core.lesson_status'].defaultvalue == '') {
+                if (datamodel['cmi.core.lesson_status'].defaultvalue == '' && cmi.core.lesson_status == 'not attempted') {
                     cmi.core.lesson_status = 'browsed';
                 }
             }
@@ -522,7 +539,7 @@ function AICCapi() {
 
         //popupwin(datastring);
         var myRequest = NewHttpReq();
-        result = DoRequest(myRequest,"<?php p($CFG->wwwroot) ?>/mod/scorm/datamodel.php","id=<?php p($id) ?>&sesskey=<?php p($USER->sesskey) ?>"+datastring);
+        result = DoRequest(myRequest,"<?php p($CFG->wwwroot) ?>/mod/scorm/datamodel.php","id=<?php p($id) ?>&sesskey=<?php echo sesskey() ?>"+datastring);
         results = String(result).split('\n');
         errorCode = results[1];
         return results[0];

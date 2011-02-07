@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.41.2.21 2010/01/14 21:56:42 pichetp Exp $
+<?php
 
 ///////////////////
 /// MULTIANSWER /// (Embedded - cloze)
@@ -23,25 +23,40 @@ class embedded_cloze_qtype extends default_questiontype {
         return 'multianswer';
     }
 
+    function has_wildcards_in_responses($question, $subqid) {
+        global $QTYPES, $OUTPUT;
+        foreach ($question->options->questions as $subq){
+            if ($subq->id == $subqid){
+                return $QTYPES[$subq->qtype]->has_wildcards_in_responses($subq, $subqid);
+            }
+        }
+        echo $OUTPUT->notification('Could not find sub question!');
+        return true;
+    }
+
+    function requires_qtypes() {
+        return array('shortanswer', 'numerical', 'multichoice');
+    }
+
     function get_question_options(&$question) {
-        global $QTYPES;
+        global $QTYPES, $DB, $OUTPUT;
 
         // Get relevant data indexed by positionkey from the multianswers table
-        if (!$sequence = get_field('question_multianswer', 'sequence', 'question', $question->id)) {
-            notify(get_string('noquestions','qtype_multianswer',$question->name));
+        if (!$sequence = $DB->get_field('question_multianswer', 'sequence', array('question' => $question->id))) {
+            echo $OUTPUT->notification(get_string('noquestions','qtype_multianswer',$question->name));
             $question->options->questions['1']= '';
             return true ;
         }
 
-        $wrappedquestions = get_records_list('question', 'id', $sequence, 'id ASC');
+        $wrappedquestions = $DB->get_records_list('question', 'id', explode(',', $sequence), 'id ASC');
 
         // We want an array with question ids as index and the positions as values
         $sequence = array_flip(explode(',', $sequence));
         array_walk($sequence, create_function('&$val', '$val++;'));
         //If a question is lost, the corresponding index is null
-        // so this null convention is used to test $question->options->questions 
+        // so this null convention is used to test $question->options->questions
         // before using the values.
-        // first all possible questions from sequence are nulled 
+        // first all possible questions from sequence are nulled
         // then filled with the data if available in  $wrappedquestions
         $nbvaliquestion = 0 ;
         foreach($sequence as $seq){
@@ -50,24 +65,25 @@ class embedded_cloze_qtype extends default_questiontype {
         if (isset($wrappedquestions) && is_array($wrappedquestions)){
             foreach ($wrappedquestions as $wrapped) {
                 if (!$QTYPES[$wrapped->qtype]->get_question_options($wrapped)) {
-                    notify("Unable to get options for questiontype {$wrapped->qtype} (id={$wrapped->id})");                
+                    echo $OUTPUT->notification("Unable to get options for questiontype {$wrapped->qtype} (id={$wrapped->id})");
                 }else {
-                    // for wrapped questions the maxgrade is always equal to the defaultgrade,
-                    // there is no entry in the question_instances table for them
-                    $wrapped->maxgrade = $wrapped->defaultgrade;
+                // for wrapped questions the maxgrade is always equal to the defaultgrade,
+                // there is no entry in the question_instances table for them
+                $wrapped->maxgrade = $wrapped->defaultgrade;
                     $nbvaliquestion++ ;
-                    $question->options->questions[$sequence[$wrapped->id]] = clone($wrapped); // ??? Why do we need a clone here?
-                }
+                $question->options->questions[$sequence[$wrapped->id]] = clone($wrapped); // ??? Why do we need a clone here?
             }
         }
-        if ($nbvaliquestion == 0 ) {
-            notify(get_string('noquestions','qtype_multianswer',$question->name));
         }
+        if ($nbvaliquestion == 0 ) {
+            echo $OUTPUT->notification(get_string('noquestions','qtype_multianswer',$question->name));
+        }
+
         return true;
     }
 
     function save_question_options($question) {
-        global $QTYPES;
+        global $QTYPES, $DB;
         $result = new stdClass;
 
         // This function needs to be able to handle the case where the existing set of wrapped
@@ -78,33 +94,33 @@ class embedded_cloze_qtype extends default_questiontype {
         // will also create difficulties if questiontype specific tables reference the id.
 
         // First we get all the existing wrapped questions
-        if (!$oldwrappedids = get_field('question_multianswer', 'sequence', 'question', $question->id)) {
+        if (!$oldwrappedids = $DB->get_field('question_multianswer', 'sequence', array('question' => $question->id))) {
             $oldwrappedquestions = array();
         } else {
-            $oldwrappedquestions = get_records_list('question', 'id', $oldwrappedids, 'id ASC');
+            $oldwrappedquestions = $DB->get_records_list('question', 'id', explode(',', $oldwrappedids), 'id ASC');
         }
         $sequence = array();
         foreach($question->options->questions as $wrapped) {
             if (!empty($wrapped)){
-            // if we still have some old wrapped question ids, reuse the next of them
+                // if we still have some old wrapped question ids, reuse the next of them
 
                 if (is_array($oldwrappedquestions) && $oldwrappedquestion = array_shift($oldwrappedquestions)) {
                     $wrapped->id = $oldwrappedquestion->id;
                     if($oldwrappedquestion->qtype != $wrapped->qtype ) {
                         switch ($oldwrappedquestion->qtype) {
-                        case 'multichoice':
-                                 delete_records('question_multichoice', 'question' , $oldwrappedquestion->id );
-                            break;
-                        case 'shortanswer':
-                                 delete_records('question_shortanswer', 'question' , $oldwrappedquestion->id );
-                            break;
-                        case 'numerical':
-                                 delete_records('question_numerical', 'question' , $oldwrappedquestion->id );
-                            break;
-                        default:
+                                case 'multichoice':
+                                 $DB->delete_records('question_multichoice', array('question' => $oldwrappedquestion->id));
+                                    break;
+                                case 'shortanswer':
+                                 $DB->delete_records('question_shortanswer', array('question' => $oldwrappedquestion->id));
+                                    break;
+                                case 'numerical':
+                                 $DB->delete_records('question_numerical', array('question' => $oldwrappedquestion->id));
+                                    break;
+                                default:
                                 print_error('qtypenotrecognized', 'qtype_multianswer','',$oldwrappedquestion->qtype);
                                         $wrapped->id = 0 ;
-                            }
+                        }
                     }
                 }else {
                     $wrapped->id = 0 ;
@@ -114,10 +130,9 @@ class embedded_cloze_qtype extends default_questiontype {
             $wrapped->parent = $question->id;
             $previousid = $wrapped->id ;
             $wrapped->category = $question->category . ',1'; // save_question strips this extra bit off again.
-            $wrapped = $QTYPES[$wrapped->qtype]->save_question($wrapped,
-                    $wrapped, $question->course);
+            $wrapped = $QTYPES[$wrapped->qtype]->save_question($wrapped, clone($wrapped));
             $sequence[] = $wrapped->id;
-            if ($previousid != 0 && $previousid != $wrapped->id ) { 
+            if ($previousid != 0 && $previousid != $wrapped->id ) {
                 // for some reasons a new question has been created
                 // so delete the old one
                 delete_question($previousid) ;
@@ -135,23 +150,16 @@ class embedded_cloze_qtype extends default_questiontype {
             $multianswer = new stdClass;
             $multianswer->question = $question->id;
             $multianswer->sequence = implode(',', $sequence);
-            if ($oldid = get_field('question_multianswer', 'id', 'question', $question->id)) {
+            if ($oldid = $DB->get_field('question_multianswer', 'id', array('question' => $question->id))) {
                 $multianswer->id = $oldid;
-                if (!update_record("question_multianswer", $multianswer)) {
-                    $result->error = "Could not update cloze question options! " .
-                            "(id=$multianswer->id)";
-                    return $result;
-                }
+                $DB->update_record("question_multianswer", $multianswer);
             } else {
-                if (!insert_record("question_multianswer", $multianswer)) {
-                    $result->error = "Could not insert cloze question options!";
-                    return $result;
-                }
+                $DB->insert_record("question_multianswer", $multianswer);
             }
         }
     }
 
-    function save_question($authorizedquestion, $form, $course) {
+    function save_question($authorizedquestion, $form) {
         $question = qtype_multianswer_extract_question($form->questiontext);
         if (isset($authorizedquestion->id)) {
             $question->id = $authorizedquestion->id;
@@ -167,7 +175,7 @@ class embedded_cloze_qtype extends default_questiontype {
         $form->questiontextformat = 0;
         $form->options = clone($question->options);
         unset($question->options);
-        return parent::save_question($question, $form, $course);
+        return parent::save_question($question, $form);
     }
 
     function create_session_and_responses(&$question, &$state, $cmoptions, $attempt) {
@@ -191,6 +199,7 @@ class embedded_cloze_qtype extends default_questiontype {
     }
 
     function save_session_and_responses(&$question, &$state) {
+        global $DB;
         $responses = $state->responses;
         // encode - (hyphen) and , (comma) to &#0045; because they are used as
         // delimiters
@@ -200,28 +209,22 @@ class embedded_cloze_qtype extends default_questiontype {
         $responses = implode(',', $responses);
 
         // Set the legacy answer field
-        if (!set_field('question_states', 'answer', $responses, 'id', $state->id)) {
-            return false;
-        }
+        $DB->set_field('question_states', 'answer', $responses, array('id' => $state->id));
         return true;
     }
 
-    /**
-    * Deletes question from the question-type specific tables
-    *
-    * @return boolean Success/Failure
-    * @param object $question  The question being deleted
-    */
-    function delete_question($questionid) {
-        delete_records("question_multianswer", "question", $questionid);
-        return true;
+    function delete_question($questionid, $contextid) {
+        global $DB;
+        $DB->delete_records("question_multianswer", array("question" => $questionid));
+
+        parent::delete_question($questionid, $contextid);
     }
 
     function get_correct_responses(&$question, &$state) {
         global $QTYPES;
         $responses = array();
         foreach($question->options->questions as $key => $wrapped) {
-            if (  !empty($wrapped)){
+            if (!empty($wrapped)){
                 if ($correct = $QTYPES[$wrapped->qtype]->get_correct_responses($wrapped, $state)) {
                     $responses[$key] = $correct[''];
                 } else {
@@ -235,9 +238,46 @@ class embedded_cloze_qtype extends default_questiontype {
         return $responses;
     }
 
-    function print_question_formulation_and_controls(&$question, &$state, $cmoptions, $options) {
+    function get_possible_responses(&$question) {
+        global $QTYPES;
+        $responses = array();
+        foreach($question->options->questions as $key => $wrapped) {
+            if (!empty($wrapped)){
+                if ($correct = $QTYPES[$wrapped->qtype]->get_possible_responses($wrapped)) {
+                    $responses += $correct;
+                } else {
+                    // if there is no correct answer to this subquestion then there
+                    // can not be a correct answer to the whole question either, so
+                    // we have to return null.
+                    return null;
+                }
+            }
+        }
+        return $responses;
+    }
+    function get_actual_response_details($question, $state){
+        global $QTYPES;
+        $details = array();
+        foreach($question->options->questions as $key => $wrapped) {
+            if (!empty($wrapped)){
+                $stateforquestion = clone($state);
+                $stateforquestion->responses[''] = $state->responses[$key];
+                $details = array_merge($details, $QTYPES[$wrapped->qtype]->get_actual_response_details($wrapped, $stateforquestion));
+            }
+        }
+        return $details;
+    }
 
-        global $QTYPES, $CFG, $USER;
+    function get_html_head_contributions(&$question, &$state) {
+        global $PAGE;
+        parent::get_html_head_contributions($question, $state);
+        $PAGE->requires->js('/lib/overlib/overlib.js', true);
+        $PAGE->requires->js('/lib/overlib/overlib_cssstyle.js', true);
+    }
+
+    function print_question_formulation_and_controls(&$question, &$state, $cmoptions, $options) {
+        global $QTYPES, $CFG, $USER, $OUTPUT, $PAGE;
+
         $readonly = empty($options->readonly) ? '' : 'readonly="readonly"';
         $disabled = empty($options->readonly) ? '' : 'disabled="disabled"';
         $formatoptions = new stdClass;
@@ -248,15 +288,11 @@ class embedded_cloze_qtype extends default_questiontype {
         // adding an icon with alt to warn user this is a fill in the gap question
         // MDL-7497
         if (!empty($USER->screenreader)) {
-            echo "<img src=\"$CFG->wwwroot/question/type/$question->qtype/icon.gif\" ".
+            echo "<img src=\"".$OUTPUT->pix_url('icon', 'qtype_'.$question->qtype)."\" ".
                 "class=\"icon\" alt=\"".get_string('clozeaid','qtype_multichoice')."\" />  ";
         }
 
         echo '<div class="ablock clearfix">';
-        // For this question type, we better print the image on top:
-        if ($image = get_question_image($question)) {
-            echo('<img class="qimage" src="' . $image . '" alt="" /><br />');
-        }
 
         $qtextremaining = format_text($question->questiontext,
                 $question->questiontextformat, $formatoptions, $cmoptions->course);
@@ -265,8 +301,7 @@ class embedded_cloze_qtype extends default_questiontype {
 
         // The regex will recognize text snippets of type {#X}
         // where the X can be any text not containg } or white-space characters.
-
-        while (ereg('\{#([^[:space:]}]*)}', $qtextremaining, $regs)) {
+        while (preg_match('~\{#([^[:space:]}]*)}~', $qtextremaining, $regs)) {
             $qtextsplits = explode($regs[0], $qtextremaining, 2);
             echo $qtextsplits[0];
             echo "<label>"; // MDL-7497
@@ -284,6 +319,7 @@ class embedded_cloze_qtype extends default_questiontype {
             } else {
                 $response = null;
             }
+            //   echo "<p> multianswer positionkey $positionkey response $response state  <pre>";print_r($state);echo "</pre></p>";
 
             // Determine feedback popup if any
             $popup = '';
@@ -293,7 +329,7 @@ class embedded_cloze_qtype extends default_questiontype {
             $correctanswer = '';
             $strfeedbackwrapped  = $strfeedback;
                 $testedstate = clone($state);
-                if ($correctanswers =  $QTYPES[$wrapped->qtype]->get_correct_responses($wrapped, $testedstate)) {
+                if ($correctanswers =  $QTYPES[$wrapped->qtype]->get_correct_responses($wrapped, $state)) {
                     if ($options->readonly && $options->correct_responses) {
                         $delimiter = '';
                         if ($correctanswers) {
@@ -313,12 +349,13 @@ class embedded_cloze_qtype extends default_questiontype {
                             }
                         }
                     }
-                    if ($correctanswer  != '') {
+                    if ($correctanswer != '' ) {
                         $feedback = '<div class="correctness">';
-                        $feedback .= get_string('correctansweris', 'quiz', s($correctanswer, true));
+                        $feedback .= get_string('correctansweris', 'quiz', s($correctanswer));
                         $feedback .= '</div>';
                     }
                 }
+
             if ($options->feedback) {
                 $chosenanswer = null;
                 switch ($wrapped->qtype) {
@@ -413,38 +450,38 @@ class embedded_cloze_qtype extends default_questiontype {
                     */
 
                     echo "<input $style $readonly $popup name=\"$inputname\"";
-                    echo "  type=\"text\" value=\"".s($response, true)."\" ".$styleinfo." /> ";
+                    echo "  type=\"text\" value=\"".s($response)."\" ".$styleinfo." /> ";
                     if (!empty($feedback) && !empty($USER->screenreader)) {
-                        echo "<img src=\"$CFG->pixpath/i/feedback.gif\" alt=\"$feedback\" />";
+                        echo "<img src=\"" . $OUTPUT->pix_url('i/feedback') . "\" alt=\"$feedback\" />";
                     }
                     echo $feedbackimg;
                     break;
                 case 'multichoice':
                  if ($wrapped->options->layout == 0 ){
-                    $outputoptions = '<option></option>'; // Default empty option
-                    foreach ($answers as $mcanswer) {
+                      $outputoptions = '<option></option>'; // Default empty option
+                      foreach ($answers as $mcanswer) {
                         $selected = '';
                         if ($response == $mcanswer->id) {
                             $selected = ' selected="selected"';
                         }
                         $outputoptions .= "<option value=\"$mcanswer->id\"$selected>" .
-                                s($mcanswer->answer, true) . '</option>';
-                    }
-                    // In the next line, $readonly is invalid HTML, but it works in
-                    // all browsers. $disabled would be valid, but then the JS for
-                    // displaying the feedback does not work. Of course, we should
-                    // not be relying on JS (for accessibility reasons), but that is
-                    // a bigger problem.
-                    //
-                    // The span is used for safari, which does not allow styling of
-                    // selects.
-                    echo "<span $style><select $popup $readonly $style name=\"$inputname\">";
-                    echo $outputoptions;
-                    echo '</select></span>';
-                    if (!empty($feedback) && !empty($USER->screenreader)) {
-                        echo "<img src=\"$CFG->pixpath/i/feedback.gif\" alt=\"$feedback\" />";
-                    }
-                    echo $feedbackimg;
+                                s($mcanswer->answer) . '</option>';
+                        }
+                        // In the next line, $readonly is invalid HTML, but it works in
+                        // all browsers. $disabled would be valid, but then the JS for
+                        // displaying the feedback does not work. Of course, we should
+                        // not be relying on JS (for accessibility reasons), but that is
+                        // a bigger problem.
+                        //
+                        // The span is used for safari, which does not allow styling of
+                        // selects.
+                        echo "<span $style><select $popup $readonly $style name=\"$inputname\">";
+                        echo $outputoptions;
+                        echo '</select></span>';
+                        if (!empty($feedback) && !empty($USER->screenreader)) {
+                            echo "<img src=\"" . $OUTPUT->pix_url('i/feedback') . "\" alt=\"$feedback\" />";
+                        }
+                        echo $feedbackimg;
                     }else if ($wrapped->options->layout == 1 || $wrapped->options->layout == 2){
                         $ordernumber=0;
                         $anss =  Array();
@@ -462,7 +499,7 @@ class embedded_cloze_qtype extends default_questiontype {
                             $a->id   = $question->name_prefix . $mcanswer->id;
                             $a->class = '';
                             $a->feedbackimg = '';
-        
+
                     // Print the control
                     $a->control = "<input $readonly id=\"$a->id\" $name $checked $type value=\"$mcanswer->id\" />";
                 if ($options->correct_responses && $mcanswer->fraction > 0) {
@@ -475,18 +512,18 @@ class embedded_cloze_qtype extends default_questiontype {
                         $a->feedbackimg = question_get_feedback_image($mcanswer->fraction, $chosen && $options->feedback);
                     }
                 }
-    
+
                 // Print the answer text: no automatic numbering
 
-                $a->text =format_text($mcanswer->answer, FORMAT_MOODLE, $formatoptions, $cmoptions->course);
-    
+                $a->text = format_text($mcanswer->answer, $mcanswer->answerformat, $formatoptions, $cmoptions->course);
+
                 // Print feedback if feedback is on
                 if (($options->feedback || $options->correct_responses) && ($checked )) { //|| $options->readonly
-                    $a->feedback = format_text($mcanswer->feedback, true, $formatoptions, $cmoptions->course);
+                    $a->feedback = format_text($mcanswer->feedback, $mcanswer->feedbackformat, $formatoptions, $cmoptions->course);
                 } else {
                     $a->feedback = '';
                 }
-    
+
                     $anss[] = clone($a);
                 }
                 ?>
@@ -512,7 +549,7 @@ class embedded_cloze_qtype extends default_questiontype {
                   </table>
                   <?php }else  if ($wrapped->options->layout == 2 ){
                     ?>
-           
+
                   <table class="answer">
                       <tr class="<?php echo 'r'.$row = $row ? 0 : 1; ?>">
                     <?php $row = 1; foreach ($anss as $answer) { ?>
@@ -531,16 +568,16 @@ class embedded_cloze_qtype extends default_questiontype {
                     <?php } ?>
                       </tr>
                   </table>
-                  <?php }  
-                        
+                  <?php }
+
                     }else {
                         echo "no valid layout";
                     }
-                    
+
                     break;
                 default:
                     $a = new stdClass;
-                    $a->type = $wrapped->qtype ; 
+                    $a->type = $wrapped->qtype ;
                     $a->sub = $positionkey;
                     print_error('unknownquestiontypeofsubquestion', 'qtype_multianswer','',$a);
                     break;
@@ -568,15 +605,19 @@ class embedded_cloze_qtype extends default_questiontype {
         $state->raw_grade = 0;
         foreach($question->options->questions as $key => $wrapped) {
             if (!empty($wrapped)){
-            $state->responses[$key] = $state->responses[$key];
-            $teststate->responses = array('' => $state->responses[$key]);
-            $teststate->raw_grade = 0;
-            if (false === $QTYPES[$wrapped->qtype]
-             ->grade_responses($wrapped, $teststate, $cmoptions)) {
-                return false;
+                if(isset($state->responses[$key])){
+                    $state->responses[$key] = $state->responses[$key];
+                }else {
+                    $state->responses[$key] = '' ;
+                }
+                $teststate->responses = array('' => $state->responses[$key]);
+                $teststate->raw_grade = 0;
+                if (false === $QTYPES[$wrapped->qtype]
+                 ->grade_responses($wrapped, $teststate, $cmoptions)) {
+                    return false;
+                }
+                $state->raw_grade += $teststate->raw_grade;
             }
-            $state->raw_grade += $teststate->raw_grade;
-        }
         }
         $state->raw_grade /= $question->defaultgrade;
         $state->raw_grade = min(max((float) $state->raw_grade, 0.0), 1.0)
@@ -601,208 +642,23 @@ class embedded_cloze_qtype extends default_questiontype {
             $teststate->responses = array('' => $state->responses[$key]);
             $correct = $QTYPES[$wrapped->qtype]
              ->get_actual_response($wrapped, $teststate);
-            // change separator here if you want
-            $responsesseparator = ',';
-            $responses[$key] = implode($responsesseparator, $correct);
+            $responses[$key] = implode(';', $correct);
         }
         return $responses;
     }
 
-/// BACKUP FUNCTIONS ////////////////////////////
-
-    /*
-     * Backup the data in the question
-     *
-     * This is used in question/backuplib.php
+    /**
+     * @param object $question
+     * @return mixed either a integer score out of 1 that the average random
+     * guess by a student might give or an empty string which means will not
+     * calculate.
      */
-    function backup($bf,$preferences,$question,$level=6) {
-
-        $status = true;
-
-        $multianswers = get_records("question_multianswer","question",$question,"id");
-        //If there are multianswers
-        if ($multianswers) {
-            //Print multianswers header
-            $status = fwrite ($bf,start_tag("MULTIANSWERS",$level,true));
-            //Iterate over each multianswer
-            foreach ($multianswers as $multianswer) {
-                $status = fwrite ($bf,start_tag("MULTIANSWER",$level+1,true));
-                //Print multianswer contents
-                fwrite ($bf,full_tag("ID",$level+2,false,$multianswer->id));
-                fwrite ($bf,full_tag("QUESTION",$level+2,false,$multianswer->question));
-                fwrite ($bf,full_tag("SEQUENCE",$level+2,false,$multianswer->sequence));
-                $status = fwrite ($bf,end_tag("MULTIANSWER",$level+1,true));
-            }
-            //Print multianswers footer
-            $status = fwrite ($bf,end_tag("MULTIANSWERS",$level,true));
-            //Now print question_answers
-            $status = question_backup_answers($bf,$preferences,$question);
+    function get_random_guess_score($question) {
+        $totalfraction = 0;
+        foreach (array_keys($question->options->questions) as $key){
+            $totalfraction += question_get_random_guess_score($question->options->questions[$key]);
         }
-        return $status;
-    }
-
-/// RESTORE FUNCTIONS /////////////////
-
-    /*
-     * Restores the data in the question
-     *
-     * This is used in question/restorelib.php
-     */
-    function restore($old_question_id,$new_question_id,$info,$restore) {
-
-        $status = true;
-
-        //Get the multianswers array
-        $multianswers = $info['#']['MULTIANSWERS']['0']['#']['MULTIANSWER'];
-        //Iterate over multianswers
-        for($i = 0; $i < sizeof($multianswers); $i++) {
-            $mul_info = $multianswers[$i];
-
-            //We need this later
-            $oldid = backup_todb($mul_info['#']['ID']['0']['#']);
-
-            //Now, build the question_multianswer record structure
-            $multianswer = new stdClass;
-            $multianswer->question = $new_question_id;
-            $multianswer->sequence = backup_todb($mul_info['#']['SEQUENCE']['0']['#']);
-
-            //We have to recode the sequence field (a list of question ids)
-            //Extracts question id from sequence
-            $sequence_field = "";
-            $in_first = true;
-            $tok = strtok($multianswer->sequence,",");
-            while ($tok) {
-                //Get the answer from backup_ids
-                $question = backup_getid($restore->backup_unique_code,"question",$tok);
-                if ($question) {
-                    if ($in_first) {
-                        $sequence_field .= $question->new_id;
-                        $in_first = false;
-                    } else {
-                        $sequence_field .= ",".$question->new_id;
-                    }
-                }
-                //check for next
-                $tok = strtok(",");
-            }
-            //We have the answers field recoded to its new ids
-            $multianswer->sequence = $sequence_field;
-            //The structure is equal to the db, so insert the question_multianswer
-            $newid = insert_record("question_multianswer", $multianswer);
-
-            //Save ids in backup_ids
-            if ($newid) {
-                backup_putid($restore->backup_unique_code,"question_multianswer",
-                             $oldid, $newid);
-            }
-
-            //Do some output
-            if (($i+1) % 50 == 0) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    echo ".";
-                    if (($i+1) % 1000 == 0) {
-                        echo "<br />";
-                    }
-                }
-                backup_flush(300);
-            }
-        }
-
-        return $status;
-    }
-
-    function restore_map($old_question_id,$new_question_id,$info,$restore) {
-
-        $status = true;
-
-        //Get the multianswers array
-        $multianswers = $info['#']['MULTIANSWERS']['0']['#']['MULTIANSWER'];
-        //Iterate over multianswers
-        for($i = 0; $i < sizeof($multianswers); $i++) {
-            $mul_info = $multianswers[$i];
-
-            //We need this later
-            $oldid = backup_todb($mul_info['#']['ID']['0']['#']);
-
-            //Now, build the question_multianswer record structure
-            $multianswer->question = $new_question_id;
-            $multianswer->answers = backup_todb($mul_info['#']['ANSWERS']['0']['#']);
-            $multianswer->positionkey = backup_todb($mul_info['#']['POSITIONKEY']['0']['#']);
-            $multianswer->answertype = backup_todb($mul_info['#']['ANSWERTYPE']['0']['#']);
-            $multianswer->norm = backup_todb($mul_info['#']['NORM']['0']['#']);
-
-            //If we are in this method is because the question exists in DB, so its
-            //multianswer must exist too.
-            //Now, we are going to look for that multianswer in DB and to create the
-            //mappings in backup_ids to use them later where restoring states (user level).
-
-            //Get the multianswer from DB (by question and positionkey)
-            $db_multianswer = get_record ("question_multianswer","question",$new_question_id,
-                                                      "positionkey",$multianswer->positionkey);
-            //Do some output
-            if (($i+1) % 50 == 0) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    echo ".";
-                    if (($i+1) % 1000 == 0) {
-                        echo "<br />";
-                    }
-                }
-                backup_flush(300);
-            }
-
-            //We have the database multianswer, so update backup_ids
-            if ($db_multianswer) {
-                //We have the newid, update backup_ids
-                backup_putid($restore->backup_unique_code,"question_multianswer",$oldid,
-                             $db_multianswer->id);
-            } else {
-                $status = false;
-            }
-        }
-
-        return $status;
-    }
-
-    function restore_recode_answer($state, $restore) {
-        //The answer is a comma separated list of hypen separated sequence number and answers. We may have to recode the answers
-        $answer_field = "";
-        $in_first = true;
-        $tok = strtok($state->answer,",");
-        while ($tok) {
-            //Extract the multianswer_id and the answer
-            $exploded = explode("-",$tok);
-            $seqnum = $exploded[0];
-            $answer = $exploded[1];
-            // $sequence is an ordered array of the question ids.
-            if (!$sequence = get_field('question_multianswer', 'sequence', 'question', $state->question)) {
-                print_error('missingoption', 'question', '', $state->question);
-            }
-            $sequence = explode(',', $sequence);
-            // The id of the current question.
-            $wrappedquestionid = $sequence[$seqnum-1];
-            // now we can find the question
-            if (!$wrappedquestion = get_record('question', 'id', $wrappedquestionid)) {
-                notify("Can't find the subquestion $wrappedquestionid that is used as part $seqnum in cloze question $state->question");
-            }
-            // For multichoice question we need to recode the answer
-            if ($answer and $wrappedquestion->qtype == 'multichoice') {
-                //The answer is an answer_id, look for it in backup_ids
-                if (!$ans = backup_getid($restore->backup_unique_code,"question_answers",$answer)) {
-                    echo 'Could not recode cloze multichoice answer '.$answer.'<br />';
-                }
-                $answer = $ans->new_id;
-            }
-            //build the new answer field for each pair
-            if ($in_first) {
-                $answer_field .= $seqnum."-".$answer;
-                $in_first = false;
-            } else {
-                $answer_field .= ",".$seqnum."-".$answer;
-            }
-            //check for next
-            $tok = strtok(",");
-        }
-        return $answer_field;
+        return $totalfraction / count($question->options->questions);
     }
 
     /**
@@ -810,6 +666,7 @@ class embedded_cloze_qtype extends default_questiontype {
      * Alternate DB table prefix may be used to facilitate data deletion.
      */
     function generate_test($name, $courseid = null) {
+        global $DB;
         list($form, $question) = parent::generate_test($name, $courseid);
         $question->category = $form->category;
         $form->questiontext = "This question consists of some text with an answer embedded right here {1:MULTICHOICE:Wrong answer#Feedback for this wrong answer~Another wrong answer#Feedback for the other wrong answer~=Correct answer#Feedback for correct answer~%50%Answer that gives half the credit#Feedback for half credit answer} and right after that you will have to deal with this short answer {1:SHORTANSWER:Wrong answer#Feedback for this wrong answer~=Correct answer#Feedback for correct answer~%50%Answer that gives half the credit#Feedback for half credit answer} and finally we have a floating point number {2:NUMERICAL:=23.8:0.1#Feedback for correct answer 23.8~%50%23.8:2#Feedback for half credit answer in the nearby region of the correct answer}.
@@ -827,10 +684,10 @@ Good luck!
         $form->versioning = 0;
 
         if ($courseid) {
-            $course = get_record('course', 'id', $courseid);
+            $course = $DB->get_record('course', array('id' => $courseid));
         }
 
-        return $this->save_question($question, $form, $course);
+        return $this->save_question($question, $form);
     }
 
 }
@@ -905,22 +762,34 @@ define("ANSWER_REGEX_ANSWER_TYPE_SHORTANSWER_C", 8);
 define("ANSWER_REGEX_ALTERNATIVES", 9);
 
 function qtype_multianswer_extract_question($text) {
+    // $text is an array [text][format][itemid]
     $question = new stdClass;
     $question->qtype = 'multianswer';
     $question->questiontext = $text;
-    $question->options->questions = array();
+    $question->generalfeedback['text'] = '';
+    $question->generalfeedback['format'] = '1';
+    $question->generalfeedback['itemid'] = '';
+    
+    $question->options->questions = array();    
     $question->defaultgrade = 0; // Will be increased for each answer norm
 
-    for ($positionkey=1
-        ; preg_match('/'.ANSWER_REGEX.'/', $question->questiontext, $answerregs)
-        ; ++$positionkey ) {
+    for ($positionkey=1; preg_match('/'.ANSWER_REGEX.'/', $question->questiontext['text'], $answerregs); ++$positionkey ) {
         $wrapped = new stdClass;
-        $wrapped->defaultgrade = $answerregs[ANSWER_REGEX_NORM]
-            or $wrapped->defaultgrade = '1';
+        $wrapped->generalfeedback['text'] = '';
+        $wrapped->generalfeedback['format'] = '1';
+        $wrapped->generalfeedback['itemid'] = '';
+        if (isset($answerregs[ANSWER_REGEX_NORM])&& $answerregs[ANSWER_REGEX_NORM]!== ''){
+            $wrapped->defaultgrade = $answerregs[ANSWER_REGEX_NORM];
+        } else {
+            $wrapped->defaultgrade = '1';
+        }
         if (!empty($answerregs[ANSWER_REGEX_ANSWER_TYPE_NUMERICAL])) {
             $wrapped->qtype = 'numerical';
             $wrapped->multiplier = array();
             $wrapped->units      = array();
+            $wrapped->instructions['text'] = '';
+            $wrapped->instructions['format'] = '1';
+            $wrapped->instructions['itemid'] = '';
         } else if(!empty($answerregs[ANSWER_REGEX_ANSWER_TYPE_SHORTANSWER])) {
             $wrapped->qtype = 'shortanswer';
             $wrapped->usecase = 0;
@@ -931,25 +800,43 @@ function qtype_multianswer_extract_question($text) {
             $wrapped->qtype = 'multichoice';
             $wrapped->single = 1;
             $wrapped->answernumbering = 0;
-            $wrapped->correctfeedback = '';
-            $wrapped->partiallycorrectfeedback = '';
-            $wrapped->incorrectfeedback = '';
+            $wrapped->correctfeedback['text'] = '';
+            $wrapped->correctfeedback['format'] = '1';
+            $wrapped->correctfeedback['itemid'] = '';
+            $wrapped->partiallycorrectfeedback['text'] = '';
+            $wrapped->partiallycorrectfeedback['format'] = '1';
+            $wrapped->partiallycorrectfeedback['itemid'] = '';
+            $wrapped->incorrectfeedback['text'] = '';
+            $wrapped->incorrectfeedback['format'] = '1';
+            $wrapped->incorrectfeedback['itemid'] = '';
             $wrapped->layout = 0;
         } else if(!empty($answerregs[ANSWER_REGEX_ANSWER_TYPE_MULTICHOICE_REGULAR])) {
             $wrapped->qtype = 'multichoice';
             $wrapped->single = 1;
             $wrapped->answernumbering = 0;
-            $wrapped->correctfeedback = '';
-            $wrapped->partiallycorrectfeedback = '';
-            $wrapped->incorrectfeedback = '';
+            $wrapped->correctfeedback['text'] = '';
+            $wrapped->correctfeedback['format'] = '1';
+            $wrapped->correctfeedback['itemid'] = '';
+            $wrapped->partiallycorrectfeedback['text'] = '';
+            $wrapped->partiallycorrectfeedback['format'] = '1';
+            $wrapped->partiallycorrectfeedback['itemid'] = '';
+            $wrapped->incorrectfeedback['text'] = '';
+            $wrapped->incorrectfeedback['format'] = '1';
+            $wrapped->incorrectfeedback['itemid'] = '';
             $wrapped->layout = 1;
         } else if(!empty($answerregs[ANSWER_REGEX_ANSWER_TYPE_MULTICHOICE_HORIZONTAL])) {
             $wrapped->qtype = 'multichoice';
             $wrapped->single = 1;
             $wrapped->answernumbering = 0;
-            $wrapped->correctfeedback = '';
-            $wrapped->partiallycorrectfeedback = '';
-            $wrapped->incorrectfeedback = '';
+            $wrapped->correctfeedback['text'] = '';
+            $wrapped->correctfeedback['format'] = '1';
+            $wrapped->correctfeedback['itemid'] = '';
+            $wrapped->partiallycorrectfeedback['text'] = '';
+            $wrapped->partiallycorrectfeedback['format'] = '1';
+            $wrapped->partiallycorrectfeedback['itemid'] = '';
+            $wrapped->incorrectfeedback['text'] = '';
+            $wrapped->incorrectfeedback['format'] = '1';
+            $wrapped->incorrectfeedback['itemid'] = '';
             $wrapped->layout = 2;
         } else {
             print_error('unknownquestiontype', 'question', '', $answerregs[2]);
@@ -963,50 +850,60 @@ function qtype_multianswer_extract_question($text) {
         $wrapped->fraction = array();
         $wrapped->feedback = array();
         $wrapped->shuffleanswers = 1;
-        $wrapped->questiontext = $answerregs[0];
-        $wrapped->questiontextformat = 0;
+        $wrapped->questiontext['text'] = $answerregs[0];
+        $wrapped->questiontext['format'] = 0 ;
+        $wrapped->questiontext['itemid'] = '' ;
+        $answerindex = 0 ;
 
         $remainingalts = $answerregs[ANSWER_REGEX_ALTERNATIVES];
         while (preg_match('/~?'.ANSWER_ALTERNATIVE_REGEX.'/', $remainingalts, $altregs)) {
             if ('=' == $altregs[ANSWER_ALTERNATIVE_REGEX_FRACTION]) {
-                $wrapped->fraction[] = '1';
+                $wrapped->fraction["$answerindex"] = '1';
             } else if ($percentile = $altregs[ANSWER_ALTERNATIVE_REGEX_PERCENTILE_FRACTION]){
-                $wrapped->fraction[] = .01 * $percentile;
+                $wrapped->fraction["$answerindex"] = .01 * $percentile;
             } else {
-                $wrapped->fraction[] = '0';
+                $wrapped->fraction["$answerindex"] = '0';
             }
             if (isset($altregs[ANSWER_ALTERNATIVE_REGEX_FEEDBACK])) {
                 $feedback = html_entity_decode($altregs[ANSWER_ALTERNATIVE_REGEX_FEEDBACK], ENT_QUOTES, 'UTF-8');
                 $feedback = str_replace('\}', '}', $feedback);
-                $wrapped->feedback[] = str_replace('\#', '#', $feedback);
+                $wrapped->feedback["$answerindex"]['text'] = str_replace('\#', '#', $feedback);
+                $wrapped->feedback["$answerindex"]['format'] = '1';
+                $wrapped->feedback["$answerindex"]['itemid'] = '';
             } else {
-                $wrapped->feedback[] = '';
+                $wrapped->feedback["$answerindex"]['text'] = '';
+                $wrapped->feedback["$answerindex"]['format'] = '1';
+                $wrapped->feedback["$answerindex"]['itemid'] = '1';
+
             }
             if (!empty($answerregs[ANSWER_REGEX_ANSWER_TYPE_NUMERICAL])
-                    && ereg(NUMERICAL_ALTERNATIVE_REGEX, $altregs[ANSWER_ALTERNATIVE_REGEX_ANSWER], $numregs)) {
+                    && preg_match('~'.NUMERICAL_ALTERNATIVE_REGEX.'~', $altregs[ANSWER_ALTERNATIVE_REGEX_ANSWER], $numregs)) {
                 $wrapped->answer[] = $numregs[NUMERICAL_CORRECT_ANSWER];
                 if ($numregs[NUMERICAL_ABS_ERROR_MARGIN]) {
-                    $wrapped->tolerance[] =
+                    $wrapped->tolerance["$answerindex"] =
                     $numregs[NUMERICAL_ABS_ERROR_MARGIN];
                 } else {
-                    $wrapped->tolerance[] = 0;
+                    $wrapped->tolerance["$answerindex"] = 0;
                 }
             } else { // Tolerance can stay undefined for non numerical questions
                 // Undo quoting done by the HTML editor.
                 $answer = html_entity_decode($altregs[ANSWER_ALTERNATIVE_REGEX_ANSWER], ENT_QUOTES, 'UTF-8');
                 $answer = str_replace('\}', '}', $answer);
-                $wrapped->answer[] = str_replace('\#', '#', $answer);
+                $wrapped->answer["$answerindex"] = str_replace('\#', '#', $answer);
             }
             $tmp = explode($altregs[0], $remainingalts, 2);
             $remainingalts = $tmp[1];
+            $answerindex++ ;
         }
 
         $question->defaultgrade += $wrapped->defaultgrade;
         $question->options->questions[$positionkey] = clone($wrapped);
-        $question->questiontext = implode("{#$positionkey}",
-                    explode($answerregs[0], $question->questiontext, 2));
+        $question->questiontext['text'] = implode("{#$positionkey}",
+                    explode($answerregs[0], $question->questiontext['text'], 2));
+//    echo"<p>questiontext 2 <pre>";print_r($question->questiontext);echo"<pre></p>";
     }
+//    echo"<p>questiontext<pre>";print_r($question->questiontext);echo"<pre></p>";
     $question->questiontext = $question->questiontext;
+//    echo"<p>question<pre>";print_r($question);echo"<pre></p>";
     return $question;
 }
-?>

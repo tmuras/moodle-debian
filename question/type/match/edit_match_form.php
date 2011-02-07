@@ -1,4 +1,4 @@
-<?php  // $Id: edit_match_form.php,v 1.8.2.6 2009/02/19 01:09:34 tjhunt Exp $
+<?php
 /**
  * Defines the editing form for the match question type.
  *
@@ -17,7 +17,7 @@ class question_edit_match_form extends question_edit_form {
     function get_per_answer_fields(&$mform, $label, $gradeoptions, &$repeatedoptions, &$answersoption) {
         $repeated = array();
         $repeated[] =& $mform->createElement('header', 'answerhdr', $label);
-        $repeated[] =& $mform->createElement('textarea', 'subquestions', get_string('question', 'quiz'), array('cols'=>40, 'rows'=>3));
+        $repeated[] =& $mform->createElement('editor', 'subquestions', get_string('question', 'quiz'), null, $this->editoroptions);
         $repeated[] =& $mform->createElement('text', 'subanswers', get_string('answer', 'quiz'), array('size'=>50));
         $repeatedoptions['subquestions']['type'] = PARAM_RAW;
         $repeatedoptions['subanswers']['type'] = PARAM_TEXT;
@@ -31,8 +31,8 @@ class question_edit_match_form extends question_edit_form {
      * @param object $mform the form being built.
      */
     function definition_inner(&$mform) {
-        $mform->addElement('advcheckbox', 'shuffleanswers', get_string('shuffle', 'quiz'), null, null, array(0,1));
-        $mform->setHelpButton('shuffleanswers', array('matchshuffle', get_string('shuffle','quiz'), 'quiz'));
+        $mform->addElement('advcheckbox', 'shuffleanswers', get_string('shuffle', 'qtype_match'), null, null, array(0,1));
+        $mform->addHelpButton('shuffleanswers', 'shuffle', 'qtype_match');
         $mform->setDefault('shuffleanswers', 1);
 
         $mform->addElement('static', 'answersinstruct', get_string('choices', 'quiz'), get_string('filloutthreeqsandtwoas', 'qtype_match'));
@@ -41,21 +41,35 @@ class question_edit_match_form extends question_edit_form {
         $this->add_per_answer_fields($mform, get_string('questionno', 'quiz', '{no}'), 0);
     }
 
-    function set_data($question) {
-        if (isset($question->options)){
+    function data_preprocessing($question) {
+        if (isset($question->options)) {
             $subquestions = $question->options->subquestions;
             if (count($subquestions)) {
                 $key = 0;
                 foreach ($subquestions as $subquestion){
                     $default_values['subanswers['.$key.']'] = $subquestion->answertext;
-                    $default_values['subquestions['.$key.']'] = $subquestion->questiontext;
+
+                    $draftid = file_get_submitted_draft_itemid('subquestions['.$key.']');
+                    $default_values['subquestions['.$key.']'] = array();
+                    $default_values['subquestions['.$key.']']['format'] = $subquestion->questiontextformat;
+                    $default_values['subquestions['.$key.']']['text'] = file_prepare_draft_area(
+                        $draftid, // draftid
+                        $this->context->id, // context
+                        'qtype_match', // component
+                        'subquestion', // filarea
+                        !empty($subquestion->id)?(int)$subquestion->id:null, // itemid
+                        $this->fileoptions, // options
+                        $subquestion->questiontext // text
+                    );
+                    $default_values['subquestions['.$key.']']['itemid'] = $draftid;
+
                     $key++;
                 }
             }
             $default_values['shuffleanswers'] =  $question->options->shuffleanswers;
             $question = (object)((array)$question + $default_values);
         }
-        parent::set_data($question);
+        return $question;
     }
 
     function qtype() {
@@ -69,7 +83,7 @@ class question_edit_match_form extends question_edit_form {
         $questioncount = 0;
         $answercount = 0;
         foreach ($questions as $key => $question){
-            $trimmedquestion = trim($question);
+            $trimmedquestion = trim($question['text']);
             $trimmedanswer = trim($answers[$key]);
             if ($trimmedquestion != ''){
                 $questioncount++;
@@ -96,4 +110,3 @@ class question_edit_match_form extends question_edit_form {
         return $errors;
     }
 }
-?>

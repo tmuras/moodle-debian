@@ -1,4 +1,4 @@
-<?php  // $Id: report.php,v 1.45.2.2 2008/05/01 07:40:54 jamiesensei Exp $
+<?php
 
 // This script uses installed report plugins to print quiz reports
 
@@ -9,47 +9,65 @@
     $id = optional_param('id',0,PARAM_INT);    // Course Module ID, or
     $q = optional_param('q',0,PARAM_INT);     // quiz ID
 
-    $mode = optional_param('mode', 'overview', PARAM_ALPHA);        // Report mode
+    $mode = optional_param('mode', '', PARAM_ALPHA);        // Report mode
 
     if ($id) {
         if (! $cm = get_coursemodule_from_id('quiz', $id)) {
-            error("There is no coursemodule with id $id");
+            print_error('invalidcoursemodule');
         }
 
-        if (! $course = get_record("course", "id", $cm->course)) {
-            error("Course is misconfigured");
+        if (! $course = $DB->get_record('course', array('id' => $cm->course))) {
+            print_error('coursemisconf');
         }
 
-        if (! $quiz = get_record("quiz", "id", $cm->instance)) {
-            error("The quiz with id $cm->instance corresponding to this coursemodule $id is missing");
+        if (! $quiz = $DB->get_record('quiz', array('id' => $cm->instance))) {
+            print_error('invalidcoursemodule');
         }
 
     } else {
-        if (! $quiz = get_record("quiz", "id", $q)) {
-            error("There is no quiz with id $q");
+        if (! $quiz = $DB->get_record('quiz', array('id' => $q))) {
+            print_error('invalidquizid', 'quiz');
         }
-        if (! $course = get_record("course", "id", $quiz->course)) {
-            error("The course with id $quiz->course that the quiz with id $q belongs to is missing");
+        if (! $course = $DB->get_record('course', array('id' => $quiz->course))) {
+            print_error('invalidcourseid');
         }
         if (! $cm = get_coursemodule_from_instance("quiz", $quiz->id, $course->id)) {
-            error("The course module for the quiz with id $q is missing");
+            print_error('invalidcoursemodule');
         }
     }
 
+    $url = new moodle_url('/mod/quiz/report.php', array('id' => $cm->id));
+    if ($mode !== '') {
+        $url->param('mode', $mode);
+    }
+    $PAGE->set_url($url);
+
     require_login($course, false, $cm);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-    require_capability('mod/quiz:viewreports', $context);
+    $PAGE->set_pagelayout('report');
+
+    $reportlist = quiz_report_list($context);
+    if (count($reportlist)==0){
+        print_error('erroraccessingreport', 'quiz');
+    }
+    if ($mode == '') {
+        // Default to first accessible report and redirect.
+        $url->param('mode', reset($reportlist));
+        redirect($url);
+    } else if (!in_array($mode, $reportlist)){
+        print_error('erroraccessingreport', 'quiz');
+    }
 
     // if no questions have been set up yet redirect to edit.php
     if (!$quiz->questions and has_capability('mod/quiz:manage', $context)) {
-        redirect('edit.php?cmid='.$cm->id);
+        redirect('edit.php?cmid=' . $cm->id);
     }
 
     // Upgrade any attempts that have not yet been upgraded to the
     // Moodle 1.5 model (they will not yet have the timestamp set)
-    if ($attempts = get_records_sql("SELECT a.*".
-           "  FROM {$CFG->prefix}quiz_attempts a, {$CFG->prefix}question_states s".
-           " WHERE a.quiz = '$quiz->id' AND s.attempt = a.uniqueid AND s.timestamp = 0")) {
+    if ($attempts = $DB->get_records_sql("SELECT a.*".
+           "  FROM {quiz_attempts} a, {question_states} s".
+           " WHERE a.quiz = ? AND s.attempt = a.uniqueid AND s.timestamp = 0", array($quiz->id))) {
         foreach ($attempts as $attempt) {
             quiz_upgrade_states($attempt);
         }
@@ -59,23 +77,22 @@
 
 /// Open the selected quiz report and display it
 
-    $mode = clean_param($mode, PARAM_SAFEDIR);
-
-    if (! is_readable("report/$mode/report.php")) {
-        error("Report not known ($mode)");
+    if (!is_readable("report/$mode/report.php")) {
+        print_error('reportnotfound', 'quiz', '', $mode);
     }
 
-    include("report/default.php");  // Parent class
+    include("report/default.php"); // Parent class
     include("report/$mode/report.php");
 
-    $report = new quiz_report();
+    $reportclassname = "quiz_{$mode}_report";
+    $report = new $reportclassname();
 
-    if (! $report->display($quiz, $cm, $course)) {             // Run the report!
-        error("Error occurred during pre-processing!");
+    if (!$report->display($quiz, $cm, $course)) { // Run the report!
+        print_error("preprocesserror", 'quiz');
     }
 
 /// Print footer
 
-    print_footer($course);
+    echo $OUTPUT->footer();
 
-?>
+

@@ -1,15 +1,39 @@
-<?php // $Id: format.php,v 1.41.2.13 2009/11/19 10:46:40 skodak Exp $
+<?php
+
+// This file is part of Moodle - http://moodle.org/
 //
-///////////////////////////////////////////////////////////////
-// XML import/export
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-//////////////////////////////////////////////////////////////////////////
-// Based on default.php, included by ../import.php
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
 /**
- * @package questionbank
- * @subpackage importexport
+ * Moodle XML question importer.
+ *
+ * @package qformat
+ * @subpackage qformat_xml
+ * @copyright  1999 onwards Martin Dougiamas {@link http://moodle.com}
+ * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-require_once( "$CFG->libdir/xmlize.php" );
+
+
+/**
+ * Importer for Moodle XML question format.
+ *
+ * See http://docs.moodle.org/en/Moodle_XML_format for a description of the format.
+ *
+ * @copyright  1999 onwards Martin Dougiamas {@link http://moodle.com}
+ * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+require_once($CFG->libdir . '/xmlize.php');
 
 class qformat_xml extends qformat_default {
 
@@ -21,6 +45,10 @@ class qformat_xml extends qformat_default {
         return true;
     }
 
+    function mime_type() {
+        return 'application/xml';
+    }
+
     // IMPORT FUNCTIONS START HERE
 
     /**
@@ -29,25 +57,20 @@ class qformat_xml extends qformat_default {
      * @param string name format name from xml file
      * @return int Moodle format code
      */
-    function trans_format( $name ) {
+    function trans_format($name) {
         $name = trim($name);
 
-        if ($name=='moodle_auto_format') {
+        if ($name == 'moodle_auto_format') {
             $id = 0;
-        }
-        elseif ($name=='html') {
+        } else if ($name == 'html') {
             $id = 1;
-        }
-        elseif ($name=='plain_text') {
+        } else if ($name == 'plain_text') {
             $id = 2;
-        }
-        elseif ($name=='wiki_like') {
+        } else if ($name == 'wiki_like') {
             $id = 3;
-        }
-        elseif ($name=='markdown') {
+        } else if ($name == 'markdown') {
             $id = 4;
-        }
-        else {
+        } else {
             $id = 0; // or maybe warning required
         }
         return $id;
@@ -79,7 +102,7 @@ class qformat_xml extends qformat_default {
             return '';
         }
         $data = $text[0]['#'];
-        return addslashes(trim( $data ));
+        return trim($data);
     }
 
     /**
@@ -92,7 +115,7 @@ class qformat_xml extends qformat_default {
      * @param string error if set value must exist, return false and issue message if not
      * @return mixed value
      */
-    function getpath( $xml, $path, $default, $istext=false, $error='' ) {
+    function getpath($xml, $path, $default, $istext=false, $error='') {
         foreach ($path as $index) {
             if (!isset($xml[$index])) {
                 if (!empty($error)) {
@@ -108,7 +131,7 @@ class qformat_xml extends qformat_default {
             if (!is_string($xml)) {
                 $this->error( get_string('invalidxml','qformat_xml') );
             }
-            $xml = addslashes( trim( $xml ) );
+            $xml = trim($xml);
         }
 
         return $xml;
@@ -120,26 +143,72 @@ class qformat_xml extends qformat_default {
      * @param $question array question question array from xml tree
      * @return object question object
      */
-    function import_headers( $question ) {
+    function import_headers($question) {
+        global $CFG;
+
         // get some error strings
-        $error_noname = get_string( 'xmlimportnoname','quiz' );
-        $error_noquestion = get_string( 'xmlimportnoquestion','quiz' );
+        $error_noname = get_string('xmlimportnoname','quiz');
+        $error_noquestion = get_string('xmlimportnoquestion','quiz');
 
         // this routine initialises the question object
         $qo = $this->defaultquestion();
 
         // question name
         $qo->name = $this->getpath( $question, array('#','name',0,'#','text',0,'#'), '', true, $error_noname );
-        $qo->questiontext = $this->getpath( $question, array('#','questiontext',0,'#','text',0,'#'), '', true );
-        $qo->questiontextformat = $this->getpath( $question, array('#','questiontext',0,'@','format'), '' );
-        $qo->image = $this->getpath( $question, array('#','image',0,'#'), $qo->image );
-        $image_base64 = $this->getpath( $question, array('#','image_base64','0','#'),'' );
-        if (!empty($image_base64)) {
-            $qo->image = $this->importimagefile( $qo->image, stripslashes($image_base64) );
+        $qo->questiontext       = $this->getpath($question, array('#','questiontext',0,'#','text',0,'#'), '', true );
+        $qo->questiontextformat = $this->trans_format(
+                $this->getpath($question, array('#','questiontext',0,'@','format'), 'moodle_auto_format'));
+
+        $qo->questiontextfiles = array();
+
+        // restore files in questiontext
+        $files = $this->getpath($question, array('#', 'questiontext', 0, '#','file'), array(), false);
+        foreach ($files as $file) {
+            $data = new stdclass;
+            $data->content = $file['#'];
+            $data->encoding = $file['@']['encoding'];
+            $data->name = $file['@']['name'];
+            $qo->questiontextfiles[] = $data;
         }
-        $qo->generalfeedback = $this->getpath( $question, array('#','generalfeedback',0,'#','text',0,'#'), $qo->generalfeedback, true );
+
+        // Backwards compatibility, deal with the old image tag.
+        $filedata = $this->getpath($question, array('#', 'image_base64', '0', '#'), null, false);
+        $filename = $this->getpath($question, array('#', 'image', '0', '#'), null, false);
+        if ($filedata && $filename) {
+            $data = new stdclass;
+            $data->content = $filedata;
+            $data->encoding = 'base64';
+            $data->name = $filename;
+            $qo->questiontextfiles[] = $data;
+            $qo->questiontext .= ' <img src="@@PLUGINFILE@@/' . $filename . '" />';
+        }
+
+        // restore files in generalfeedback
+        $qo->generalfeedback = $this->getpath($question, array('#','generalfeedback',0,'#','text',0,'#'), $qo->generalfeedback, true);
+        $qo->generalfeedbackfiles = array();
+        $qo->generalfeedbackformat = $this->trans_format(
+                $this->getpath($question, array('#', 'generalfeedback', 0, '@', 'format'), 'moodle_auto_format'));
+        $files = $this->getpath($question, array('#', 'generalfeedback', 0, '#', 'file'), array(), false);
+        foreach ($files as $file) {
+            $data = new stdclass;
+            $data->content = $file['#'];
+            $data->encoding = $file['@']['encoding'];
+            $data->name = $file['@']['name'];
+            $qo->generalfeedbackfiles[] = $data;
+        }
+
         $qo->defaultgrade = $this->getpath( $question, array('#','defaultgrade',0,'#'), $qo->defaultgrade );
         $qo->penalty = $this->getpath( $question, array('#','penalty',0,'#'), $qo->penalty );
+
+        // Read the question tags.
+        if (!empty($CFG->usetags) && array_key_exists('tags', $question['#'])
+                && !empty($question['#']['tags'][0]['#']['tag'])) {
+            require_once($CFG->dirroot.'/tag/lib.php');
+            $qo->tags = array();
+            foreach ($question['#']['tags'][0]['#']['tag'] as $tagdata) {
+                $qo->tags[] = $this->getpath($tagdata, array('#', 'text', 0, '#'), '', true);
+            }
+        }
 
         return $qo;
     }
@@ -149,15 +218,47 @@ class qformat_xml extends qformat_default {
      * @param array answer xml tree for single answer
      * @return object answer object
      */
-    function import_answer( $answer ) {
-        $fraction = $this->getpath( $answer, array('@','fraction'),0 );
-        $text = $this->getpath( $answer, array('#','text',0,'#'), '', true );
-        $feedback = $this->getpath( $answer, array('#','feedback',0,'#','text',0,'#'), '', true );
+    function import_answer($answer) {
+        $fraction = $this->getpath($answer, array('@', 'fraction'), 0);
+        $answertext = $this->getpath($answer, array('#', 'text', 0, '#'), '', true);
+        $answerformat = $this->trans_format($this->getpath($answer,
+                array('#', 'text', 0, '#'), 'moodle_auto_format'));
+        $answerfiles = array();
+        $files = $this->getpath($answer, array('#', 'answer', 0, '#', 'file'), array());
+        foreach ($files as $file) {
+            $data = new stdclass;
+            $data->content = $file['#'];
+            $data->name = $file['@']['name'];
+            $data->encoding = $file['@']['encoding'];
+            $answerfiles[] = $data;
+        }
 
-        $ans = null;
-        $ans->answer = $text;
+        $feedbacktext = $this->getpath($answer, array('#', 'feedback', 0, '#', 'text', 0, '#'), '', true);
+        $feedbackformat = $this->trans_format($this->getpath($answer,
+                array('#', 'feedback', 0, '@', 'format'), 'moodle_auto_format'));
+        $feedbackfiles = array();
+        $files = $this->getpath($answer, array('#', 'feedback', 0, '#', 'file'), array());
+        foreach ($files as $file) {
+            $data = new stdclass;
+            $data->content = $file['#'];
+            $data->name = $file['@']['name'];
+            $data->encoding = $file['@']['encoding'];
+            $feedbackfiles[] = $data;
+        }
+
+        $ans = new stdclass;
+
+        $ans->answer = array();
+        $ans->answer['text']   = $answertext;
+        $ans->answer['format'] = $answerformat;
+        $ans->answer['files']  = $answerfiles;
+
+        $ans->feedback = array();
+        $ans->feedback['text']   = $feedbacktext;
+        $ans->feedback['format'] = $feedbackformat;
+        $ans->feedback['files']  = $feedbackfiles;
+
         $ans->fraction = $fraction / 100;
-        $ans->feedback = $feedback;
         return $ans;
     }
 
@@ -166,9 +267,9 @@ class qformat_xml extends qformat_default {
      * @param array question question array from xml tree
      * @return object question object
      */
-    function import_multichoice( $question ) {
+    function import_multichoice($question) {
         // get common parts
-        $qo = $this->import_headers( $question );
+        $qo = $this->import_headers($question);
 
         // 'header' parts particular to multichoice
         $qo->qtype = MULTICHOICE;
@@ -177,9 +278,51 @@ class qformat_xml extends qformat_default {
         $shuffleanswers = $this->getpath( $question, array('#','shuffleanswers',0,'#'), 'false' );
         $qo->answernumbering = $this->getpath( $question, array('#','answernumbering',0,'#'), 'abc' );
         $qo->shuffleanswers = $this->trans_single($shuffleanswers);
-        $qo->correctfeedback = $this->getpath( $question, array('#','correctfeedback',0,'#','text',0,'#'), '', true );
-        $qo->partiallycorrectfeedback = $this->getpath( $question, array('#','partiallycorrectfeedback',0,'#','text',0,'#'), '', true );
-        $qo->incorrectfeedback = $this->getpath( $question, array('#','incorrectfeedback',0,'#','text',0,'#'), '', true );
+
+        $qo->correctfeedback = array();
+        $qo->correctfeedback['text'] = $this->getpath($question, array('#', 'correctfeedback', 0, '#', 'text', 0, '#'), '', true);
+        $qo->correctfeedback['format'] = $this->trans_format(
+                $this->getpath($question, array('#', 'correctfeedback', 0, '@', 'format'), 'moodle_auto_format'));
+        $qo->correctfeedback['files'] = array();
+        // restore files in correctfeedback
+        $files = $this->getpath($question, array('#', 'correctfeedback', 0, '#','file'), array(), false);
+        foreach ($files as $file) {
+            $data = new stdclass;
+            $data->content = $file['#'];
+            $data->encoding = $file['@']['encoding'];
+            $data->name = $file['@']['name'];
+            $qo->correctfeedback['files'][] = $data;
+        }
+
+        $qo->partiallycorrectfeedback = array();
+        $qo->partiallycorrectfeedback['text'] = $this->getpath( $question, array('#','partiallycorrectfeedback',0,'#','text',0,'#'), '', true );
+        $qo->partiallycorrectfeedback['format'] = $this->trans_format(
+                $this->getpath($question, array('#', 'partiallycorrectfeedback', 0, '@', 'format'), 'moodle_auto_format'));
+        $qo->partiallycorrectfeedback['files'] = array();
+        // restore files in partiallycorrectfeedback
+        $files = $this->getpath($question, array('#', 'partiallycorrectfeedback', 0, '#','file'), array(), false);
+        foreach ($files as $file) {
+            $data = new stdclass;
+            $data->content = $file['#'];
+            $data->encoding = $file['@']['encoding'];
+            $data->name = $file['@']['name'];
+            $qo->partiallycorrectfeedback['files'][] = $data;
+        }
+
+        $qo->incorrectfeedback = array();
+        $qo->incorrectfeedback['text'] = $this->getpath( $question, array('#','incorrectfeedback',0,'#','text',0,'#'), '', true );
+        $qo->incorrectfeedback['format'] = $this->trans_format(
+                $this->getpath($question, array('#', 'incorrectfeedback', 0, '@', 'format'), 'moodle_auto_format'));
+        $qo->incorrectfeedback['files'] = array();
+        // restore files in incorrectfeedback
+        $files = $this->getpath($question, array('#', 'incorrectfeedback', 0, '#','file'), array(), false);
+        foreach ($files as $file) {
+            $data = new stdclass;
+            $data->content = $file['#'];
+            $data->encoding = $file['@']['encoding'];
+            $data->name = $file['@']['name'];
+            $qo->incorrectfeedback['files'][] = $data;
+        }
 
         // There was a time on the 1.8 branch when it could output an empty answernumbering tag, so fix up any found.
         if (empty($qo->answernumbering)) {
@@ -190,12 +333,13 @@ class qformat_xml extends qformat_default {
         $answers = $question['#']['answer'];
         $a_count = 0;
         foreach ($answers as $answer) {
-            $ans = $this->import_answer( $answer );
+            $ans = $this->import_answer($answer);
             $qo->answer[$a_count] = $ans->answer;
             $qo->fraction[$a_count] = $ans->fraction;
             $qo->feedback[$a_count] = $ans->feedback;
             ++$a_count;
         }
+
         return $qo;
     }
 
@@ -205,17 +349,34 @@ class qformat_xml extends qformat_default {
      * @return object question object
      */
     function import_multianswer( $questions ) {
-        $questiontext = $questions['#']['questiontext'][0]['#']['text'];
-        $qo = qtype_multianswer_extract_question($this->import_text($questiontext));
+        $questiontext = array();
+        $questiontext['text'] = $this->import_text($questions['#']['questiontext'][0]['#']['text']);
+        $questiontext['format'] = '1';
+        $questiontext['itemid'] = ''; 
+        $qo = qtype_multianswer_extract_question($questiontext);
 
         // 'header' parts particular to multianswer
         $qo->qtype = MULTIANSWER;
         $qo->course = $this->course;
-        $qo->generalfeedback = $this->getpath( $questions, array('#','generalfeedback',0,'#','text',0,'#'), '', true );
-
+        $qo->generalfeedback = '' ;
+        // restore files in generalfeedback
+        $qo->generalfeedback = $this->getpath($questions, array('#','generalfeedback',0,'#','text',0,'#'), $qo->generalfeedback, true);
+        $qo->generalfeedbackfiles = array();
+        $qo->generalfeedbackformat = $this->trans_format(
+                $this->getpath($questions, array('#', 'generalfeedback', 0, '@', 'format'), 'moodle_auto_format'));
+        $files = $this->getpath($questions, array('#', 'generalfeedback', 0, '#', 'file'), array(), false);
+        foreach ($files as $file) {
+            $data = new stdclass;
+            $data->content = $file['#'];
+            $data->encoding = $file['@']['encoding'];
+            $data->name = $file['@']['name'];
+            $qo->generalfeedbackfiles[] = $data;
+        }
         if (!empty($questions)) {
             $qo->name = $this->import_text( $questions['#']['name'][0]['#']['text'] );
         }
+        $qo->questiontext =  $qo->questiontext['text'] ;
+        $qo->questiontextformat = '' ;
 
         return $qo;
     }
@@ -227,6 +388,7 @@ class qformat_xml extends qformat_default {
      */
     function import_truefalse( $question ) {
         // get common parts
+        global $OUTPUT;
         $qo = $this->import_headers( $question );
 
         // 'header' parts particular to true/false
@@ -241,8 +403,18 @@ class qformat_xml extends qformat_default {
         $first = true;
         $warning = false;
         foreach ($question['#']['answer'] as $answer) {
-            $answertext = $this->getpath( $answer, array('#','text',0,'#'), '', true );
-            $feedback = $this->getpath($answer, array('#','feedback',0,'#','text',0,'#'), '', true );
+            $answertext = $this->getpath( $answer, array('#','text',0,'#'), '', true);
+            $feedback = $this->getpath($answer, array('#','feedback',0,'#','text',0,'#'), '', true);
+            $feedbackformat = $this->getpath($answer, array('#','feedback',0, '@', 'format'), 'moodle_auto_format');
+            $feedbackfiles = $this->getpath($answer, array('#', 'feedback', 0, '#', 'file'), array());
+            $files = array();
+            foreach ($feedbackfiles as $file) {
+                $data = new stdclass;
+                $data->content = $file['#'];
+                $data->encoding = $file['@']['encoding'];
+                $data->name = $file['@']['name'];
+                $files[] = $data;
+            }
             if ($answertext != 'true' && $answertext != 'false') {
                 $warning = true;
                 $answertext = $first ? 'true' : 'false'; // Old style file, assume order is true/false.
@@ -250,11 +422,19 @@ class qformat_xml extends qformat_default {
             if ($answertext == 'true') {
                 $qo->answer = ($answer['@']['fraction'] == 100);
                 $qo->correctanswer = $qo->answer;
-                $qo->feedbacktrue = $feedback;
+                $qo->feedbacktrue = array();
+                $qo->feedbacktrue['text'] = $feedback;
+                $qo->feedbacktrue['format'] = $this->trans_format($feedbackformat);
+                $qo->feedbacktrue['itemid'] = null;
+                $qo->feedbacktruefiles = $files;
             } else {
                 $qo->answer = ($answer['@']['fraction'] != 100);
                 $qo->correctanswer = $qo->answer;
-                $qo->feedbackfalse = $feedback;
+                $qo->feedbackfalse = array();
+                $qo->feedbackfalse['text'] = $feedback;
+                $qo->feedbackfalse['format'] = $this->trans_format($feedbackformat);
+                $qo->feedbackfalse['itemid'] = null;
+                $qo->feedbackfalsefiles = $files;
             }
             $first = false;
         }
@@ -263,7 +443,7 @@ class qformat_xml extends qformat_default {
             $a = new stdClass;
             $a->questiontext = $qo->questiontext;
             $a->answer = get_string($qo->answer ? 'true' : 'false', 'quiz');
-            notify(get_string('truefalseimporterror', 'quiz', $a));
+            echo $OUTPUT->notification(get_string('truefalseimporterror', 'quiz', $a));
         }
         return $qo;
     }
@@ -287,8 +467,8 @@ class qformat_xml extends qformat_default {
         $answers = $question['#']['answer'];
         $a_count = 0;
         foreach ($answers as $answer) {
-            $ans = $this->import_answer( $answer );
-            $qo->answer[$a_count] = $ans->answer;
+            $ans = $this->import_answer($answer);
+            $qo->answer[$a_count] = $ans->answer['text'];
             $qo->fraction[$a_count] = $ans->fraction;
             $qo->feedback[$a_count] = $ans->feedback;
             ++$a_count;
@@ -317,9 +497,9 @@ class qformat_xml extends qformat_default {
      * @param array question question array from xml tree
      * @return object question object
      */
-    function import_numerical( $question ) {
+    function import_numerical($question) {
         // get common parts
-        $qo = $this->import_headers( $question );
+        $qo = $this->import_headers($question);
 
         // header parts particular to numerical
         $qo->qtype = NUMERICAL;
@@ -332,17 +512,17 @@ class qformat_xml extends qformat_default {
         $qo->tolerance = array();
         foreach ($answers as $answer) {
             // answer outside of <text> is deprecated
-            $answertext = trim( $this->getpath( $answer, array('#',0), '' ) );
-            $qo->answer[] = $this->getpath( $answer, array('#','text',0,'#'), $answertext, true );
+            $obj = $this->import_answer($answer);
+            $qo->answer[] = $obj->answer['text'];
             if (empty($qo->answer)) {
                 $qo->answer = '*';
             }
-            $qo->feedback[] = $this->getpath( $answer, array('#','feedback',0,'#','text',0,'#'), '', true );
-            $qo->tolerance[] = $this->getpath( $answer, array('#','tolerance',0,'#'), 0 );
+            $qo->feedback[]  = $obj->feedback;
+            $qo->tolerance[] = $this->getpath($answer, array('#', 'tolerance', 0, '#'), 0);
 
             // fraction as a tag is deprecated
-            $fraction = $this->getpath( $answer, array('@','fraction'), 0 ) / 100;
-            $qo->fraction[] = $this->getpath( $answer, array('#','fraction',0,'#'), $fraction ); // deprecated
+            $fraction = $this->getpath($answer, array('@', 'fraction'), 0) / 100;
+            $qo->fraction[] = $this->getpath($answer, array('#', 'fraction', 0, '#'), $fraction); // deprecated
         }
 
         // get units array
@@ -355,6 +535,29 @@ class qformat_xml extends qformat_default {
                 $qo->unit[] = $this->getpath( $unit, array('#','unit_name',0,'#'), '', true );
             }
         }
+        $qo->unitgradingtype = $this->getpath( $question, array('#','unitgradingtype',0,'#'), 0 );
+        $qo->unitpenalty = $this->getpath( $question, array('#','unitpenalty',0,'#'), 0 );
+        $qo->showunits = $this->getpath( $question, array('#','showunits',0,'#'), 0 );
+        $qo->unitsleft = $this->getpath( $question, array('#','unitsleft',0,'#'), 0 );
+        $qo->instructions['text'] = '';
+        $qo->instructions['format'] = FORMAT_HTML;
+        $instructions = $this->getpath($question, array('#', 'instructions'), array());
+        if (!empty($instructions)) {
+            $qo->instructions = array();
+            $qo->instructions['text'] = $this->getpath($instructions,
+                    array('0', '#', 'text', '0', '#'), '', true);
+            $qo->instructions['format'] = $this->trans_format($this->getpath($instructions,
+                    array('0', '@', 'format'), 'moodle_auto_format'));
+            $files = $this->getpath($instructions, array('0', '#', 'file'), array());
+            $qo->instructions['files'] = array();
+            foreach ($files as $file) {
+                $data = new stdclass;
+                $data->content = $file['#'];
+                $data->encoding = $file['@']['encoding'];
+                $data->name = $file['@']['name'];
+                $qo->instructions['files'][]= $data;
+            }
+        }
         return $qo;
     }
 
@@ -363,13 +566,13 @@ class qformat_xml extends qformat_default {
      * @param array question question array from xml tree
      * @return object question object
      */
-    function import_matching( $question ) {
+    function import_matching($question) {
         // get common parts
-        $qo = $this->import_headers( $question );
+        $qo = $this->import_headers($question);
 
         // header parts particular to matching
         $qo->qtype = MATCH;
-        $qo->shuffleanswers = $this->getpath( $question, array( '#','shuffleanswers',0,'#' ), 1 );
+        $qo->shuffleanswers = $this->getpath($question, array('#', 'shuffleanswers', 0, '#'), 1);
 
         // get subquestions
         $subquestions = $question['#']['subquestion'];
@@ -378,8 +581,23 @@ class qformat_xml extends qformat_default {
 
         // run through subquestions
         foreach ($subquestions as $subquestion) {
-            $qo->subquestions[] = $this->getpath( $subquestion, array('#','text',0,'#'), '', true );
-            $qo->subanswers[] = $this->getpath( $subquestion, array('#','answer',0,'#','text',0,'#'), '', true);
+            $question = array();
+            $question['text'] = $this->getpath($subquestion, array('#', 'text', 0, '#'), '', true);
+            $question['format'] = $this->trans_format(
+                    $this->getpath($subquestion, array('@', 'format'), 'moodle_auto_format'));
+            $question['files'] = array();
+
+            $files = $this->getpath($subquestion, array('#', 'file'), array());
+            foreach ($files as $file) {
+                $data = new stdclass();
+                $data->content = $file['#'];
+                $data->encoding = $file['@']['encoding'];
+                $data->name = $file['@']['name'];
+                $question['files'][] = $data;
+            }
+            $qo->subquestions[] = $question;
+            $answers = $this->getpath($subquestion, array('#', 'answer'), array());
+            $qo->subanswers[] = $this->getpath($subquestion, array('#','answer',0,'#','text',0,'#'), '', true);
         }
         return $qo;
     }
@@ -396,27 +614,109 @@ class qformat_xml extends qformat_default {
         // header parts particular to essay
         $qo->qtype = ESSAY;
 
-        // get feedback
-        $qo->feedback = $this->getpath( $question, array('#','answer',0,'#','feedback',0,'#','text',0,'#'), '', true );
+        $answers = $this->getpath($question, array('#', 'answer'), null);
+        if ($answers) {
+            $answer = array_pop($answers);
+            $answer = $this->import_answer($answer);
+            // get feedback
+            $qo->feedback = $answer->feedback;
+        } else {
+            $qo->feedback = array('text' => '', 'format' => FORMAT_MOODLE, 'files' => array());
+        }
 
         // get fraction - <fraction> tag is deprecated
-        $qo->fraction = $this->getpath( $question, array('@','fraction'), 0 ) / 100;
-        $q0->fraction = $this->getpath( $question, array('#','fraction',0,'#'), $qo->fraction );
+        $qo->fraction = $this->getpath($question, array('@','fraction'), 0 ) / 100;
+        $q0->fraction = $this->getpath($question, array('#','fraction',0,'#'), $qo->fraction );
 
         return $qo;
     }
 
-    function import_calculated( $question ) {
-    // import numerical question
+    function import_calculated($question,$qtype) {
+    // import calculated question
 
         // get common parts
         $qo = $this->import_headers( $question );
 
-        // header parts particular to numerical
+        // header parts particular to calculated
         $qo->qtype = CALCULATED ;//CALCULATED;
+        $qo->synchronize = $this->getpath( $question, array( '#','synchronize',0,'#' ), 0 );
+        $single = $this->getpath( $question, array('#','single',0,'#'), 'true' );
+        $qo->single = $this->trans_single( $single );
+        $shuffleanswers = $this->getpath( $question, array('#','shuffleanswers',0,'#'), 'false' );
+        $qo->answernumbering = $this->getpath( $question, array('#','answernumbering',0,'#'), 'abc' );
+        $qo->shuffleanswers = $this->trans_single($shuffleanswers);
+
+        $qo->correctfeedback = array();
+        $qo->correctfeedback['text'] = $this->getpath($question, array('#','correctfeedback',0,'#','text',0,'#'), '', true );
+        $qo->correctfeedback['format'] = $this->trans_format($this->getpath(
+                $question, array('#', 'correctfeedback', 0, '@', 'formath'), 'moodle_auto_format'));
+        $qo->correctfeedback['files'] = array();
+
+        $files = $this->getpath($question, array('#', 'correctfeedback', '0', '#', 'file'), array());
+        foreach ($files as $file) {
+            $data = new stdclass();
+            $data->content = $file['#'];
+            $data->name = $file['@']['name'];
+            $data->encoding = $file['@']['encoding'];
+            $qo->correctfeedback['files'][] = $data;
+        }
+
+        $qo->partiallycorrectfeedback = array();
+        $qo->partiallycorrectfeedback['text'] = $this->getpath( $question, array('#','partiallycorrectfeedback',0,'#','text',0,'#'), '', true );
+        $qo->partiallycorrectfeedback['format'] = $this->trans_format(
+                $this->getpath($question, array('#','partiallycorrectfeedback', 0, '@','format'), 'moodle_auto_format'));
+        $qo->partiallycorrectfeedback['files'] = array();
+
+        $files = $this->getpath($question, array('#', 'partiallycorrectfeedback', '0', '#', 'file'), array());
+        foreach ($files as $file) {
+            $data = new stdclass();
+            $data->content = $file['#'];
+            $data->name = $file['@']['name'];
+            $data->encoding = $file['@']['encoding'];
+            $qo->partiallycorrectfeedback['files'][] = $data;
+        }
+
+        $qo->incorrectfeedback = array();
+        $qo->incorrectfeedback['text'] = $this->getpath( $question, array('#','incorrectfeedback',0,'#','text',0,'#'), '', true );
+        $qo->incorrectfeedback['format'] = $this->trans_format($this->getpath(
+                $question, array('#','incorrectfeedback', 0, '@','format'), 'moodle_auto_format'));
+        $qo->incorrectfeedback['files'] = array();
+
+        $files = $this->getpath($question, array('#', 'incorrectfeedback', '0', '#', 'file'), array());
+        foreach ($files as $file) {
+            $data = new stdclass();
+            $data->content = $file['#'];
+            $data->name = $file['@']['name'];
+            $data->encoding = $file['@']['encoding'];
+            $qo->incorrectfeedback['files'][] = $data;
+        }
+
+        $qo->unitgradingtype = $this->getpath($question, array('#','unitgradingtype',0,'#'), 0 );
+        $qo->unitpenalty = $this->getpath($question, array('#','unitpenalty',0,'#'), 0 );
+        $qo->showunits = $this->getpath($question, array('#','showunits',0,'#'), 0 );
+        $qo->unitsleft = $this->getpath($question, array('#','unitsleft',0,'#'), 0 );
+        $qo->instructions = $this->getpath( $question, array('#','instructions',0,'#','text',0,'#'), '', true );
+        if (!empty($instructions)) {
+            $qo->instructions = array();
+            $qo->instructions['text'] = $this->getpath($instructions,
+                    array('0', '#', 'text', '0', '#'), '', true);
+            $qo->instructions['format'] = $this->trans_format($this->getpath($instructions,
+                    array('0', '@', 'format'), 'moodle_auto_format'));
+            $files = $this->getpath($instructions,
+                    array('0', '#', 'file'), array());
+            $qo->instructions['files'] = array();
+            foreach ($files as $file) {
+                $data = new stdclass;
+                $data->content = $file['#'];
+                $data->encoding = $file['@']['encoding'];
+                $data->name = $file['@']['name'];
+                $qo->instructions['files'][]= $data;
+            }
+        }
+
+        $files = $this->getpath($question, array('#', 'instructions', 0, '#', 'file', 0, '@'), '', false);
 
         // get answers array
-       // echo "<pre> question";print_r($question);echo "</pre>";
         $answers = $question['#']['answer'];
         $qo->answers = array();
         $qo->feedback = array();
@@ -427,25 +727,18 @@ class qformat_xml extends qformat_default {
         $qo->correctanswerlength = array();
         $qo->feedback = array();
         foreach ($answers as $answer) {
+            $ans = $this->import_answer($answer);
             // answer outside of <text> is deprecated
-            if (!empty( $answer['#']['text'] )) {
-                $answertext = $this->import_text( $answer['#']['text'] );
+            if (empty($ans->answer['text'])) {
+                $ans->answer['text'] = '*';
             }
-            else {
-                $answertext = trim($answer['#'][0]);
-            }
-            if ($answertext == '') {
-                $qo->answers[] = '*';
-            } else {
-                $qo->answers[] = $answertext;
-            }
-            $qo->feedback[] = $this->import_text( $answer['#']['feedback'][0]['#']['text'] );
+            $qo->answers[] = $ans->answer;
+            $qo->feedback[] = $ans->feedback;
             $qo->tolerance[] = $answer['#']['tolerance'][0]['#'];
             // fraction as a tag is deprecated
             if (!empty($answer['#']['fraction'][0]['#'])) {
                 $qo->fraction[] = $answer['#']['fraction'][0]['#'];
-            }
-            else {
+            } else {
                 $qo->fraction[] = $answer['@']['fraction'] / 100;
             }
             $qo->tolerancetype[] = $answer['#']['tolerancetype'][0]['#'];
@@ -462,9 +755,27 @@ class qformat_xml extends qformat_default {
                 $qo->unit[] = $unit['#']['unit_name'][0]['#'];
             }
         }
-                $datasets = $question['#']['dataset_definitions'][0]['#']['dataset_definition'];
-                $qo->dataset = array();
-                $qo->datasetindex= 0 ;
+        $instructions = $this->getpath($question, array('#', 'instructions'), array());
+        if (!empty($instructions)) {
+            $qo->instructions = array();
+            $qo->instructions['text'] = $this->getpath($instructions,
+                    array('0', '#', 'text', '0', '#'), '', true);
+            $qo->instructions['format'] = $this->trans_format($this->getpath($instructions,
+                    array('0', '@', 'format'), 'moodle_auto_format'));
+            $files = $this->getpath($instructions,
+                    array('0', '#', 'file'), array());
+            $qo->instructions['files'] = array();
+            foreach ($files as $file) {
+                $data = new stdclass;
+                $data->content = $file['#'];
+                $data->encoding = $file['@']['encoding'];
+                $data->name = $file['@']['name'];
+                $qo->instructions['files'][]= $data;
+            }
+        }
+        $datasets = $question['#']['dataset_definitions'][0]['#']['dataset_definition'];
+        $qo->dataset = array();
+        $qo->datasetindex= 0 ;
         foreach ($datasets as $dataset) {
             $qo->datasetindex++;
             $qo->dataset[$qo->datasetindex] = new stdClass();
@@ -483,14 +794,13 @@ class qformat_xml extends qformat_default {
             $datasetitems = $dataset['#']['dataset_items'][0]['#']['dataset_item'];
             foreach ($datasetitems as $datasetitem) {
                 $qo->dataset[$qo->datasetindex]->itemindex++;
-              $qo->dataset[$qo->datasetindex]->datasetitem[$qo->dataset[$qo->datasetindex]->itemindex] = new stdClass();
-              $qo->dataset[$qo->datasetindex]->datasetitem[$qo->dataset[$qo->datasetindex]->itemindex]->itemnumber =  $datasetitem['#']['number'][0]['#']; //[0]['#']['number'][0]['#'] ; // [0]['numberitems'] ;//['#']['number'][0]['#'];// $datasetitems['#']['number'][0]['#'];
-              $qo->dataset[$qo->datasetindex]->datasetitem[$qo->dataset[$qo->datasetindex]->itemindex]->value = $datasetitem['#']['value'][0]['#'] ;//$datasetitem['#']['value'][0]['#'];
-          }
+                $qo->dataset[$qo->datasetindex]->datasetitem[$qo->dataset[$qo->datasetindex]->itemindex] = new stdClass();
+                $qo->dataset[$qo->datasetindex]->datasetitem[$qo->dataset[$qo->datasetindex]->itemindex]->itemnumber =  $datasetitem['#']['number'][0]['#']; //[0]['#']['number'][0]['#'] ; // [0]['numberitems'] ;//['#']['number'][0]['#'];// $datasetitems['#']['number'][0]['#'];
+                $qo->dataset[$qo->datasetindex]->datasetitem[$qo->dataset[$qo->datasetindex]->itemindex]->value = $datasetitem['#']['value'][0]['#'] ;//$datasetitem['#']['value'][0]['#'];
+            }
         }
 
-                // echo "<pre>loaded qo";print_r($qo);echo "</pre>";
-
+        // echo "<pre>loaded qo";print_r($qo);echo "</pre>";
         return $qo;
     }
 
@@ -519,12 +829,12 @@ class qformat_xml extends qformat_default {
     function readquestions($lines) {
         // we just need it as one big string
         $text = implode($lines, " ");
-        unset( $lines );
+        unset($lines);
 
         // this converts xml to big nasty data structure
         // the 0 means keep white space as it is (important for markdown format)
         // print_r it if you want to see what it looks like!
-        $xml = xmlize( $text, 0 );
+        $xml = xmlize($text, 0);
 
         // set up array to hold all our questions
         $questions = array();
@@ -559,7 +869,15 @@ class qformat_xml extends qformat_default {
                 $qo = $this->import_essay( $question );
             }
             elseif ($question_type=='calculated') {
-                $qo = $this->import_calculated( $question );
+                $qo = $this->import_calculated( $question,CALCULATED  );
+            }
+            elseif ($question_type=='calculatedsimple') {
+                $qo = $this->import_calculated( $question,CALCULATEDMULTI  );
+                $qo->qtype = CALCULATEDSIMPLE ;
+            }
+            elseif ($question_type=='calculatedmulti') {
+                $qo = $this->import_calculated( $question,CALCULATEDMULTI );
+                $qo->qtype = CALCULATEDMULTI ;
             }
             elseif ($question_type=='category') {
                 $qo = $this->import_category( $question );
@@ -586,11 +904,8 @@ class qformat_xml extends qformat_default {
     // EXPORT FUNCTIONS START HERE
 
     function export_file_extension() {
-    // override default type so extension is .xml
-
-        return ".xml";
+        return '.xml';
     }
-
 
     /**
      * Turn the internal question code into a human readable form
@@ -627,6 +942,12 @@ class qformat_xml extends qformat_default {
             break;
         case CALCULATED:
             $name = 'calculated';
+            break;
+        case CALCULATEDSIMPLE:
+            $name = 'calculatedsimple';
+            break;
+        case CALCULATEDMULTI:
+            $name = 'calculatedmulti';
             break;
         default:
             $name = false;
@@ -689,38 +1010,22 @@ class qformat_xml extends qformat_default {
      * @param boolean short stick it on one line
      * @return string formatted text
      */
-    function writetext( $raw, $ilev=0, $short=true) {
-        $indent = str_repeat( "  ",$ilev );
+    function writetext($raw, $ilev = 0, $short = true) {
+        $indent = str_repeat('  ', $ilev);
 
         // if required add CDATA tags
-        if (!empty($raw) and (htmlspecialchars($raw)!=$raw)) {
+        if (!empty($raw) and (htmlspecialchars($raw) != $raw)) {
             $raw = "<![CDATA[$raw]]>";
         }
 
         if ($short) {
-            $xml = "$indent<text>$raw</text>\n";
-        }
-        else {
+            $xml = "$indent<text>$raw</text>";
+        } else {
             $xml = "$indent<text>\n$raw\n$indent</text>\n";
         }
 
         return $xml;
     }
-
-    function xmltidy( $content ) {
-        // can only do this if tidy is installed
-        if (extension_loaded('tidy')) {
-            $config = array( 'input-xml'=>true, 'output-xml'=>true, 'indent'=>true, 'wrap'=>0 );
-            $tidy = new tidy;
-            $tidy->parseString($content, $config, 'utf8');
-            $tidy->cleanRepair();
-            return $tidy->value;
-        }
-        else {
-            return $content;
-        }
-    }
-
 
     function presave_process( $content ) {
     // override method to allow us to add xml headers and footers
@@ -730,42 +1035,20 @@ class qformat_xml extends qformat_default {
                        "<quiz>\n" .
                        $content . "\n" .
                        "</quiz>";
-
-        // make the xml look nice
-        $content = $this->xmltidy( $content );
-
-        return $content;
-    }
-
-    /**
-     * Include an image encoded in base 64
-     * @param string imagepath The location of the image file
-     * @return string xml code segment
-     */
-    function writeimage( $imagepath ) {
-        global $CFG;
-
-        if (empty($imagepath)) {
-            return '';
-        }
-
-        $courseid = $this->course->id;
-        if (!$binary = file_get_contents( "{$CFG->dataroot}/$courseid/$imagepath" )) {
-            return '';
-        }
-
-        $content = "    <image_base64>\n".addslashes(base64_encode( $binary ))."\n".
-            "\n    </image_base64>\n";
         return $content;
     }
 
     /**
      * Turns question into an xml segment
-     * @param array question question array
+     * @param object question object
+     * @param int context id
      * @return string xml segment
      */
-    function writequestion( $question ) {
-    global $CFG,$QTYPES;
+    function writequestion($question) {
+        global $CFG, $QTYPES, $OUTPUT;
+
+        $fs = get_file_storage();
+        $contextid = $question->contextid;
         // initial string;
         $expout = "";
 
@@ -788,28 +1071,32 @@ class qformat_xml extends qformat_default {
             $expout .= "    </category>\n";
             $expout .= "  </question>\n";
             return $expout;
-        }
-        elseif ($question->qtype != MULTIANSWER) {
+        } elseif ($question->qtype != MULTIANSWER) {
             // for all question types except Close
-            $name_text = $this->writetext( $question->name );
+            $name_text = $this->writetext($question->name);
             $qtformat = $this->get_format($question->questiontextformat);
-            $question_text = $this->writetext( $question->questiontext );
-            $generalfeedback = $this->writetext( $question->generalfeedback );
+            $generalfeedbackformat = $this->get_format($question->generalfeedbackformat);
+
+            $question_text = $this->writetext($question->questiontext);
+            $question_text_files = $this->writefiles($question->questiontextfiles);
+
+            $generalfeedback = $this->writetext($question->generalfeedback);
+            $generalfeedback_files = $this->writefiles($question->generalfeedbackfiles);
+
             $expout .= "  <question type=\"$question_type\">\n";
             $expout .= "    <name>$name_text</name>\n";
             $expout .= "    <questiontext format=\"$qtformat\">\n";
             $expout .= $question_text;
+            $expout .= $question_text_files;
             $expout .= "    </questiontext>\n";
-            $expout .= "    <image>{$question->image}</image>\n";
-            $expout .= $this->writeimage($question->image);
-            $expout .= "    <generalfeedback>\n";
+            $expout .= "    <generalfeedback format=\"$generalfeedbackformat\">\n";
             $expout .= $generalfeedback;
+            $expout .= $generalfeedback_files;
             $expout .= "    </generalfeedback>\n";
             $expout .= "    <defaultgrade>{$question->defaultgrade}</defaultgrade>\n";
             $expout .= "    <penalty>{$question->penalty}</penalty>\n";
             $expout .= "    <hidden>{$question->hidden}</hidden>\n";
-        }
-        else {
+        } else {
             // for Cloze type only
             $name_text = $this->writetext( $question->name );
             $question_text = $this->writetext( $question->questiontext );
@@ -846,8 +1133,10 @@ class qformat_xml extends qformat_default {
                 }
                 $expout .= "    <answer fraction=\"$fraction_pc\">\n";
                 $expout .= $this->writetext($answertext, 3) . "\n";
-                $expout .= "      <feedback>\n";
-                $expout .= $this->writetext( $answer->feedback,4,false );
+                $feedbackformat = $this->get_format($answer->feedbackformat);
+                $expout .= "      <feedback format=\"$feedbackformat\">\n";
+                $expout .= $this->writetext($answer->feedback,4,false);
+                $expout .= $this->writefiles($answer->feedbackfiles);
                 $expout .= "      </feedback>\n";
                 $expout .= "    </answer>\n";
             }
@@ -855,28 +1144,51 @@ class qformat_xml extends qformat_default {
         case MULTICHOICE:
             $expout .= "    <single>".$this->get_single($question->options->single)."</single>\n";
             $expout .= "    <shuffleanswers>".$this->get_single($question->options->shuffleanswers)."</shuffleanswers>\n";
-            $expout .= "    <correctfeedback>".$this->writetext($question->options->correctfeedback, 3)."</correctfeedback>\n";
-            $expout .= "    <partiallycorrectfeedback>".$this->writetext($question->options->partiallycorrectfeedback, 3)."</partiallycorrectfeedback>\n";
-            $expout .= "    <incorrectfeedback>".$this->writetext($question->options->incorrectfeedback, 3)."</incorrectfeedback>\n";
+
+            $textformat = $this->get_format($question->options->correctfeedbackformat);
+            $files = $fs->get_area_files($contextid, 'qtype_multichoice', 'correctfeedback', $question->id);
+            $expout .= "    <correctfeedback format=\"$textformat\">\n";
+            $expout .= $this->writetext($question->options->correctfeedback, 3);
+            $expout .= $this->writefiles($files);
+            $expout .= "    </correctfeedback>\n";
+
+            $textformat = $this->get_format($question->options->partiallycorrectfeedbackformat);
+            $files = $fs->get_area_files($contextid, 'qtype_multichoice', 'partiallycorrectfeedback', $question->id);
+            $expout .= "    <partiallycorrectfeedback format=\"$textformat\">\n";
+            $expout .= $this->writetext($question->options->partiallycorrectfeedback, 3);
+            $expout .= $this->writefiles($files);
+            $expout .= "    </partiallycorrectfeedback>\n";
+
+            $textformat = $this->get_format($question->options->incorrectfeedbackformat);
+            $files = $fs->get_area_files($contextid, 'qtype_multichoice', 'incorrectfeedback', $question->id);
+            $expout .= "    <incorrectfeedback format=\"$textformat\">\n";
+            $expout .= $this->writetext($question->options->incorrectfeedback, 3);
+            $expout .= $this->writefiles($files);
+            $expout .= "    </incorrectfeedback>\n";
+
             $expout .= "    <answernumbering>{$question->options->answernumbering}</answernumbering>\n";
             foreach($question->options->answers as $answer) {
                 $percent = $answer->fraction * 100;
                 $expout .= "      <answer fraction=\"$percent\">\n";
-                $expout .= $this->writetext( $answer->answer,4,false );
-                $expout .= "      <feedback>\n";
-                $expout .= $this->writetext( $answer->feedback,5,false );
+                $expout .= $this->writetext($answer->answer,4,false);
+                $feedbackformat = $this->get_format($answer->feedbackformat);
+                $expout .= "      <feedback format=\"$feedbackformat\">\n";
+                $expout .= $this->writetext($answer->feedback,5,false);
+                $expout .= $this->writefiles($answer->feedbackfiles);
                 $expout .= "      </feedback>\n";
                 $expout .= "    </answer>\n";
                 }
             break;
         case SHORTANSWER:
-        $expout .= "    <usecase>{$question->options->usecase}</usecase>\n ";
+            $expout .= "    <usecase>{$question->options->usecase}</usecase>\n ";
             foreach($question->options->answers as $answer) {
                 $percent = 100 * $answer->fraction;
                 $expout .= "    <answer fraction=\"$percent\">\n";
                 $expout .= $this->writetext( $answer->answer,3,false );
-                $expout .= "      <feedback>\n";
-                $expout .= $this->writetext( $answer->feedback,4,false );
+                $feedbackformat = $this->get_format($answer->feedbackformat);
+                $expout .= "      <feedback format=\"$feedbackformat\">\n";
+                $expout .= $this->writetext($answer->feedback);
+                $expout .= $this->writefiles($answer->feedbackfiles);
                 $expout .= "      </feedback>\n";
                 $expout .= "    </answer>\n";
             }
@@ -889,7 +1201,11 @@ class qformat_xml extends qformat_default {
                 // <text> tags are an added feature, old filed won't have them
                 $expout .= "    <text>{$answer->answer}</text>\n";
                 $expout .= "    <tolerance>$tolerance</tolerance>\n";
-                $expout .= "    <feedback>".$this->writetext( $answer->feedback )."</feedback>\n";
+                $feedbackformat = $this->get_format($answer->feedbackformat);
+                $expout .= "    <feedback format=\"$feedbackformat\">\n";
+                $expout .= $this->writetext($answer->feedback);
+                $expout .= $this->writefiles($answer->feedbackfiles);
+                $expout .= "    </feedback>\n";
                 // fraction tag is deprecated
                 // $expout .= "    <fraction>{$answer->fraction}</fraction>\n";
                 $expout .= "</answer>\n";
@@ -906,12 +1222,37 @@ class qformat_xml extends qformat_default {
                 }
                 $expout .= "</units>\n";
             }
+            if (isset($question->options->unitgradingtype)) {
+                $expout .= "    <unitgradingtype>{$question->options->unitgradingtype}</unitgradingtype>\n";
+            }
+            if (isset($question->options->unitpenalty)) {
+                $expout .= "    <unitpenalty>{$question->options->unitpenalty}</unitpenalty>\n";
+            }
+            if (isset($question->options->showunits)) {
+                $expout .= "    <showunits>{$question->options->showunits}</showunits>\n";
+            }
+            if (isset($question->options->unitsleft)) {
+                $expout .= "    <unitsleft>{$question->options->unitsleft}</unitsleft>\n";
+            }
+            if (!empty($question->options->instructionsformat)) {
+                $textformat = $this->get_format($question->options->instructionsformat);
+                $files = $fs->get_area_files($contextid, 'qtype_numerical', 'instruction', $question->id);
+                $expout .= "    <instructions format=\"$textformat\">\n";
+                $expout .= $this->writetext($question->options->instructions, 3);
+                $expout .= $this->writefiles($files);
+                $expout .= "    </instructions>\n";
+            }
             break;
         case MATCH:
             foreach($question->options->subquestions as $subquestion) {
-                $expout .= "<subquestion>\n";
-                $expout .= $this->writetext( $subquestion->questiontext );
-                $expout .= "<answer>".$this->writetext( $subquestion->answertext )."</answer>\n";
+                $files = $fs->get_area_files($contextid, 'qtype_match', 'subquestion', $subquestion->id);
+                $textformat = $this->get_format($subquestion->questiontextformat);
+                $expout .= "<subquestion format=\"$textformat\">\n";
+                $expout .= $this->writetext($subquestion->questiontext);
+                $expout .= $this->writefiles($files);
+                $expout .= "<answer>";
+                $expout .= $this->writetext($subquestion->answertext);
+                $expout .= "</answer>\n";
                 $expout .= "</subquestion>\n";
             }
             break;
@@ -921,9 +1262,9 @@ class qformat_xml extends qformat_default {
         case MULTIANSWER:
             $a_count=1;
             foreach($question->options->questions as $question) {
-                $thispattern = addslashes("{#".$a_count."}");
+                $thispattern = preg_quote("{#".$a_count."}"); //TODO: is this really necessary?
                 $thisreplace = $question->questiontext;
-                $expout=ereg_replace($thispattern, $thisreplace, $expout );
+                $expout=preg_replace("~$thispattern~", $thisreplace, $expout );
                 $a_count++;
             }
         break;
@@ -932,7 +1273,11 @@ class qformat_xml extends qformat_default {
                 foreach ($question->options->answers as $answer) {
                     $percent = 100 * $answer->fraction;
                     $expout .= "<answer fraction=\"$percent\">\n";
-                    $expout .= "    <feedback>".$this->writetext( $answer->feedback )."</feedback>\n";
+                    $feedbackformat = $this->get_format($answer->feedbackformat);
+                    $expout .= "    <feedback format=\"$feedbackformat\">\n";
+                    $expout .= $this->writetext($answer->feedback);
+                    $expout .= $this->writefiles($answer->feedbackfiles);
+                    $expout .= "    </feedback>\n";
                     // fraction tag is deprecated
                     // $expout .= "    <fraction>{$answer->fraction}</fraction>\n";
                     $expout .= "</answer>\n";
@@ -940,6 +1285,32 @@ class qformat_xml extends qformat_default {
             }
             break;
         case CALCULATED:
+        case CALCULATEDSIMPLE:
+        case CALCULATEDMULTI:
+            $expout .= "    <synchronize>{$question->options->synchronize}</synchronize>\n";
+            $expout .= "    <single>{$question->options->single}</single>\n";
+            $expout .= "    <answernumbering>{$question->options->answernumbering}</answernumbering>\n";
+            $expout .= "    <shuffleanswers>".$this->writetext($question->options->shuffleanswers, 3)."</shuffleanswers>\n";
+
+            $component = 'qtype_' . $question->qtype;
+            $files = $fs->get_area_files($contextid, $component, 'correctfeedback', $question->id);
+            $expout .= "    <correctfeedback>\n";
+            $expout .= $this->writetext($question->options->correctfeedback, 3);
+            $expout .= $this->writefiles($files);
+            $expout .= "    </correctfeedback>\n";
+
+            $files = $fs->get_area_files($contextid, $component, 'partiallycorrectfeedback', $question->id);
+            $expout .= "    <partiallycorrectfeedback>\n";
+            $expout .= $this->writetext($question->options->partiallycorrectfeedback, 3);
+            $expout .= $this->writefiles($files);
+            $expout .= "    </partiallycorrectfeedback>\n";
+
+            $files = $fs->get_area_files($contextid, $component, 'incorrectfeedback', $question->id);
+            $expout .= "    <incorrectfeedback>\n";
+            $expout .= $this->writetext($question->options->incorrectfeedback, 3);
+            $expout .= $this->writefiles($files);
+            $expout .= "    </incorrectfeedback>\n";
+
             foreach ($question->options->answers as $answer) {
                 $tolerance = $answer->tolerance;
                 $tolerancetype = $answer->tolerancetype;
@@ -953,32 +1324,62 @@ class qformat_xml extends qformat_default {
                 $expout .= "    <tolerancetype>$tolerancetype</tolerancetype>\n";
                 $expout .= "    <correctanswerformat>$correctanswerformat</correctanswerformat>\n";
                 $expout .= "    <correctanswerlength>$correctanswerlength</correctanswerlength>\n";
-                $expout .= "    <feedback>".$this->writetext( $answer->feedback )."</feedback>\n";
+                $feedbackformat = $this->get_format($answer->feedbackformat);
+                $expout .= "    <feedback format=\"$feedbackformat\">\n";
+                $expout .= $this->writetext($answer->feedback);
+                $expout .= $this->writefiles($answer->feedbackfiles);
+                $expout .= "    </feedback>\n";
                 $expout .= "</answer>\n";
             }
-            $units = $question->options->units;
-            if (count($units)) {
-                $expout .= "<units>\n";
-                foreach ($units as $unit) {
-                    $expout .= "  <unit>\n";
-                    $expout .= "    <multiplier>{$unit->multiplier}</multiplier>\n";
-                    $expout .= "    <unit_name>{$unit->unit}</unit_name>\n";
-                    $expout .= "  </unit>\n";
+            if (isset($question->options->unitgradingtype)) {
+                $expout .= "    <unitgradingtype>{$question->options->unitgradingtype}</unitgradingtype>\n";
+            }
+            if (isset($question->options->unitpenalty)) {
+                $expout .= "    <unitpenalty>{$question->options->unitpenalty}</unitpenalty>\n";
+            }
+            if (isset($question->options->showunits)) {
+                $expout .= "    <showunits>{$question->options->showunits}</showunits>\n";
+            }
+            if (isset($question->options->unitsleft)) {
+                $expout .= "    <unitsleft>{$question->options->unitsleft}</unitsleft>\n";
+            }
+
+            if (isset($question->options->instructionsformat)) {
+                $textformat = $this->get_format($question->options->instructionsformat);
+                $files = $fs->get_area_files($contextid, $component, 'instruction', $question->id);
+                $expout .= "    <instructions format=\"$textformat\">\n";
+                $expout .= $this->writetext($question->options->instructions, 3);
+                $expout .= $this->writefiles($files);
+                $expout .= "    </instructions>\n";
+            }
+
+            if (isset($question->options->units)) {
+                $units = $question->options->units;
+                if (count($units)) {
+                    $expout .= "<units>\n";
+                    foreach ($units as $unit) {
+                        $expout .= "  <unit>\n";
+                        $expout .= "    <multiplier>{$unit->multiplier}</multiplier>\n";
+                        $expout .= "    <unit_name>{$unit->unit}</unit_name>\n";
+                        $expout .= "  </unit>\n";
+                    }
+                    $expout .= "</units>\n";
                 }
-                $expout .= "</units>\n";
-             }
-        //echo "<pre> question calc";print_r($question);echo "</pre>";
-        //First, we a new function to get all the   data itmes in the database
-         //   $question_datasetdefs =$QTYPES['calculated']->get_datasets_for_export ($question);
-        //    echo "<pre> question defs";print_r($question_datasetdefs);echo "</pre>";
-        //If there are question_datasets
+            }
+            //The tag $question->export_process has been set so we get all the data items in the database
+            //   from the function $QTYPES['calculated']->get_question_options(&$question);
+            //  calculatedsimple defaults to calculated
             if( isset($question->options->datasets)&&count($question->options->datasets)){// there should be
                 $expout .= "<dataset_definitions>\n";
                 foreach ($question->options->datasets as $def) {
                     $expout .= "<dataset_definition>\n";
                     $expout .= "    <status>".$this->writetext($def->status)."</status>\n";
                     $expout .= "    <name>".$this->writetext($def->name)."</name>\n";
-                    $expout .= "    <type>calculated</type>\n";
+                    if ( $question->qtype == CALCULATED){
+                        $expout .= "    <type>calculated</type>\n";
+                    }else {
+                        $expout .= "    <type>calculatedsimple</type>\n";
+                    }
                     $expout .= "    <distribution>".$this->writetext($def->distribution)."</distribution>\n";
                     $expout .= "    <minimum>".$this->writetext($def->minimum)."</minimum>\n";
                     $expout .= "    <maximum>".$this->writetext($def->maximum)."</maximum>\n";
@@ -1003,9 +1404,22 @@ class qformat_xml extends qformat_default {
         default:
             // try support by optional plugin
             if (!$data = $this->try_exporting_using_qtypes( $question->qtype, $question )) {
-                notify( get_string( 'unsupportedexport','qformat_xml',$QTYPES[$question->qtype]->menu_name() ) );
+                echo $OUTPUT->notification( get_string( 'unsupportedexport','qformat_xml',$QTYPES[$question->qtype]->local_name() ) );
             }
             $expout .= $data;
+        }
+
+        // Write the question tags.
+        if (!empty($CFG->usetags)) {
+            require_once($CFG->dirroot.'/tag/lib.php');
+            $tags = tag_get_tags_array('question', $question->id);
+            if (!empty($tags)) {
+                $expout .= "    <tags>\n";
+                foreach ($tags as $tag) {
+                    $expout .= "      <tag>" . $this->writetext($tag, 0, true) . "</tag>\n";
+                }
+                $expout .= "    </tags>\n";
+            }
         }
 
         // close the question tag
@@ -1014,5 +1428,3 @@ class qformat_xml extends qformat_default {
         return $expout;
     }
 }
-
-?>

@@ -1,6 +1,6 @@
 <?php
     require_once($CFG->dirroot.'/mod/scorm/locallib.php');
-    
+
     if (isset($userdata->status)) {
         if ($userdata->status == '') {
             $userdata->entry = 'ab-initio';
@@ -11,6 +11,9 @@
                 $userdata->entry = '';
             }
         }
+    }
+    if (!isset($currentorg)) {
+        $currentorg = '';
     }
 ?>
 //
@@ -25,7 +28,7 @@ function SCORMapi1_2() {
     CMIInteger = '^\\d+$';
     CMISInteger = '^-?([0-9]+)$';
     CMIDecimal = '^-?([0-9]{0,3})(\.[0-9]{1,2})?$';
-    CMIIdentifier = '^\\w{1,255}$';
+    CMIIdentifier = '^[\\u0021-\\u007E]{0,255}$';
     CMIFeedback = CMIString256; // This must be redefined
     CMIIndex = '[._](\\d+).';
     // Vocabulary Data Type Definition
@@ -36,15 +39,15 @@ function SCORMapi1_2() {
     CMIResult = '^correct$|^wrong$|^unanticipated$|^neutral$|^([0-9]{0,3})?(\.[0-9]{1,2})?$';
     NAVEvent = '^previous$|^continue$';
     // Children lists
-    cmi_children = 'core, suspend_data, launch_data, comments, objectives, student_data, student_preference, interactions';
-    core_children = 'student_id, student_name, lesson_location, credit, lesson_status, entry, score, total_time, lesson_mode, exit, session_time';
-    score_children = 'raw, min, max';
-    comments_children = 'content, location, time';
-    objectives_children = 'id, score, status';
+    cmi_children = 'core,suspend_data,launch_data,comments,objectives,student_data,student_preference,interactions';
+    core_children = 'student_id,student_name,lesson_location,credit,lesson_status,entry,score,total_time,lesson_mode,exit,session_time';
+    score_children = 'raw,min,max';
+    comments_children = 'content,location,time';
+    objectives_children = 'id,score,status';
     correct_responses_children = 'pattern';
-    student_data_children = 'mastery_score, max_time_allowed, time_limit_action';
-    student_preference_children = 'audio, language, speed, text';
-    interactions_children = 'id, objectives, time, type, correct_responses, weighting, student_response, result, latency';
+    student_data_children = 'mastery_score,max_time_allowed,time_limit_action';
+    student_preference_children = 'audio,language,speed,text';
+    interactions_children = 'id,objectives,time,type,correct_responses,weighting,student_response,result,latency';
     // Data ranges
     score_range = '0#100';
     audio_range = '-1#100';
@@ -112,7 +115,6 @@ function SCORMapi1_2() {
         'cmi.interactions.n.latency':{'pattern':CMIIndex, 'format':CMITimespan, 'mod':'w', 'readerror':'404', 'writeerror':'405'},
         'nav.event':{'defaultvalue':'', 'format':NAVEvent, 'mod':'w', 'readerror':'404', 'writeerror':'405'}
     };
-    
     //
     // Datamodel inizialization
     //
@@ -141,15 +143,15 @@ function SCORMapi1_2() {
     }
 
 <?php
-    // reconstitute objectives
+     // reconstitute objectives
     scorm_reconstitute_array_element($scorm->version, $userdata, 'cmi.objectives', array('score'));
     scorm_reconstitute_array_element($scorm->version, $userdata, 'cmi.interactions', array('objectives', 'correct_responses'));
     ?>
 
     if (cmi.core.lesson_status == '') {
         cmi.core.lesson_status = 'not attempted';
-    } 
-    
+    }
+
     //
     // API Methods definition
     //
@@ -161,8 +163,8 @@ function SCORMapi1_2() {
             if (!Initialized) {
                 Initialized = true;
                 errorCode = "0";
-                <?php 
-                    if (debugging('',DEBUG_DEVELOPER)) {
+                <?php
+                    if (scorm_debugging($scorm)) {
                         //echo 'alert("Initialized SCORM 1.2");';
                         echo 'LogAPICall("LMSInitialize", param, "", errorCode);';
                     }
@@ -174,14 +176,19 @@ function SCORMapi1_2() {
         } else {
             errorCode = "201";
         }
-        <?php 
-            if (debugging('',DEBUG_DEVELOPER)) {
+        <?php
+            if (scorm_debugging($scorm)) {
                 echo 'LogAPICall("LMSInitialize", param, "", errorCode);';
             }
         ?>
         return "false";
     }
-    
+
+<?php
+    // pull in the TOC callback
+    include_once($CFG->dirroot.'/mod/scorm/datamodels/callback.js.php');
+ ?>
+
     function LMSFinish (param) {
         errorCode = "0";
         if (param == "") {
@@ -190,36 +197,47 @@ function SCORMapi1_2() {
                 result = StoreData(cmi,true);
                 if (nav.event != '') {
                     if (nav.event == 'continue') {
-                        setTimeout('top.document.location=top.next;',500);
+                        setTimeout('scorm_get_next();',500);
                     } else {
-                        setTimeout('top.document.location=top.prev;',500);
+                        setTimeout('scorm_get_prev();',500);
                     }
                 } else {
                     if (<?php echo $scorm->auto ?> == 1) {
-                        setTimeout('top.document.location=top.next;',500);
+                        setTimeout('scorm_get_next();',500);
                     }
-                }    
-                <?php 
-                    if (debugging('',DEBUG_DEVELOPER)) {
+                }
+                <?php
+                    if (scorm_debugging($scorm)) {
+                        echo 'LogAPICall("LMSFinish", "AJAXResult", result, 0);';
+                    }
+                ?>
+                result = ('true' == result) ? 'true' : 'false';
+                errorCode = (result == 'true')? '0' : '101';
+                <?php
+                    if (scorm_debugging($scorm)) {
                         //echo 'alert("Finished SCORM 1.2");';
+                        echo 'LogAPICall("LMSFinish", "result", result, 0);';
                         echo 'LogAPICall("LMSFinish", param, "", 0);';
                     }
                 ?>
-                return "true";
+                // trigger TOC update
+                var sURL = "<?php echo $CFG->wwwroot; ?>" + "/mod/scorm/prereqs.php?a=<?php echo $scorm->id ?>&scoid=<?php echo $scoid ?>&attempt=<?php echo $attempt ?>&mode=<?php echo $mode ?>&currentorg=<?php echo $currentorg ?>&sesskey=<?php echo sesskey(); ?>";
+                YAHOO.util.Connect.asyncRequest('GET', sURL, this.connectPrereqCallback, null);
+                return result;
             } else {
                 errorCode = "301";
             }
         } else {
             errorCode = "201";
         }
-        <?php 
-            if (debugging('',DEBUG_DEVELOPER)) {
+        <?php
+            if (scorm_debugging($scorm)) {
                 echo 'LogAPICall("LMSFinish", param, "", errorCode);';
             }
         ?>
         return "false";
     }
-    
+
     function LMSGetValue (element) {
         errorCode = "0";
         if (Initialized) {
@@ -237,8 +255,8 @@ function SCORMapi1_2() {
                         }
                             if (subelement == element) {
                             errorCode = "0";
-                            <?php 
-                                if (debugging('',DEBUG_DEVELOPER)) {
+                            <?php
+                                if (scorm_debugging($scorm)) {
                                    //echo 'alert(element+": "+eval(element));';
                                     echo 'LogAPICall("LMSGetValue", element, eval(element), 0);';
                                 }
@@ -277,14 +295,14 @@ function SCORMapi1_2() {
         } else {
             errorCode = "301";
         }
-        <?php 
-            if (debugging('',DEBUG_DEVELOPER)) {
+        <?php
+            if (scorm_debugging($scorm)) {
                 echo 'LogAPICall("LMSGetValue", element, "", errorCode);';
             }
         ?>
         return "";
     }
-    
+
     function LMSSetValue (element,value) {
         errorCode = "0";
         if (Initialized) {
@@ -310,7 +328,7 @@ function SCORMapi1_2() {
                                         }
                                         if (elementIndexes[i+1] == eval(subelement+'.'+elementIndex+'._count')) {
                                             eval(subelement+'.'+elementIndex+'._count++;');
-                                        } 
+                                        }
                                         if (elementIndexes[i+1] > eval(subelement+'.'+elementIndex+'._count')) {
                                             errorCode = "201";
                                         }
@@ -347,8 +365,8 @@ function SCORMapi1_2() {
                                     if ((value >= ranges[0]) && (value <= ranges[1])) {
                                         eval(element+'=value;');
                                         errorCode = "0";
-                                        <?php 
-                                            if (debugging('',DEBUG_DEVELOPER)) {
+                                        <?php
+                                            if (scorm_debugging($scorm)) {
                                                 echo 'LogAPICall("LMSSetValue", element, value, errorCode);';
                                                 //echo 'alert(element+":= "+value);';
                                             }
@@ -359,13 +377,13 @@ function SCORMapi1_2() {
                                     }
                                 } else {
                                     if (element == 'cmi.comments') {
-                                          cmi.comments = cmi.comments + value;
+                                        cmi.comments = cmi.comments + value;
                                     } else {
                                         eval(element+'=value;');
                                     }
                                     errorCode = "0";
-                                    <?php 
-                                        if (debugging('',DEBUG_DEVELOPER)) {
+                                    <?php
+                                        if (scorm_debugging($scorm)) {
                                             echo 'LogAPICall("LMSSetValue", element, value, errorCode);';
                                             //echo 'alert(element+":= "+value);';
                                         }
@@ -388,49 +406,63 @@ function SCORMapi1_2() {
         } else {
             errorCode = "301";
         }
-       <?php 
-        if (debugging('',DEBUG_DEVELOPER)) {
+       <?php
+        if (scorm_debugging($scorm)) {
             echo 'LogAPICall("LMSSetValue", element, value, errorCode);';
         }
         ?>
         return "false";
     }
-    
+
     function LMSCommit (param) {
         errorCode = "0";
         if (param == "") {
             if (Initialized) {
                 result = StoreData(cmi,false);
-                <?php 
-                    if (debugging('',DEBUG_DEVELOPER)) {
+                <?php
+                    if (scorm_debugging($scorm)) {
                         echo 'LogAPICall("Commit", param, "", 0);';
                         //echo 'alert("Data Commited");';
                     }
                 ?>
-                return "true";
+                <?php
+                    if (scorm_debugging($scorm)) {
+                        echo 'LogAPICall("LMSCommit", "AJAXResult", result, 0);';
+                    }
+                ?>
+                result = ('true' == result) ? 'true' : 'false';
+                errorCode = (result =='true')? '0' : '101';
+                <?php 
+                    if (scorm_debugging($scorm)) {
+                        //echo 'alert("Finished SCORM 1.2");';
+                        echo 'LogAPICall("LMSCommit", "result", result, 0);';
+                        echo 'LogAPICall("LMSCommit", "errorCode", errorCode, 0);';
+                    }
+                ?>
+                return result;
             } else {
                 errorCode = "301";
             }
         } else {
             errorCode = "201";
         }
-        <?php 
-            if (debugging('',DEBUG_DEVELOPER)) {
+        <?php
+            if (scorm_debugging($scorm)) {
                 echo 'LogAPICall("LMSCommit", param, "", 0);';
             }
         ?>
         return "false";
     }
-    
+
     function LMSGetLastError () {
-     <?php 
-        if (debugging('',DEBUG_DEVELOPER)) {
+     <?php
+        if (scorm_debugging($scorm)) {
             echo 'LogAPICall("LMSGetLastError", "", "", errorCode);';
         }
     ?>
         return errorCode;
     }
-    
+
     function LMSGetErrorString (param) {
         if (param != "") {
             var errorString = new Array();
@@ -445,28 +477,28 @@ function SCORMapi1_2() {
             errorString["403"] = "Element is read only";
             errorString["404"] = "Element is write only";
             errorString["405"] = "Incorrect data type";
-            <?php 
-            if (debugging('',DEBUG_DEVELOPER)) {
+            <?php
+            if (scorm_debugging($scorm)) {
                 echo 'LogAPICall("LMSGetErrorString", param,  errorString[param], 0);';
             }
              ?>
             return errorString[param];
         } else {
-           <?php 
-            if (debugging('',DEBUG_DEVELOPER)) {
+           <?php
+            if (scorm_debugging($scorm)) {
                 echo 'LogAPICall("LMSGetErrorString", param,  "No error string found!", 0);';
             }
              ?>
            return "";
         }
     }
-    
+
     function LMSGetDiagnostic (param) {
         if (param == "") {
             param = errorCode;
         }
-        <?php 
-            if (debugging('',DEBUG_DEVELOPER)) {
+        <?php
+            if (scorm_debugging($scorm)) {
                 echo 'LogAPICall("LMSGetDiagnostic", param, param, 0);';
             }
         ?>
@@ -542,9 +574,11 @@ function SCORMapi1_2() {
                             if ((typeof eval('datamodel["'+elementmodel+'"].defaultvalue')) != "undefined") {
                                 if (eval('datamodel["'+elementmodel+'"].defaultvalue') != data[property] || eval('typeof(datamodel["'+elementmodel+'"].defaultvalue)') != typeof(data[property])) {
                                     datastring += elementstring;
+                                    eval('datamodel["'+elementmodel+'"].defaultvalue=data[property];');
                                 }
                             } else {
                                 datastring += elementstring;
+                                eval('datamodel["'+elementmodel+'"].defaultvalue=data[property];');
                             }
                         }
                     }
@@ -561,13 +595,11 @@ function SCORMapi1_2() {
             }
             if (cmi.core.lesson_mode == 'normal') {
                 if (cmi.core.credit == 'credit') {
-                    if (cmi.core.lesson_status == 'completed') {
-                        if (cmi.student_data.mastery_score != '' && cmi.core.score.raw != '') {
-                            if (parseFloat(cmi.core.score.raw) >= parseFloat(cmi.student_data.mastery_score)) {
-                                cmi.core.lesson_status = 'passed';
-                            } else {
-                                cmi.core.lesson_status = 'failed';
-                            }
+                    if (cmi.student_data.mastery_score != '' && cmi.core.score.raw != '') {
+                        if (parseFloat(cmi.core.score.raw) >= parseFloat(cmi.student_data.mastery_score)) {
+                            cmi.core.lesson_status = 'passed';
+                        } else {
+                            cmi.core.lesson_status = 'failed';
                         }
                     }
                 }
@@ -584,9 +616,10 @@ function SCORMapi1_2() {
         }
         datastring += '&attempt=<?php echo $attempt ?>';
         datastring += '&scoid=<?php echo $scoid ?>';
-        
+
         var myRequest = NewHttpReq();
-        result = DoRequest(myRequest,"<?php p($CFG->wwwroot) ?>/mod/scorm/datamodel.php","id=<?php p($id) ?>&sesskey=<?php p($USER->sesskey) ?>"+datastring);
+        //alert('going to:' + "<?php p($CFG->wwwroot) ?>/mod/scorm/datamodel.php" + "id=<?php p($id) ?>&a=<?php p($a) ?>&sesskey=<?php echo sesskey() ?>"+datastring);
+        result = DoRequest(myRequest,"<?php p($CFG->wwwroot) ?>/mod/scorm/datamodel.php","id=<?php p($id) ?>&a=<?php p($a) ?>&sesskey=<?php echo sesskey() ?>"+datastring);
         results = String(result).split('\n');
         errorCode = results[1];
         return results[0];
@@ -606,9 +639,8 @@ var API = new SCORMapi1_2();
 
 <?php
 // pull in the debugging utilities
-if (debugging('',DEBUG_DEVELOPER)) {
-    include_once($CFG->dirroot.'/mod/scorm/datamodels/debug.js.php');
-    echo 'AppendToLog("Moodle SCORM 1.2 API Loaded, Activity: '.$scorm->name.', SCO: '.$sco->identifier.'", 0);';
+if (scorm_debugging($scorm)) {
+   include_once($CFG->dirroot.'/mod/scorm/datamodels/debug.js.php');
 }
  ?>
 
