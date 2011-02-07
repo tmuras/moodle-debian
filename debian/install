@@ -1,36 +1,48 @@
-file.php				usr/share/moodle
-help.php				usr/share/moodle
-index.php				usr/share/moodle
-version.php				usr/share/moodle
-admin					usr/share/moodle
-auth					usr/share/moodle
-backup					usr/share/moodle
-blocks					usr/share/moodle
-blog					usr/share/moodle
-calendar				usr/share/moodle
-course					usr/share/moodle
-enrol					usr/share/moodle
-error					usr/share/moodle
-files					usr/share/moodle
-filter					usr/share/moodle
-grade					usr/share/moodle
-group					usr/share/moodle
-install					usr/share/moodle
-iplookup				usr/share/moodle
-lang					usr/share/moodle
-lib					usr/share/moodle
-login					usr/share/moodle
-message					usr/share/moodle
-mnet					usr/share/moodle
-mod					usr/share/moodle
-my					usr/share/moodle
-notes					usr/share/moodle
-pix					usr/share/moodle
-question				usr/share/moodle
-rss					usr/share/moodle
-search					usr/share/moodle
-sso					usr/share/moodle
-tag					usr/share/moodle
-theme					usr/share/moodle
-user					usr/share/moodle
-userpix					usr/share/moodle
+admin
+auth
+backup
+blocks
+blog
+brokenfile.php
+calendar
+cohort
+comment
+course
+debian
+draftfile.php
+enrol
+error
+file.php
+files
+filter
+grade
+group
+help.php
+index.php
+install
+install.php
+iplookup
+lang
+lib
+local
+login
+message
+mnet
+mod
+my
+notes
+pix
+plagiarism
+pluginfile.php
+portfolio
+question
+rating
+repository
+rss
+search
+tag
+theme
+user
+userpix
+version.php
+webservice
