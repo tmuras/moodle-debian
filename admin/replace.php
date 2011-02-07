@@ -1,14 +1,11 @@
-<?php /// $Id: replace.php,v 1.8.4.5 2009/11/08 22:23:54 skodak Exp $
+<?php
       /// Search and replace strings throughout all texts in the whole database
+
+define('NO_OUTPUT_BUFFERING', true);
 
 require_once('../config.php');
 require_once($CFG->dirroot.'/course/lib.php');
 require_once($CFG->libdir.'/adminlib.php');
-
-// workaround for problems with compression
-if (ini_get('zlib.output_compression')) {
-    @ini_set('zlib.output_compression', 'Off');
-}
 
 admin_externalpage_setup('replace');
 
@@ -16,56 +13,52 @@ $search  = optional_param('search', '', PARAM_RAW);
 $replace = optional_param('replace', '', PARAM_RAW);
 
 ###################################################################
-admin_externalpage_print_header();
+echo $OUTPUT->header();
 
-print_heading('Search and replace text throughout the whole database');
+echo $OUTPUT->heading('Search and replace text throughout the whole database');
 
 
 if (!data_submitted() or !$search or !$replace or !confirm_sesskey()) {   /// Print a form
 
-    print_simple_box_start('center');
+    echo $OUTPUT->box_start();
     echo '<div class="mdl-align">';
     echo '<form action="replace.php" method="post">';
-    echo '<input type="hidden" name="sesskey" value="'.$USER->sesskey.'" />';
+    echo '<input type="hidden" name="sesskey" value="'.sesskey().'" />';
     echo 'Search whole database for: <input type="text" name="search" /><br />';
     echo 'Replace with this string: <input type="text" name="replace" /><br />';
     echo '<input type="submit" value="Yes, do it now" /><br />';
     echo '</form>';
     echo '</div>';
-    print_simple_box_end();
-    admin_externalpage_print_footer();
+    echo $OUTPUT->box_end();
+    echo $OUTPUT->footer();
     die;
 }
 
-print_simple_box_start('center');
+echo $OUTPUT->box_start();
 
 if (!db_replace($search, $replace)) {
-    error('An error has occured during this process'); 
+    print_error('erroroccur', debug);
 }
 
-print_simple_box_end();
+echo $OUTPUT->box_end();
 
 /// Try to replace some well-known serialised contents (html blocks)
-notify('Replacing in html blocks...');
-$sql = "SELECT bi.*
-          FROM {$CFG->prefix}block_instance bi
-          JOIN {$CFG->prefix}block b ON b.id = bi.blockid
-         WHERE b.name = 'html'";
-if ($instances = get_records_sql($sql)) {
-    foreach ($instances as $instance) {
-        $blockobject = block_instance('html', $instance);
-        $blockobject->config->text = str_replace($search, $replace, $blockobject->config->text);
-        $blockobject->instance_config_commit($blockobject->pinned);
-    }
+echo $OUTPUT->notification('Replacing in html blocks...');
+$instances = $DB->get_recordset('block_instances', array('blockname' => 'html'));
+foreach ($instances as $instance) {
+    $blockobject = block_instance('html', $instance);
+    $blockobject->config->text = str_replace($search, $replace, $blockobject->config->text);
+    $blockobject->instance_config_commit();
 }
+$instances->close();
 
 /// Rebuild course cache which might be incorrect now
-notify('Rebuilding course cache...');
+echo $OUTPUT->notification('Rebuilding course cache...', 'notifysuccess');
 rebuild_course_cache();
-notify('...finished');
+echo $OUTPUT->notification('...finished', 'notifysuccess');
 
-print_continue('index.php');
+echo $OUTPUT->continue_button('index.php');
 
-admin_externalpage_print_footer();
+echo $OUTPUT->footer();
 
-?>
+

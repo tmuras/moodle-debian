@@ -1,4 +1,4 @@
-<?php  // $Id: access.php,v 1.1.2.4 2008/11/30 12:05:04 skodak Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -23,16 +23,16 @@
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
 
-$coursereport_log_capabilities = array(
+$capabilities = array(
 
     'coursereport/log:view' => array(
         'riskbitmask' => RISK_PERSONAL,
         'captype' => 'read',
         'contextlevel' => CONTEXT_COURSE,
-        'legacy' => array(
+        'archetypes' => array(
             'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
-            'admin' => CAP_ALLOW
+            'manager' => CAP_ALLOW
         ),
 
         'clonepermissionsfrom' => 'moodle/site:viewreports',
@@ -42,10 +42,10 @@ $coursereport_log_capabilities = array(
         'riskbitmask' => RISK_PERSONAL,
         'captype' => 'read',
         'contextlevel' => CONTEXT_COURSE,
-        'legacy' => array(
+        'archetypes' => array(
             'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
-            'admin' => CAP_ALLOW
+            'manager' => CAP_ALLOW
         ),
 
         'clonepermissionsfrom' => 'moodle/site:viewreports',
@@ -55,14 +55,14 @@ $coursereport_log_capabilities = array(
         'riskbitmask' => RISK_PERSONAL,
         'captype' => 'read',
         'contextlevel' => CONTEXT_COURSE,
-        'legacy' => array(
+        'archetypes' => array(
             'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
-            'admin' => CAP_ALLOW
+            'manager' => CAP_ALLOW
         ),
 
         'clonepermissionsfrom' => 'moodle/site:viewreports',
     )
 );
 
-?>
+

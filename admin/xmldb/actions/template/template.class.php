@@ -1,4 +1,4 @@
-<?php // $Id: template.class.php,v 1.4 2007/10/10 05:25:16 nicolasconnault Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -62,7 +62,7 @@ class template extends XMLDBAction {
     /// Do the job, setting result as needed
     /// Get the dir containing the file
         $dirpath = required_param('dir', PARAM_PATH);
-        $dirpath = $CFG->dirroot . stripslashes_safe($dirpath);
+        $dirpath = $CFG->dirroot . $dirpath;
 
     /// Get the correct dirs
         if (!empty($XMLDB->dbdirs)) {
@@ -88,4 +88,4 @@ class template extends XMLDBAction {
         return $result;
     }
 }
-?>
+

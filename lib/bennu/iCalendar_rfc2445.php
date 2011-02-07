@@ -1,4 +1,4 @@
-<?php // $Id: iCalendar_rfc2445.php,v 1.2.10.3 2009/11/19 10:16:53 skodak Exp $
+<?php
 
 /**
  *  BENNU - PHP iCalendar library
@@ -9,7 +9,6 @@
  *  See http://bennu.sourceforge.net/ for more information and downloads.
  *
  * @author Ioannis Papaioannou 
- * @version $Id: iCalendar_rfc2445.php,v 1.2.10.3 2009/11/19 10:16:53 skodak Exp $
  * @license http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
  */
 
@@ -139,13 +138,13 @@ function rfc2445_is_valid_value($value, $type) {
             }
         
             if($scheme === 'mailto') {
-                $regexp = '^[a-zA-Z0-9]+[_a-zA-Z0-9\-]*(\.[_a-z0-9\-]+)*@(([0-9a-zA-Z\-]+\.)+[a-zA-Z][0-9a-zA-Z\-]+|([0-9]{1,3}\.){3}[0-9]{1,3})$';
+                $regexp = '#^[a-zA-Z0-9]+[_a-zA-Z0-9\-]*(\.[_a-z0-9\-]+)*@(([0-9a-zA-Z\-]+\.)+[a-zA-Z][0-9a-zA-Z\-]+|([0-9]{1,3}\.){3}[0-9]{1,3})$#';
             }
             else {
-                $regexp = '^//(.+(:.*)?@)?(([0-9a-zA-Z\-]+\.)+[a-zA-Z][0-9a-zA-Z\-]+|([0-9]{1,3}\.){3}[0-9]{1,3})(:[0-9]{1,5})?(/.*)?$';
+                $regexp = '#^//(.+(:.*)?@)?(([0-9a-zA-Z\-]+\.)+[a-zA-Z][0-9a-zA-Z\-]+|([0-9]{1,3}\.){3}[0-9]{1,3})(:[0-9]{1,5})?(/.*)?$#';
             }
         
-            return ereg($regexp, $remain);
+            return preg_match($regexp, $remain);
         break;
 
         case RFC2445_TYPE_BINARY:
@@ -796,5 +795,3 @@ function rfc2445_undo_value_formatting($value, $type) {
     }
     return $value;
 }
-
-?>

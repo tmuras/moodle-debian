@@ -1,4 +1,4 @@
-<?php // $Id: testquestiontype.php,v 1.1.2.2 2009/04/16 06:27:37 skodak Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -37,13 +37,14 @@ if (!defined('MOODLE_INTERNAL')) {
 require_once($CFG->dirroot . '/question/type/questiontype.php');
 
 class default_questiontype_test extends UnitTestCase {
-    var $qtype;
+    public static $includecoverage = array('question/type/questiontype.php');
+    protected $qtype;
 
-    function setUp() {
+    public function setUp() {
         $this->qtype = new default_questiontype();
     }
 
-    function tearDown() {
+    public function tearDown() {
         $this->qtype = null;
     }
 
@@ -70,4 +71,4 @@ class default_questiontype_test extends UnitTestCase {
     }
 }
 
-?>
+

@@ -1,12 +1,12 @@
-<?php // $Id: timezoneimport.php,v 1.10.4.4 2007/12/31 15:24:22 stronk7 Exp $
+<?php
 
     // Automatic update of Timezones from a new source
-    
+
     require_once('../config.php');
     require_once($CFG->libdir.'/adminlib.php');
     require_once($CFG->libdir.'/filelib.php');
     require_once($CFG->libdir.'/olson.php');
-    
+
     admin_externalpage_setup('timezoneimport');
 
     $ok = optional_param('ok', 0, PARAM_BOOL);
@@ -16,9 +16,9 @@
 
     $strimporttimezones = get_string('importtimezones', 'admin');
 
-    admin_externalpage_print_header();
+    echo $OUTPUT->header();
 
-    print_heading($strimporttimezones);
+    echo $OUTPUT->heading($strimporttimezones);
 
     if (!$ok or !confirm_sesskey()) {
         $message = '<br /><br />';
@@ -30,9 +30,9 @@
 
         $message = get_string("configintrotimezones", 'admin', $message);
 
-        notice_yesno($message, 'timezoneimport.php?ok=1&amp;sesskey='.sesskey(), 'index.php');
+        echo $OUTPUT->confirm($message, 'timezoneimport.php?ok=1', 'index.php');
 
-        admin_externalpage_print_footer();
+        echo $OUTPUT->footer();
         exit;
     }
 
@@ -92,9 +92,9 @@
         $a = null;
         $a->count = count($timezones);
         $a->source  = $importdone;
-        print_heading(get_string('importtimezonescount', 'admin', $a), '', 3);
+        echo $OUTPUT->heading(get_string('importtimezonescount', 'admin', $a), 3);
 
-        print_continue('index.php');
+        echo $OUTPUT->continue_button('index.php');
 
         $timezonelist = array();
         foreach ($timezones as $timezone) {
@@ -110,17 +110,17 @@
         ksort($timezonelist);
 
         echo "<br />";
-        print_simple_box_start('center');
+        echo $OUTPUT->box_start();
         foreach ($timezonelist as $name => $count) {
             echo "$name ($count)<br />";
         }
-        print_simple_box_end();
+        echo $OUTPUT->box_end();
 
     } else {
-        print_heading(get_string('importtimezonesfailed', 'admin'), '', 3);
-        print_continue('index.php');
+        echo $OUTPUT->heading(get_string('importtimezonesfailed', 'admin'), 3);
+        echo $OUTPUT->continue_button('index.php');
     }
 
-    admin_externalpage_print_footer();
+    echo $OUTPUT->footer();
 
-?>
+

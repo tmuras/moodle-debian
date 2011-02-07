@@ -1,4 +1,20 @@
-<?php  // $Id: questionlib.php,v 1.119.2.30 2010/04/07 09:47:17 tjhunt Exp $
+<?php
+
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
 /**
  * Code for handling and processing questions
  *
@@ -10,13 +26,16 @@
  * TODO: separate those functions which form part of the API
  *       from the helper functions.
  *
- * @author Martin Dougiamas and many others. This has recently been completely
- *         rewritten by Alex Smith, Julian Sedding and Gustav Delius as part of
- *         the Serving Mathematics project
- *         {@link http://maths.york.ac.uk/serving_maths}
- * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package question
+ * Major Contributors
+ *     - Alex Smith, Julian Sedding and Gustav Delius {@link http://maths.york.ac.uk/serving_maths}
+ *
+ * @package    core
+ * @subpackage question
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /// CONSTANTS ///////////////////////////////////
 
@@ -37,6 +56,15 @@ define('QUESTION_EVENTMANUALGRADE', '9');   // Grade was entered by teacher
 define('QUESTION_EVENTS_GRADED', QUESTION_EVENTGRADE.','.
                     QUESTION_EVENTCLOSEANDGRADE.','.
                     QUESTION_EVENTMANUALGRADE);
+
+
+define('QUESTION_EVENTS_CLOSED', QUESTION_EVENTCLOSE.','.
+                    QUESTION_EVENTCLOSEANDGRADE.','.
+                    QUESTION_EVENTMANUALGRADE);
+
+define('QUESTION_EVENTS_CLOSED_OR_GRADED', QUESTION_EVENTGRADE.','.
+                    QUESTION_EVENTS_CLOSED);
+
 /**#@-*/
 
 /**#@+
@@ -78,7 +106,7 @@ define("QUESTION_NUMANS_ADD", 3);
 /**
  * The options used when popping up a question preview window in Javascript.
  */
-define('QUESTION_PREVIEW_POPUP_OPTIONS', 'scrollbars=yes,resizable=yes,width=700,height=540');
+define('QUESTION_PREVIEW_POPUP_OPTIONS', 'scrollbars=yes&resizable=yes&width=700&height=540');
 
 /**#@+
  * Option flags for ->optionflags
@@ -90,60 +118,39 @@ define('QUESTION_PREVIEW_POPUP_OPTIONS', 'scrollbars=yes,resizable=yes,width=700
  * is how question is Moodle always worked before version 1.5
  */
 define('QUESTION_ADAPTIVE', 1);
-
-/**
- * options used in forms that move files.
- *
- */
-define('QUESTION_FILENOTHINGSELECTED', 0);
-define('QUESTION_FILEDONOTHING', 1);
-define('QUESTION_FILECOPY', 2);
-define('QUESTION_FILEMOVE', 3);
-define('QUESTION_FILEMOVELINKSONLY', 4);
-
 /**#@-*/
 
-/// QTYPES INITIATION //////////////////
-// These variables get initialised via calls to question_register_questiontype
-// as the question type classes are included.
-global $QTYPES, $QTYPE_MANUAL, $QTYPE_EXCLUDE_FROM_RANDOM;
+/**#@+
+ * Options for whether flags are shown/editable when rendering questions.
+ */
+define('QUESTION_FLAGSHIDDEN', 0);
+define('QUESTION_FLAGSSHOWN', 1);
+define('QUESTION_FLAGSEDITABLE', 2);
+/**#@-*/
+
 /**
- * Array holding question type objects
+ * GLOBAL VARAIBLES
+ * @global array $QTYPES
+ * @name $QTYPES
+ */
+global $QTYPES;
+/**
+ * Array holding question type objects. Initialised via calls to
+ * question_register_questiontype as the question type classes are included.
  */
 $QTYPES = array();
-/**
- * String in the format "'type1','type2'" that can be used in SQL clauses like
- * "WHERE q.type IN ($QTYPE_MANUAL)".
- */
-$QTYPE_MANUAL = '';
-/**
- * String in the format "'type1','type2'" that can be used in SQL clauses like
- * "WHERE q.type NOT IN ($QTYPE_EXCLUDE_FROM_RANDOM)".
- */
-$QTYPE_EXCLUDE_FROM_RANDOM = '';
 
 /**
  * Add a new question type to the various global arrays above.
  *
+ * @global object
  * @param object $qtype An instance of the new question type class.
  */
 function question_register_questiontype($qtype) {
-    global $QTYPES, $QTYPE_MANUAL, $QTYPE_EXCLUDE_FROM_RANDOM;
+    global $QTYPES;
 
     $name = $qtype->name();
     $QTYPES[$name] = $qtype;
-    if ($qtype->is_manual_graded()) {
-        if ($QTYPE_MANUAL) {
-            $QTYPE_MANUAL .= ',';
-        }
-        $QTYPE_MANUAL .= "'$name'";
-    }
-    if (!$qtype->is_usable_by_random()) {
-        if ($QTYPE_EXCLUDE_FROM_RANDOM) {
-            $QTYPE_EXCLUDE_FROM_RANDOM .= ',';
-        }
-        $QTYPE_EXCLUDE_FROM_RANDOM .= "'$name'";
-    }
 }
 
 require_once("$CFG->dirroot/question/type/questiontype.php");
@@ -151,10 +158,10 @@ require_once("$CFG->dirroot/question/type/questiontype.php");
 // Load the questiontype.php file for each question type
 // These files in turn call question_register_questiontype()
 // with a new instance of each qtype class.
-$qtypenames= get_list_of_plugins('question/type');
-foreach($qtypenames as $qtypename) {
+$qtypenames = get_plugin_list('qtype');
+foreach($qtypenames as $qtypename => $qdir) {
     // Instanciates all plug-in question types
-    $qtypefilepath= "$CFG->dirroot/question/type/$qtypename/questiontype.php";
+    $qtypefilepath= "$qdir/questiontype.php";
 
     // echo "Loading $qtypename<br/>"; // Uncomment for debugging
     if (is_readable($qtypefilepath)) {
@@ -170,27 +177,120 @@ foreach($qtypenames as $qtypename) {
  * The array returned will only hold the names of all the question types that the user should
  * be able to create directly. Some internal question types like random questions are excluded.
  *
+ * @global object
  * @return array an array of question type names translated to the user's language.
  */
 function question_type_menu() {
     global $QTYPES;
-    static $menu_options = null;
-    if (is_null($menu_options)) {
-        $menu_options = array();
+    static $menuoptions = null;
+    if (is_null($menuoptions)) {
+        $config = get_config('question');
+        $menuoptions = array();
         foreach ($QTYPES as $name => $qtype) {
+            // Get the name if this qtype is enabled.
             $menuname = $qtype->menu_name();
-            if ($menuname) {
-                $menu_options[$name] = $menuname;
+            $enabledvar = $name . '_disabled';
+            if ($menuname && !isset($config->$enabledvar)) {
+                $menuoptions[$name] = $menuname;
             }
         }
+
+        $menuoptions = question_sort_qtype_array($menuoptions, $config);
     }
-    return $menu_options;
+    return $menuoptions;
+}
+
+/**
+ * Sort an array of question type names according to the question type sort order stored in
+ * config_plugins. Entries for which there is no xxx_sortorder defined will go
+ * at the end, sorted according to textlib_get_instance()->asort($inarray).
+ * @param $inarray an array $qtype => $QTYPES[$qtype]->local_name().
+ * @param $config get_config('question'), if you happen to have it around, to save one DB query.
+ * @return array the sorted version of $inarray.
+ */
+function question_sort_qtype_array($inarray, $config = null) {
+    if (is_null($config)) {
+        $config = get_config('question');
+    }
+
+    $sortorder = array();
+    foreach ($inarray as $name => $notused) {
+        $sortvar = $name . '_sortorder';
+        if (isset($config->$sortvar)) {
+            $sortorder[$config->$sortvar] = $name;
+        }
+    }
+
+    ksort($sortorder);
+    $outarray = array();
+    foreach ($sortorder as $name) {
+        $outarray[$name] = $inarray[$name];
+        unset($inarray[$name]);
+    }
+    textlib_get_instance()->asort($inarray);
+    return array_merge($outarray, $inarray);
+}
+
+/**
+ * Move one question type in a list of question types. If you try to move one element
+ * off of the end, nothing will change.
+ *
+ * @param array $sortedqtypes An array $qtype => anything.
+ * @param string $tomove one of the keys from $sortedqtypes
+ * @param integer $direction +1 or -1
+ * @return array an array $index => $qtype, with $index from 0 to n in order, and
+ *      the $qtypes in the same order as $sortedqtypes, except that $tomove will
+ *      have been moved one place.
+ */
+function question_reorder_qtypes($sortedqtypes, $tomove, $direction) {
+    $neworder = array_keys($sortedqtypes);
+    // Find the element to move.
+    $key = array_search($tomove, $neworder);
+    if ($key === false) {
+        return $neworder;
+    }
+    // Work out the other index.
+    $otherkey = $key + $direction;
+    if (!isset($neworder[$otherkey])) {
+        return $neworder;
+    }
+    // Do the swap.
+    $swap = $neworder[$otherkey];
+    $neworder[$otherkey] = $neworder[$key];
+    $neworder[$key] = $swap;
+    return $neworder;
+}
+
+/**
+ * Save a new question type order to the config_plugins table.
+ * @global object
+ * @param $neworder An arra $index => $qtype. Indices should start at 0 and be in order.
+ * @param $config get_config('question'), if you happen to have it around, to save one DB query.
+ */
+function question_save_qtype_order($neworder, $config = null) {
+    global $DB;
+
+    if (is_null($config)) {
+        $config = get_config('question');
+    }
+
+    foreach ($neworder as $index => $qtype) {
+        $sortvar = $qtype . '_sortorder';
+        if (!isset($config->$sortvar) || $config->$sortvar != $index + 1) {
+            set_config($sortvar, $index + 1, 'question');
+        }
+    }
 }
 
 /// OTHER CLASSES /////////////////////////////////////////////////////////
 
 /**
  * This holds the options that are set by the course module
+ *
+ * @package moodlecore
+ * @subpackage question
+ * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class cmoptions {
     /**
@@ -249,13 +349,15 @@ class cmoptions {
 /**
  * Returns an array of names of activity modules that use this question
  *
+ * @global object
+ * @global object
  * @param object $questionid
  * @return array of strings
  */
 function question_list_instances($questionid) {
-    global $CFG;
+    global $CFG, $DB;
     $instances = array();
-    $modules = get_records('modules');
+    $modules = $DB->get_records('modules');
     foreach ($modules as $module) {
         $fullmod = $CFG->dirroot . '/mod/' . $module->name;
         if (file_exists($fullmod . '/lib.php')) {
@@ -274,12 +376,13 @@ function question_list_instances($questionid) {
  * question categories contain any questions. This will return true even if all the questions are
  * hidden.
  *
+ * @global object
  * @param mixed $context either a context object, or a context id.
  * @return boolean whether any of the question categories beloning to this context have
  *         any questions in them.
  */
 function question_context_has_any_questions($context) {
-    global $CFG;
+    global $DB;
     if (is_object($context)) {
         $contextid = $context->id;
     } else if (is_numeric($context)) {
@@ -287,9 +390,10 @@ function question_context_has_any_questions($context) {
     } else {
         print_error('invalidcontextinhasanyquestions', 'question');
     }
-    return record_exists_sql('SELECT * FROM ' . $CFG->prefix . 'question q ' .
-            'JOIN ' . $CFG->prefix . 'question_categories qc ON qc.id = q.category ' .
-            "WHERE qc.contextid = $contextid AND q.parent = 0");
+    return $DB->record_exists_sql("SELECT *
+                                     FROM {question} q
+                                     JOIN {question_categories} qc ON qc.id = q.category
+                                    WHERE qc.contextid = ? AND q.parent = 0", array($contextid));
 }
 
 /**
@@ -298,29 +402,33 @@ function question_context_has_any_questions($context) {
  * @return object ->gradeoptionsfull full array ->gradeoptions +ve only
  */
 function get_grade_options() {
-    // define basic array of grades
+    // define basic array of grades. This list comprises all fractions of the form:
+    // a. p/q for q <= 6, 0 <= p <= q
+    // b. p/10 for 0 <= p <= 10
+    // c. 1/q for 1 <= q <= 10
+    // d. 1/20
     $grades = array(
-        1.00,
-        0.90,
-        0.83333,
-        0.80,
-        0.75,
-        0.70,
-        0.66666,
-        0.60,
-        0.50,
-        0.40,
-        0.33333,
-        0.30,
-        0.25,
-        0.20,
-        0.16666,
-        0.142857,
-        0.125,
-        0.11111,
-        0.10,
-        0.05,
-        0);
+        1.0000000,
+        0.9000000,
+        0.8333333,
+        0.8000000,
+        0.7500000,
+        0.7000000,
+        0.6666667,
+        0.6000000,
+        0.5000000,
+        0.4000000,
+        0.3333333,
+        0.3000000,
+        0.2500000,
+        0.2000000,
+        0.1666667,
+        0.1428571,
+        0.1250000,
+        0.1111111,
+        0.1000000,
+        0.0500000,
+        0.0000000);
 
     // iterate through grades generating full range of options
     $gradeoptionsfull = array();
@@ -388,14 +496,16 @@ function match_grade_options($gradeoptionsfull, $grade, $matchgrades='error') {
 /**
  * Tests whether a category is in use by any activity module
  *
+ * @global object
  * @return boolean
  * @param integer $categoryid
  * @param boolean $recursive Whether to examine category children recursively
  */
 function question_category_isused($categoryid, $recursive = false) {
+    global $DB;
 
     //Look at each question in the category
-    if ($questions = get_records('question', 'category', $categoryid)) {
+    if ($questions = $DB->get_records('question', array('category'=>$categoryid), '', 'id,qtype')) {
         foreach ($questions as $question) {
             if (count(question_list_instances($question->id))) {
                 return true;
@@ -405,7 +515,7 @@ function question_category_isused($categoryid, $recursive = false) {
 
     //Look under child categories recursively
     if ($recursive) {
-        if ($children = get_records('question_categories', 'parent', $categoryid)) {
+        if ($children = $DB->get_records('question_categories', array('parent'=>$categoryid))) {
             foreach ($children as $child) {
                 if (question_category_isused($child->id, $recursive)) {
                     return true;
@@ -420,12 +530,14 @@ function question_category_isused($categoryid, $recursive = false) {
 /**
  * Deletes all data associated to an attempt from the database
  *
+ * @global object
+ * @global object
  * @param integer $attemptid The id of the attempt being deleted
  */
 function delete_attempt($attemptid) {
-    global $QTYPES;
+    global $QTYPES, $DB;
 
-    $states = get_records('question_states', 'attempt', $attemptid);
+    $states = $DB->get_records('question_states', array('attempt'=>$attemptid));
     if ($states) {
         $stateslist = implode(',', array_keys($states));
 
@@ -437,21 +549,29 @@ function delete_attempt($attemptid) {
 
     // delete entries from all other question tables
     // It is important that this is done only after calling the questiontype functions
-    delete_records("question_states", "attempt", $attemptid);
-    delete_records("question_sessions", "attemptid", $attemptid);
-    delete_records("question_attempts", "id", $attemptid);
+    $DB->delete_records("question_states", array("attempt"=>$attemptid));
+    $DB->delete_records("question_sessions", array("attemptid"=>$attemptid));
+    $DB->delete_records("question_attempts", array("id"=>$attemptid));
 }
 
 /**
  * Deletes question and all associated data from the database
  *
  * It will not delete a question if it is used by an activity module
+ *
+ * @global object
+ * @global object
  * @param object $question  The question being deleted
  */
 function delete_question($questionid) {
-    global $QTYPES;
+    global $QTYPES, $DB;
 
-    if (!$question = get_record('question', 'id', $questionid)) {
+    $question = $DB->get_record_sql('
+            SELECT q.*, qc.contextid
+            FROM {question} q
+            JOIN {question_categories} qc ON qc.id = q.category
+            WHERE q.id = ?', array($questionid));
+    if (!$question) {
         // In some situations, for example if this was a child of a
         // Cloze question that was previously deleted, the question may already
         // have gone. In this case, just do nothing.
@@ -465,15 +585,11 @@ function delete_question($questionid) {
 
     // delete questiontype-specific data
     question_require_capability_on($question, 'edit');
-    if ($question) {
-        if (isset($QTYPES[$question->qtype])) {
-            $QTYPES[$question->qtype]->delete_question($questionid);
-        }
-    } else {
-        echo "Question with id $questionid does not exist.<br />";
+    if (isset($QTYPES[$question->qtype])) {
+        $QTYPES[$question->qtype]->delete_question($questionid, $question->contextid);
     }
 
-    if ($states = get_records('question_states', 'question', $questionid)) {
+    if ($states = $DB->get_records('question_states', array('question'=>$questionid))) {
         $stateslist = implode(',', array_keys($states));
 
         // delete questiontype-specific data
@@ -482,14 +598,14 @@ function delete_question($questionid) {
         }
     }
 
-    // delete entries from all other question tables
+    // Delete entries from all other question tables
     // It is important that this is done only after calling the questiontype functions
-    delete_records("question_answers", "question", $questionid);
-    delete_records("question_states", "question", $questionid);
-    delete_records("question_sessions", "questionid", $questionid);
+    $DB->delete_records('question_answers', array('question' => $questionid));
+    $DB->delete_records('question_states', array('question' => $questionid));
+    $DB->delete_records('question_sessions', array('questionid' => $questionid));
 
     // Now recursively delete all child questions
-    if ($children = get_records('question', 'parent', $questionid)) {
+    if ($children = $DB->get_records('question', array('parent' => $questionid), '', 'id,qtype')) {
         foreach ($children as $child) {
             if ($child->id != $questionid) {
                 delete_question($child->id);
@@ -498,26 +614,27 @@ function delete_question($questionid) {
     }
 
     // Finally delete the question record itself
-    delete_records('question', 'id', $questionid);
-
-    return;
+    $DB->delete_records('question', array('id'=>$questionid));
 }
 
 /**
  * All question categories and their questions are deleted for this course.
  *
+ * @global object
  * @param object $mod an object representing the activity
  * @param boolean $feedback to specify if the process must output a summary of its work
  * @return boolean
  */
 function question_delete_course($course, $feedback=true) {
+    global $DB, $OUTPUT;
+
     //To store feedback to be showed at the end of the process
     $feedbackdata   = array();
 
     //Cache some strings
     $strcatdeleted = get_string('unusedcategorydeleted', 'quiz');
     $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
-    $categoriescourse = get_records('question_categories', 'contextid', $coursecontext->id, 'parent', 'id, parent, name');
+    $categoriescourse = $DB->get_records('question_categories', array('contextid'=>$coursecontext->id), 'parent', 'id, parent, name, contextid');
 
     if ($categoriescourse) {
 
@@ -529,24 +646,24 @@ function question_delete_course($course, $feedback=true) {
 
             //Delete it completely (questions and category itself)
             //deleting questions
-            if ($questions = get_records("question", "category", $category->id)) {
+            if ($questions = $DB->get_records('question', array('category' => $category->id), '', 'id,qtype')) {
                 foreach ($questions as $question) {
                     delete_question($question->id);
                 }
-                delete_records("question", "category", $category->id);
+                $DB->delete_records("question", array("category"=>$category->id));
             }
             //delete the category
-            delete_records('question_categories', 'id', $category->id);
+            $DB->delete_records('question_categories', array('id'=>$category->id));
 
             //Fill feedback
             $feedbackdata[] = array($category->name, $strcatdeleted);
         }
         //Inform about changes performed if feedback is enabled
         if ($feedback) {
-            $table = new stdClass;
+            $table = new html_table();
             $table->head = array(get_string('category','quiz'), get_string('action'));
             $table->data = $feedbackdata;
-            print_table($table);
+            echo html_writer::table($table);
         }
     }
     return true;
@@ -557,12 +674,15 @@ function question_delete_course($course, $feedback=true) {
  * 1/ All question categories and their questions are deleted for this course category.
  * 2/ All questions are moved to new category
  *
+ * @global object
  * @param object $category course category object
  * @param object $newcategory empty means everything deleted, otherwise id of category where content moved
  * @param boolean $feedback to specify if the process must output a summary of its work
  * @return boolean
  */
 function question_delete_course_category($category, $newcategory, $feedback=true) {
+    global $DB, $OUTPUT;
+
     $context = get_context_instance(CONTEXT_COURSECAT, $category->id);
     if (empty($newcategory)) {
         $feedbackdata   = array(); // To store feedback to be showed at the end of the process
@@ -570,11 +690,11 @@ function question_delete_course_category($category, $newcategory, $feedback=true
         $strcatdeleted = get_string('unusedcategorydeleted', 'quiz');
 
         // Loop over question categories.
-        if ($categories = get_records('question_categories', 'contextid', $context->id, 'parent', 'id, parent, name')) {
+        if ($categories = $DB->get_records('question_categories', array('contextid'=>$context->id), 'parent', 'id, parent, name')) {
             foreach ($categories as $category) {
 
                 // Deal with any questions in the category.
-                if ($questions = get_records('question', 'category', $category->id)) {
+                if ($questions = $DB->get_records('question', array('category' => $category->id), '', 'id,qtype')) {
 
                     // Try to delete each question.
                     foreach ($questions as $question) {
@@ -585,9 +705,9 @@ function question_delete_course_category($category, $newcategory, $feedback=true
                     // still in use somehow, even though quizzes in courses in this category will
                     // already have been deteted. This could happen, for example, if questions are
                     // added to a course, and then that course is moved to another category (MDL-14802).
-                    $questionids = get_records_select_menu('question', 'category = ' . $category->id, '', 'id,1');
+                    $questionids = $DB->get_records_menu('question', array('category'=>$category->id), '', 'id,1');
                     if (!empty($questionids)) {
-                        if (!$rescueqcategory = question_save_from_deletion(implode(',', array_keys($questionids)),
+                        if (!$rescueqcategory = question_save_from_deletion(array_keys($questionids),
                                 get_parent_contextid($context), print_context_name($context), $rescueqcategory)) {
                             return false;
                        }
@@ -596,7 +716,7 @@ function question_delete_course_category($category, $newcategory, $feedback=true
                 }
 
                 // Now delete the category.
-                if (!delete_records('question_categories', 'id', $category->id)) {
+                if (!$DB->delete_records('question_categories', array('id'=>$category->id))) {
                     return false;
                 }
                 $feedbackdata[] = array($category->name, $strcatdeleted);
@@ -606,10 +726,10 @@ function question_delete_course_category($category, $newcategory, $feedback=true
 
         // Output feedback if requested.
         if ($feedback and $feedbackdata) {
-            $table = new stdClass;
+            $table = new html_table();
             $table->head = array(get_string('questioncategory','question'), get_string('action'));
             $table->data = $feedbackdata;
-            print_table($table);
+            echo html_writer::table($table);
         }
 
     } else {
@@ -617,14 +737,12 @@ function question_delete_course_category($category, $newcategory, $feedback=true
         if (!$newcontext = get_context_instance(CONTEXT_COURSECAT, $newcategory->id)) {
             return false;
         }
-        if (!set_field('question_categories', 'contextid', $newcontext->id, 'contextid', $context->id)) {
-            return false;
-        }
+        $DB->set_field('question_categories', 'contextid', $newcontext->id, array('contextid'=>$context->id));
         if ($feedback) {
             $a = new stdClass;
             $a->oldplace = print_context_name($context);
             $a->newplace = print_context_name($newcontext);
-            notify(get_string('movedquestionsandcategories', 'question', $a), 'notifysuccess');
+            echo $OUTPUT->notification(get_string('movedquestionsandcategories', 'question', $a), 'notifysuccess');
         }
     }
 
@@ -634,6 +752,7 @@ function question_delete_course_category($category, $newcategory, $feedback=true
 /**
  * Enter description here...
  *
+ * @global object
  * @param string $questionids list of questionids
  * @param object $newcontext the context to create the saved category in.
  * @param string $oldplace a textual description of the think being deleted, e.g. from get_context_name
@@ -641,18 +760,18 @@ function question_delete_course_category($category, $newcategory, $feedback=true
  * @return mixed false on
  */
 function question_save_from_deletion($questionids, $newcontextid, $oldplace, $newcategory = null) {
+    global $DB;
+
     // Make a category in the parent context to move the questions to.
     if (is_null($newcategory)) {
-        $newcategory = new object();
+        $newcategory = new stdClass();
         $newcategory->parent = 0;
         $newcategory->contextid = $newcontextid;
-        $newcategory->name = addslashes(get_string('questionsrescuedfrom', 'question', $oldplace));
-        $newcategory->info = addslashes(get_string('questionsrescuedfrominfo', 'question', $oldplace));
+        $newcategory->name = get_string('questionsrescuedfrom', 'question', $oldplace);
+        $newcategory->info = get_string('questionsrescuedfrominfo', 'question', $oldplace);
         $newcategory->sortorder = 999;
         $newcategory->stamp = make_unique_id_code();
-        if (!$newcategory->id = insert_record('question_categories', $newcategory)) {
-            return false;
-        }
+        $newcategory->id = $DB->insert_record('question_categories', $newcategory);
     }
 
     // Move any remaining questions to the 'saved' category.
@@ -665,18 +784,21 @@ function question_save_from_deletion($questionids, $newcontextid, $oldplace, $ne
 /**
  * All question categories and their questions are deleted for this activity.
  *
+ * @global object
  * @param object $cm the course module object representing the activity
  * @param boolean $feedback to specify if the process must output a summary of its work
  * @return boolean
  */
 function question_delete_activity($cm, $feedback=true) {
+    global $DB, $OUTPUT;
+
     //To store feedback to be showed at the end of the process
     $feedbackdata   = array();
 
     //Cache some strings
     $strcatdeleted = get_string('unusedcategorydeleted', 'quiz');
     $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
-    if ($categoriesmods = get_records('question_categories', 'contextid', $modcontext->id, 'parent', 'id, parent, name')){
+    if ($categoriesmods = $DB->get_records('question_categories', array('contextid'=>$modcontext->id), 'parent', 'id, parent, name, contextid')){
         //Sort categories following their tree (parent-child) relationships
         //this will make the feedback more readable
         $categoriesmods = sort_categories_by_tree($categoriesmods);
@@ -685,24 +807,24 @@ function question_delete_activity($cm, $feedback=true) {
 
             //Delete it completely (questions and category itself)
             //deleting questions
-            if ($questions = get_records("question", "category", $category->id)) {
+            if ($questions = $DB->get_records('question', array('category' => $category->id), '', 'id,qtype')) {
                 foreach ($questions as $question) {
                     delete_question($question->id);
                 }
-                delete_records("question", "category", $category->id);
+                $DB->delete_records("question", array("category"=>$category->id));
             }
             //delete the category
-            delete_records('question_categories', 'id', $category->id);
+            $DB->delete_records('question_categories', array('id'=>$category->id));
 
             //Fill feedback
             $feedbackdata[] = array($category->name, $strcatdeleted);
         }
         //Inform about changes performed if feedback is enabled
         if ($feedback) {
-            $table = new stdClass;
+            $table = new html_table();
             $table->head = array(get_string('category','quiz'), get_string('action'));
             $table->data = $feedbackdata;
-            print_table($table);
+            echo html_writer::table($table);
         }
     }
     return true;
@@ -714,56 +836,165 @@ function question_delete_activity($cm, $feedback=true) {
  * acutally moving questions and associated data. However, callers of this function also have to
  * do other work, which is why you should not call this method directly from outside the questionbank.
  *
+ * @global object
  * @param string $questionids a comma-separated list of question ids.
- * @param integer $newcategory the id of the category to move to.
+ * @param integer $newcategoryid the id of the category to move to.
  */
-function question_move_questions_to_category($questionids, $newcategory) {
-    $result = true;
+function question_move_questions_to_category($questionids, $newcategoryid) {
+    global $DB, $QTYPES;
+
+    $newcontextid = $DB->get_field('question_categories', 'contextid',
+            array('id' => $newcategoryid));
+    list($questionidcondition, $params) = $DB->get_in_or_equal($questionids);
+    $questions = $DB->get_records_sql("
+            SELECT q.id, q.qtype, qc.contextid
+              FROM {question} q
+              JOIN {question_categories} qc ON q.category = qc.id
+             WHERE  q.id $questionidcondition", $params);
+    foreach ($questions as $question) {
+        if ($newcontextid != $question->contextid) {
+            $QTYPES[$question->qtype]->move_files($question->id,
+                    $question->contextid, $newcontextid);
+        }
+    }
 
     // Move the questions themselves.
-    $result = $result && set_field_select('question', 'category', $newcategory, "id IN ($questionids)");
+    $DB->set_field_select('question', 'category', $newcategoryid, "id $questionidcondition", $params);
 
     // Move any subquestions belonging to them.
-    $result = $result && set_field_select('question', 'category', $newcategory, "parent IN ($questionids)");
+    $DB->set_field_select('question', 'category', $newcategoryid, "parent $questionidcondition", $params);
 
     // TODO Deal with datasets.
 
-    return $result;
+    return true;
 }
 
 /**
- * @param array $row tab objects
- * @param question_edit_contexts $contexts object representing contexts available from this context
- * @param string $querystring to append to urls
- * */
-function questionbank_navigation_tabs(&$row, $contexts, $querystring) {
-    global $CFG, $QUESTION_EDITTABCAPS;
-    $tabs = array(
-            'questions' =>array("$CFG->wwwroot/question/edit.php?$querystring", get_string('questions', 'quiz'), get_string('editquestions', 'quiz')),
-            'categories' =>array("$CFG->wwwroot/question/category.php?$querystring", get_string('categories', 'quiz'), get_string('editqcats', 'quiz')),
-            'import' =>array("$CFG->wwwroot/question/import.php?$querystring", get_string('import', 'quiz'), get_string('importquestions', 'quiz')),
-            'export' =>array("$CFG->wwwroot/question/export.php?$querystring", get_string('export', 'quiz'), get_string('exportquestions', 'quiz')));
-    foreach ($tabs as $tabname => $tabparams){
-        if ($contexts->have_one_edit_tab_cap($tabname)) {
-            $row[] = new tabobject($tabname, $tabparams[0], $tabparams[1], $tabparams[2]);
-        }
+ * This function helps move a question cateogry to a new context by moving all
+ * the files belonging to all the questions to the new context.
+ * Also moves subcategories.
+ * @param integer $categoryid the id of the category being moved.
+ * @param integer $oldcontextid the old context id.
+ * @param integer $newcontextid the new context id.
+ */
+function question_move_category_to_context($categoryid, $oldcontextid, $newcontextid) {
+    global $DB, $QTYPES;
+
+    $questionids = $DB->get_records_menu('question',
+            array('category' => $categoryid), '', 'id,qtype');
+    foreach ($questionids as $questionid => $qtype) {
+        $QTYPES[$qtype]->move_files($questionid, $oldcontextid, $newcontextid);
     }
+
+    $subcatids = $DB->get_records_menu('question_categories',
+            array('parent' => $categoryid), '', 'id,1');
+    foreach ($subcatids as $subcatid => $notused) {
+        $DB->set_field('question_categories', 'contextid', $newcontextid, array('id' => $subcatid));
+        question_move_category_to_context($subcatid, $oldcontextid, $newcontextid);
+    }
+}
+
+/**
+ * Given a list of ids, load the basic information about a set of questions from the questions table.
+ * The $join and $extrafields arguments can be used together to pull in extra data.
+ * See, for example, the usage in mod/quiz/attemptlib.php, and
+ * read the code below to see how the SQL is assembled. Throws exceptions on error.
+ *
+ * @global object
+ * @global object
+ * @param array $questionids array of question ids.
+ * @param string $extrafields extra SQL code to be added to the query.
+ * @param string $join extra SQL code to be added to the query.
+ * @param array $extraparams values for any placeholders in $join.
+ * You are strongly recommended to use named placeholder.
+ *
+ * @return array partially complete question objects. You need to call get_question_options
+ * on them before they can be properly used.
+ */
+function question_preload_questions($questionids, $extrafields = '', $join = '', $extraparams = array()) {
+    global $CFG, $DB;
+    if (empty($questionids)) {
+        return array();
+    }
+    if ($join) {
+        $join = ' JOIN '.$join;
+    }
+    if ($extrafields) {
+        $extrafields = ', ' . $extrafields;
+    }
+    list($questionidcondition, $params) = $DB->get_in_or_equal(
+            $questionids, SQL_PARAMS_NAMED, 'qid0000');
+    $sql = 'SELECT q.*' . $extrafields . ' FROM {question} q' . $join .
+            ' WHERE q.id ' . $questionidcondition;
+
+    // Load the questions
+    if (!$questions = $DB->get_records_sql($sql, $extraparams + $params)) {
+        return 'Could not load questions.';
+    }
+
+    foreach ($questions as $question) {
+        $question->_partiallyloaded = true;
+    }
+
+    // Note, a possible optimisation here would be to not load the TEXT fields
+    // (that is, questiontext and generalfeedback) here, and instead load them in
+    // question_load_questions. That would add one DB query, but reduce the amount
+    // of data transferred most of the time. I am not going to do this optimisation
+    // until it is shown to be worthwhile.
+
+    return $questions;
+}
+
+/**
+ * Load a set of questions, given a list of ids. The $join and $extrafields arguments can be used
+ * together to pull in extra data. See, for example, the usage in mod/quiz/attempt.php, and
+ * read the code below to see how the SQL is assembled. Throws exceptions on error.
+ *
+ * @param array $questionids array of question ids.
+ * @param string $extrafields extra SQL code to be added to the query.
+ * @param string $join extra SQL code to be added to the query.
+ * @param array $extraparams values for any placeholders in $join.
+ * You are strongly recommended to use named placeholder.
+ *
+ * @return array question objects.
+ */
+function question_load_questions($questionids, $extrafields = '', $join = '') {
+    $questions = question_preload_questions($questionids, $extrafields, $join);
+
+    // Load the question type specific information
+    if (!get_question_options($questions)) {
+        return 'Could not load the question options';
+    }
+
+    return $questions;
 }
 
 /**
  * Private function to factor common code out of get_question_options().
  *
+ * @global object
+ * @global object
  * @param object $question the question to tidy.
+ * @param boolean $loadtags load the question tags from the tags table. Optional, default false.
  * @return boolean true if successful, else false.
  */
-function _tidy_question(&$question) {
-    global $QTYPES;
+function _tidy_question(&$question, $loadtags = false) {
+    global $CFG, $QTYPES;
     if (!array_key_exists($question->qtype, $QTYPES)) {
         $question->qtype = 'missingtype';
         $question->questiontext = '<p>' . get_string('warningmissingtype', 'quiz') . '</p>' . $question->questiontext;
     }
     $question->name_prefix = question_make_name_prefix($question->id);
-    return $QTYPES[$question->qtype]->get_question_options($question);
+    if ($success = $QTYPES[$question->qtype]->get_question_options($question)) {
+        if (isset($question->_partiallyloaded)) {
+            unset($question->_partiallyloaded);
+        }
+    }
+    if ($loadtags && !empty($CFG->usetags)) {
+        require_once($CFG->dirroot . '/tag/lib.php');
+        $question->tags = tag_get_tags_array('question', $question->id);
+    }
+    return $success;
 }
 
 /**
@@ -775,19 +1006,179 @@ function _tidy_question(&$question) {
  *
  * @param mixed $questions Either an array of question objects to be updated
  *         or just a single question object
+ * @param boolean $loadtags load the question tags from the tags table. Optional, default false.
  * @return bool Indicates success or failure.
  */
-function get_question_options(&$questions) {
+function get_question_options(&$questions, $loadtags = false) {
     if (is_array($questions)) { // deal with an array of questions
         foreach ($questions as $i => $notused) {
-            if (!_tidy_question($questions[$i])) {
+            if (!_tidy_question($questions[$i], $loadtags)) {
                 return false;
             }
         }
         return true;
     } else { // deal with single question
-        return _tidy_question($questions);
+        return _tidy_question($questions, $loadtags);
     }
+}
+
+/**
+ * Load the basic state information for
+ *
+ * @global object
+ * @param integer $attemptid the attempt id to load the states for.
+ * @return array an array of state data from the database, you will subsequently
+ *      need to call question_load_states to get fully loaded states that can be
+ *      used by the question types. The states here should be sufficient for
+ *      basic tasks like rendering navigation.
+ */
+function question_preload_states($attemptid) {
+    global $DB;
+    // Note, changes here probably also need to be reflected in
+    // regrade_question_in_attempt and question_load_specific_state.
+
+    // The questionid field must be listed first so that it is used as the
+    // array index in the array returned by $DB->get_records_sql
+    $statefields = 'n.questionid as question, s.id, s.attempt, ' .
+            's.seq_number, s.answer, s.timestamp, s.event, s.grade, s.raw_grade, ' .
+            's.penalty, n.sumpenalty, n.manualcomment, n.manualcommentformat, ' .
+            'n.flagged, n.id as questionsessionid';
+
+    // Load the newest states for the questions
+    $sql = "SELECT $statefields
+              FROM {question_states} s, {question_sessions} n
+             WHERE s.id = n.newest AND n.attemptid = ?";
+    $states = $DB->get_records_sql($sql, array($attemptid));
+    if (!$states) {
+        return false;
+    }
+
+    // Load the newest graded states for the questions
+    $sql = "SELECT $statefields
+              FROM {question_states} s, {question_sessions} n
+             WHERE s.id = n.newgraded AND n.attemptid = ?";
+    $gradedstates = $DB->get_records_sql($sql, array($attemptid));
+
+    // Hook the two together.
+    foreach ($states as $questionid => $state) {
+        $states[$questionid]->_partiallyloaded = true;
+        if ($gradedstates[$questionid]) {
+            $states[$questionid]->last_graded = $gradedstates[$questionid];
+            $states[$questionid]->last_graded->_partiallyloaded = true;
+        }
+    }
+
+    return $states;
+}
+
+/**
+ * Finish loading the question states that were extracted from the database with
+ * question_preload_states, creating new states for any question where there
+ * is not a state in the database.
+ *
+ * @global object
+ * @global object
+ * @param array $questions the questions to load state for.
+ * @param array $states the partially loaded states this array is updated.
+ * @param object $cmoptions options from the module we are loading the states for. E.g. $quiz.
+ * @param object $attempt The attempt for which the question sessions are
+ *      to be restored or created.
+ * @param mixed either the id of a previous attempt, if this attmpt is
+ *      building on a previous one, or false for a clean attempt.
+ * @return true or false for success or failure.
+ */
+function question_load_states(&$questions, &$states, $cmoptions, $attempt, $lastattemptid = false) {
+    global $QTYPES, $DB;
+
+    // loop through all questions and set the last_graded states
+    foreach (array_keys($questions) as $qid) {
+        if (isset($states[$qid])) {
+            restore_question_state($questions[$qid], $states[$qid]);
+            if (isset($states[$qid]->_partiallyloaded)) {
+                unset($states[$qid]->_partiallyloaded);
+            }
+            if (isset($states[$qid]->last_graded)) {
+                restore_question_state($questions[$qid], $states[$qid]->last_graded);
+                if (isset($states[$qid]->last_graded->_partiallyloaded)) {
+                    unset($states[$qid]->last_graded->_partiallyloaded);
+                }
+            } else {
+                $states[$qid]->last_graded = clone($states[$qid]);
+            }
+        } else {
+
+            if ($lastattemptid) {
+                // If the new attempt is to be based on this previous attempt.
+                // Find the responses from the previous attempt and save them to the new session
+
+                // Load the last graded state for the question. Note, $statefields is
+                // the same as above, except that we don't want n.manualcomment.
+                $statefields = 'n.questionid as question, s.id, s.attempt, ' .
+                        's.seq_number, s.answer, s.timestamp, s.event, s.grade, s.raw_grade, ' .
+                        's.penalty, n.sumpenalty';
+                $sql = "SELECT $statefields
+                          FROM {question_states} s, {question_sessions} n
+                         WHERE s.id = n.newest
+                               AND n.attemptid = ?
+                               AND n.questionid = ?";
+                if (!$laststate = $DB->get_record_sql($sql, array($lastattemptid, $qid))) {
+                    // Only restore previous responses that have been graded
+                    continue;
+                }
+                // Restore the state so that the responses will be restored
+                restore_question_state($questions[$qid], $laststate);
+                $states[$qid] = clone($laststate);
+                unset($states[$qid]->id);
+            } else {
+                // create a new empty state
+                $states[$qid] = new stdClass();
+                $states[$qid]->question = $qid;
+                $states[$qid]->responses = array('' => '');
+                $states[$qid]->raw_grade = 0;
+            }
+
+            // now fill/overide initial values
+            $states[$qid]->attempt = $attempt->uniqueid;
+            $states[$qid]->seq_number = 0;
+            $states[$qid]->timestamp = $attempt->timestart;
+            $states[$qid]->event = ($attempt->timefinish) ? QUESTION_EVENTCLOSE : QUESTION_EVENTOPEN;
+            $states[$qid]->grade = 0;
+            $states[$qid]->penalty = 0;
+            $states[$qid]->sumpenalty = 0;
+            $states[$qid]->manualcomment = '';
+            $states[$qid]->manualcommentformat = FORMAT_HTML;
+            $states[$qid]->flagged = 0;
+
+            // Prevent further changes to the session from incrementing the
+            // sequence number
+            $states[$qid]->changed = true;
+
+            if ($lastattemptid) {
+                // prepare the previous responses for new processing
+                $action = new stdClass;
+                $action->responses = $laststate->responses;
+                $action->timestamp = $laststate->timestamp;
+                $action->event = QUESTION_EVENTSAVE; //emulate save of questions from all pages MDL-7631
+
+                // Process these responses ...
+                question_process_responses($questions[$qid], $states[$qid], $action, $cmoptions, $attempt);
+
+                // Fix for Bug #5506: When each attempt is built on the last one,
+                // preserve the options from any previous attempt.
+                if ( isset($laststate->options) ) {
+                    $states[$qid]->options = $laststate->options;
+                }
+            } else {
+                // Create the empty question type specific information
+                if (!$QTYPES[$questions[$qid]->qtype]->create_session_and_responses(
+                        $questions[$qid], $states[$qid], $cmoptions, $attempt)) {
+                    return false;
+                }
+            }
+            $states[$qid]->last_graded = clone($states[$qid]);
+        }
+    }
+    return true;
 }
 
 /**
@@ -814,125 +1205,78 @@ function get_question_options(&$questions) {
 *                         building on a previous one, or false for a clean attempt.
 */
 function get_question_states(&$questions, $cmoptions, $attempt, $lastattemptid = false) {
-    global $CFG, $QTYPES;
-
-    // get the question ids
-    $ids = array_keys($questions);
-    $questionlist = implode(',', $ids);
-
-    // The question field must be listed first so that it is used as the
-    // array index in the array returned by get_records_sql
-    $statefields = 'n.questionid as question, s.id, s.attempt, s.originalquestion, ' .
-            's.seq_number, s.answer, s.timestamp, s.event, s.grade, s.raw_grade, ' .
-            's.penalty, n.sumpenalty, n.manualcomment';
-    // Load the newest states for the questions
-    $sql = "SELECT $statefields".
-           "  FROM {$CFG->prefix}question_states s,".
-           "       {$CFG->prefix}question_sessions n".
-           " WHERE s.id = n.newest".
-           "   AND n.attemptid = '$attempt->uniqueid'".
-           "   AND n.questionid IN ($questionlist)";
-    $states = get_records_sql($sql);
-
-    // Load the newest graded states for the questions
-    $sql = "SELECT $statefields".
-           "  FROM {$CFG->prefix}question_states s,".
-           "       {$CFG->prefix}question_sessions n".
-           " WHERE s.id = n.newgraded".
-           "   AND n.attemptid = '$attempt->uniqueid'".
-           "   AND n.questionid IN ($questionlist)";
-    $gradedstates = get_records_sql($sql);
-
-    // loop through all questions and set the last_graded states
-    foreach ($ids as $i) {
-        if (isset($states[$i])) {
-            restore_question_state($questions[$i], $states[$i]);
-            if (isset($gradedstates[$i])) {
-                restore_question_state($questions[$i], $gradedstates[$i]);
-                $states[$i]->last_graded = $gradedstates[$i];
-            } else {
-                $states[$i]->last_graded = clone($states[$i]);
-            }
-        } else {
-            if ($lastattemptid) {
-                // If the new attempt is to be based on this previous attempt.
-                // Find the responses from the previous attempt and save them to the new session
-
-                // Load the last graded state for the question. Note, $statefields is
-                // the same as above, except that we don't want n.manualcomment.
-                $statefields = 'n.questionid as question, s.id, s.attempt, s.originalquestion, ' .
-                        's.seq_number, s.answer, s.timestamp, s.event, s.grade, s.raw_grade, ' .
-                        's.penalty, n.sumpenalty';
-                $sql = "SELECT $statefields".
-                       "  FROM {$CFG->prefix}question_states s,".
-                       "       {$CFG->prefix}question_sessions n".
-                       " WHERE s.id = n.newest".
-                       "   AND n.attemptid = '$lastattemptid'".
-                       "   AND n.questionid = '$i'";
-                if (!$laststate = get_record_sql($sql)) {
-                    // Only restore previous responses that have been graded
-                    continue;
-                }
-                // Restore the state so that the responses will be restored
-                restore_question_state($questions[$i], $laststate);
-                $states[$i] = clone($laststate);
-                unset($states[$i]->id);
-            } else {
-                // create a new empty state
-                $states[$i] = new object;
-                $states[$i]->question = $i;
-                $states[$i]->responses = array('' => '');
-                $states[$i]->raw_grade = 0;
-            }
-
-            // now fill/overide initial values
-            $states[$i]->attempt = $attempt->uniqueid;
-            $states[$i]->seq_number = 0;
-            $states[$i]->timestamp = $attempt->timestart;
-            $states[$i]->event = ($attempt->timefinish) ? QUESTION_EVENTCLOSE : QUESTION_EVENTOPEN;
-            $states[$i]->grade = 0;
-            $states[$i]->penalty = 0;
-            $states[$i]->sumpenalty = 0;
-            $states[$i]->manualcomment = '';
-
-            // Prevent further changes to the session from incrementing the
-            // sequence number
-            $states[$i]->changed = true;
-
-            if ($lastattemptid) {
-                // prepare the previous responses for new processing
-                $action = new stdClass;
-                $action->responses = $laststate->responses;
-                $action->timestamp = $laststate->timestamp;
-                $action->event = QUESTION_EVENTSAVE; //emulate save of questions from all pages MDL-7631
-
-                // Process these responses ...
-                question_process_responses($questions[$i], $states[$i], $action, $cmoptions, $attempt);
-
-                // Fix for Bug #5506: When each attempt is built on the last one,
-                // preserve the options from any previous attempt.
-                if ( isset($laststate->options) ) {
-                    $states[$i]->options = $laststate->options;
-                }
-            } else {
-                // Create the empty question type specific information
-                if (!$QTYPES[$questions[$i]->qtype]->create_session_and_responses(
-                        $questions[$i], $states[$i], $cmoptions, $attempt)) {
-                    return false;
-                }
-            }
-            $states[$i]->last_graded = clone($states[$i]);
-        }
+    // Preload the states.
+    $states = question_preload_states($attempt->uniqueid);
+    if (!$states) {
+        $states = array();
     }
+
+    // Then finish the job.
+    if (!question_load_states($questions, $states, $cmoptions, $attempt, $lastattemptid)) {
+        return false;
+    }
+
     return $states;
 }
 
+/**
+ * Load a particular previous state of a question.
+ *
+ * @global object
+ * @param array $question The question to load the state for.
+ * @param object $cmoptions Options from the specifica activity module, e.g. $quiz.
+ * @param integer $attemptid The question_attempts this is part of.
+ * @param integer $stateid The id of a specific state of this question.
+ * @return object the requested state. False on error.
+ */
+function question_load_specific_state($question, $cmoptions, $attemptid, $stateid) {
+    global $DB;
+
+    // Load specified states for the question.
+    // sess.sumpenalty is probably wrong here shoul really be a sum of penalties from before the one we are asking for.
+    $sql = 'SELECT st.*, sess.sumpenalty, sess.manualcomment, sess.manualcommentformat,
+                        sess.flagged, sess.id as questionsessionid
+              FROM {question_states} st, {question_sessions} sess
+             WHERE st.id = ?
+               AND st.attempt = ?
+               AND sess.attemptid = st.attempt
+               AND st.question = ?
+               AND sess.questionid = st.question';
+    $state = $DB->get_record_sql($sql, array($stateid, $attemptid, $question->id));
+    if (!$state) {
+        return false;
+    }
+    restore_question_state($question, $state);
+
+    // Load the most recent graded states for the questions before the specified one.
+    $sql = 'SELECT st.*, sess.sumpenalty, sess.manualcomment, sess.manualcommentformat,
+                        sess.flagged, sess.id as questionsessionid
+              FROM {question_states} st, {question_sessions} sess
+             WHERE st.seq_number <= ?
+               AND st.attempt = ?
+               AND sess.attemptid = st.attempt
+               AND st.question = ?
+               AND sess.questionid = st.question
+               AND st.event IN ('.QUESTION_EVENTS_GRADED.') '.
+           'ORDER BY st.seq_number DESC';
+    $gradedstates = $DB->get_records_sql($sql, array($state->seq_number, $attemptid, $question->id), 0, 1);
+    if (empty($gradedstates)) {
+        $state->last_graded = clone($state);
+    } else {
+        $gradedstate = reset($gradedstates);
+        restore_question_state($question, $gradedstate);
+        $state->last_graded = $gradedstate;
+    }
+    return $state;
+}
 
 /**
 * Creates the run-time fields for the states
 *
 * Extends the state objects for a question by calling
 * {@link restore_session_and_responses()}
+ *
+ * @global object
 * @param object $question The question for which the state is needed
 * @param object $state The state as loaded from the database
 * @return boolean Represents success or failure
@@ -941,9 +1285,7 @@ function restore_question_state(&$question, &$state) {
     global $QTYPES;
 
     // initialise response to the value in the answer field
-    $state->responses = array('' => addslashes($state->answer));
-    unset($state->answer);
-    $state->manualcomment = isset($state->manualcomment) ? addslashes($state->manualcomment) : '';
+    $state->responses = array('' => $state->answer);
 
     // Set the changed field to false; any code which changes the
     // question session must set this to true and must increment
@@ -953,8 +1295,7 @@ function restore_question_state(&$question, &$state) {
     $state->changed = false;
 
     // Load the question type specific data
-    return $QTYPES[$question->qtype]
-            ->restore_session_and_responses($question, $state);
+    return $QTYPES[$question->qtype]->restore_session_and_responses($question, $state);
 
 }
 
@@ -966,16 +1307,24 @@ function restore_question_state(&$question, &$state) {
 * to the answer field of the database table. The information in the
 * question_sessions table is updated.
 * The question type specific data is then saved.
+ *
+ * @global array
+ * @global object
 * @return mixed           The id of the saved or updated state or false
 * @param object $question The question for which session is to be saved.
 * @param object $state    The state information to be saved. In particular the
 *                         most recent responses are in ->responses. The object
 *                         is updated to hold the new ->id.
 */
-function save_question_session(&$question, &$state) {
-    global $QTYPES;
+function save_question_session($question, $state) {
+    global $QTYPES, $DB;
+
     // Check if the state has changed
     if (!$state->changed && isset($state->id)) {
+        if (isset($state->newflaggedstate) &&  $state->flagged != $state->newflaggedstate) {
+            // If this fails, don't worry too much, it is not critical data.
+            question_update_flag($state->questionsessionid, $state->newflaggedstate);
+        }
         return $state->id;
     }
     // Set the legacy answer field
@@ -983,18 +1332,14 @@ function save_question_session(&$question, &$state) {
 
     // Save the state
     if (!empty($state->update)) { // this forces the old state record to be overwritten
-        update_record('question_states', $state);
+        $DB->update_record('question_states', $state);
     } else {
-        if (!$state->id = insert_record('question_states', $state)) {
-            unset($state->id);
-            unset($state->answer);
-            return false;
-        }
+        $state->id = $DB->insert_record('question_states', $state);
     }
 
     // create or update the session
-    if (!$session = get_record('question_sessions', 'attemptid',
-            $state->attempt, 'questionid', $question->id)) {
+    if (!$session = $DB->get_record('question_sessions', array('attemptid' => $state->attempt, 'questionid' => $question->id))) {
+        $session = new stdClass;
         $session->attemptid = $state->attempt;
         $session->questionid = $question->id;
         $session->newest = $state->id;
@@ -1003,9 +1348,9 @@ function save_question_session(&$question, &$state) {
         $session->newgraded = $state->id;
         $session->sumpenalty = $state->sumpenalty;
         $session->manualcomment = $state->manualcomment;
-        if (!insert_record('question_sessions', $session)) {
-            error('Could not insert entry in question_sessions');
-        }
+        $session->manualcommentformat = $state->manualcommentformat;
+        $session->flagged = !empty($state->newflaggedstate);
+        $DB->insert_record('question_sessions', $session);
     } else {
         $session->newest = $state->id;
         if (question_state_is_graded($state) or $state->event == QUESTION_EVENTOPEN) {
@@ -1013,19 +1358,19 @@ function save_question_session(&$question, &$state) {
             $session->newgraded = $state->id;
             $session->sumpenalty = $state->sumpenalty;
             $session->manualcomment = $state->manualcomment;
-        } else {
-            $session->manualcomment = addslashes($session->manualcomment);
+            $session->manualcommentformat = $state->manualcommentformat;
         }
-        update_record('question_sessions', $session);
+        $session->flagged = !empty($state->newflaggedstate);
+        $DB->update_record('question_sessions', $session);
     }
 
     unset($state->answer);
 
     // Save the question type specific state information and responses
-    if (!$QTYPES[$question->qtype]->save_session_and_responses(
-     $question, $state)) {
+    if (!$QTYPES[$question->qtype]->save_session_and_responses($question, $state)) {
         return false;
     }
+
     // Reset the changed flag
     $state->changed = false;
     return $state->id;
@@ -1038,8 +1383,11 @@ function save_question_session(&$question, &$state) {
 * @param object $state
 */
 function question_state_is_graded($state) {
-    $gradedevents = explode(',', QUESTION_EVENTS_GRADED);
-    return (in_array($state->event, $gradedevents));
+    static $question_events_graded = array();
+    if (!$question_events_graded){
+        $question_events_graded = explode(',', QUESTION_EVENTS_GRADED);
+    }
+    return (in_array($state->event, $question_events_graded));
 }
 
 /**
@@ -1049,9 +1397,11 @@ function question_state_is_graded($state) {
 * @param object $state
 */
 function question_state_is_closed($state) {
-    return ($state->event == QUESTION_EVENTCLOSE
-        or $state->event == QUESTION_EVENTCLOSEANDGRADE
-        or $state->event == QUESTION_EVENTMANUALGRADE);
+    static $question_events_closed = array();
+    if (!$question_events_closed){
+        $question_events_closed = explode(',', QUESTION_EVENTS_CLOSED);
+    }
+    return (in_array($state->event, $question_events_closed));
 }
 
 
@@ -1080,7 +1430,7 @@ function question_extract_responses($questions, $formdata, $defaultevent=QUESTIO
         if (false !== ($quid = question_get_id_from_name_prefix($key))) {
             // check if this is a valid id
             if (!isset($questions[$quid])) {
-                error('Form contained question that is not in questionids');
+                print_error('formquestionnotinids', 'question');
             }
 
             // Remove the name prefix from the name
@@ -1097,7 +1447,6 @@ function question_extract_responses($questions, $formdata, $defaultevent=QUESTIO
             } else {
                 $actions[$quid]->event = $defaultevent;
             }
-
             // Update the state with the new response
             $actions[$quid]->responses[$key] = $response;
 
@@ -1114,6 +1463,8 @@ function question_extract_responses($questions, $formdata, $defaultevent=QUESTIO
 
 /**
  * Returns the html for question feedback image.
+ *
+ * @global object
  * @param float   $fraction  value representing the correctness of the user's
  *                           response to a question.
  * @param boolean $selected  whether or not the answer is the one that the
@@ -1121,37 +1472,19 @@ function question_extract_responses($questions, $formdata, $defaultevent=QUESTIO
  * @return string
  */
 function question_get_feedback_image($fraction, $selected=true) {
+    global $CFG, $OUTPUT;
+    static $icons = array('correct' => 'tick_green', 'partiallycorrect' => 'tick_amber',
+            'incorrect' => 'cross_red');
 
-    global $CFG;
-
-    if ($fraction >= 1.0) {
-        if ($selected) {
-            $feedbackimg = '<img src="'.$CFG->pixpath.'/i/tick_green_big.gif" '.
-                            'alt="'.get_string('correct', 'quiz').'" class="icon" />';
-        } else {
-            $feedbackimg = '<img src="'.$CFG->pixpath.'/i/tick_green_small.gif" '.
-                            'alt="'.get_string('correct', 'quiz').'" class="icon" />';
-        }
-    } else if ($fraction > 0.0 && $fraction < 1.0) {
-        if ($selected) {
-            $feedbackimg = '<img src="'.$CFG->pixpath.'/i/tick_amber_big.gif" '.
-                            'alt="'.get_string('partiallycorrect', 'quiz').'" class="icon" />';
-        } else {
-            $feedbackimg = '<img src="'.$CFG->pixpath.'/i/tick_amber_small.gif" '.
-                            'alt="'.get_string('partiallycorrect', 'quiz').'" class="icon" />';
-        }
+    if ($selected) {
+        $size = 'big';
     } else {
-        if ($selected) {
-            $feedbackimg = '<img src="'.$CFG->pixpath.'/i/cross_red_big.gif" '.
-                            'alt="'.get_string('incorrect', 'quiz').'" class="icon" />';
-        } else {
-            $feedbackimg = '<img src="'.$CFG->pixpath.'/i/cross_red_small.gif" '.
-                            'alt="'.get_string('incorrect', 'quiz').'" class="icon" />';
-        }
+        $size = 'small';
     }
-    return $feedbackimg;
+    $class = question_get_feedback_class($fraction);
+    return '<img src="' . $OUTPUT->pix_url('i/' . $icons[$class] . '_' . $size) .
+            '" alt="' . get_string($class, 'quiz') . '" class="icon" />';
 }
-
 
 /**
  * Returns the class name for question feedback.
@@ -1160,17 +1493,13 @@ function question_get_feedback_image($fraction, $selected=true) {
  * @return string
  */
 function question_get_feedback_class($fraction) {
-
-    global $CFG;
-
-    if ($fraction >= 1.0) {
-        $class = 'correct';
-    } else if ($fraction > 0.0 && $fraction < 1.0) {
-        $class = 'partiallycorrect';
+    if ($fraction >= 1/1.01) {
+        return 'correct';
+    } else if ($fraction > 0.0) {
+        return 'partiallycorrect';
     } else {
-        $class = 'incorrect';
+        return 'incorrect';
     }
-    return $class;
 }
 
 
@@ -1181,19 +1510,23 @@ function question_get_feedback_class($fraction) {
 * This is used when a question is changed and old student
 * responses need to be marked with the new version of a question.
 *
-* TODO: Make sure this is not quiz-specific
+* @todo Make sure this is not quiz-specific
 *
+ * @global object
 * @return boolean            Indicates whether the grade has changed
 * @param object  $question   A question object
 * @param object  $attempt    The attempt, in which the question needs to be regraded.
 * @param object  $cmoptions
 * @param boolean $verbose    Optional. Whether to print progress information or not.
+* @param boolean $dryrun     Optional. Whether to make changes to grades records
+* or record that changes need to be made for a later regrade.
 */
-function regrade_question_in_attempt($question, $attempt, $cmoptions, $verbose=false) {
+function regrade_question_in_attempt($question, $attempt, $cmoptions, $verbose=false, $dryrun=false) {
+    global $DB, $OUTPUT;
 
     // load all states for this question in this attempt, ordered in sequence
-    if ($states = get_records_select('question_states',
-            "attempt = '{$attempt->uniqueid}' AND question = '{$question->id}'",
+    if ($states = $DB->get_records('question_states',
+            array('attempt'=>$attempt->uniqueid, 'question'=>$question->id),
             'seq_number ASC')) {
         $states = array_values($states);
 
@@ -1202,13 +1535,9 @@ function regrade_question_in_attempt($question, $attempt, $cmoptions, $verbose=f
         $attempt->sumgrades -= $states[count($states)-1]->grade;
 
         // Initialise the replaystate
-        $state = clone($states[0]);
-        $state->manualcomment = get_field('question_sessions', 'manualcomment', 'attemptid',
-                $attempt->uniqueid, 'questionid', $question->id);
-        restore_question_state($question, $state);
-        $state->sumpenalty = 0.0;
-        $replaystate = clone($state);
-        $replaystate->last_graded = $state;
+        $replaystate = question_load_specific_state($question, $cmoptions, $attempt->uniqueid, $states[0]->id);
+        $replaystate->sumpenalty = 0;
+        $replaystate->last_graded->sumpenalty = 0;
 
         $changed = false;
         for($j = 1; $j < count($states); $j++) {
@@ -1218,9 +1547,8 @@ function regrade_question_in_attempt($question, $attempt, $cmoptions, $verbose=f
             $action->timestamp = $states[$j]->timestamp;
 
             // Change event to submit so that it will be reprocessed
-            if (QUESTION_EVENTCLOSE == $states[$j]->event
-                    or QUESTION_EVENTGRADE == $states[$j]->event
-                    or QUESTION_EVENTCLOSEANDGRADE == $states[$j]->event) {
+            if (in_array($states[$j]->event, array(QUESTION_EVENTCLOSE,
+                    QUESTION_EVENTGRADE, QUESTION_EVENTCLOSEANDGRADE))) {
                 $action->event = QUESTION_EVENTSUBMIT;
 
             // By default take the event that was saved in the database
@@ -1234,43 +1562,75 @@ function regrade_question_in_attempt($question, $attempt, $cmoptions, $verbose=f
                 // proceeding.
                 if ($states[$j]->grade < 0) {
                     $states[$j]->grade = 0;
+                    $changed = true;
                 } else if ($states[$j]->grade > $question->maxgrade) {
                     $states[$j]->grade = $question->maxgrade;
+                    $changed = true;
+
                 }
-                $error = question_process_comment($question, $replaystate, $attempt,
-                        $replaystate->manualcomment, $states[$j]->grade);
-                if (is_string($error)) {
-                     notify($error);
+                if (!$dryrun){
+                    $error = question_process_comment($question, $replaystate, $attempt,
+                            $replaystate->manualcomment, $replaystate->manualcommentformat, $states[$j]->grade);
+                    if (is_string($error)) {
+                         echo $OUTPUT->notification($error);
+                    }
+                } else {
+                    $replaystate->grade = $states[$j]->grade;
                 }
             } else {
-
                 // Reprocess (regrade) responses
                 if (!question_process_responses($question, $replaystate,
-                        $action, $cmoptions, $attempt)) {
-                    $verbose && notify("Couldn't regrade state #{$state->id}!");
+                        $action, $cmoptions, $attempt) && $verbose) {
+                    $a = new stdClass;
+                    $a->qid = $question->id;
+                    $a->stateid = $states[$j]->id;
+                    echo $OUTPUT->notification(get_string('errorduringregrade', 'question', $a));
                 }
-            }
-
-            // We need rounding here because grades in the DB get truncated
-            // e.g. 0.33333 != 0.3333333, but we want them to be equal here
-            if ((round((float)$replaystate->raw_grade, 5) != round((float)$states[$j]->raw_grade, 5))
-                    or (round((float)$replaystate->penalty, 5) != round((float)$states[$j]->penalty, 5))
-                    or (round((float)$replaystate->grade, 5) != round((float)$states[$j]->grade, 5))) {
-                $changed = true;
+                // We need rounding here because grades in the DB get truncated
+                // e.g. 0.33333 != 0.3333333, but we want them to be equal here
+                if ((round((float)$replaystate->raw_grade, 5) != round((float)$states[$j]->raw_grade, 5))
+                        or (round((float)$replaystate->penalty, 5) != round((float)$states[$j]->penalty, 5))
+                        or (round((float)$replaystate->grade, 5) != round((float)$states[$j]->grade, 5))) {
+                    $changed = true;
+                }
+                // If this was previously a closed state, and it has been knoced back to
+                // graded, then fix up the state again.
+                if ($replaystate->event == QUESTION_EVENTGRADE &&
+                        ($states[$j]->event == QUESTION_EVENTCLOSE ||
+                        $states[$j]->event == QUESTION_EVENTCLOSEANDGRADE)) {
+                    $replaystate->event = $states[$j]->event;
+                }
             }
 
             $replaystate->id = $states[$j]->id;
             $replaystate->changed = true;
             $replaystate->update = true; // This will ensure that the existing database entry is updated rather than a new one created
-            save_question_session($question, $replaystate);
+            if (!$dryrun){
+                save_question_session($question, $replaystate);
+            }
         }
         if ($changed) {
-            // TODO, call a method in quiz to do this, where 'quiz' comes from
-            // the question_attempts table.
-            update_record('quiz_attempts', $attempt);
+            if (!$dryrun){
+                // TODO, call a method in quiz to do this, where 'quiz' comes from
+                // the question_attempts table.
+                $DB->update_record('quiz_attempts', $attempt);
+            }
         }
-
-        return $changed;
+        if ($changed){
+            $toinsert = new stdClass();
+            $toinsert->oldgrade = round((float)$states[count($states)-1]->grade, 5);
+            $toinsert->newgrade = round((float)$replaystate->grade, 5);
+            $toinsert->attemptid = $attempt->uniqueid;
+            $toinsert->questionid = $question->id;
+            //the grade saved is the old grade if the new grade is saved
+            //it is the new grade if this is a dry run.
+            $toinsert->regraded = $dryrun?0:1;
+            $toinsert->timemodified = time();
+            $DB->insert_record('quiz_question_regrade', $toinsert);
+            return true;
+        } else {
+            return false;
+        }
     }
     return false;
 }
@@ -1278,6 +1638,7 @@ function regrade_question_in_attempt($question, $attempt, $cmoptions, $verbose=f
 /**
 * Processes an array of student responses, grading and saving them as appropriate
 *
+ * @global array
 * @param object $question Full question object, passed by reference
 * @param object $state    Full state object, passed by reference
 * @param object $action   object with the fields ->responses which
@@ -1290,7 +1651,7 @@ function regrade_question_in_attempt($question, $attempt, $cmoptions, $verbose=f
 *                         during grading its ->sumgrades field can be updated
 * @return boolean         Indicates success/failure
 */
-function question_process_responses(&$question, &$state, $action, $cmoptions, &$attempt) {
+function question_process_responses($question, &$state, $action, $cmoptions, &$attempt) {
     global $QTYPES;
 
     // if no responses are set initialise to empty response
@@ -1298,8 +1659,10 @@ function question_process_responses(&$question, &$state, $action, $cmoptions, &$
         $action->responses = array('' => '');
     }
 
+    $state->newflaggedstate = !empty($action->responses['_flagged']);
+
     // make sure these are gone!
-    unset($action->responses['submit'], $action->responses['validate']);
+    unset($action->responses['submit'], $action->responses['validate'], $action->responses['_flagged']);
 
     // Check the question session is still open
     if (question_state_is_closed($state)) {
@@ -1340,6 +1703,9 @@ function question_process_responses(&$question, &$state, $action, $cmoptions, &$
     $newstate->changed = true; // will assure that it gets saved to the database
     $newstate->last_graded = clone($state->last_graded);
     $newstate->timestamp = $action->timestamp;
+    $newstate->newflaggedstate = $state->newflaggedstate;
+    $newstate->flagged = $state->flagged;
+    $newstate->questionsessionid = $state->questionsessionid;
     $state = $newstate;
 
     // Set the event to the action we will perform. The question type specific
@@ -1453,7 +1819,7 @@ function question_apply_penalty_and_timelimit(&$question, &$state, $attempt, $cm
     // deal with timelimit
     if ($cmoptions->timelimit) {
         // We allow for 5% uncertainty in the following test
-        if ($state->timestamp - $attempt->timestart > $cmoptions->timelimit * 63) {
+        if ($state->timestamp - $attempt->timestart > $cmoptions->timelimit * 1.05) {
             $cm = get_coursemodule_from_instance('quiz', $cmoptions->id);
             if (!has_capability('mod/quiz:ignoretimelimits', get_context_instance(CONTEXT_MODULE, $cm->id),
                     $attempt->userid, false)) {
@@ -1475,19 +1841,21 @@ function question_apply_penalty_and_timelimit(&$question, &$state, $attempt, $cm
 /**
 * Print the icon for the question type
 *
-* @param object $question  The question object for which the icon is required
-* @param boolean $return   If true the functions returns the link as a string
+ * @global array
+ * @global object
+* @param object $question The question object for which the icon is required
+*       only $question->qtype is used.
+* @param boolean $return If true the functions returns the link as a string
 */
 function print_question_icon($question, $return = false) {
-    global $QTYPES, $CFG;
+    global $QTYPES, $CFG, $OUTPUT;
 
     if (array_key_exists($question->qtype, $QTYPES)) {
-        $namestr = $QTYPES[$question->qtype]->menu_name();
+        $namestr = $QTYPES[$question->qtype]->local_name();
     } else {
         $namestr = 'missingtype';
     }
-    $html = '<img src="' . $CFG->wwwroot . '/question/type/' .
-            $question->qtype . '/icon.gif" alt="' .
+    $html = '<img src="' . $OUTPUT->pix_url('icon', 'qtype_'.$question->qtype) . '" alt="' .
             $namestr . '" title="' . $namestr . '" />';
     if ($return) {
         return $html;
@@ -1497,55 +1865,53 @@ function print_question_icon($question, $return = false) {
 }
 
 /**
-* Returns a html link to the question image if there is one
-*
-* @return string The html image tag or the empy string if there is no image.
-* @param object $question The question object
-*/
-function get_question_image($question) {
-
-    global $CFG;
-    $img = '';
-
-    if (!$category = get_record('question_categories', 'id', $question->category)){
-        error('invalid category id '.$question->category);
+ * @param $question
+ * @param $state
+ * @param $prefix
+ * @param $cmoptions
+ * @param $caption
+ */
+function question_print_comment_fields($question, $state, $prefix, $cmoptions, $caption = '') {
+    global $QTYPES;
+    $idprefix = preg_replace('/[^-_a-zA-Z0-9]/', '', $prefix);
+    $otherquestionsinuse = '';
+    if (!empty($cmoptions->questions)) {
+        $otherquestionsinuse = $cmoptions->questions;
     }
-    $coursefilesdir = get_filesdir_from_context(get_context_instance_by_id($category->contextid));
-
-    if ($question->image) {
-
-        if (substr(strtolower($question->image), 0, 7) == 'http://') {
-            $img .= $question->image;
-
-        } else {
-            require_once($CFG->libdir .'/filelib.php');
-            $img = get_file_url("$coursefilesdir/{$question->image}");
-        }      
-    }
-    return $img;
-}
-
-function question_print_comment_box($question, $state, $attempt, $url) {
-    global $CFG, $QTYPES;
-
-    $prefix = 'response';
-    $usehtmleditor = can_use_richtext_editor();
-    if (!question_state_is_graded($state) && $QTYPES[$question->qtype]->is_question_manual_graded($question, $attempt->layout)) {
+    if (!question_state_is_graded($state) && $QTYPES[$question->qtype]->is_question_manual_graded($question, $otherquestionsinuse)) {
         $grade = '';
     } else {
-        $grade = round($state->last_graded->grade, 3);
+        $grade = question_format_grade($cmoptions, $state->last_graded->grade);
     }
-    echo '<form method="post" action="'.$url.'">';
-    include($CFG->dirroot.'/question/comment.html');
-    echo '<input type="hidden" name="attempt" value="'.$attempt->uniqueid.'" />';
-    echo '<input type="hidden" name="question" value="'.$question->id.'" />';
-    echo '<input type="hidden" name="sesskey" value="'.sesskey().'" />';
-    echo '<input type="submit" name="submit" value="'.get_string('save', 'quiz').'" />';
-    echo '</form>';
-
-    if ($usehtmleditor) {
-        use_html_editor();
+    $maxgrade = question_format_grade($cmoptions, $question->maxgrade);
+    $fieldsize = strlen($maxgrade) - 1;
+    if (empty($caption)) {
+        $caption = format_string($question->name);
     }
+    ?>
+<fieldset class="que comment clearfix">
+    <legend class="ftoggler"><?php echo $caption; ?></legend>
+    <div class="fcontainer clearfix">
+        <div class="fitem">
+            <div class="fitemtitle">
+                <label for="<?php echo $idprefix; ?>_comment_box"><?php print_string('comment', 'quiz'); ?></label>
+            </div>
+            <div class="felement fhtmleditor">
+                <?php print_textarea(can_use_html_editor(), 15, 60, 630, 300, $prefix . '[comment]',
+                        $state->manualcomment, 0, false, $idprefix . '_comment_box'); ?>
+            </div>
+        </div>
+        <div class="fitem">
+            <div class="fitemtitle">
+                <label for="<?php echo $idprefix; ?>_grade_field"><?php print_string('grade', 'quiz'); ?></label>
+            </div>
+            <div class="felement ftext">
+                <input type="text" name="<?php echo $prefix; ?>[grade]" size="<?php echo $fieldsize; ?>" id="<?php echo $idprefix; ?>_grade_field" value="<?php echo $grade; ?>" /> / <?php echo $maxgrade; ?>
+            </div>
+        </div>
+    </div>
+</fieldset>
+    <?php
 }
 
 /**
@@ -1554,6 +1920,7 @@ function question_print_comment_box($question, $state, $attempt, $url) {
  * database. $state is only updated in memory, it is up to the call to store
  * that, if appropriate.
  *
+ * @global object
  * @param object $question the question
  * @param object $state the state to be updated.
  * @param object $attempt the attempt the state belongs to, to be updated.
@@ -1562,7 +1929,9 @@ function question_print_comment_box($question, $state, $attempt, $url) {
  * @return mixed true on success, a string error message if a problem is detected
  *         (for example score out of range).
  */
-function question_process_comment($question, &$state, &$attempt, $comment, $grade) {
+function question_process_comment($question, &$state, &$attempt, $comment, $commentformat, $grade) {
+    global $DB;
+
     $grade = trim($grade);
     if ($grade < 0 || $grade > $question->maxgrade) {
         $a = new stdClass;
@@ -1575,17 +1944,15 @@ function question_process_comment($question, &$state, &$attempt, $comment, $grad
     // Update the comment and save it in the database
     $comment = trim($comment);
     $state->manualcomment = $comment;
-    if (!set_field('question_sessions', 'manualcomment', $comment, 'attemptid', $attempt->uniqueid, 'questionid', $question->id)) {
-        return get_string('errorsavingcomment', 'question', $question);
-    }
+    $state->manualcommentformat = $commentformat;
+    $state->newflaggedstate = $state->flagged;
+    $DB->set_field('question_sessions', 'manualcomment', $comment, array('attemptid'=>$attempt->uniqueid, 'questionid'=>$question->id));
 
     // Update the attempt if the score has changed.
     if ($grade !== '' && (abs($state->last_graded->grade - $grade) > 0.002 || $state->last_graded->event != QUESTION_EVENTMANUALGRADE)) {
         $attempt->sumgrades = $attempt->sumgrades - $state->last_graded->grade + $grade;
         $attempt->timemodified = time();
-        if (!update_record('quiz_attempts', $attempt)) {
-            return get_string('errorupdatingattempt', 'question', $attempt);
-        }
+        $DB->update_record('quiz_attempts', $attempt);
 
         // We want to update existing state (rather than creating new one) if it
         // was itself created by a manual grading event.
@@ -1628,16 +1995,31 @@ function question_make_name_prefix($id) {
 }
 
 /**
-* Extract question id from the prefix of form element names
-*
-* @return integer      The question id
-* @param string $name  The name that contains a prefix that was
-*                      constructed with {@link question_make_name_prefix()}
-*/
+ * Extract question id from the prefix of form element names
+ *
+ * @return integer      The question id
+ * @param string $name  The name that contains a prefix that was
+ *                      constructed with {@link question_make_name_prefix()}
+ */
 function question_get_id_from_name_prefix($name) {
-    if (!preg_match('/^resp([0-9]+)_/', $name, $matches))
+    if (!preg_match('/^resp([0-9]+)_/', $name, $matches)) {
         return false;
+    }
     return (integer) $matches[1];
+}
+
+/**
+ * Extract question id from the prefix of form element names
+ *
+ * @return integer      The question id
+ * @param string $name  The name that contains a prefix that was
+ *                      constructed with {@link question_make_name_prefix()}
+ */
+function question_id_and_key_from_post_name($name) {
+    if (!preg_match('/^resp([0-9]+)_(.*)$/', $name, $matches)) {
+        return array(false, false);
+    }
+    return array((integer) $matches[1], $matches[2]);
 }
 
 /**
@@ -1647,14 +2029,15 @@ function question_get_id_from_name_prefix($name) {
  * the question code needs to also have a unique id by which to identify all these
  * attempts. Hence a module, when creating a new attempt, calls this function and
  * stores the return value in the 'uniqueid' field of its attempts table.
+ *
+ * @global object
  */
 function question_new_attempt_uniqueid($modulename='quiz') {
-    global $CFG;
+    global $DB;
+
     $attempt = new stdClass;
     $attempt->modulename = $modulename;
-    if (!$id = insert_record('question_attempts', $attempt)) {
-        error('Could not create new entry in question_attempts table');
-    }
+    $id = $DB->insert_record('question_attempts', $attempt);
     return $id;
 }
 
@@ -1671,64 +2054,124 @@ function question_hash($question) {
     return make_unique_id_code();
 }
 
+/**
+ * Round a grade to to the correct number of decimal places, and format it for display.
+ * If $cmoptions->questiondecimalpoints is set, that is used, otherwise
+ * else if $cmoptions->decimalpoints is used,
+ * otherwise a default of 2 is used, but this should not be relied upon, and generated a developer debug warning.
+ * However, if $cmoptions->questiondecimalpoints is -1, the means use $cmoptions->decimalpoints.
+ *
+ * @param object $cmoptions The modules settings.
+ * @param float $grade The grade to round.
+ */
+function question_format_grade($cmoptions, $grade) {
+    if (isset($cmoptions->questiondecimalpoints) && $cmoptions->questiondecimalpoints != -1) {
+        $decimalplaces = $cmoptions->questiondecimalpoints;
+    } else if (isset($cmoptions->decimalpoints)) {
+        $decimalplaces = $cmoptions->decimalpoints;
+    } else {
+        $decimalplaces = 2;
+        debugging('Code that leads to question_format_grade being called should set ' .
+                '$cmoptions->questiondecimalpoints or $cmoptions->decimalpoints', DEBUG_DEVELOPER);
+    }
+    return format_float($grade, $decimalplaces);
+}
+
+/**
+ * @return string An inline script that creates a JavaScript object storing
+ * various strings and bits of configuration that the scripts in qengine.js need
+ * to get from PHP.
+ */
+function question_init_qengine_js() {
+    global $CFG, $PAGE, $OUTPUT;
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $module = array(
+        'name' => 'core_question_flags',
+        'fullpath' => '/question/flags.js',
+        'requires' => array('base', 'dom', 'event-delegate', 'io-base'),
+    );
+    $actionurl = $CFG->wwwroot . '/question/toggleflag.php';
+    $flagattributes = array(
+        0 => array(
+            'src' => $OUTPUT->pix_url('i/unflagged') . '',
+            'title' => get_string('clicktoflag', 'question'),
+            'alt' => get_string('notflagged', 'question'),
+        ),
+        1 => array(
+            'src' => $OUTPUT->pix_url('i/flagged') . '',
+            'title' => get_string('clicktounflag', 'question'),
+            'alt' => get_string('flagged', 'question'),
+        ),
+    );
+    $PAGE->requires->js_init_call('M.core_question_flags.init',
+            array($actionurl, $flagattributes), false, $module);
+    $done = true;
+}
 
 /// FUNCTIONS THAT SIMPLY WRAP QUESTIONTYPE METHODS //////////////////////////////////
 /**
- * Get the HTML that needs to be included in the head tag when the
- * questions in $questionlist are printed in the gives states.
+ * Give the questions in $questionlist a chance to request the CSS or JavaScript
+ * they need, before the header is printed.
+ *
+ * If your code is going to call the print_question function, it must call this
+ * funciton before print_header.
  *
  * @param array $questionlist a list of questionids of the questions what will appear on this page.
  * @param array $questions an array of question objects, whose keys are question ids.
  *      Must contain all the questions in $questionlist
  * @param array $states an array of question state objects, whose keys are question ids.
  *      Must contain the state of all the questions in $questionlist
- *
- * @return string some HTML code that can go inside the head tag.
  */
-function get_html_head_contributions(&$questionlist, &$questions, &$states) {
-    global $QTYPES;
+function question_get_html_head_contributions($questionlist, &$questions, &$states) {
+    global $CFG, $PAGE, $QTYPES;
 
-    $contributions = array();
+    // The question engine's own JavaScript.
+    question_init_qengine_js();
+
+    // Anything that questions on this page need.
     foreach ($questionlist as $questionid) {
         $question = $questions[$questionid];
-        $contributions = array_merge($contributions,
-                $QTYPES[$question->qtype]->get_html_head_contributions(
-                $question, $states[$questionid]));
+        $QTYPES[$question->qtype]->get_html_head_contributions($question, $states[$questionid]);
     }
-    return implode("\n", array_unique($contributions));
 }
 
 /**
- * Like @see{get_html_head_contributions} but for the editing page
+ * Like {@link get_html_head_contributions()} but for the editing page
  * question/question.php.
  *
  * @param $question A question object. Only $question->qtype is used.
- * @return string some HTML code that can go inside the head tag.
+ * @return string Deprecated. Some HTML code that can go inside the head tag.
  */
-function get_editing_head_contributions($question) {
+function question_get_editing_head_contributions($question) {
     global $QTYPES;
-    $contributions = $QTYPES[$question->qtype]->get_editing_head_contributions();
-    return implode("\n", array_unique($contributions));
+    $QTYPES[$question->qtype]->get_editing_head_contributions();
 }
 
 /**
  * Prints a question
  *
  * Simply calls the question type specific print_question() method.
+ *
+ * @global array
  * @param object $question The question to be rendered.
  * @param object $state    The state to render the question in.
  * @param integer $number  The number for this question.
  * @param object $cmoptions  The options specified by the course module
  * @param object $options  An object specifying the rendering options.
  */
-function print_question(&$question, &$state, $number, $cmoptions, $options=null) {
+function print_question(&$question, &$state, $number, $cmoptions, $options=null, $context=null) {
     global $QTYPES;
-    $QTYPES[$question->qtype]->print_question($question, $state, $number, $cmoptions, $options);
+    $QTYPES[$question->qtype]->print_question($question, $state, $number, $cmoptions, $options, $context);
 }
 /**
  * Saves question options
  *
  * Simply calls the question type specific save_question_options() method.
+ *
+ * @global array
  */
 function save_question_options($question) {
     global $QTYPES;
@@ -1740,6 +2183,8 @@ function save_question_options($question) {
 * Gets all teacher stored answers for a given question
 *
 * Simply calls the question type specific get_all_responses() method.
+ *
+ * @global array
 */
 // ULPGC ecastro
 function get_question_responses($question, $state) {
@@ -1748,11 +2193,12 @@ function get_question_responses($question, $state) {
     return $r;
 }
 
-
 /**
 * Gets the response given by the user in a particular state
 *
 * Simply calls the question type specific get_actual_response() method.
+ *
+ * @global array
 */
 // ULPGC ecastro
 function get_question_actual_response($question, $state) {
@@ -1764,6 +2210,8 @@ function get_question_actual_response($question, $state) {
 
 /**
 * TODO: document this
+ *
+ * @global array
 */
 // ULPGc ecastro
 function get_question_fraction_grade($question, $state) {
@@ -1772,16 +2220,29 @@ function get_question_fraction_grade($question, $state) {
     $r = $QTYPES[$question->qtype]->get_fractional_grade($question, $state);
     return $r;
 }
+/**
+ * @global array
+* @return integer grade out of 1 that a random guess by a student might score.
+*/
+// ULPGc ecastro
+function question_get_random_guess_score($question) {
+    global $QTYPES;
 
-
+    $r = $QTYPES[$question->qtype]->get_random_guess_score($question);
+    return $r;
+}
 /// CATEGORY FUNCTIONS /////////////////////////////////////////////////////////////////
 
 /**
  * returns the categories with their names ordered following parent-child relationships
  * finally it tries to return pending categories (those being orphaned, whose parent is
  * incorrect) to avoid missing any category from original array.
+ *
+ * @global object
  */
 function sort_categories_by_tree(&$categories, $id = 0, $level = 1) {
+    global $DB;
+
     $children = array();
     $keys = array_keys($categories);
 
@@ -1795,8 +2256,9 @@ function sort_categories_by_tree(&$categories, $id = 0, $level = 1) {
     //If level = 1, we have finished, try to look for non processed categories (bad parent) and sort them too
     if ($level == 1) {
         foreach ($keys as $key) {
-            //If not processed and it's a good candidate to start (because its parent doesn't exist in the course)
-            if (!isset($categories[$key]->processed) && !record_exists('question_categories', 'course', $categories[$key]->course, 'id', $categories[$key]->parent)) {
+            // If not processed and it's a good candidate to start (because its parent doesn't exist in the course)
+            if (!isset($categories[$key]->processed) && !$DB->record_exists(
+                    'question_categories', array('contextid'=>$categories[$key]->contextid, 'id'=>$categories[$key]->parent))) {
                 $children[$key] = $categories[$key];
                 $categories[$key]->processed = true;
                 $children = $children + sort_categories_by_tree($categories, $children[$key]->id, $level+1);
@@ -1887,50 +2349,101 @@ function add_indented_names($categories, $nochildrenof = -1) {
  * @param integer $selected optionally, the id of a category to be selected by default in the dropdown.
  */
 function question_category_select_menu($contexts, $top = false, $currentcat = 0, $selected = "", $nochildrenof = -1) {
+    global $OUTPUT;
     $categoriesarray = question_category_options($contexts, $top, $currentcat, false, $nochildrenof);
     if ($selected) {
-        $nothing = '';
+        $choose = '';
     } else {
-        $nothing = 'choose';
+        $choose = 'choosedots';
     }
-    choose_from_menu_nested($categoriesarray, 'category', $selected, $nothing);
+    $options = array();
+    foreach($categoriesarray as $group=>$opts) {
+        $options[] = array($group=>$opts);
+    }
+
+    echo html_writer::select($options, 'category', $selected, $choose);
+}
+
+/**
+ * @global object
+ * @param integer $contextid a context id.
+ * @return object the default question category for that context, or false if none.
+ */
+function question_get_default_category($contextid) {
+    global $DB;
+    $category = $DB->get_records('question_categories', array('contextid' => $contextid),'id','*',0,1);
+    if (!empty($category)) {
+        return reset($category);
+    } else {
+        return false;
+    }
+}
+
+/**
+ * @global object
+ * @global object
+ * @param object $context a context
+ * @return string A URL for editing questions in this context.
+ */
+function question_edit_url($context) {
+    global $CFG, $SITE;
+    if (!has_any_capability(question_get_question_capabilities(), $context)) {
+        return false;
+    }
+    $baseurl = $CFG->wwwroot . '/question/edit.php?';
+    $defaultcategory = question_get_default_category($context->id);
+    if ($defaultcategory) {
+        $baseurl .= 'cat=' . $defaultcategory->id . ',' . $context->id . '&amp;';
+    }
+    switch ($context->contextlevel) {
+        case CONTEXT_SYSTEM:
+            return $baseurl . 'courseid=' . $SITE->id;
+        case CONTEXT_COURSECAT:
+            // This is nasty, becuase we can only edit questions in a course
+            // context at the moment, so for now we just return false.
+            return false;
+        case CONTEXT_COURSE:
+            return $baseurl . 'courseid=' . $context->instanceid;
+        case CONTEXT_MODULE:
+            return $baseurl . 'cmid=' . $context->instanceid;
+    }
+
 }
 
 /**
 * Gets the default category in the most specific context.
 * If no categories exist yet then default ones are created in all contexts.
 *
+ * @global object
 * @param array $contexts  The context objects for this context and all parent contexts.
 * @return object The default category - the category in the course context
 */
 function question_make_default_categories($contexts) {
+    global $DB;
     static $preferredlevels = array(
         CONTEXT_COURSE => 4,
         CONTEXT_MODULE => 3,
         CONTEXT_COURSECAT => 2,
         CONTEXT_SYSTEM => 1,
     );
+
     $toreturn = null;
     $preferredness = 0;
     // If it already exists, just return it.
     foreach ($contexts as $key => $context) {
-        if (!$categoryrs = get_recordset_select("question_categories", "contextid = '{$context->id}'", 'sortorder, name', '*', '', 1)) {
-            error('error getting category record');
+        if (!$exists = $DB->record_exists("question_categories", array('contextid'=>$context->id))) {
+            // Otherwise, we need to make one
+            $category = new stdClass;
+            $contextname = print_context_name($context, false, true);
+            $category->name = get_string('defaultfor', 'question', $contextname);
+            $category->info = get_string('defaultinfofor', 'question', $contextname);
+            $category->contextid = $context->id;
+            $category->parent = 0;
+            $category->sortorder = 999; // By default, all categories get this number, and are sorted alphabetically.
+            $category->stamp = make_unique_id_code();
+            $category->id = $DB->insert_record('question_categories', $category);
         } else {
-            if (!$category = rs_fetch_record($categoryrs)){
-                // Otherwise, we need to make one
-                $category = new stdClass;
-                $contextname = print_context_name($context, false, true);
-                $category->name = addslashes(get_string('defaultfor', 'question', $contextname));
-                $category->info = addslashes(get_string('defaultinfofor', 'question', $contextname));
-                $category->contextid = $context->id;
-                $category->parent = 0;
-                $category->sortorder = 999; // By default, all categories get this number, and are sorted alphabetically.
-                $category->stamp = make_unique_id_code();
-                if (!$category->id = insert_record('question_categories', $category)) {
-                    error('Error creating a default category for context '.print_context_name($context));
-                }
-            }
+            $category = question_get_default_category($context->id);
         }
         if ($preferredlevels[$context->contextlevel] > $preferredness &&
                 has_any_capability(array('moodle/question:usemine', 'moodle/question:useall'), $context)) {
@@ -1949,22 +2462,24 @@ function question_make_default_categories($contexts) {
  * Get all the category objects, including a count of the number of questions in that category,
  * for all the categories in the lists $contexts.
  *
+ * @global object
  * @param mixed $contexts either a single contextid, or a comma-separated list of context ids.
  * @param string $sortorder used as the ORDER BY clause in the select statement.
  * @return array of category objects.
  */
 function get_categories_for_contexts($contexts, $sortorder = 'parent, sortorder, name ASC') {
-    global $CFG;
-    return get_records_sql("
-            SELECT c.*, (SELECT count(1) FROM {$CFG->prefix}question q
-                    WHERE c.id = q.category AND q.hidden='0' AND q.parent='0') as questioncount
-            FROM {$CFG->prefix}question_categories c
-            WHERE c.contextid IN ($contexts)
-            ORDER BY $sortorder");
+    global $DB;
+    return $DB->get_records_sql("
+            SELECT c.*, (SELECT count(1) FROM {question} q
+                        WHERE c.id = q.category AND q.hidden='0' AND q.parent='0') AS questioncount
+              FROM {question_categories} c
+             WHERE c.contextid IN ($contexts)
+          ORDER BY $sortorder");
 }
 
 /**
  * Output an array of question categories.
+ * @global object
  */
 function question_category_options($contexts, $top = false, $currentcat = 0, $popupform = false, $nochildrenof = -1) {
     global $CFG;
@@ -2000,9 +2515,12 @@ function question_category_options($contexts, $top = false, $currentcat = 0, $po
     if ($popupform){
         $popupcats = array();
         foreach ($categoriesarray as $contextstring => $optgroup){
-            $popupcats[] = '--'.$contextstring;
-            $popupcats = array_merge($popupcats, $optgroup);
-            $popupcats[] = '--';
+            $group = array();
+            foreach ($optgroup as $key=>$value) {
+                $key = str_replace($CFG->wwwroot, '', $key);
+                $group[$key] = $value;
+            }
+            $popupcats[] = array($contextstring=>$group);
         }
         return $popupcats;
     } else {
@@ -2022,7 +2540,7 @@ function question_add_context_in_key($categories){
 function question_add_tops($categories, $pcontexts){
     $topcats = array();
     foreach ($pcontexts as $context){
-        $newcat = new object();
+        $newcat = new stdClass();
         $newcat->id = "0,$context";
         $newcat->name = get_string('top');
         $newcat->parent = -1;
@@ -2035,11 +2553,14 @@ function question_add_tops($categories, $pcontexts){
 
 /**
  * Returns a comma separated list of ids of the category and all subcategories
+ * @global object
  */
 function question_categorylist($categoryid) {
+    global $DB;
+
     // returns a comma separated list of ids of the category and all subcategories
     $categorylist = $categoryid;
-    if ($subcategories = get_records('question_categories', 'parent', $categoryid, 'sortorder ASC', 'id, 1 AS notused')) {
+    if ($subcategories = $DB->get_records('question_categories', array('parent'=>$categoryid), 'sortorder ASC', 'id, 1')) {
         foreach ($subcategories as $subcategory) {
             $categorylist .= ','. question_categorylist($subcategory->id);
         }
@@ -2056,20 +2577,22 @@ function question_categorylist($categoryid) {
 
 /**
  * Get list of available import or export formats
+ *
+ * @global object
  * @param string $type 'import' if import list, otherwise export list assumed
  * @return array sorted list of import/export formats available
-**/
+ */
 function get_import_export_formats( $type ) {
 
     global $CFG;
-    $fileformats = get_list_of_plugins("question/format");
+    $fileformats = get_plugin_list("qformat");
 
     $fileformatname=array();
     require_once( "{$CFG->dirroot}/question/format.php" );
-    foreach ($fileformats as $key => $fileformat) {
-        $format_file = $CFG->dirroot . "/question/format/$fileformat/format.php";
-        if (file_exists( $format_file ) ) {
-            require_once( $format_file );
+    foreach ($fileformats as $fileformat=>$fdir) {
+        $format_file = "$fdir/format.php";
+        if (file_exists($format_file) ) {
+            require_once($format_file);
         }
         else {
             continue;
@@ -2100,50 +2623,39 @@ function get_import_export_formats( $type ) {
 
 
 /**
-* Create default export filename
-*
-* @return string   default export filename
-* @param object $course
-* @param object $category
+* Create a reasonable default file name for exporting questions from a particular
+* category.
+* @param object $course the course the questions are in.
+* @param object $category the question category.
+* @return string the filename.
 */
-function default_export_filename($course,$category) {
-    //Take off some characters in the filename !!
-    $takeoff = array(" ", ":", "/", "\\", "|");
-    $export_word = str_replace($takeoff,"_",moodle_strtolower(get_string("exportfilename","quiz")));
-    //If non-translated, use "export"
-    if (substr($export_word,0,1) == "[") {
-        $export_word= "export";
+function question_default_export_filename($course, $category) {
+    // We build a string that is an appropriate name (questions) from the lang pack,
+    // then the corse shortname, then the question category name, then a timestamp. 
+
+    $base = clean_filename(get_string('exportfilename', 'question'));
+
+    $dateformat = str_replace(' ', '_', get_string('exportnameformat', 'question'));
+    $timestamp = clean_filename(userdate(time(), $dateformat, 99, false));
+
+    $shortname = clean_filename($course->shortname);
+    if ($shortname == '' || $shortname == '_' ) {
+        $shortname = $course->id;
     }
 
-    //Calculate the date format string
-    $export_date_format = str_replace(" ","_",get_string("exportnameformat","quiz"));
-    //If non-translated, use "%Y%m%d-%H%M"
-    if (substr($export_date_format,0,1) == "[") {
-        $export_date_format = "%%Y%%m%%d-%%H%%M";
-    }
+    $categoryname = clean_filename(format_string($category->name));
 
-    //Calculate the shortname
-    $export_shortname = clean_filename($course->shortname);
-    if (empty($export_shortname) or $export_shortname == '_' ) {
-        $export_shortname = $course->id;
-    }
-
-    //Calculate the category name
-    $export_categoryname = clean_filename($category->name);
-
-    //Calculate the final export filename
-    //The export word
-    $export_name = $export_word."-";
-    //The shortname
-    $export_name .= moodle_strtolower($export_shortname)."-";
-    //The category name
-    $export_name .= moodle_strtolower($export_categoryname)."-";
-    //The date format
-    $export_name .= userdate(time(),$export_date_format,99,false);
-    //Extension is supplied by format later.
+    return "{$base}-{$shortname}-{$categoryname}-{$timestamp}";
 
     return $export_name;
 }
+
+/**
+ * @package moodlecore
+ * @subpackage question
+ * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class context_to_string_translator{
     /**
      * @var array used to translate between contextids and strings for this context.
@@ -2190,14 +2702,45 @@ class context_to_string_translator{
 }
 
 /**
+ * @return array all the capabilities that relate to accessing particular questions.
+ */
+function question_get_question_capabilities() {
+    return array(
+        'moodle/question:add',
+        'moodle/question:editmine',
+        'moodle/question:editall',
+        'moodle/question:viewmine',
+        'moodle/question:viewall',
+        'moodle/question:usemine',
+        'moodle/question:useall',
+        'moodle/question:movemine',
+        'moodle/question:moveall',
+    );
+}
+
+/**
+ * @return array all the question bank capabilities.
+ */
+function question_get_all_capabilities() {
+    $caps = question_get_question_capabilities();
+    $caps[] = 'moodle/question:managecategory';
+    $caps[] = 'moodle/question:flag';
+    return $caps;
+}
+
+/**
  * Check capability on category
+ *
+ * @global object
+ * @global object
  * @param mixed $question object or id
  * @param string $cap 'add', 'edit', 'view', 'use', 'move'
  * @param integer $cachecat useful to cache all question records in a category
  * @return boolean this user has the capability $cap for this question $question?
  */
 function question_has_capability_on($question, $cap, $cachecat = -1){
-    global $USER;
+    global $USER, $DB;
+
     // nicolasconnault@gmail.com In some cases I get $question === false. Since no such object exists, it can't be deleted, we can safely return true
     if ($question === false) {
         return true;
@@ -2209,29 +2752,30 @@ function question_has_capability_on($question, $cap, $cachecat = -1){
     static $questions = array();
     static $categories = array();
     static $cachedcat = array();
-    if ($cachecat != -1 && (array_search($cachecat, $cachedcat)===FALSE)){
-        $questions += get_records('question', 'category', $cachecat);
+    if ($cachecat != -1 && array_search($cachecat, $cachedcat) === false) {
+        $questions += $DB->get_records('question', array('category' => $cachecat));
         $cachedcat[] = $cachecat;
     }
     if (!is_object($question)){
         if (!isset($questions[$question])){
-            if (!$questions[$question] = get_record('question', 'id', $question)){
+            if (!$questions[$question] = $DB->get_record('question', array('id' => $question), 'id,category,createdby')) {
                 print_error('questiondoesnotexist', 'question');
             }
         }
         $question = $questions[$question];
     }
     if (!isset($categories[$question->category])){
-        if (!$categories[$question->category] = get_record('question_categories', 'id', $question->category)){
+        if (!$categories[$question->category] = $DB->get_record('question_categories', array('id'=>$question->category))) {
             print_error('invalidcategory', 'quiz');
         }
     }
     $category = $categories[$question->category];
+    $context = get_context_instance_by_id($category->contextid);
 
     if (array_search($cap, $question_questioncaps)!== FALSE){
-        if (!has_capability('moodle/question:'.$cap.'all', get_context_instance_by_id($category->contextid))){
+        if (!has_capability('moodle/question:'.$cap.'all', $context)){
             if ($question->createdby == $USER->id){
-                return has_capability('moodle/question:'.$cap.'mine', get_context_instance_by_id($category->contextid));
+                return has_capability('moodle/question:'.$cap.'mine', $context);
             } else {
                 return false;
             }
@@ -2239,7 +2783,7 @@ function question_has_capability_on($question, $cap, $cachecat = -1){
             return true;
         }
     } else {
-        return has_capability('moodle/question:'.$cap, get_context_instance_by_id($category->contextid));
+        return has_capability('moodle/question:'.$cap, $context);
     }
 
 }
@@ -2254,102 +2798,469 @@ function question_require_capability_on($question, $cap){
     return true;
 }
 
-function question_file_links_base_url($courseid){
-    global $CFG;
-    $baseurl = preg_quote("$CFG->wwwroot/file.php", '!');
-    $baseurl .= '('.preg_quote('?file=', '!').')?';//may or may not
-                                     //be using slasharguments, accept either
-    $baseurl .= "/$courseid/";//course directory
-    return $baseurl;
-}
-
-/*
- * Find all course / site files linked to in a piece of html.
- * @param string html the html to search
- * @param int course search for files for courseid course or set to siteid for
- *              finding site files.
- * @return array files with keys being files.
+/**
+ * Get the real state - the correct question id and answer - for a random
+ * question.
+ * @param object $state with property answer.
+ * @return mixed return integer real question id or false if there was an
+ * error..
  */
-function question_find_file_links_from_html($html, $courseid){
-    global $CFG;
-    $baseurl = question_file_links_base_url($courseid);
-    $searchfor = '!'.
-                   '(<\s*(a|img)\s[^>]*(href|src)\s*=\s*")'.$baseurl.'([^"]*)"'.
-                   '|'.
-                   '(<\s*(a|img)\s[^>]*(href|src)\s*=\s*\')'.$baseurl.'([^\']*)\''.
-                  '!i';
+function question_get_real_state($state) {
+    global $OUTPUT;
+    $realstate = clone($state);
     $matches = array();
-    $no = preg_match_all($searchfor, $html, $matches);
-    if ($no){
-        $rawurls = array_filter(array_merge($matches[5], $matches[10]));//array_filter removes empty elements
-        //remove any links that point somewhere they shouldn't
-        foreach (array_keys($rawurls) as $rawurlkey){
-            if (!$cleanedurl = question_url_check($rawurls[$rawurlkey])){
-                unset($rawurls[$rawurlkey]);
-            } else {
-                $rawurls[$rawurlkey] = $cleanedurl;
-            }
-
-        }
-        $urls = array_flip($rawurls);// array_flip removes duplicate files
-                                            // and when we merge arrays will continue to automatically remove duplicates
-    } else {
-        $urls = array();
-    }
-    return $urls;
-}
-/*
- * Check that url doesn't point anywhere it shouldn't
- *
- * @param $url string relative url within course files directory
- * @return mixed boolean false if not OK or cleaned URL as string if OK
- */
-function question_url_check($url){
-    global $CFG;
-    if ((substr(strtolower($url), 0, strlen($CFG->moddata)) == strtolower($CFG->moddata)) ||
-            (substr(strtolower($url), 0, 10) == 'backupdata')){
+    if (!preg_match('|^random([0-9]+)-(.*)|', $state->answer, $matches)){
+        echo $OUTPUT->notification(get_string('errorrandom', 'quiz_statistics'));
         return false;
     } else {
-        return clean_param($url, PARAM_PATH);
+        $realstate->question = $matches[1];
+        $realstate->answer = $matches[2];
+        return $realstate;
     }
 }
 
-/*
- * Find all course / site files linked to in a piece of html.
- * @param string html the html to search
- * @param int course search for files for courseid course or set to siteid for
- *              finding site files.
- * @return array files with keys being files.
+/**
+ * Update the flagged state of a particular question session.
+ *
+ * @global object
+ * @param integer $sessionid question_session id.
+ * @param boolean $newstate the new state for the flag.
+ * @return boolean success or failure.
  */
-function question_replace_file_links_in_html($html, $fromcourseid, $tocourseid, $url, $destination, &$changed){
-    global $CFG;
-    require_once($CFG->libdir .'/filelib.php');
-    $tourl = get_file_url("$tocourseid/$destination");
-    $fromurl = question_file_links_base_url($fromcourseid).preg_quote($url, '!');
-    $searchfor = array('!(<\s*(a|img)\s[^>]*(href|src)\s*=\s*")'.$fromurl.'(")!i',
-                   '!(<\s*(a|img)\s[^>]*(href|src)\s*=\s*\')'.$fromurl.'(\')!i');
-    $newhtml = preg_replace($searchfor, '\\1'.$tourl.'\\5', $html);
-    if ($newhtml != $html){
-        $changed = true;
-    }
-    return $newhtml;
+function question_update_flag($sessionid, $newstate) {
+    global $DB;
+    return $DB->set_field('question_sessions', 'flagged', $newstate, array('id' => $sessionid));
 }
 
-function get_filesdir_from_context($context){
-    switch ($context->contextlevel){
-        case CONTEXT_COURSE :
-            $courseid = $context->instanceid;
-            break;
-        case CONTEXT_MODULE :
-            $courseid = get_field('course_modules', 'course', 'id', $context->instanceid);
-            break;
-        case CONTEXT_COURSECAT :
-        case CONTEXT_SYSTEM :
-            $courseid = SITEID;
-            break;
-        default :
-            error('Unsupported contextlevel in category record!');
+/**
+ * Update the flagged state of all the questions in an attempt, where a new .
+ *
+ * @global object
+ * @param integer $sessionid question_session id.
+ * @param boolean $newstate the new state for the flag.
+ * @return boolean success or failure.
+ */
+function question_save_flags($formdata, $attemptid, $questionids) {
+    global $DB;
+    $donequestionids = array();
+    foreach ($formdata as $postvariable => $value) {
+        list($qid, $key) = question_id_and_key_from_post_name($postvariable);
+        if ($qid !== false && in_array($qid, $questionids)) {
+            if ($key == '_flagged') {
+                $DB->set_field('question_sessions', 'flagged', !empty($value),
+                        array('attemptid' => $attemptid, 'questionid' => $qid));
+                $donequestionids[$qid] = 1;
+            }
+        }
     }
-    return $courseid;
+    foreach ($questionids as $qid) {
+        if (!isset($donequestionids[$qid])) {
+            $DB->set_field('question_sessions', 'flagged', 0,
+                    array('attemptid' => $attemptid, 'questionid' => $qid));
+        }
+    }
 }
-?>
+
+/**
+ *
+ * @global object
+ * @param integer $attemptid the question_attempt id.
+ * @param integer $questionid the question id.
+ * @param integer $sessionid the question_session id.
+ * @param object $user a user, or null to use $USER.
+ * @return string that needs to be sent to question/toggleflag.php for it to work.
+ */
+function question_get_toggleflag_checksum($attemptid, $questionid, $sessionid, $user = null) {
+    if (is_null($user)) {
+        global $USER;
+        $user = $USER;
+    }
+    return md5($attemptid . "_" . $user->secret . "_" . $questionid . "_" . $sessionid);
+}
+
+/**
+ * Adds question bank setting links to the given navigation node if caps are met.
+ *
+ * @param navigation_node $navigationnode The navigation node to add the question branch to
+ * @param stdClass $context
+ * @return navigation_node Returns the question branch that was added
+ */
+function question_extend_settings_navigation(navigation_node $navigationnode, $context) {
+    global $PAGE;
+
+    if ($context->contextlevel == CONTEXT_COURSE) {
+        $params = array('courseid'=>$context->instanceid);
+    } else if ($context->contextlevel == CONTEXT_MODULE) {
+        $params = array('cmid'=>$context->instanceid);
+    } else {
+        return;
+    }
+
+    $questionnode = $navigationnode->add(get_string('questionbank','question'), new moodle_url('/question/edit.php', $params), navigation_node::TYPE_CONTAINER);
+
+    $contexts = new question_edit_contexts($context);
+    if ($contexts->have_one_edit_tab_cap('questions')) {
+        $questionnode->add(get_string('questions', 'quiz'), new moodle_url('/question/edit.php', $params), navigation_node::TYPE_SETTING);
+    }
+    if ($contexts->have_one_edit_tab_cap('categories')) {
+        $questionnode->add(get_string('categories', 'quiz'), new moodle_url('/question/category.php', $params), navigation_node::TYPE_SETTING);
+    }
+    if ($contexts->have_one_edit_tab_cap('import')) {
+        $questionnode->add(get_string('import', 'quiz'), new moodle_url('/question/import.php', $params), navigation_node::TYPE_SETTING);
+    }
+    if ($contexts->have_one_edit_tab_cap('export')) {
+        $questionnode->add(get_string('export', 'quiz'), new moodle_url('/question/export.php', $params), navigation_node::TYPE_SETTING);
+    }
+
+    return $questionnode;
+}
+
+class question_edit_contexts {
+
+    public static $CAPS = array(
+        'editq' => array('moodle/question:add',
+            'moodle/question:editmine',
+            'moodle/question:editall',
+            'moodle/question:viewmine',
+            'moodle/question:viewall',
+            'moodle/question:usemine',
+            'moodle/question:useall',
+            'moodle/question:movemine',
+            'moodle/question:moveall'),
+        'questions'=>array('moodle/question:add',
+            'moodle/question:editmine',
+            'moodle/question:editall',
+            'moodle/question:viewmine',
+            'moodle/question:viewall',
+            'moodle/question:movemine',
+            'moodle/question:moveall'),
+        'categories'=>array('moodle/question:managecategory'),
+        'import'=>array('moodle/question:add'),
+        'export'=>array('moodle/question:viewall', 'moodle/question:viewmine'));
+
+    protected $allcontexts;
+
+    /**
+     * @param current context
+     */
+    public function question_edit_contexts($thiscontext){
+        $pcontextids = get_parent_contexts($thiscontext);
+        $contexts = array($thiscontext);
+        foreach ($pcontextids as $pcontextid){
+            $contexts[] = get_context_instance_by_id($pcontextid);
+        }
+        $this->allcontexts = $contexts;
+    }
+    /**
+     * @return array all parent contexts
+     */
+    public function all(){
+        return $this->allcontexts;
+    }
+    /**
+     * @return object lowest context which must be either the module or course context
+     */
+    public function lowest(){
+        return $this->allcontexts[0];
+    }
+    /**
+     * @param string $cap capability
+     * @return array parent contexts having capability, zero based index
+     */
+    public function having_cap($cap){
+        $contextswithcap = array();
+        foreach ($this->allcontexts as $context){
+            if (has_capability($cap, $context)){
+                $contextswithcap[] = $context;
+            }
+        }
+        return $contextswithcap;
+    }
+    /**
+     * @param array $caps capabilities
+     * @return array parent contexts having at least one of $caps, zero based index
+     */
+    public function having_one_cap($caps){
+        $contextswithacap = array();
+        foreach ($this->allcontexts as $context){
+            foreach ($caps as $cap){
+                if (has_capability($cap, $context)){
+                    $contextswithacap[] = $context;
+                    break; //done with caps loop
+                }
+            }
+        }
+        return $contextswithacap;
+    }
+    /**
+     * @param string $tabname edit tab name
+     * @return array parent contexts having at least one of $caps, zero based index
+     */
+    public function having_one_edit_tab_cap($tabname){
+        return $this->having_one_cap(self::$CAPS[$tabname]);
+    }
+    /**
+     * Has at least one parent context got the cap $cap?
+     *
+     * @param string $cap capability
+     * @return boolean
+     */
+    public function have_cap($cap){
+        return (count($this->having_cap($cap)));
+    }
+
+    /**
+     * Has at least one parent context got one of the caps $caps?
+     *
+     * @param array $caps capability
+     * @return boolean
+     */
+    public function have_one_cap($caps){
+        foreach ($caps as $cap) {
+            if ($this->have_cap($cap)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    /**
+     * Has at least one parent context got one of the caps for actions on $tabname
+     *
+     * @param string $tabname edit tab name
+     * @return boolean
+     */
+    public function have_one_edit_tab_cap($tabname){
+        return $this->have_one_cap(self::$CAPS[$tabname]);
+    }
+    /**
+     * Throw error if at least one parent context hasn't got the cap $cap
+     *
+     * @param string $cap capability
+     */
+    public function require_cap($cap){
+        if (!$this->have_cap($cap)){
+            print_error('nopermissions', '', '', $cap);
+        }
+    }
+    /**
+     * Throw error if at least one parent context hasn't got one of the caps $caps
+     *
+     * @param array $cap capabilities
+     */
+     public function require_one_cap($caps) {
+        if (!$this->have_one_cap($caps)) {
+            $capsstring = join($caps, ', ');
+            print_error('nopermissions', '', '', $capsstring);
+        }
+    }
+
+    /**
+     * Throw error if at least one parent context hasn't got one of the caps $caps
+     *
+     * @param string $tabname edit tab name
+     */
+    public function require_one_edit_tab_cap($tabname){
+        if (!$this->have_one_edit_tab_cap($tabname)) {
+            print_error('nopermissions', '', '', 'access question edit tab '.$tabname);
+        }
+    }
+}
+
+/**
+ * Rewrite question url, file_rewrite_pluginfile_urls always build url by
+ * $file/$contextid/$component/$filearea/$itemid/$pathname_in_text, so we cannot add
+ * extra questionid and attempted in url by it, so we create quiz_rewrite_question_urls
+ * to build url here
+ *
+ * @param string $text text being processed
+ * @param string $file the php script used to serve files
+ * @param int $contextid
+ * @param string $component component
+ * @param string $filearea filearea
+ * @param array $ids other IDs will be used to check file permission
+ * @param int $itemid
+ * @param array $options
+ * @return string
+ */
+function quiz_rewrite_question_urls($text, $file, $contextid, $component, $filearea, array $ids, $itemid, array $options=null) {
+    global $CFG;
+
+    $options = (array)$options;
+    if (!isset($options['forcehttps'])) {
+        $options['forcehttps'] = false;
+    }
+
+    if (!$CFG->slasharguments) {
+        $file = $file . '?file=';
+    }
+
+    $baseurl = "$CFG->wwwroot/$file/$contextid/$component/$filearea/";
+
+    if (!empty($ids)) {
+        $baseurl .= (implode('/', $ids) . '/');
+    }
+
+    if ($itemid !== null) {
+        $baseurl .= "$itemid/";
+    }
+
+    if ($options['forcehttps']) {
+        $baseurl = str_replace('http://', 'https://', $baseurl);
+    }
+
+    return str_replace('@@PLUGINFILE@@/', $baseurl, $text);
+}
+
+/**
+ * Called by pluginfile.php to serve files related to the 'question' core
+ * component and for files belonging to qtypes.
+ *
+ * For files that relate to questions in a question_attempt, then we delegate to
+ * a function in the component that owns the attempt (for example in the quiz,
+ * or in core question preview) to get necessary inforation.
+ *
+ * (Note that, at the moment, all question file areas relate to questions in
+ * attempts, so the If at the start of the last paragraph is always true.)
+ *
+ * Does not return, either calls send_file_not_found(); or serves the file.
+ *
+ * @param object $course course settings object
+ * @param object $context context object
+ * @param string $component the name of the component we are serving files for.
+ * @param string $filearea the name of the file area.
+ * @param array $args the remaining bits of the file path.
+ * @param bool $forcedownload whether the user must be forced to download the file.
+ */
+function question_pluginfile($course, $context, $component, $filearea, $args, $forcedownload) {
+    global $DB, $CFG;
+
+    list($context, $course, $cm) = get_context_info_array($context->id);
+    require_login($course, false, $cm);
+
+    if ($filearea === 'export') {
+        require_once($CFG->dirroot . '/question/editlib.php');
+        $contexts = new question_edit_contexts($context);
+        // check export capability
+        $contexts->require_one_edit_tab_cap('export');
+        $category_id = (int)array_shift($args);
+        $format      = array_shift($args);
+        $cattofile   = array_shift($args);
+        $contexttofile = array_shift($args);
+        $filename    = array_shift($args);
+
+        // load parent class for import/export
+        require_once($CFG->dirroot . '/question/format.php');
+        require_once($CFG->dirroot . '/question/editlib.php');
+        require_once($CFG->dirroot . '/question/format/' . $format . '/format.php');
+
+        $classname = 'qformat_' . $format;
+        if (!class_exists($classname)) {
+            send_file_not_found();
+        }
+
+        $qformat = new $classname();
+
+        if (!$category = $DB->get_record('question_categories', array('id' => $category_id))) {
+            send_file_not_found();
+        }
+
+        $qformat->setCategory($category);
+        $qformat->setContexts($contexts->having_one_edit_tab_cap('export'));
+        $qformat->setCourse($course);
+
+        if ($cattofile == 'withcategories') {
+            $qformat->setCattofile(true);
+        } else {
+            $qformat->setCattofile(false);
+        }
+
+        if ($contexttofile == 'withcontexts') {
+            $qformat->setContexttofile(true);
+        } else {
+            $qformat->setContexttofile(false);
+        }
+
+        if (!$qformat->exportpreprocess()) {
+            send_file_not_found();
+            print_error('exporterror', 'question', $thispageurl->out());
+        }
+
+        // export data to moodle file pool
+        if (!$content = $qformat->exportprocess(true)) {
+            send_file_not_found();
+        }
+
+        //DEBUG
+        //echo '<textarea cols=90 rows=20>';
+        //echo $content;
+        //echo '</textarea>';
+        //die;
+        send_file($content, $filename, 0, 0, true, true, $qformat->mime_type());
+    }
+
+    $attemptid = (int)array_shift($args);
+    $questionid = (int)array_shift($args);
+
+
+    if ($attemptid === 0) {
+        // preview
+        require_once($CFG->dirroot . '/question/previewlib.php');
+        return question_preview_question_pluginfile($course, $context,
+                $component, $filearea, $attemptid, $questionid, $args, $forcedownload);
+
+    } else {
+        $module = $DB->get_field('question_attempts', 'modulename',
+                array('id' => $attemptid));
+
+        $dir = get_component_directory($module);
+        if (!file_exists("$dir/lib.php")) {
+            send_file_not_found();
+        }
+        include_once("$dir/lib.php");
+
+        $filefunction = $module . '_question_pluginfile';
+        if (!function_exists($filefunction)) {
+            send_file_not_found();
+        }
+
+        $filefunction($course, $context, $component, $filearea, $attemptid, $questionid,
+                $args, $forcedownload);
+
+        send_file_not_found();
+    }
+}
+
+/**
+ * Final test for whether a studnet should be allowed to see a particular file.
+ * This delegates the decision to the question type plugin.
+ *
+ * @param object $question The question to be rendered.
+ * @param object $state    The state to render the question in.
+ * @param object $options  An object specifying the rendering options.
+ * @param string $component the name of the component we are serving files for.
+ * @param string $filearea the name of the file area.
+ * @param array $args the remaining bits of the file path.
+ * @param bool $forcedownload whether the user must be forced to download the file.
+ */
+function question_check_file_access($question, $state, $options, $contextid, $component,
+        $filearea, $args, $forcedownload) {
+    global $QTYPES;
+    return $QTYPES[$question->qtype]->check_file_access($question, $state, $options, $contextid, $component,
+            $filearea, $args, $forcedownload);
+}
+
+/**
+ * Create url for question export
+ *
+ * @param int $contextid, current context
+ * @param int $categoryid, categoryid
+ * @param string $format
+ * @param string $withcategories
+ * @param string $ithcontexts
+ * @param moodle_url export file url
+ */
+function question_make_export_url($contextid, $categoryid, $format, $withcategories, $withcontexts, $filename) {
+    global $CFG;
+    $urlbase = "$CFG->httpswwwroot/pluginfile.php";
+    return moodle_url::make_file_url($urlbase, "/$contextid/question/export/{$categoryid}/{$format}/{$withcategories}/{$withcontexts}/{$filename}", true);
+}

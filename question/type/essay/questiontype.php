@@ -1,4 +1,19 @@
-<?php  // $Id: questiontype.php,v 1.20.2.8 2008/11/28 06:07:24 tjhunt Exp $
+<?php
+
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 //////////////////
 ///   ESSAY   ///
@@ -10,11 +25,6 @@
  * @subpackage questiontypes
  */
 class question_essay_qtype extends default_questiontype {
-    var $usablebyrandom;
-
-    function question_essay_qtype() {
-        $this->usablebyrandom = get_config('qtype_random', 'selectmanual');
-    }
 
     function name() {
         return 'essay';
@@ -24,47 +34,44 @@ class question_essay_qtype extends default_questiontype {
         return true;
     }
 
-    function is_usable_by_random() {
-        return $this->usablebyrandom;
-    }
-
     function save_question_options($question) {
-        $result = true;
-        $update = true;
-        $answer = get_record("question_answers", "question", $question->id);
+        global $DB;
+        $context = $question->context;
+
+        $answer = $DB->get_record('question_answers', array('question' => $question->id));
         if (!$answer) {
             $answer = new stdClass;
             $answer->question = $question->id;
-            $update = false;
+            $answer->answer = '';
+            $answer->feedback = '';
+            $answer->id = $DB->insert_record('question_answers', $answer);
         }
-        $answer->answer   = $question->feedback;
-        $answer->feedback = $question->feedback;
+
+        $answer->feedback = $question->feedback['text'];
+        $answer->feedbackformat = $question->feedback['format'];
+        $answer->answer = $answer->feedback;
+        $answer->answerformat = $question->feedback['format'];
         $answer->fraction = $question->fraction;
-        if ($update) {
-            if (!update_record("question_answers", $answer)) {
-                $result = new stdClass;
-                $result->error = "Could not update quiz answer!";
-            }
-        } else {
-            if (!$answer->id = insert_record("question_answers", $answer)) {
-                $result = new stdClass;
-                $result->error = "Could not insert quiz answer!";
-            }
-        }
-        return $result;
+
+        $answer->feedback = $this->import_or_save_files($question->feedback,
+                $context, 'question', 'answerfeedback', $answer->id);
+        $answer->answer = $answer->feedback;
+        $DB->update_record('question_answers', $answer);
+
+        return true;
     }
 
     function print_question_formulation_and_controls(&$question, &$state, $cmoptions, $options) {
         global $CFG;
-        static $htmleditorused = false;
 
-        $answers       = &$question->options->answers;
-        $readonly      = empty($options->readonly) ? '' : 'disabled="disabled"';
+        $context = $this->get_context_by_category_id($question->category);
+
+        $answers  = &$question->options->answers;
+        $readonly = empty($options->readonly) ? '' : 'disabled="disabled"';
 
         // Only use the rich text editor for the first essay question on a page.
-        $usehtmleditor = can_use_html_editor() && !$htmleditorused;
 
-        $formatoptions          = new stdClass;
+        $formatoptions = new stdClass;
         $formatoptions->noclean = true;
         $formatoptions->para    = false;
 
@@ -76,27 +83,27 @@ class question_essay_qtype extends default_questiontype {
                                    $question->questiontextformat,
                                    $formatoptions, $cmoptions->course);
 
-        $image = get_question_image($question);
-
         // feedback handling
         $feedback = '';
         if ($options->feedback && !empty($answers)) {
             foreach ($answers as $answer) {
-                $feedback = format_text($answer->feedback, '', $formatoptions, $cmoptions->course);
+                $feedback = quiz_rewrite_question_urls($answer->feedback, 'pluginfile.php', $context->id, 'qtype_essay', 'feedback', array($state->attempt, $state->question), $answer->id);
+                $feedback = format_text($feedback, $answer->feedbackformat, $formatoptions, $cmoptions->course);
             }
         }
 
         // get response value
         if (isset($state->responses[''])) {
-            $value = stripslashes_safe($state->responses['']);
+            $value = $state->responses[''];
         } else {
-            $value = "";
+            $value = '';
         }
 
         // answer
         if (empty($options->readonly)) {
             // the student needs to type in their answer so print out a text editor
-            $answer = print_textarea($usehtmleditor, 18, 80, 630, 400, $inputname, $value, $cmoptions->course, true);
+            $answer = print_textarea(can_use_html_editor(), 18, 80, 630, 400,
+                    $inputname, $value, $cmoptions->course, true);
         } else {
             // it is read only, so just format the students answer and output it
             $safeformatoptions = new stdClass;
@@ -107,11 +114,6 @@ class question_essay_qtype extends default_questiontype {
         }
 
         include("$CFG->dirroot/question/type/essay/display.html");
-
-        if ($usehtmleditor && empty($options->readonly)) {
-            use_html_editor($inputname);
-            $htmleditorused = true;
-        }
     }
 
     function grade_responses(&$question, &$state, $cmoptions) {
@@ -125,30 +127,12 @@ class question_essay_qtype extends default_questiontype {
         return true;
     }
 
-    function response_summary($question, $state, $length = 80) {
-        $responses = $this->get_actual_response($question, $state);
-        $response = reset($responses);
-        return shorten_text($response, $length);
-    }
-
-    /**
-     * Backup the extra information specific to an essay question - over and above
-     * what is in the mdl_question table.
-     *
-     * @param file $bf The backup file to write to.
-     * @param object $preferences the blackup options controlling this backup.
-     * @param $questionid the id of the question being backed up.
-     * @param $level indent level in the backup file - so it can be formatted nicely.
-     */
-    function backup($bf, $preferences, $questionid, $level = 6) {
-        return question_backup_answers($bf, $preferences, $questionid, $level);
-    }
-
     /**
      * Runs all the code required to set up and save an essay question for testing purposes.
      * Alternate DB table prefix may be used to facilitate data deletion.
      */
     function generate_test($name, $courseid = null) {
+        global $DB;
         list($form, $question) = parent::generate_test($name, $courseid);
         $form->questiontext = "What is the purpose of life?";
         $form->feedback = "feedback";
@@ -157,12 +141,41 @@ class question_essay_qtype extends default_questiontype {
         $form->penalty = 0;
 
         if ($courseid) {
-            $course = get_record('course', 'id', $courseid);
+            $course = $DB->get_record('course', array('id' => $courseid));
         }
 
-        return $this->save_question($question, $form, $course);
+        return $this->save_question($question, $form);
     }
 
+    function move_files($questionid, $oldcontextid, $newcontextid) {
+        parent::move_files($questionid, $oldcontextid, $newcontextid);
+        $this->move_files_in_answers($questionid, $oldcontextid, $newcontextid);
+    }
+
+    protected function delete_files($questionid, $contextid) {
+        parent::delete_files($questionid, $contextid);
+        $this->delete_files_in_answers($questionid, $contextid);
+    }
+
+    function check_file_access($question, $state, $options, $contextid, $component,
+            $filearea, $args) {
+        if ($component == 'question' && $filearea == 'answerfeedback') {
+
+            $answerid = reset($args); // itemid is answer id.
+            $answers = &$question->options->answers;
+            if (isset($state->responses[''])) {
+                $response = $state->responses[''];
+            } else {
+                $response = '';
+            }
+
+            return $options->feedback && !empty($response);
+
+        } else {
+            return parent::check_file_access($question, $state, $options, $contextid, $component,
+                    $filearea, $args);
+        }
+    }
     // Restore method not needed.
 }
 //// END OF CLASS ////
@@ -171,4 +184,3 @@ class question_essay_qtype extends default_questiontype {
 //// INITIATION - Without this line the question type is not in use... ///
 //////////////////////////////////////////////////////////////////////////
 question_register_questiontype(new question_essay_qtype());
-?>

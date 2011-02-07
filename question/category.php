@@ -1,4 +1,4 @@
-<?php // $Id: category.php,v 1.24.2.5 2009/11/02 17:15:19 tjhunt Exp $
+<?php
 /**
  * Allows a teacher to create, edit and delete categories
  *
@@ -12,14 +12,11 @@
     require_once($CFG->dirroot."/question/editlib.php");
     require_once($CFG->dirroot."/question/category_class.php");
 
-
-
-    list($thispageurl, $contexts, $cmid, $cm, $module, $pagevars) = question_edit_setup('categories');
+    list($thispageurl, $contexts, $cmid, $cm, $module, $pagevars) =
+            question_edit_setup('categories', '/question/category.php');
 
     // get values from form for actions on this page
     $param = new stdClass();
-
-
     $param->moveup = optional_param('moveup', 0, PARAM_INT);
     $param->movedown = optional_param('movedown', 0, PARAM_INT);
     $param->moveupcontext = optional_param('moveupcontext', 0, PARAM_INT);
@@ -34,6 +31,15 @@
     $param->moveto = optional_param('moveto', 0, PARAM_INT);
     $param->edit = optional_param('edit', 0, PARAM_INT);
 
+    $url = new moodle_url($thispageurl);
+    foreach ((array)$param as $key=>$value) {
+        if (($key !== 'cancel' && $value !== 0) || ($key === 'cancel' && $value !== '')) {
+            $url->param($key, $value);
+        }
+    }
+    $PAGE->set_url($url);
+    $PAGE->set_pagelayout('standard');
+
     $qcobject = new question_category_object($pagevars['cpage'], $thispageurl, $contexts->having_one_edit_tab_cap('categories'), $param->edit, $pagevars['cat'], $param->delete,
                                 $contexts->having_cap('moodle/question:add'));
 
@@ -46,77 +52,47 @@
                                     $param->moveupcontext, $param->movedowncontext, $param->tocontext);
         }
     }
-    if ($param->delete && ($questionstomove = count_records("question", "category", $param->delete))){
-        if (!$category = get_record("question_categories", "id", $param->delete)) {  // security
-            error("No such category {$param->delete}!", $thispageurl->out());
+    if ($param->delete && ($questionstomove = $DB->count_records("question", array("category" => $param->delete)))){
+        if (!$category = $DB->get_record("question_categories", array("id" => $param->delete))) {  // security
+            print_error('nocate', 'question', $thispageurl->out(), $param->delete);
         }
         $categorycontext = get_context_instance_by_id($category->contextid);
         $qcobject->moveform = new question_move_form($thispageurl,
                     array('contexts'=>array($categorycontext), 'currentcat'=>$param->delete));
         if ($qcobject->moveform->is_cancelled()){
-            redirect($thispageurl->out());
+            redirect($thispageurl);
         }  elseif ($formdata = $qcobject->moveform->get_data()) {
             /// 'confirm' is the category to move existing questions to
             list($tocategoryid, $tocontextid) = explode(',', $formdata->category);
             $qcobject->move_questions_and_delete_category($formdata->delete, $tocategoryid);
             $thispageurl->remove_params('cat', 'category');
-            redirect($thispageurl->out());
+            redirect($thispageurl);
         }
     } else {
         $questionstomove = 0;
     }
     if ($qcobject->catform->is_cancelled()) {
-        redirect($thispageurl->out());
+        redirect($thispageurl);
     } else if ($catformdata = $qcobject->catform->get_data()) {
         if (!$catformdata->id) {//new category
             $qcobject->add_category($catformdata->parent, $catformdata->name, $catformdata->info);
         } else {
             $qcobject->update_category($catformdata->id, $catformdata->parent, $catformdata->name, $catformdata->info);
         }
-        redirect($thispageurl->out());
-    } else if ((!empty($param->delete) and (!$questionstomove) and confirm_sesskey()))  {
+        redirect($thispageurl);
+    } else if ((!empty($param->delete) and (!$questionstomove) and confirm_sesskey())) {
         $qcobject->delete_category($param->delete);//delete the category now no questions to move
         $thispageurl->remove_params('cat', 'category');
-        redirect($thispageurl->out());
-    }
-    $navlinks = array();
-    if ($cm!==null) {
-        // Page header
-        $strupdatemodule = has_capability('moodle/course:manageactivities', $contexts->lowest())
-            ? update_module_button($cm->id, $COURSE->id, get_string('modulename', $cm->modname))
-            : "";
-        $navlinks[] = array('name' => get_string('modulenameplural', $cm->modname),
-                            'link' => "$CFG->wwwroot/mod/{$cm->modname}/index.php?id=$COURSE->id",
-                            'type' => 'activity');
-        $navlinks[] = array('name' => format_string($module->name),
-                            'link' => "$CFG->wwwroot/mod/{$cm->modname}/view.php?id={$cm->id}",
-                            'type' => 'title');
-    } else {
-        // Print basic page layout.
-        $strupdatemodule = '';
+        redirect($thispageurl);
     }
 
-    if (!$param->edit){
-        $navlinks[] = array('name' => $streditingcategories, 'link' => '', 'type' => 'title');
-    } else {
-        $navlinks[] = array('name' => $streditingcategories, 'link' => $thispageurl->out(), 'type' => 'title');
-        $navlinks[] = array('name' => get_string('editingcategory', 'question'), 'link' => '', 'type' => 'title');
+    if ($param->edit){
+        $PAGE->navbar->add(get_string('editingcategory', 'question'));
     }
 
-    $navigation = build_navigation($navlinks);
-    print_header_simple($streditingcategories, '', $navigation, "", "", true, $strupdatemodule);
-
-    // print tabs
-    if ($cm!==null) {
-        $currenttab = 'edit';
-        $mode = 'categories';
-        ${$cm->modname} = $module;
-        include($CFG->dirroot."/mod/{$cm->modname}/tabs.php");
-    } else {
-        $currenttab = 'categories';
-        $context = $contexts->lowest();
-        include('tabs.php');
-    }
+    $PAGE->set_title($streditingcategories);
+    $PAGE->set_heading($COURSE->fullname);
+    echo $OUTPUT->header();
 
     // display UI
     if (!empty($param->edit)) {
@@ -127,5 +103,5 @@
         // display the user interface
         $qcobject->display_user_interface();
     }
-    print_footer($COURSE);
-?>
+    echo $OUTPUT->footer();
+

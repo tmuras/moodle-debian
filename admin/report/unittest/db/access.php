@@ -1,4 +1,4 @@
-<?php  // $Id: access.php,v 1.1.2.2 2008/11/26 20:58:07 skodak Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -23,18 +23,16 @@
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
 
-$report_unittest_capabilities = array(
+$capabilities = array(
 
     'report/unittest:view' => array(
         'riskbitmask' => RISK_DATALOSS,
         'captype' => 'read',
         'contextlevel' => CONTEXT_SYSTEM,
-        'legacy' => array(
-            'admin' => CAP_ALLOW
+        'archetypes' => array(
+            'manager' => CAP_ALLOW
         ),
 
         'clonepermissionsfrom' => 'moodle/site:config',
     )
 );
-
-?>

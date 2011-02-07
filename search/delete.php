@@ -7,6 +7,7 @@
     * @subpackage search_engine
     * @author Michael Champanis (mchampan) [cynnical@gmail.com], Valery Fremaux [valery.fremaux@club-internet.fr] > 1.8
     * @date 2008/03/31
+    * @version prepared for 2.0
     * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
     *
     * Asynchronous index cleaner
@@ -23,8 +24,10 @@
     if (!defined('MOODLE_INTERNAL')) {
         die('Direct access to this script is forbidden.');    ///  It must be included from the cron script
     }
+    
+    global $DB;
 
-/// makes inclusions of the Zend Engine more reliable
+/// makes inclusions of the Zend Engine more reliable                               
     ini_set('include_path', $CFG->dirroot.DIRECTORY_SEPARATOR.'search'.PATH_SEPARATOR.ini_get('include_path'));
 
     require_once($CFG->dirroot.'/search/lib.php');
@@ -35,16 +38,16 @@
     // require_login();
 
     if (empty($CFG->enableglobalsearch)) {
-        error(get_string('globalsearchdisabled', 'search'));
+        print_error('globalsearchdisabled', 'search');
     }
-    
+
     /*
     Obsolete with the MOODLE INTERNAL check
-    if (!has_capability('moodle/site:doanything', get_context_instance(CONTEXT_SYSTEM))) {
-        error(get_string('beadmin', 'search'), "$CFG->wwwroot/login/index.php");
+    if (!has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))) {
+        print_error('beadmin', 'search', get_login_url());
     }
     */
-    
+
     try {
         $index = new Zend_Search_Lucene(SEARCH_INDEX_PATH);
     } catch(LuceneException $e) {
@@ -84,36 +87,40 @@
                                     id,
                                     {$values[0]}
                                 FROM 
-                                    {$CFG->prefix}{$values[1]}
-                                    $where
+                                    {{$values[1]}}
+                                $where
                             ";
-                            $docIds = get_records_sql($query);
-                            $docIdList = ($docIds) ? implode("','", array_keys($docIds)) : '' ;
+                            $docIds = $DB->get_records_sql($query, array());
                             
-                            $table = SEARCH_DATABASE_TABLE;
-                            $query = "
-                                SELECT 
-                                    id, 
-                                    docid 
-                                FROM 
-                                    {$CFG->prefix}{$table}
-                                WHERE 
-                                    doctype = '{$mod->name}' AND 
-                                    $itemtypes
-                                    docid not in ('{$docIdList}')
-                            ";
-                            $records = get_records_sql($query);
+                            if (!empty($docIds)){
+                                $table = SEARCH_DATABASE_TABLE;
+                                list($usql, $params) = $DB->get_in_or_equal(array_keys($docIds), SQL_PARAMS_QM, 'param0000', false); // negative IN
+                                $query = "
+                                    SELECT 
+                                        id, 
+                                        docid 
+                                    FROM 
+                                        {{$table}}
+                                    WHERE 
+                                        doctype = '{$mod->name}' AND 
+                                        $itemtypes
+                                        docid $usql
+                                ";
+                                $records = $DB->get_records_sql($query, $params);
+                            } else {
+                                $records = array();
+                            }
                             
                             // build an array of all the deleted records
-                            if (is_array($records)) {
-                                foreach($records as $record) {
-                                    $deletions[] = $delete_function($record->docid, $values[4]);
-                                }
+                            foreach($records as $record) {
+                                $deletions[] = $delete_function($record->docid, $values[4]);
                             }
                         }
                         
                         foreach ($deletions as $delete) {
                             // find the specific document in the index, using it's docid and doctype as keys
+                            // change from default text only search to include numerals for this search.
+                            Zend_Search_Lucene_Analysis_Analyzer::setDefault(new Zend_Search_Lucene_Analysis_Analyzer_Common_TextNum_CaseInsensitive());
                             $doc = $index->find("+docid:{$delete->id} +doctype:$mod->name +itemtype:{$delete->itemtype}");
                             
                             // get the record, should only be one
@@ -142,8 +149,8 @@
     
 /// update index date and index size
 
-    set_config("search_indexer_cleanup_date", $startcleantime);
-    set_config("search_index_size", (int)$CFG->search_index_size - (int)$deletion_count);
+    set_config('search_indexer_cleanup_date', $startcleantime);
+    set_config('search_index_size', (int)$CFG->search_index_size - (int)$deletion_count);
     
     mtrace("Finished $deletion_count removals.");
     mtrace('Index size after: '.$index->count());

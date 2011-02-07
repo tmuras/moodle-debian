@@ -1,4 +1,4 @@
-<?php  // $Id: edit_random_form.php,v 1.6.2.3 2009/02/19 01:09:35 tjhunt Exp $
+<?php
 /**
  * Defines the editing form for the random question type.
  *
@@ -31,14 +31,18 @@ class question_edit_random_form extends question_edit_form {
         // Standard fields at the start of the form.
         $mform->addElement('header', 'generalheader', get_string("general", 'form'));
 
-        $mform->addElement('questioncategory', 'category', get_string('category', 'quiz'), 
+        $mform->addElement('questioncategory', 'category', get_string('category', 'quiz'),
                 array('contexts' => $this->contexts->having_cap('moodle/question:useall')));
 
-        $mform->addElement('advcheckbox', 'questiontext', get_string("recurse", "quiz"), null, null, array(0, 1));
+        $mform->addElement('advcheckbox', 'questiontext[text]', get_string('recurse', 'quiz'), null, null, array(0, 1));
 
         $mform->addElement('hidden', 'name');
         $mform->setType('name', PARAM_ALPHA);
         $mform->setDefault('name', '');
+
+        $mform->addElement('hidden', 'tags[]');
+        $mform->setType('tags[]', PARAM_ALPHA);
+        $mform->setDefault('tags[]', '');
 
         // Standard fields at the end of the form.
         $mform->addElement('hidden', 'questiontextformat', 0);
@@ -69,19 +73,25 @@ class question_edit_random_form extends question_edit_form {
         $mform->setDefault('returnurl', 0);
 
         $buttonarray = array();
-        $buttonarray[] = &$mform->createElement('submit', 'submitbutton', get_string('savechanges'));
-
-        $buttonarray[] = &$mform->createElement('cancel');
+        $buttonarray[] = $mform->createElement('submit', 'submitbutton', get_string('savechanges'));
+        $buttonarray[] = $mform->createElement('cancel');
         $mform->addGroup($buttonarray, 'buttonar', '', array(' '), false);
         $mform->closeHeaderBefore('buttonar');
     }
+
+    function set_data($question) {
+        $question->questiontext = array('text' => $question->questiontext);
+        // We don't want the complex stuff in the base class to run.
+        moodleform::set_data($question);
+    }
+
     function validation($fromform, $files) {
         //validation of category
         //is not relevant for this question type
         return array();
     }
+
     function qtype() {
         return 'random';
     }
 }
-?>

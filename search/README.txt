@@ -15,7 +15,7 @@ context as usually accessed, from the current user point of view.
 Results filtering removes from results any link to information the
 current user would not be allowed to acces on a straight situation.
 
-Deployment
+Deployement
 ###########
 
 The search engine is now part of Moodle core distribution.
@@ -76,13 +76,6 @@ The reviewed search engine API allows:
 - securing the access to the results
 - adding indexing handling for additional modules and plugins adding a php calibrated script
 - adding physical filetype handling adding a php calibrated script
-
-Global Search on NFS Mounted clusters
-#####################################
-
-This version contains a patched Lucene Zend implementation that allows using the Global Search engine in an NFS mounted shared volume for Web clustering. This implementation 
-remains highly experimental and not all tests have been processed. Some changes may
-occur in the SoftLockManager that was added to the Lucene engine.
 
 Future extensions
 #################

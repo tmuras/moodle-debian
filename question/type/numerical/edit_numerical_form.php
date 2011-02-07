@@ -1,4 +1,20 @@
-<?php  // $Id: edit_numerical_form.php,v 1.11.2.8 2009/02/19 01:09:35 tjhunt Exp $
+<?php
+
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
 /**
  * Defines the editing form for the numerical question type.
  *
@@ -31,69 +47,52 @@ class question_edit_numerical_form extends question_edit_form {
      * @param MoodleQuickForm $mform the form being built.
      */
     function definition_inner(&$mform) {
+        global $QTYPES ;
 
 //------------------------------------------------------------------------------------------
         $creategrades = get_grade_options();
         $this->add_per_answer_fields($mform, get_string('answerno', 'qtype_numerical', '{no}'),
                 $creategrades->gradeoptions);
 //------------------------------------------------------------------------------------------
-        $repeated = array();
-        $repeated[] =& $mform->createElement('header', 'unithdr', get_string('unithdr', 'qtype_numerical', '{no}'));
-
-        $repeated[] =& $mform->createElement('text', 'unit', get_string('unit', 'quiz'));
-        $mform->setType('unit', PARAM_NOTAGS);
-
-        $repeated[] =& $mform->createElement('text', 'multiplier', get_string('multiplier', 'quiz'));
-        $mform->setType('multiplier', PARAM_NUMBER);
-
-        if (isset($this->question->options)){
-            $countunits = count($this->question->options->units);
-        } else {
-            $countunits = 0;
-        }
-
-        if ($this->question->formoptions->repeatelements){
-            $repeatsatstart = $countunits + 2;
-        } else {
-            $repeatsatstart = $countunits;
-        }
-        $this->repeat_elements($repeated, $repeatsatstart, array(), 'nounits', 'addunits', 2, get_string('addmoreunitblanks', 'qtype_numerical'));
-
-        if ($mform->elementExists('multiplier[0]')) {
-        /// Does not exist when this form is used in 'move to another category'
-        /// mode with a qusetion that has no units. This was leading to errors.
-            $firstunit =& $mform->getElement('multiplier[0]');
-            $firstunit->freeze();
-            $firstunit->setValue('1.0');
-            $firstunit->setPersistantFreeze(true);
-        }
+        $QTYPES['numerical']->add_units_options($mform,$this);
+        $QTYPES['numerical']->add_units_elements($mform,$this);
     }
 
-    function set_data($question) {
+    function data_preprocessing($question) {
+        global $QTYPES ;
         if (isset($question->options)){
             $answers = $question->options->answers;
             if (count($answers)) {
                 $key = 0;
                 foreach ($answers as $answer){
+                    $draftid = file_get_submitted_draft_itemid('feedback['.$key.']');
                     $default_values['answer['.$key.']'] = $answer->answer;
                     $default_values['fraction['.$key.']'] = $answer->fraction;
                     $default_values['tolerance['.$key.']'] = $answer->tolerance;
-                    $default_values['feedback['.$key.']'] = $answer->feedback;
+                    $default_values['feedback['.$key.']'] = array();
+                    $default_values['feedback['.$key.']']['format'] = $answer->feedbackformat;
+                    $default_values['feedback['.$key.']']['text'] = file_prepare_draft_area(
+                        $draftid,       // draftid
+                        $this->context->id,    // context
+                        'question',   // component
+                        'answerfeedback',             // filarea
+                        !empty($answer->id)?(int)$answer->id:null, // itemid
+                        $this->fileoptions,    // options
+                        $answer->feedback      // text
+                    );
+                    $default_values['feedback['.$key.']']['itemid'] = $draftid;
                     $key++;
                 }
             }
-            $units  = array_values($question->options->units);
-            if (!empty($units)) {
-                foreach ($units as $key => $unit){
-                    $default_values['unit['.$key.']'] = $unit->unit;
-                    $default_values['multiplier['.$key.']'] = $unit->multiplier;
-                }
-            }
+            $QTYPES['numerical']->set_numerical_unit_data($this, $question, $default_values);
+
             $question = (object)((array)$question + $default_values);
         }
-        parent::set_data($question);
+        return $question;
     }
+
     function validation($data, $files) {
+        global $QTYPES;
         $errors = parent::validation($data, $files);
 
         // Check the answers.
@@ -110,7 +109,7 @@ class question_edit_numerical_form extends question_edit_form {
                 if ($data['fraction'][$key] == 1) {
                     $maxgrade = true;
                 }
-            } else if ($data['fraction'][$key] != 0 || !html_is_blank($data['feedback'][$key])) {
+            } else if ($data['fraction'][$key] != 0 || !html_is_blank($data['feedback'][$key]['text'])) {
                 $errors["answer[$key]"] = get_string('answermustbenumberorstar', 'qtype_numerical');
                 $answercount++;
             }
@@ -121,27 +120,12 @@ class question_edit_numerical_form extends question_edit_form {
         if ($maxgrade == false) {
             $errors['fraction[0]'] = get_string('fractionsnomax', 'question');
         }
-
-        // Check units.
-        $alreadyseenunits = array();
-        if (isset($data['unit'])) {
-            foreach ($data['unit'] as $key => $unit) {
-                $trimmedunit = trim($unit);
-                if ($trimmedunit!='' && in_array($trimmedunit, $alreadyseenunits)) {
-                    $errors["unit[$key]"] = get_string('errorrepeatedunit', 'qtype_numerical');
-                    if (trim($data['multiplier'][$key]) == '') {
-                        $errors["multiplier[$key]"] = get_string('errornomultiplier', 'qtype_numerical');
-                    }
-                } else {
-                    $alreadyseenunits[] = $trimmedunit;
-                }
-            }
-        }
+        $QTYPES['numerical']->validate_numerical_options($data, $errors) ;
 
         return $errors;
     }
+
     function qtype() {
         return 'numerical';
     }
 }
-?>

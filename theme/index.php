@@ -1,144 +1,149 @@
-<?php // $Id: index.php,v 1.38.2.2 2008/03/26 03:00:42 scyrma Exp $
+<?php
 
-    require_once("../config.php");
-    require_once($CFG->libdir.'/adminlib.php');
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-    $choose = optional_param("choose",'',PARAM_FILE);   // set this theme as default
+/**
+ * This page prvides the Administration -> ... -> Theme selector UI.
+ */
 
-    admin_externalpage_setup('themeselector');
+require_once(dirname(__FILE__) . '/../config.php');
+require_once($CFG->libdir . '/adminlib.php');
 
-    unset($SESSION->theme);
+$choose = optional_param('choose', '', PARAM_SAFEDIR);
+$chooselegacy = optional_param('chooselegacy', '', PARAM_SAFEDIR);
+$reset  = optional_param('reset', 0, PARAM_BOOL);
 
-    $stradministration = get_string("administration");
-    $strconfiguration = get_string("configuration");
-    $strthemes = get_string("themes");
-    $strpreview = get_string("preview");
-    $strchoose = get_string("choose");
-    $strinfo = get_string("info");
-    $strtheme = get_string("theme");
-    $strthemesaved = get_string("themesaved");
-    $strscreenshot = get_string("screenshot");
-    $stroldtheme = get_string("oldtheme");
+admin_externalpage_setup('themeselector');
 
+unset($SESSION->theme);
 
-    if ($choose and confirm_sesskey()) {
-        if (!is_dir($CFG->themedir .'/'. $choose)) {
-            error("This theme is not installed!");
-        }
-        if (set_config("theme", $choose)) {
-            theme_setup($choose);
-            admin_externalpage_print_header();
-            print_heading(get_string("themesaved"));
+if ($reset and confirm_sesskey()) {
+    theme_reset_all_caches();
 
-            if (file_exists("$choose/README.html")) {
-                print_simple_box_start("center");
-                readfile("$choose/README.html");
-                print_simple_box_end();
+} else if (($choose || $chooselegacy) && confirm_sesskey()) {
 
-            } else if (file_exists("$choose/README.txt")) {
-                print_simple_box_start("center");
-                $file = file("$choose/README.txt");
-                echo format_text(implode('', $file), FORMAT_MOODLE);
-                print_simple_box_end();
-            }
-            
-            print_continue("$CFG->wwwroot/");
-            
-            admin_externalpage_print_footer();
-            exit;
-        } else {
-            error("Could not set the theme!");
-        }
+    if ($choose) {
+        $chosentheme = $choose;
+        $heading = get_string('themesaved');
+        $config = 'theme';
+    } else {
+        $chosentheme = $chooselegacy;
+        $heading = get_string('legacythemesaved');
+        $config = 'themelegacy';
+    }
+    $theme = theme_config::load($chosentheme);
+    set_config($config, $theme->name);
+
+    // Create a new page for the display of the themes readme.
+    // This ensures that the readme page is shown using the new theme.
+    $confirmpage = new moodle_page();
+    $confirmpage->set_context($PAGE->context);
+    $confirmpage->set_url($PAGE->url);
+    $confirmpage->set_pagelayout($PAGE->pagelayout);
+    $confirmpage->set_pagetype($PAGE->pagetype);
+    $confirmpage->set_title($PAGE->title);
+    $confirmpage->set_heading($PAGE->heading);
+
+    // Get the core renderer for the new theme.
+    $output = $confirmpage->get_renderer('core');
+
+    echo $output->header();
+    echo $output->heading($heading);
+    echo $output->box_start();
+    echo format_text(get_string('choosereadme', 'theme_'.$CFG->theme), FORMAT_MOODLE);
+    echo $output->box_end();
+    echo $output->continue_button($CFG->wwwroot . '/' . $CFG->admin . '/index.php');
+    echo $output->footer();
+    exit;
+}
+
+// Otherwise, show a list of themes.
+echo $OUTPUT->header('themeselector');
+echo $OUTPUT->heading(get_string('themes'));
+
+echo $OUTPUT->single_button(new moodle_url('index.php', array('sesskey'=>sesskey(),'reset'=>1)), get_string('themeresetcaches', 'admin'));
+
+$table = new html_table();
+$table->id = 'adminthemeselector';
+$table->head = array(get_string('theme'), get_string('info'));
+
+$themes = get_plugin_list('theme');
+
+foreach ($themes as $themename => $themedir) {
+
+    // Load the theme config.
+    try {
+        $theme = theme_config::load($themename);
+    } catch (Exception $e) {
+        // Bad theme, just skip it for now.
+        continue;
+    }
+    if ($themename !== $theme->name) {
+        //obsoleted or broken theme, just skip for now
+        continue;
+    }
+    if (!$CFG->themedesignermode && $theme->hidefromselector) {
+        // The theme doesn't want to be shown in the theme selector and as theme
+        // designer mode is switched off we will respect that decision.
+        continue;
+    }
+    $strthemename = get_string('pluginname', 'theme_'.$themename);
+
+    // Build the table row, and also a list of items to go in the second cell.
+    $row = array();
+    $infoitems = array();
+    $rowclasses = array();
+
+    // Set up bools whether this theme is chosen either main or legacy
+    $ischosentheme = ($themename == $CFG->theme);
+    $ischosenlegacytheme = (!empty($CFG->themelegacy) && $themename == $CFG->themelegacy);
+
+    if ($ischosentheme) {
+        // Is the chosen main theme
+        $rowclasses[] = 'selectedtheme';
+    }
+    if ($ischosenlegacytheme) {
+        // Is the chosen legacy theme
+        $rowclasses[] = 'selectedlegacytheme';
     }
 
-    admin_externalpage_print_header('themeselector');
+    // link to the screenshot, now mandatory - the image path is hardcoded because we need image from other themes, not the current one
+    $screenshotpath = new moodle_url('/theme/image.php', array('theme'=>$themename, 'image'=>'screenshot','component'=>'theme'));
+    // Contents of the first screenshot/preview cell.
+    $row[] = html_writer::empty_tag('img', array('src'=>$screenshotpath, 'alt'=>$strthemename));
 
+    // Contents of the second cell.
+    $infocell = $OUTPUT->heading($strthemename, 3);
 
-    print_heading($strthemes);
+    // Button to choose this as the main theme
+    $maintheme = new single_button(new moodle_url('/theme/index.php', array('choose' => $themename, 'sesskey' => sesskey())), get_string('useformaintheme'), 'get');
+    $maintheme->disabled = $ischosentheme;
+    $infocell .= $OUTPUT->render($maintheme);
 
-    $themes = get_list_of_plugins("theme");
-    $sesskey = !empty($USER->id) ? $USER->sesskey : '';
+    // Button to choose this as the legacy theme
+    $legacytheme = new single_button(new moodle_url('/theme/index.php', array('chooselegacy' => $themename, 'sesskey' => sesskey())), get_string('useforlegacytheme'), 'get');
+    $legacytheme->disabled = $ischosenlegacytheme;
+    $infocell .= $OUTPUT->render($legacytheme);
 
-    echo "<table style=\"margin-left:auto;margin-right:auto;\" cellpadding=\"7\" cellspacing=\"5\">\n";
+    $row[] = $infocell;
 
-    if (!$USER->screenreader) {
-        echo "\t<tr class=\"generaltableheader\">\n\t\t<th scope=\"col\">$strtheme</th>\n";
-        echo "\t\t<th scope=\"col\">$strinfo</th>\n\t</tr>\n";
-    }
+    $table->data[$themename] = $row;
+    $table->rowclasses[$themename] = join(' ', $rowclasses);
+}
 
-    $original_theme = fullclone($THEME);
+echo html_writer::table($table);
 
-    foreach ($themes as $theme) {
-
-        unset($THEME);
-
-        if (!file_exists($CFG->themedir.'/'.$theme.'/config.php')) {   // bad folder
-            continue;
-        }
-
-        include($CFG->themedir.'/'.$theme.'/config.php');
-
-        $readme = '';
-        $screenshot = '';
-        $screenshotpath = '';
-
-        if (file_exists("$theme/README.html")) {
-            $readme =  "\t\t\t\t<li>".
-            link_to_popup_window($CFG->themewww .'/'. $theme .'/README.html', $theme, $strinfo, 400, 500, '', 'none', true)."</li>\n";
-        } else if (file_exists("$theme/README.txt")) {
-            $readme =  "\t\t\t\t<li>".
-            link_to_popup_window($CFG->themewww .'/'. $theme .'/README.txt', $theme, $strinfo, 400, 500, '', 'none', true)."</li>\n";
-        }
-        if (file_exists("$theme/screenshot.png")) {
-            $screenshotpath = "$theme/screenshot.png";
-        } else if (file_exists("$theme/screenshot.jpg")) {
-            $screenshotpath = "$theme/screenshot.jpg";
-        }
-
-        echo "\t<tr>\n";
-
-        // no point showing this if user is using screen reader
-        if (!$USER->screenreader) {
-            echo "\t\t<td align=\"center\">\n";
-            if ($screenshotpath) {
-                $screenshot = "\t\t\t\t<li><a href=\"$theme/screenshot.jpg\">$strscreenshot</a></li>\n";
-                echo "\t\t\t<object type=\"text/html\" data=\"$screenshotpath\" height=\"200\" width=\"400\">$theme</object>\n\t\t</td>\n";
-            } else {
-                echo "\t\t\t<object type=\"text/html\" data=\"preview.php?preview=$theme\" height=\"200\" width=\"400\">$theme</object>\n\t\t</td>\n";
-            }
-        }
-
-        if ($CFG->theme == $theme) {
-            echo "\t\t" . '<td valign="top" style="border-style:solid; border-width:1px; border-color:#555555">'."\n";
-        } else {
-            echo "\t\t" . '<td valign="top">'."\n";
-        }
-
-        if (isset($THEME->sheets)) {
-            echo "\t\t\t" . '<p style="font-size:1.5em;font-weight:bold;">'.$theme.'</p>'."\n";
-        } else {
-            echo "\t\t\t" . '<p style="font-size:1.5em;font-weight:bold;color:red;">'.$theme.' (Moodle 1.4)</p>'."\n";
-        }
-
-        if ($screenshot or $readme) {
-            echo "\t\t\t<ul>\n";
-            if (!$USER->screenreader) {
-                echo "\t\t\t\t<li><a href=\"preview.php?preview=$theme\">$strpreview</a></li>\n";
-            }
-            echo $screenshot.$readme;
-            echo "\t\t\t</ul>\n";
-        }
-
-        $options = null;
-        $options['choose'] = $theme;
-        $options['sesskey'] = $sesskey;
-        echo "\t\t\t" . print_single_button('index.php', $options, $strchoose, 'get', null, true) . "\n";
-        echo "\t\t</td>\n";
-        echo "\t</tr>\n";
-    }
-    echo "</table>\n";
-
-    $THEME = $original_theme;
-
-    admin_externalpage_print_footer();
-?>
+echo $OUTPUT->footer();

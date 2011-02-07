@@ -1,36 +1,22 @@
 <?php
 
-/*************************************************************************
- *                                                                       *
- * class.html2text.inc                                                   *
- *                                                                       *
- *************************************************************************
- *                                                                       *
- * Converts HTML to formatted plain text                                 *
- *                                                                       *
- * Copyright (c) 2005-2007 Jon Abernathy <jon@chuggnutt.com>             *
- * All rights reserved.                                                  *
- *                                                                       *
- * This script is free software; you can redistribute it and/or modify   *
- * it under the terms of the GNU General Public License as published by  *
- * the Free Software Foundation; either version 2 of the License, or     *
- * (at your option) any later version.                                   *
- *                                                                       *
- * The GNU General Public License can be found at                        *
- * http://www.gnu.org/copyleft/gpl.html.                                 *
- *                                                                       *
- * This script is distributed in the hope that it will be useful,        *
- * but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the          *
- * GNU General Public License for more details.                          *
- *                                                                       *
- * Author(s): Jon Abernathy <jon@chuggnutt.com>                          *
- *                                                                       *
- * Last modified: 08/08/07                                               *
- *                                                                       *
- *************************************************************************/
-
-require_once "$CFG->libdir/textlib.class.php";
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+//
+// Author(s): Jon Abernathy <jon@chuggnutt.com>
+// Copyright (c) 2005-2007 Jon Abernathy <jon@chuggnutt.com>
 
 /**
  *  Takes HTML and converts it to formatted, plain text.
@@ -101,9 +87,15 @@ require_once "$CFG->libdir/textlib.class.php";
  *
  *  *** End of the housecleaning updates. Updated 08/08/07.
  *
- *  @author Jon Abernathy <jon@chuggnutt.com>
- *  @version 1.0.0
- *  @since PHP 4.0.2
+ * @package   moodlecore
+ * @copyright Jon Abernathy <jon@chuggnutt.com>
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+/**
+ * @package   moodlecore
+ * @copyright Jon Abernathy <jon@chuggnutt.com>
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class html2text
 {
@@ -219,7 +211,7 @@ class html2text
         '-',
         '*',
         '£',
-        'EUR',                                  // Euro sign. � ?
+        'EUR',                                  // Euro sign. € ?
         ' '                                     // Runs of spaces, post-handling
     );
 
@@ -237,6 +229,7 @@ class html2text
         '/<(a) [^>]*href=("|\')([^"\']+)\2[^>]*>(.*?)<\/a>/i',
                                                    // <a href="">
         '/<(th)[^>]*>(.*?)<\/th>/i',               // <th> and </th>
+        '/<(img)[^>]*alt=\"([^>"]+)\"[^>]*>/i',    // <img> with alt
     );
 
    /**
@@ -304,7 +297,7 @@ class html2text
      *  @see _build_link_list()
      */
     var $_link_list = '';
-    
+
     /**
      *  Number of valid links detected in the text, used for plain text
      *  display (rendered similar to footnotes).
@@ -315,15 +308,15 @@ class html2text
      */
     var $_link_count = 0;
 
-    /** 
-     * Boolean flag, true if a table of link URLs should be listed after the text. 
-     *  
-     * @var boolean $_do_links 
-     * @access private 
-     * @see html2text() 
+    /**
+     * Boolean flag, true if a table of link URLs should be listed after the text.
+     *
+     * @var boolean $_do_links
+     * @access private
+     * @see html2text()
      */
     var $_do_links = true;
- 
+
     /**
      *  Constructor.
      *
@@ -360,7 +353,7 @@ class html2text
     function set_html( $source, $from_file = false )
     {
         if ( $from_file && file_exists($source) ) {
-            $this->html = file_get_contents($source); 
+            $this->html = file_get_contents($source);
         }
         else
             $this->html = $source;
@@ -462,21 +455,20 @@ class html2text
         $this->_link_count = 0;
         $this->_link_list = '';
 
-        $text = trim(stripslashes($this->html));
+        $text = trim($this->html);
 
         // Convert <PRE>
         $this->_convert_pre($text);
 
         // Run our defined search-and-replace
         $text = preg_replace($this->search, $this->replace, $text);
-        $text = preg_replace_callback($this->callback_search, array(&$this, '_preg_callback'), $text);
+        $text = preg_replace_callback($this->callback_search, array('html2text', '_preg_callback'), $text);
 
         // Replace known html entities
-        $tl=textlib_get_instance();
-        $text = $tl->entities_to_utf8($text, true);
+        $text = html_entity_decode($text, ENT_COMPAT, 'UTF-8');
 
         // Remove unknown/unhandled entities (this cannot be done in search-and-replace block)
-        $text = preg_replace('/&[^&;]+;/i', '', $text); 
+        $text = preg_replace('/&[^&;]+;/i', '', $text);
 
         // Strip any other HTML tags
         $text = strip_tags($text, $this->allowed_tags);
@@ -518,7 +510,7 @@ class html2text
     function _build_link_list( $link, $display )
     {
 	if ( !$this->_do_links ) return $display;
-	
+
 	if ( substr($link, 0, 7) == 'http://' || substr($link, 0, 8) == 'https://' ||
              substr($link, 0, 7) == 'mailto:' ) {
             $this->_link_count++;
@@ -540,11 +532,11 @@ class html2text
 
         return $display . $additional;
     }
-    
+
     /**
      *  Helper function for PRE body conversion.
      *
-     *  @param string HTML content
+     *  @param string $text HTML content
      *  @access private
      */
     function _convert_pre(&$text)
@@ -558,7 +550,7 @@ class html2text
     /**
      *  Callback function for preg_replace_callback use.
      *
-     *  @param  array PREG matches
+     *  @param  array $matches PREG matches
      *  @return string
      *  @access private
      */
@@ -574,23 +566,21 @@ class html2text
             return $this->_strtoupper("\n\n". $matches[2] ."\n\n");
         case 'a':
             return $this->_build_link_list($matches[3], $matches[4]);
+        case 'img':
+            return '[' . $matches[2] . ']';
         }
     }
-    
+
     /**
      *  Strtoupper multibyte wrapper function
      *
-     *  @param  string
+     *  @param  string $str
      *  @return string
      *  @access private
      */
     function _strtoupper($str)
     {
-        if (function_exists('mb_strtoupper'))
-            return mb_strtoupper($str);
-        else
-            return strtoupper($str);
+        $tl = textlib_get_instance();
+        return $tl->strtoupper($str);
     }
 }
-
-?>

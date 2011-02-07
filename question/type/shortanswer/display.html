@@ -2,15 +2,10 @@
   <?php echo $questiontext; ?>
 </div>
 
-<?php if ($image) { ?>
-  <img class="qimage" src="<?php echo $image; ?>" alt="" />
-<?php } ?>
-
 <div class="ablock clearfix">
   <div class="prompt">
     <?php echo get_string("answer", "quiz").': '; ?>
   </div>
-
   <div class="answer">
     <input type="text" class="<?php echo $class; ?>" <?php echo "$readonly $inputname $value"; ?> size="80"/>
     <?php echo $feedbackimg; ?>

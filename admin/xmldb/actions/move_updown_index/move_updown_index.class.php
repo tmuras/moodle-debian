@@ -1,4 +1,4 @@
-<?php // $Id: move_updown_index.class.php,v 1.4 2007/10/10 05:25:17 nicolasconnault Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -62,7 +62,7 @@ class move_updown_index extends XMLDBAction {
     /// Do the job, setting result as needed
     /// Get the dir containing the file
         $dirpath = required_param('dir', PARAM_PATH);
-        $dirpath = $CFG->dirroot . stripslashes_safe($dirpath);
+        $dirpath = $CFG->dirroot . $dirpath;
 
     /// Get the correct dirs
         if (!empty($XMLDB->dbdirs)) {
@@ -143,4 +143,4 @@ class move_updown_index extends XMLDBAction {
         return $result;
     }
 }
-?>
+

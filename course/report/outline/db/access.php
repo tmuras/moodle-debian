@@ -1,4 +1,4 @@
-<?php  // $Id: access.php,v 1.1.2.2 2008/11/29 14:31:00 skodak Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -23,20 +23,20 @@
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
 
-$coursereport_outline_capabilities = array(
+$capabilities = array(
 
     'coursereport/outline:view' => array(
         'riskbitmask' => RISK_PERSONAL,
         'captype' => 'read',
         'contextlevel' => CONTEXT_COURSE,
-        'legacy' => array(
+        'archetypes' => array(
             'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
-            'admin' => CAP_ALLOW
+            'manager' => CAP_ALLOW
         ),
 
         'clonepermissionsfrom' => 'moodle/site:viewreports',
     )
 );
 
-?>
+

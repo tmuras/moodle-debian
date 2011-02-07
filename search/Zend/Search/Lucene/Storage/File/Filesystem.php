@@ -220,4 +220,3 @@ class Zend_Search_Lucene_Storage_File_Filesystem extends Zend_Search_Lucene_Stor
     }
 }
 
-?>

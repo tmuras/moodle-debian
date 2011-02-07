@@ -30,12 +30,7 @@ require_once 'Zend/Search/Lucene/Index/SegmentInfo.php';
 require_once 'Zend/Search/Lucene/Index/SegmentMerger.php';
 
 /** Zend_Search_Lucene_LockManager */
-if (!empty($CFG->block_search_softlock)){
-    require_once 'Zend/Search/Lucene/SoftLockManager.php';
-} else {
-    require_once 'Zend/Search/Lucene/LockManager.php';
-}
-
+require_once 'Zend/Search/Lucene/LockManager.php';
 
 
 

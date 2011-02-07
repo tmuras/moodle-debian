@@ -1,4 +1,4 @@
-<?php // $Id: export_execute.php,v 1.5.2.10 2009/01/20 06:21:03 moodler Exp $
+<?php
 
 require_once('../config.php');
 //require_once($CFG->dirroot.'/course/lib.php');
@@ -33,16 +33,14 @@ $allowed_time = array('weeknow', 'weeknext', 'monthnow', 'monthnext', 'recentupc
 
 if(!empty($what) && !empty($time)) {
     if(in_array($what, $allowed_what) && in_array($time, $allowed_time)) {
-        $courses = get_my_courses($user->id, NULL, 'id, visible, shortname');
+        $courses = enrol_get_users_courses($user->id, true, 'id, visible, shortname');
 
         if ($what == 'all') {
             $users = $user->id;
             $groups = array();
             foreach ($courses as $course) {
                 $course_groups = groups_get_all_groups($course->id, $user->id);
-                if ($course_groups) {
-                    $groups = array_merge($groups, array_keys($course_groups));
-                }
+                $groups = array_merge($groups, array_keys($course_groups));
             }
             if (empty($groups)) {
                 $groups = false;
@@ -56,7 +54,7 @@ if(!empty($what) && !empty($time)) {
 
         switch($time) {
             case 'weeknow':
-                $startweekday  = get_user_preferences('calendar_startwday', CALENDAR_STARTING_WEEKDAY);
+                $startweekday  = get_user_preferences('calendar_startwday', calendar_get_starting_weekday());
                 $startmonthday = find_day_in_month($now['mday'] - 6, $startweekday, $now['mon'], $now['year']);
                 $startmonth    = $now['mon'];
                 $startyear     = $now['year'];
@@ -75,7 +73,7 @@ if(!empty($what) && !empty($time)) {
                 $timeend = make_timestamp($endyear, $endmonth, $endmonthday) - 1;
             break;
             case 'weeknext':
-                $startweekday  = get_user_preferences('calendar_startwday', CALENDAR_STARTING_WEEKDAY);
+                $startweekday  = get_user_preferences('calendar_startwday', calendar_get_starting_weekday());
                 $startmonthday = find_day_in_month($now['mday'] + 1, $startweekday, $now['mon'], $now['year']);
                 $startmonth    = $now['mon'];
                 $startyear     = $now['year'];
@@ -154,7 +152,7 @@ if(empty($serialized)) {
 }
 
 //IE compatibility HACK!
-if(ini_get('zlib.output_compression')) {
+if (ini_get_bool('zlib.output_compression')) {
     ini_set('zlib.output_compression', 'Off');
 }
 
@@ -167,8 +165,6 @@ header('Pragma: no-cache');
 header('Accept-Ranges: none'); // Comment out if PDFs do not work...
 header('Content-disposition: attachment; filename='.$filename);
 header('Content-length: '.strlen($serialized));
-header('Content-type: text/calendar');
+header('Content-type: text/calendar; charset=utf-8');
 
 echo $serialized;
-
-?>

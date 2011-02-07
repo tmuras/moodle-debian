@@ -1,6 +1,8 @@
-<?php  //$Id: lib.php,v 1.1.2.7 2010/04/10 00:17:45 iarenaza Exp $
+<?php
 
-function tex_filter_get_executable($debug=false) {
+defined('MOODLE_INTERNAL') || die();
+
+function filter_tex_get_executable($debug=false) {
     global $CFG;
 
     $error_message1 = "Your system is not configured to run mimeTeX. You need to download the appropriate<br />"
@@ -21,7 +23,7 @@ function tex_filter_get_executable($debug=false) {
         if (is_executable($custom_commandpath)) {
             return $custom_commandpath;
         } else {
-            error($error_message2.$error_message1);
+            print_error('mimetexnotexecutable', 'error');
         }
     }
 
@@ -31,10 +33,10 @@ function tex_filter_get_executable($debug=false) {
         case "FreeBSD": return "$CFG->dirroot/filter/tex/mimetex.freebsd";
     }
 
-    error($error_message1);
+    print_error('mimetexisnotexist', 'error');
 }
 
-function tex_sanitize_formula($texexp) {
+function filter_tex_sanitize_formula($texexp) {
     /// Check $texexp against blacklist (whitelisting could be more complete but also harder to maintain)
     $tex_blacklist = array(
         'include','command','loop','repeat','open','toks','output',
@@ -51,10 +53,10 @@ function tex_sanitize_formula($texexp) {
     return  str_ireplace($tex_blacklist, 'forbiddenkeyword', $texexp);
 }
 
-function tex_filter_get_cmd($pathname, $texexp) {
-    $texexp = tex_sanitize_formula($texexp);
+function filter_tex_get_cmd($pathname, $texexp) {
+    $texexp = filter_tex_sanitize_formula($texexp);
     $texexp = escapeshellarg($texexp);
-    $executable = tex_filter_get_executable(false);
+    $executable = filter_tex_get_executable(false);
 
     if ((PHP_OS == "WINNT") || (PHP_OS == "WIN32") || (PHP_OS == "Windows")) {
         $executable = str_replace(' ', '^ ', $executable);
@@ -69,7 +71,7 @@ function tex_filter_get_cmd($pathname, $texexp) {
  * Purge all caches when settings changed.
  */
 function filter_tex_updatedcallback($name) {
-    global $CFG;
+    global $CFG, $DB;
     reset_text_filters_cache();
 
     if (file_exists("$CFG->dataroot/filter/tex")) {
@@ -82,8 +84,13 @@ function filter_tex_updatedcallback($name) {
         remove_dir("$CFG->dataroot/temp/latex");
     }
 
-    delete_records('cache_filters', 'filter', 'tex');
-    delete_records('cache_filters', 'filter', 'algebra');
+    $DB->delete_records('cache_filters', array('filter'=>'tex'));
+    $DB->delete_records('cache_filters', array('filter'=>'algebra'));
+
+    if (!isset($CFG->filter_tex_pathlatex)) {
+        // detailed settings not present yet
+        return;
+    }
 
     if (!(is_file($CFG->filter_tex_pathlatex) && is_executable($CFG->filter_tex_pathlatex) &&
           is_file($CFG->filter_tex_pathdvips) && is_executable($CFG->filter_tex_pathdvips) &&
@@ -93,4 +100,4 @@ function filter_tex_updatedcallback($name) {
     }
 }
 
-?>
+

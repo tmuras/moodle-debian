@@ -1,20 +1,34 @@
 <!--
+function attach_resize_event() {
+    YAHOO.util.Event.addListener(window, 'resize', scorm_resize);
+}
+
+var prev='';
+var next='';
+function scorm_set_prev(url) {
+    prev = url;
+}
+function scorm_set_next(url) {
+    next = url;
+}
+
 function scorm_get_element_style(obj, prop, cssProp) {
     var ret = '';
-    
+
     if (obj.currentStyle) {
         ret = obj.currentStyle[prop];
     } else if (document.defaultView && document.defaultView.getComputedStyle) {
         var compStyle = document.defaultView.getComputedStyle(obj, null);
         ret = compStyle.getPropertyValue(cssProp);
     }
-    
+
     if (ret == 'auto') ret = '0';
     return ret;
 }
 
-function scorm_resize (cwidth, cheight) {
-
+function scorm_resize () {
+    var cwidth = scormplayerdata.cwidth;
+    var cheight = scormplayerdata.cheight;
     var winwidth = 0, winheight = 0;
     if( typeof( window.innerWidth ) == 'number' ) {
         //Non-IE
@@ -29,14 +43,14 @@ function scorm_resize (cwidth, cheight) {
         winwidth = document.body.clientWidth;
         winheight = document.body.clientHeight;
     }
-                              
-    var header = document.getElementById('header');   
-    var content = document.getElementById('content');
+
+    var header = document.getElementById('header');
+    var content = document.getElementById('region-content');
     var headerheight = 0;
     if (content) {
         headerheight = content.offsetTop;
     }
-    
+
     var footer = document.getElementById('footer');
     var imsnavbar = document.getElementById('tochead');
     var scormtop = document.getElementById('scormtop');
@@ -55,9 +69,9 @@ function scorm_resize (cwidth, cheight) {
 
     var topmargin = parseInt(scorm_get_element_style(document.getElementsByTagName('body')[0], 'marginTop', 'margin-top'));
     var bottommargin = parseInt(scorm_get_element_style(document.getElementsByTagName('body')[0], 'marginBottom', 'margin-bottom'));
-    
-    var totalheight = headerheight + 
-                        footerheight + 
+
+    var totalheight = headerheight +
+                        footerheight +
                         scormtopheight+
                         topmargin +
                         bottommargin+10; // +10 to save a minor vertical scroll always present!
@@ -70,11 +84,11 @@ function scorm_resize (cwidth, cheight) {
     var finalheighttoc = winheight - totalheighttoc;
     if (finalheighttoc <= 0) {
         finalheighttoc = winheight;
-    }                        
+    }
     var finalheight = winheight - totalheight;
     if (finalheight <= 0) {
         finalheight = winheight;
-    }                        
+    }
     var toctree = document.getElementById('toctree');
     if (toctree != null){
         var toctreeHeight = toctree.offsetHeight;
@@ -82,23 +96,23 @@ function scorm_resize (cwidth, cheight) {
         var scoframe2 = document.getElementById('scoframe1');
         document.getElementById('scormobject').style.height = finalheight + 'px';
     }else{
-        var scoframe2 = document.getElementById('scoframe1');
         document.getElementById('scormobject').style.height = finalheight + 'px';
+        document.getElementById('scormpage').style.height = finalheight + 'px';
     }
 
-	// resize the content container too to move the footer below the SCORM content
-	var contenti3 = document.getElementById('content-i3');
-	if (contenti3) {
-    	contenti3.style.height = (winheight - totalheight + 30) + 'px';
-	} else {
-	   document.getElementById('content').style.height = (finalheight + 30) + 'px';
+    // resize the content container too to move the footer below the SCORM content
+    var contenti3 = document.getElementById('content-i3');
+    if (contenti3) {
+        contenti3.style.height = (winheight - totalheight + 30) + 'px';
+    } else {
+       document.getElementById('region-main-box').style.height = (finalheight + 30) + 'px';
     }
      // resize the content container too to move the footer below the SCORM content
     var contenti3 = document.getElementById('content-i3');
     if (contenti3) {
         contenti3.style.height = (finalheight + 30) + 'px';
     } else {
-        document.getElementById('content').style.height = (finalheight + 30) + 'px';
+        document.getElementById('region-main-box').style.height = (finalheight + 30) + 'px';
     }
 }
 -->

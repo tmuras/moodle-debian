@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.7.2.1 2007/11/02 16:20:37 tjhunt Exp $
+<?php
 
 ///////////////////
 /// missingtype ///
@@ -42,14 +42,13 @@ class question_missingtype_qtype extends default_questiontype {
         $questiontext = format_text($question->questiontext,
                          $question->questiontextformat,
                          $formatoptions, $cmoptions->course);
-        $image = get_question_image($question);
 
         // Print each answer in a separate row if there are any
         $anss = array();
         if ($answers) {
             foreach ($answers as $answer) {
                 $a = new stdClass;
-                $a->text = format_text("$answer->answer", FORMAT_MOODLE, $formatoptions, $cmoptions->course);
+                $a->text = format_text($answer->answer, $answer->answerformat, $formatoptions, $cmoptions->course);
 
                 $anss[] = clone($a);
             }
@@ -62,8 +61,8 @@ class question_missingtype_qtype extends default_questiontype {
     }
 
     function display_question_editing_page(&$mform, $question, $wizardnow){
-
-        print_heading(get_string('warningmissingtype', 'quiz'));
+        global $OUTPUT;
+        echo $OUTPUT->heading(get_string('warningmissingtype', 'qtype_missingtype'));
 
         $mform->display();
 
@@ -76,4 +75,4 @@ class question_missingtype_qtype extends default_questiontype {
 //////////////////////////////////////////////////////////////////////////
 question_register_questiontype(new question_missingtype_qtype());
 
-?>
+

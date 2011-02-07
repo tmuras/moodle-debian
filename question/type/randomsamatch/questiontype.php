@@ -1,4 +1,4 @@
-<?php  // $Id: questiontype.php,v 1.4.4.1 2007/11/02 16:20:48 tjhunt Exp $
+<?php
 
 /////////////////////
 /// RANDOMSAMATCH ///
@@ -19,13 +19,18 @@ class question_randomsamatch_qtype extends question_match_qtype {
         return 'randomsamatch';
     }
 
+    function requires_qtypes() {
+        return array('shortanswer');
+    }
+
     function is_usable_by_random() {
         return false;
     }
 
     function get_question_options(&$question) {
-        if (!$question->options = get_record('question_randomsamatch', 'question', $question->id)) {
-            notify('Error: Missing question options for random short answer question '.$question->id.'!');
+        global $DB, $OUTPUT;
+        if (!$question->options = $DB->get_record('question_randomsamatch', array('question' => $question->id))) {
+            echo $OUTPUT->notification('Error: Missing question options for random short answer question '.$question->id.'!');
             return false;
         }
 
@@ -38,6 +43,7 @@ class question_randomsamatch_qtype extends question_match_qtype {
     }
 
     function save_question_options($question) {
+        global $DB;
         $options->question = $question->id;
         $options->choose = $question->choose;
 
@@ -46,31 +52,20 @@ class question_randomsamatch_qtype extends question_match_qtype {
             return $result;
         }
 
-        if ($existing = get_record("question_randomsamatch",
-                                   "question", $options->question)) {
+        if ($existing = $DB->get_record("question_randomsamatch", array("question" => $options->question))) {
             $options->id = $existing->id;
-            if (!update_record("question_randomsamatch", $options)) {
-                $result->error = "Could not update quiz randomsamatch options!";
-                return $result;
-            }
+            $DB->update_record("question_randomsamatch", $options);
         } else {
-            if (!insert_record("question_randomsamatch", $options)) {
-                $result->error = "Could not insert quiz randomsamatch options!";
-                return $result;
-            }
+            $DB->insert_record("question_randomsamatch", $options);
         }
         return true;
     }
 
-    /**
-    * Deletes question from the question-type specific tables
-    *
-    * @return boolean Success/Failure
-    * @param object $question  The question being deleted
-    */
-    function delete_question($questionid) {
-        delete_records("question_randomsamatch", "question", $questionid);
-        return true;
+    function delete_question($questionid, $contextid) {
+        global $DB;
+        $DB->delete_records('question_randomsamatch', array('question' => $questionid));
+
+        parent::delete_question($questionid, $contextid);
     }
 
     function create_session_and_responses(&$question, &$state, $cmoptions, $attempt) {
@@ -80,7 +75,7 @@ class question_randomsamatch_qtype extends question_match_qtype {
         // 1. All questions that are explicitly assigned to the quiz
         // 2. All random questions
         // 3. All questions that are already chosen by an other random question
-        global $QTYPES;
+        global $QTYPES, $OUTPUT, $USER;
         if (!isset($cmoptions->questionsinuse)) {
             $cmoptions->questionsinuse = $cmoptions->questions;
         }
@@ -97,7 +92,7 @@ class question_randomsamatch_qtype extends question_match_qtype {
         $count  = count($saquestions);
         $wanted = $question->options->choose;
         $errorstr = '';
-        if ($count < $wanted && isteacherinanycourse()) {
+        if ($count < $wanted && has_coursecontact_role($USER->id)) { //TODO: this teacher test is far from optimal
             if ($count >= 2) {
                 $errorstr =  "Error: could not get enough Short-Answer questions!
                  Got $count Short-Answer questions, but wanted $wanted.
@@ -111,7 +106,7 @@ class question_randomsamatch_qtype extends question_match_qtype {
                  questions were deleted after this Random Short-Answer question was
                  created.";
             }
-            notify($errorstr);
+            echo $OUTPUT->notification($errorstr);
             $errorstr = '<span class="notifyproblem">' . $errorstr . '</span>';
         }
 
@@ -170,7 +165,9 @@ class question_randomsamatch_qtype extends question_match_qtype {
     }
 
     function restore_session_and_responses(&$question, &$state) {
-        global $QTYPES;
+        global $DB;
+        global $QTYPES, $OUTPUT;
+        static $wrappedquestions = array();
         if (empty($state->responses[''])) {
             $question->questiontext = "Insufficient selection options are
              available for this question, therefore it is not available in  this
@@ -185,34 +182,37 @@ class question_randomsamatch_qtype extends question_match_qtype {
             // Restore the previous responses
             $state->responses = array();
             foreach ($responses as $response) {
-                $state->responses[$response[0]] = $response[1];
-                if (!$wrappedquestion = get_record('question', 'id',
-                 $response[0])) {
-                    notify("Couldn't get question (id=$response[0])!");
-                    return false;
-                }
-                if (!$QTYPES[$wrappedquestion->qtype]
-                 ->get_question_options($wrappedquestion)) {
-                    notify("Couldn't get question options (id=$response[0])!");
-                    return false;
-                }
+                $wqid = $response[0];
+                $state->responses[$wqid] = $response[1];
+                if (!isset($wrappedquestions[$wqid])){
+                    if (!$wrappedquestions[$wqid] = $DB->get_record('question', array('id' => $wqid))) {
+                        echo $OUTPUT->notification("Couldn't get question (id=$wqid)!");
+                        return false;
+                    }
+                    if (!$QTYPES[$wrappedquestions[$wqid]->qtype]
+                     ->get_question_options($wrappedquestions[$wqid])) {
+                        echo $OUTPUT->notification("Couldn't get question options (id=$response[0])!");
+                        return false;
+                    }
 
-                // Now we overwrite the $question->options->answers field to only
-                // *one* (the first) correct answer. This loop can be deleted to
-                // take all answers into account (i.e. put them all into the
-                // drop-down menu.
-                $foundcorrect = false;
-                foreach ($wrappedquestion->options->answers as $answer) {
-                    if ($foundcorrect || $answer->fraction != 1.0) {
-                        unset($wrappedquestion->options->answers[$answer->id]);
-                    } else if (!$foundcorrect) {
-                        $foundcorrect = true;
+                    // Now we overwrite the $question->options->answers field to only
+                    // *one* (the first) correct answer. This loop can be deleted to
+                    // take all answers into account (i.e. put them all into the
+                    // drop-down menu.
+                    $foundcorrect = false;
+                    foreach ($wrappedquestions[$wqid]->options->answers as $answer) {
+                        if ($foundcorrect || $answer->fraction != 1.0) {
+                            unset($wrappedquestions[$wqid]->options->answers[$answer->id]);
+                        } else if (!$foundcorrect) {
+                            $foundcorrect = true;
+                        }
                     }
                 }
+                $wrappedquestion = clone($wrappedquestions[$wqid]);
 
                 if (!$QTYPES[$wrappedquestion->qtype]
                  ->restore_session_and_responses($wrappedquestion, $state)) {
-                    notify("Couldn't restore session of question (id=$response[0])!");
+                    echo $OUTPUT->notification("Couldn't restore session of question (id=$response[0])!");
                     return false;
                 }
                 $wrappedquestion->name_prefix = $question->name_prefix;
@@ -239,119 +239,101 @@ class question_randomsamatch_qtype extends question_match_qtype {
     }
 
     function get_sa_candidates($categorylist, $questionsinuse=0) {
-        return get_records_select('question',
-         "qtype = '".'shortanswer'."' " .
-         "AND category IN ($categorylist) " .
+        global $DB;
+        list ($usql, $params) = $DB->get_in_or_equal(explode(',', $categorylist));
+        list ($ques_usql, $ques_params) = $DB->get_in_or_equal(explode(',', $questionsinuse), SQL_PARAMS_QM, null, false);
+        $params = array_merge($params, $ques_params);
+        return $DB->get_records_select('question',
+         "qtype = 'shortanswer' " .
+         "AND category $usql " .
          "AND parent = '0' " .
          "AND hidden = '0'" .
-         "AND id NOT IN ($questionsinuse)");
+         "AND id $ques_usql", $params);
     }
-    
-/// BACKUP FUNCTIONS ////////////////////////////
-
-    /*
-     * Backup the data in the question
-     *
-     * This is used in question/backuplib.php
-     */
-    function backup($bf,$preferences,$question,$level=6) {
-
-        $status = true;
-
-        $randomsamatchs = get_records("question_randomsamatch","question",$question,"id");
-        //If there are randomsamatchs
-        if ($randomsamatchs) {
-            //Iterate over each randomsamatch
-            foreach ($randomsamatchs as $randomsamatch) {
-                $status = fwrite ($bf,start_tag("RANDOMSAMATCH",6,true));
-                //Print randomsamatch contents
-                fwrite ($bf,full_tag("CHOOSE",7,false,$randomsamatch->choose));
-                $status = fwrite ($bf,end_tag("RANDOMSAMATCH",6,true));
+    function get_all_responses($question, $state) {
+        $answers = array();
+        if (is_array($question->options->subquestions)) {
+            foreach ($question->options->subquestions as $aid => $answer) {
+                if ($answer->questiontext) {
+                    foreach($answer->options->answers as $ans ){
+                       $answer->answertext = $ans->answer ;
+                    }
+                    $r = new stdClass;
+                    $r->answer = $answer->questiontext . ": " . $answer->answertext;
+                    $r->credit = 1;
+                    $answers[$aid] = $r;
+                }
             }
         }
-        return $status;
+        $result = new stdClass;
+        $result->id = $question->id;
+        $result->responses = $answers;
+        return $result;
     }
-
-/// RESTORE FUNCTIONS /////////////////
-
-    /*
-     * Restores the data in the question
-     *
-     * This is used in question/restorelib.php
+    /**
+     * The difference between this method an get_all_responses is that this
+     * method is not passed a state object. It is the possible answers to a
+     * question no matter what the state.
+     * This method is not called for random questions.
+     * @return array of possible answers.
      */
-    function restore($old_question_id,$new_question_id,$info,$restore) {
+    function get_possible_responses(&$question) {
+        global $QTYPES;
+        static $answers = array();
+        if (!isset($answers[$question->id])){
+            if ($question->options->subcats) {
+                // recurse into subcategories
+                $categorylist = question_categorylist($question->category);
+            } else {
+                $categorylist = $question->category;
+            }
 
-        $status = true;
+            $question->options->subquestions = $this->get_sa_candidates($categorylist);
+            foreach ($question->options->subquestions as $key => $wrappedquestion) {
+                if (!$QTYPES[$wrappedquestion->qtype]
+                 ->get_question_options($wrappedquestion)) {
+                    return false;
+                }
 
-        //Get the randomsamatchs array
-        $randomsamatchs = $info['#']['RANDOMSAMATCH'];
-
-        //Iterate over randomsamatchs
-        for($i = 0; $i < sizeof($randomsamatchs); $i++) {
-            $ran_info = $randomsamatchs[$i];
-
-            //Now, build the question_randomsamatch record structure
-            $randomsamatch->question = $new_question_id;
-            $randomsamatch->choose = backup_todb($ran_info['#']['CHOOSE']['0']['#']);
-
-            //The structure is equal to the db, so insert the question_randomsamatch
-            $newid = insert_record ("question_randomsamatch",$randomsamatch);
-
-            //Do some output
-            if (($i+1) % 50 == 0) {
-                if (!defined('RESTORE_SILENTLY')) {
-                    echo ".";
-                    if (($i+1) % 1000 == 0) {
-                        echo "<br />";
+                // Now we overwrite the $question->options->answers field to only
+                // *one* (the first) correct answer. This loop can be deleted to
+                // take all answers into account (i.e. put them all into the
+                // drop-down menu.
+                $foundcorrect = false;
+                foreach ($wrappedquestion->options->answers as $answer) {
+                    if ($foundcorrect || $answer->fraction != 1.0) {
+                        unset($wrappedquestion->options->answers[$answer->id]);
+                    } else if (!$foundcorrect) {
+                        $foundcorrect = true;
                     }
                 }
-                backup_flush(300);
             }
-
-            if (!$newid) {
-                $status = false;
-            }
-        }
-
-        return $status;
-    }
-
-    function restore_recode_answer($state, $restore) {
-
-        //The answer is a comma separated list of hypen separated question_id and answer_id. We must recode them
-        $answer_field = "";
-        $in_first = true;
-        $tok = strtok($state->answer,",");
-        while ($tok) {
-            //Extract the question_id and the answer_id
-            $exploded = explode("-",$tok);
-            $question_id = $exploded[0];
-            $answer_id = $exploded[1];
-            //Get the question from backup_ids
-            if (!$que = backup_getid($restore->backup_unique_code,"question",$question_id)) {
-                echo 'Could not recode randomsamatch question '.$question_id.'<br />';
-            }
-            
-            if ($answer_id == 0) { // no response yet
-                $ans->new_id = 0;
-            } else {
-                //Get the answer from backup_ids
-                if (!$ans = backup_getid($restore->backup_unique_code,"question_answers",$answer_id)) {
-                    echo 'Could not recode randomsamatch answer '.$answer_id.'<br />';
+            $answers[$question->id] = array();
+            if (is_array($question->options->subquestions)) {
+                foreach ($question->options->subquestions as $subqid => $answer) {
+                    if ($answer->questiontext) {
+                        $ans = array_shift($answer->options->answers);
+                        $answer->answertext = $ans->answer ;
+                        $r = new stdClass;
+                        $r->answer = $answer->questiontext . ": " . $answer->answertext;
+                        $r->credit = 1;
+                        $answers[$question->id][$subqid] = array($ans->id => $r);
+                    }
                 }
             }
-            if ($in_first) {
-                $answer_field .= $que->new_id."-".$ans->new_id;
-                $in_first = false;
-            } else {
-                $answer_field .= ",".$que->new_id."-".$ans->new_id;
-            }
-            //check for next
-            $tok = strtok(",");
         }
-        return $answer_field;
+        return $answers[$question->id];
     }
 
+    /**
+     * @param object $question
+     * @return mixed either a integer score out of 1 that the average random
+     * guess by a student might give or an empty string which means will not
+     * calculate.
+     */
+    function get_random_guess_score($question) {
+        return 1/$question->options->choose;
+    }
 }
 
 //// END OF CLASS ////
@@ -360,4 +342,4 @@ class question_randomsamatch_qtype extends question_match_qtype {
 //// INITIATION - Without this line the question type is not in use... ///
 //////////////////////////////////////////////////////////////////////////
 question_register_questiontype(new question_randomsamatch_qtype());
-?>
+

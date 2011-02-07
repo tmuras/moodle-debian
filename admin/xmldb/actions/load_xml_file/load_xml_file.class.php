@@ -1,31 +1,33 @@
-<?php // $Id: load_xml_file.class.php,v 1.7.2.1 2009/11/20 14:26:25 stronk7 Exp $
+<?php
 
-///////////////////////////////////////////////////////////////////////////
-//                                                                       //
-// NOTICE OF COPYRIGHT                                                   //
-//                                                                       //
-// Moodle - Modular Object-Oriented Dynamic Learning Environment         //
-//          http://moodle.com                                            //
-//                                                                       //
-// Copyright (C) 1999 onwards Martin Dougiamas        http://dougiamas.com  //
-//           (C) 2001-3001 Eloy Lafuente (stronk7) http://contiento.com  //
-//                                                                       //
-// This program is free software; you can redistribute it and/or modify  //
-// it under the terms of the GNU General Public License as published by  //
-// the Free Software Foundation; either version 2 of the License, or     //
-// (at your option) any later version.                                   //
-//                                                                       //
-// This program is distributed in the hope that it will be useful,       //
-// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
-// GNU General Public License for more details:                          //
-//                                                                       //
-//          http://www.gnu.org/copyleft/gpl.html                         //
-//                                                                       //
-///////////////////////////////////////////////////////////////////////////
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-/// This class will load one XML file to memory if necessary
+/**
+ * @package   xmldb-editor
+ * @copyright 2003 onwards Eloy Lafuente (stronk7) {@link http://stronk7.com}
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
+/**
+ * This class will load one XML file to memory if necessary
+ *
+ * @package   xmldb-editor
+ * @copyright 2003 onwards Eloy Lafuente (stronk7) {@link http://stronk7.com}
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class load_xml_file extends XMLDBAction {
 
     /**
@@ -67,7 +69,7 @@ class load_xml_file extends XMLDBAction {
 
     /// Get the dir containing the file
         $dirpath = required_param('dir', PARAM_PATH);
-        $dirpath = $CFG->dirroot . stripslashes_safe($dirpath);
+        $dirpath = $CFG->dirroot . $dirpath;
 
     /// Get the correct dir
         if (!empty($XMLDB->dbdirs)) {
@@ -81,7 +83,7 @@ class load_xml_file extends XMLDBAction {
                 if (!$dbdir->path_exists) {
                     return false;
                 }
-                $xmldb_file = new XMLDBFile($dbdir->path . '/install.xml');
+                $xmldb_file = new xmldb_file($dbdir->path . '/install.xml');
             ///Set the XML DTD and schema
                 $xmldb_file->setDTD($CFG->dirroot . '/lib/xmldb/xmldb.dtd');
                 $xmldb_file->setSchema($CFG->dirroot . '/lib/xmldb/xmldb.xsd');
@@ -96,7 +98,7 @@ class load_xml_file extends XMLDBAction {
                 $loaded = $xmldb_file->loadXMLStructure();
                 if ($loaded && $xmldb_file->isLoaded()) {
                     $dbdir->xml_loaded = true;
-                    $dbdir->filemtime = filemtime($dbdir->path . '/install.xml'); 
+                    $dbdir->filemtime = filemtime($dbdir->path . '/install.xml');
                 }
                 $dbdir->xml_file = $xmldb_file;
             } else {
@@ -115,4 +117,4 @@ class load_xml_file extends XMLDBAction {
         return $result;
     }
 }
-?>
+

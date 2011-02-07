@@ -1,35 +1,39 @@
 <?php
     require_once('../../config.php');
-    require_once('locallib.php');
-        
+    require_once($CFG->dirroot.'/mod/scorm/locallib.php');
+
     $id = optional_param('id', '', PARAM_INT);       // Course Module ID, or
     $a = optional_param('a', '', PARAM_INT);         // scorm ID
     $scoid = required_param('scoid', PARAM_INT);  // sco ID
     $attempt = required_param('attempt', PARAM_INT);  // attempt number
-    
+//    $attempt = $SESSION->scorm_attempt;
+
+
     if (!empty($id)) {
         if (! $cm = get_coursemodule_from_id('scorm', $id)) {
-            error("Course Module ID was incorrect");
+            print_error('invalidcoursemodule');
         }
-        if (! $course = get_record("course", "id", $cm->course)) {
-            error("Course is misconfigured");
+        if (! $course = $DB->get_record("course", array("id"=>$cm->course))) {
+            print_error('coursemisconf');
         }
-        if (! $scorm = get_record("scorm", "id", $cm->instance)) {
-            error("Course module is incorrect");
+        if (! $scorm = $DB->get_record("scorm", array("id"=>$cm->instance))) {
+            print_error('invalidcoursemodule');
         }
     } else if (!empty($a)) {
-        if (! $scorm = get_record("scorm", "id", $a)) {
-            error("Course module is incorrect");
+        if (! $scorm = $DB->get_record("scorm", array("id"=>$a))) {
+            print_error('invalidcoursemodule');
         }
-        if (! $course = get_record("course", "id", $scorm->course)) {
-            error("Course is misconfigured");
+        if (! $course = $DB->get_record("course", array("id"=>$scorm->course))) {
+            print_error('coursemisconf');
         }
         if (! $cm = get_coursemodule_from_instance("scorm", $scorm->id, $course->id)) {
-            error("Course Module ID was incorrect");
+            print_error('invalidcoursemodule');
         }
     } else {
-        error('A required parameter is missing');
+        print_error('missingparameter');
     }
+
+    $PAGE->set_url('/mod/scorm/datamodel.php', array('scoid'=>$scoid,'attempt'=>$attempt, 'id'=>$cm->id));
 
     require_login($course->id, false, $cm);
 
@@ -41,11 +45,11 @@
                 $element = str_replace('__','.',$element);
                 if (substr($element,0,3) == 'cmi') {
                     $netelement = preg_replace('/\.N(\d+)\./',"\.\$1\.",$element);
-                    $result = scorm_insert_track($USER->id, $scorm->id, $scoid, $attempt, $netelement, $value) && $result;
+                    $result = scorm_insert_track($USER->id, $scorm->id, $scoid, $attempt, $element, $value, $scorm->forcecompleted) && $result;
                 }
                 if (substr($element,0,15) == 'adl.nav.request') {
                     // SCORM 2004 Sequencing Request
-                    require_once('datamodels/sequencinglib.php');
+                    require_once($CFG->dirroot.'/mod/scorm/datamodels/sequencinglib.php');
 
                     $search = array('@continue@', '@previous@', '@\{target=(\S+)\}choice@', '@exit@', '@exitAll@', '@abandon@', '@abandonAll@');
                     $replace = array('continue_', 'previous_', '\1', 'exit_', 'exitall_', 'abandon_', 'abandonall');
@@ -67,7 +71,7 @@
                 }
                 // Log every datamodel update requested
                 if (substr($element,0,15) == 'adl.nav.request' || substr($element,0,3) == 'cmi') {
-                    if (debugging('',DEBUG_DEVELOPER)) {
+                    if (scorm_debugging($scorm)) {
                         add_to_log($course->id, 'scorm', 'trk: '.trim($scorm->name).' at: '.$attempt, 'view.php?id='.$cm->id, "$element => $value", $cm->id);
                     }
                 }
@@ -82,4 +86,4 @@
             echo "\n".$request;
         }
     }
-?>
+

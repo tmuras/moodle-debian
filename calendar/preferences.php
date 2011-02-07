@@ -1,89 +1,74 @@
-<?PHP  // $Id: preferences.php,v 1.19.2.3 2009/11/19 19:26:38 skodak Exp $
-       // preferences.php - user prefs for calendar
+<?php
 
-    require_once('../config.php');
-    require_once($CFG->dirroot.'/calendar/lib.php');
+// preferences.php - user prefs for calendar
 
-    if (isset($SESSION->cal_course_referer)) {
-        if (! $course = get_record('course', 'id', $SESSION->cal_course_referer)) {
-            $course = get_site();
-        }
+require_once('../config.php');
+require_once($CFG->dirroot.'/calendar/lib.php');
+require_once($CFG->dirroot.'/calendar/preferences_form.php');
+
+$course = $site = get_site();
+if (!empty($SESSION->cal_course_referer)) {
+    $course = $DB->get_record('course', array('id'=>$SESSION->cal_course_referer), '*', MUST_EXIST);
+}
+
+$PAGE->set_url('/calendar/preferences.php');
+
+if ($course->id != SITEID) {
+    require_login($course);
+} else {
+    require_login();
+    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM)); //TODO: wrong
+}
+// Initialize the session variables
+calendar_session_vars();
+
+
+$prefs = new stdClass;
+$prefs->timeformat = get_user_preferences('calendar_timeformat', '');
+$prefs->startwday  = get_user_preferences('calendar_startwday', calendar_get_starting_weekday());
+$prefs->maxevents  = get_user_preferences('calendar_maxevents', CALENDAR_UPCOMING_MAXEVENTS);
+$prefs->lookahead  = get_user_preferences('calendar_lookahead', CALENDAR_UPCOMING_DAYS);
+$prefs->persistflt = get_user_preferences('calendar_persistflt', 0);
+
+$form = new calendar_preferences_form();
+$form->set_data($prefs);
+
+if ($data = $form->get_data() && confirm_sesskey()) {
+    if ($data->timeformat != CALENDAR_TF_12 && $data->timeformat != CALENDAR_TF_24) {
+        $data->timeformat = '';
+    }
+    set_user_preference('calendar_timeformat', $data->timeformat);
+
+    $data->startwday = intval($data->startwday);
+    if ($data->startwday < 0 || $data->startwday > 6) {
+        $data->startwday = abs($data->startwday % 7);
+    }
+    set_user_preference('calendar_startwday', $data->startwday);
+
+    if (intval($data->maxevents) >= 1) {
+        set_user_preference('calendar_maxevents', $data->maxevents);
     }
 
-    if ($course->id != SITEID) {
-        require_login($course->id);
-    }
-    // Initialize the session variables
-    calendar_session_vars();
-
-/// If data submitted, then process and store.
-
-    if ($form = data_submitted() and confirm_sesskey()) {
-        foreach ($form as $preference => $value) {
-            switch ($preference) {
-                case 'timeformat':
-                    if ($value != CALENDAR_TF_12 and $value != CALENDAR_TF_24) {
-                        $value = '';
-                    }
-                    set_user_preference('calendar_timeformat', $value);
-                break;
-                case 'startwday':
-                    $value = intval($value);
-                    if ($value < 0 or $value > 6) {
-                        $value = abs($value % 7);
-                    }
-                    set_user_preference('calendar_startwday', $value);
-                break;
-                case 'maxevents':
-                    if (intval($value) >= 1) {
-                        set_user_preference('calendar_maxevents', $value);
-                    }
-                break;
-                case 'lookahead':
-                    if (intval($value) >= 1) {
-                        set_user_preference('calendar_lookahead', $value);
-                    }
-                break;
-                case 'persistflt':
-                    set_user_preference('calendar_persistflt', intval($value));
-                break;
-            }
-        }
-        redirect('view.php?course='.$course->id, get_string('changessaved'), 1);
-        exit;
+    if (intval($data->lookahead) >= 1) {
+        set_user_preference('calendar_lookahead', $data->lookahead);
     }
 
-    $site = get_site();
+    set_user_preference('calendar_persistflt', intval($data->persistflt));
+    redirect(new moodle_url('/calendar/view.php', array('course'=>$course->id)), get_string('changessaved'), 1);
+    exit;
+}
 
-    $strcalendar = get_string('calendar', 'calendar');
-    $strpreferences = get_string('preferences', 'calendar');
+$strcalendar = get_string('calendar', 'calendar');
+$strpreferences = get_string('calendarpreferences', 'calendar');
 
-    $navlinks = array();
-    if ($course->id != SITEID) {
-        $navlinks[] = array('name' => $course->shortname,
-                            'link' => "$CFG->wwwroot/course/view.php?id=$course->id",
-                            'type' => 'misc');
-    }
-    $navlinks[] = array('name' => $strpreferences, 'link' => 'view.php', 'type' => 'misc');
-    $navigation = build_navigation($navlinks);
+$PAGE->navbar->add($strpreferences, new moodle_url('/calendar/view.php'));
+$PAGE->set_pagelayout('admin');
+$PAGE->set_title("$site->shortname: $strcalendar: $strpreferences");
+$PAGE->set_heading($COURSE->fullname);
 
-    print_header("$site->shortname: $strcalendar: $strpreferences", $strcalendar, $navigation,
-                 '', '', true, '', user_login_string($site));
-
-
-    print_heading($strpreferences);
-
-    print_simple_box_start("center");
-
-    $prefs->timeformat = get_user_preferences('calendar_timeformat', '');
-    $prefs->startwday  = get_user_preferences('calendar_startwday', CALENDAR_STARTING_WEEKDAY);
-    $prefs->maxevents  = get_user_preferences('calendar_maxevents', CALENDAR_UPCOMING_MAXEVENTS);
-    $prefs->lookahead  = get_user_preferences('calendar_lookahead', CALENDAR_UPCOMING_DAYS);
-    $prefs->persistflt = get_user_preferences('calendar_persistflt', 0);
-
-    include('./preferences.html');
-    print_simple_box_end();
-
-    print_footer($course);
-
-?>
+echo $OUTPUT->header();
+echo $OUTPUT->heading($strpreferences);
+echo $OUTPUT->box_start('generalbox boxaligncenter');
+$form->display();
+echo $OUTPUT->box_end();
+echo $OUTPUT->footer();

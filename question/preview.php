@@ -1,4 +1,4 @@
-<?php // $Id: preview.php,v 1.23.2.5 2008/12/10 06:22:04 tjhunt Exp $
+<?php
 /**
  * This page displays a preview of a question
  *
@@ -23,9 +23,16 @@
     // if no quiz id is specified then a dummy quiz with default options is used
     $quizid = optional_param('quizid', 0, PARAM_INT);
     // if no quiz id is specified then tell us the course
+
+    $pageurl = new moodle_url('/question/preview.php', array('id' => $id, 'continue' => 1));
     if (empty($quizid)) {
         $courseid = required_param('courseid', PARAM_INT);
+        $pageurl->param('courseid', $courseid);
+    } else {
+        $pageurl->param('quizid', $quizid);
     }
+    $PAGE->set_url($pageurl);
+    $PAGE->set_pagelayout('popup');
 
     // Test if we are continuing an attempt at a question
     $continue = optional_param('continue', 0, PARAM_BOOL);
@@ -43,7 +50,7 @@
         $continue = false;
     }
 
-    $url = new moodle_url($CFG->wwwroot . '/question/preview.php');
+    $url = new moodle_url('/question/preview.php');
     $url->param('id', $id);
     if ($quizid) {
         $url->param('quizid', $quizid);
@@ -56,27 +63,29 @@
         unset($SESSION->quizpreview);
         // Redirect to ourselves but with continue=1; prevents refreshing the page
         // from restarting an attempt (needed so that random questions don't change)
-        redirect($url->out());
+        redirect($url);
     }
     // Load the question information
-    if (!$questions = get_records('question', 'id', $id)) {
-        error('Could not load question');
+    if (!$questions = $DB->get_records('question', array('id' =>  $id))) {
+        print_error('cannotloadquestion', 'question');
     }
     if (empty($quizid)) {
         $quiz = new cmoptions;
         $quiz->id = 0;
-        $quiz->review = $CFG->quiz_review;
+        $quiz->review = get_config('quiz', 'review');
         require_login($courseid, false);
         $quiz->course = $courseid;
-    } else if (!$quiz = get_record('quiz', 'id', $quizid)) {
-        error("Quiz id $quizid does not exist");
+        $quiz->decimalpoints = get_config('quiz', 'decimalpoints');
+        $context = get_context_instance(CONTEXT_COURSE, $courseid);
+    } else if (!$quiz = $DB->get_record('quiz', array('id' => $quizid))) {
+        print_error('invalidquizid', 'quiz', '', $quizid);
     } else {
-        require_login($quiz->course, false, get_coursemodule_from_instance('quiz', $quizid, $quiz->course));
+        $cm = get_coursemodule_from_instance('quiz', $quizid, $quiz->course);
+        require_login($quiz->course, false, $cm);
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     }
 
-
-
-    if ($maxgrade = get_field('quiz_question_instances', 'grade', 'quiz', $quiz->id, 'question', $id)) {
+    if ($maxgrade = $DB->get_field('quiz_question_instances', 'grade', array('quiz' => $quiz->id, 'question' => $id))) {
         $questions[$id]->maxgrade = $maxgrade;
     } else {
         $questions[$id]->maxgrade = $questions[$id]->defaultgrade;
@@ -85,12 +94,12 @@
     $quiz->id = 0; // just for safety
     $quiz->questions = $id;
 
-    if (!$category = get_record("question_categories", "id", $questions[$id]->category)) {
-        error("This question doesn't belong to a valid category!");
+    if (!$category = $DB->get_record("question_categories", array("id" => $questions[$id]->category))) {
+        print_error('invalidquestionid', 'quiz');
     }
 
     if (!question_has_capability_on($questions[$id], 'use', $questions[$id]->category)){
-        error("You can't preview these questions!");
+        print_error('cannotpreview', 'question');
     }
     if (isset($COURSE)){
         $quiz->course = $COURSE->id;
@@ -114,6 +123,7 @@
     $attempt->timemodified = $timenow;
     $attempt->uniqueid = 0;
     $attempt->id = 0;
+    $attempt->layout = $id;
 
     // Restore the history of question sessions from the moodle session or create
     // new sessions. Make $states a reference to the states array in the moodle
@@ -131,10 +141,10 @@
         // Record the question id in the moodle session
         $SESSION->quizpreview->questionid = $id;
         // Create an empty session for the question
-        if (!$newstates =
-         get_question_states($questions, $quiz, $attempt)) {
+        if (!$newstates = get_question_states($questions, $quiz, $attempt)) {
             print_error('newattemptfail', 'quiz');
         }
+        $newstates[$id]->questionsessionid = 0;
         $SESSION->quizpreview->states = array($newstates);
         $states =& $SESSION->quizpreview->states;
         $historylength = 0;
@@ -160,7 +170,13 @@
         unset($form['back']);
         unset($form['startagain']);
 
-        $event = $finishattempt ? QUESTION_EVENTCLOSE : QUESTION_EVENTSUBMIT;
+        if ($finishattempt) {
+            $event = QUESTION_EVENTCLOSE;
+        } else if ($markall) {
+            $event = QUESTION_EVENTSUBMIT;
+        } else {
+            $event = QUESTION_EVENTSAVE;
+        }
         if ($actions = question_extract_responses($questions, $form, $event)) {
             $actions[$id]->timestamp = 0; // We do not care about timelimits here
             if (!question_process_responses($questions[$id], $curstate, $actions[$id], $quiz, $attempt)) {
@@ -181,20 +197,20 @@
     }
 
     // TODO: should not use quiz-specific function here
-    $options = quiz_get_renderoptions($quiz->review, $curstate);
+    $options = quiz_get_renderoptions($quiz, $attempt, $context, $curstate);
     $options->noeditlink = true;
 
     // Fill in the correct responses (unless the question is in readonly mode)
     if ($fillcorrect && !$options->readonly) {
-        $curstate->responses = $QTYPES[$questions[$id]->qtype]
-         ->get_correct_responses($questions[$id], $curstate);
+        $curstate->responses = $QTYPES[$questions[$id]->qtype]->get_correct_responses($questions[$id], $curstate);
     }
 
     $strpreview = get_string('preview', 'quiz').' '.format_string($questions[$id]->name);
     $questionlist = array($id);
-    $headtags = get_html_head_contributions($questionlist, $questions, $states[$historylength]);
-    print_header($strpreview, '', '', '', $headtags);
-    print_heading($strpreview);
+    question_get_html_head_contributions($questionlist, $questions, $states[$historylength]);
+    $PAGE->set_title($strpreview);
+    $PAGE->set_heading($COURSE->fullname);
+    echo $OUTPUT->header();
 
     if (!empty($quizid)) {
         echo '<p class="quemodname">'.get_string('modulename', 'quiz') . ': ';
@@ -202,17 +218,19 @@
         echo "</p>\n";
     }
     $number = 1;
-    echo '<form method="post" action="'.$url->out(true).'" enctype="multipart/form-data" id="responseform">', "\n";
-    print_question($questions[$id], $curstate, $number, $quiz, $options);
+    echo '<form method="post" action="'.$url->out_omit_querystring().'" enctype="multipart/form-data" id="responseform">', "\n";
+    $PAGE->requires->js_init_call('M.core_question_engine.init_form', array('#responseform'));
+
+    print_question($questions[$id], $curstate, $number, $quiz, $options, $context);
 
     echo '<div class="controls">';
-    echo $url->hidden_params_out();
+    echo html_writer::input_hidden_params($url);
 
     // Print the mark and finish attempt buttons
     echo '<input name="markall" type="submit" value="' . get_string('markall',
      'quiz') . "\" />\n";
     echo '<input name="finishattempt" type="submit" value="' .
-     get_string('finishattempt', 'quiz') . "\" />\n";
+     get_string('submitallandfinish', 'quiz') . "\" />\n";
     echo '<br />';
     echo '<br />';
     // Print the fill correct button (unless the question is in readonly mode)
@@ -233,5 +251,5 @@
      get_string('closepreview', 'quiz') . "\" />";
     echo '</div>';
     echo '</form>';
-    print_footer();
-?>
+    echo $OUTPUT->footer();
+

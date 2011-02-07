@@ -1,4 +1,27 @@
-<?php //$$
+<?php
+
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Display all recent activity in a flexible way
+ *
+ * @copyright 1999 Martin Dougiamas  http://dougiamas.com
+ * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package course
+ */
 
 if (!defined('MOODLE_INTERNAL')) {
     die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
@@ -13,6 +36,7 @@ class recent_form extends moodleform {
         $mform =& $this->_form;
         $context = get_context_instance(CONTEXT_COURSE, $COURSE->id);
         $modinfo = get_fast_modinfo($COURSE);
+        $sections = get_all_sections($COURSE->id);
 
         $mform->addElement('header', 'filters', get_string('managefilters')); //TODO: add better string
 
@@ -27,31 +51,25 @@ class recent_form extends moodleform {
         if ($viewparticipants) {
             $options = array();
             $options[0] = get_string('allparticipants');
-            if ($guest = get_guest()) {
-                $options[$guest->id] = fullname($guest);
-            }
+            $options[$CFG->siteguest] = get_string('guestuser');
 
             if (groups_get_course_groupmode($COURSE) == SEPARATEGROUPS) {
                 $groups = groups_get_user_groups($COURSE->id);
-                $groups = $groups[0];
+                $group = $groups[0];
             } else {
-                $groups = '';
+                $group = '';
             }
-            
-            if ($courseusers = get_users_by_capability($context, 'moodle/course:view', 'u.id, u.firstname, u.lastname', 'lastname ASC, firstname DESC', '', '', $groups)) {
-                foreach ($courseusers as $courseuser) {
-                    $options[$courseuser->id] = fullname($courseuser, $viewfullnames);
+
+            if ($enrolled = get_enrolled_users($context, null, $group, user_picture::fields('u'))) {
+                foreach ($enrolled as $euser) {
+                    $options[$euser->id] = fullname($euser, $viewfullnames);
                 }
             }
             $mform->addElement('select', 'user', get_string('participants'), $options);
             $mform->setAdvanced('user');
         }
 
-        switch ($COURSE->format) {
-            case 'weeks':  $sectiontitle = get_string('week'); break;
-            case 'topics': $sectiontitle = get_string('topic'); break;
-            default: $sectiontitle = get_string('section'); break;
-        }
+        $sectiontitle = get_string('sectionname', 'format_'.$COURSE->format);
 
         $options = array(''=>get_string('allactivities'));
         $modsused = array();
@@ -79,7 +97,7 @@ class recent_form extends moodleform {
         }
 
         foreach ($modinfo->sections as $section=>$cmids) {
-            $options["section/$section"] = "-- $sectiontitle $section --";
+            $options["section/$section"] = "-- ".get_section_name($COURSE, $sections[$section])." --";
             foreach ($cmids as $cmid) {
                 $cm = $modinfo->cms[$cmid];
                 if (empty($modsused[$cm->modname]) or !$cm->uservisible) {
@@ -100,6 +118,10 @@ class recent_form extends moodleform {
                 }
                 $mform->addElement('select', 'group', get_string('groups'), $options);
                 $mform->setAdvanced('group');
+            } else {
+                $mform->addElement('hidden','group');
+                $mform->setType('group', PARAM_INT);
+                $mform->setConstants(array('group'=>0));
             }
         } else {
             $mform->addElement('hidden','group');

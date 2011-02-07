@@ -1,4 +1,4 @@
-<?php 
+<?php
 // Based on default.php, included by ../import.php
 /**
  * @package questionbank
@@ -10,15 +10,12 @@ class qformat_xhtml extends qformat_default {
       return true;
     }
 
-function repchar( $text ) {
-    // escapes 'reserved' characters # = ~ { ) and removes new lines
-    $reserved = array( '#','=','~','{','}',"\n","\r" );
-    $escaped = array( '\#','\=','\~','\{','\}',' ','' );
+function repchar($text) {
+    return $text;
+}
 
-    return str_replace( $reserved, $escaped, $text ); 
-    }
-
-function writequestion( $question ) {
+function writequestion($question) {
+    global $OUTPUT;
     // turns question into string
     // question reflects database fields for general question and specific to type
 
@@ -37,12 +34,12 @@ function writequestion( $question ) {
 
     // add header
     $expout .= "<h3>$question->name</h3>\n";
- 
+
     // format and add question text
     $questiontext = $question->questiontext;
     $format = $question->questiontextformat;
-    $formatted_text = format_text( $questiontext, $format );
-    $expout .= "<p class=\"questiontext\">$formatted_text</p>\n"; 
+    $formatted_text = format_text($questiontext, $format);
+    $expout .= "<p class=\"questiontext\">$formatted_text</p>\n";
 
     // selection depends on question type
     switch($question->qtype) {
@@ -59,10 +56,10 @@ function writequestion( $question ) {
         foreach($question->options->answers as $answer) {
             $ans_text = $this->repchar( $answer->answer );
             if ($question->options->single) {
-                $expout .= "  <li><input name=\"quest_$id\" type=\"radio\" value=\"$ans_text\" />$ans_text</li>\n";
+                $expout .= "  <li><input name=\"quest_$id\" type=\"radio\" value=\"" . s($ans_text) . "\" />$ans_text</li>\n";
             }
             else {
-                $expout .= "  <li><input name=\"quest_$id\" type=\"checkbox\" value=\"$ans_text\" />$ans_text</li>\n";
+                $expout .= "  <li><input name=\"quest_$id\" type=\"checkbox\" value=\"" . s($ans_text) . "\" />$ans_text</li>\n";
             }
         }
         $expout .= "</ul>\n";
@@ -84,13 +81,13 @@ function writequestion( $question ) {
         $ans_list = array();
         foreach($question->options->subquestions as $subquestion) {
            $ans_list[] = $this->repchar( $subquestion->answertext );
-        } 
+        }
         shuffle( $ans_list ); // random display order
-        
+
         // build drop down for answers
         $dropdown = "<select name=\"quest_$id\">\n";
         foreach($ans_list as $ans) {
-          $dropdown .= "<option value=\"$ans\">$ans</option>\n";
+            $dropdown .= "<option value=\"" . s($ans) . "\">" . s($ans) . "</option>\n";
         }
         $dropdown .= "</select>\n";
 
@@ -108,9 +105,9 @@ function writequestion( $question ) {
         $expout .= "<!-- CLOZE type is not supported  -->\n";
         break;
     default:
-        notify("No handler for qtype $question->qtype for GIFT export" );
+        echo $OUTPUT->notification("No handler for qtype $question->qtype for GIFT export" );
     }
-    // close off div 
+    // close off div
     $expout .= "</div>\n\n\n";
     return $expout;
 }
@@ -123,7 +120,7 @@ function presave_process( $content ) {
 
   // get css bit
   $css_lines = file( "$CFG->dirroot/question/format/xhtml/xhtml.css" );
-  $css = implode( ' ',$css_lines ); 
+  $css = implode( ' ',$css_lines );
 
   $xp =  "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"\n";
   $xp .= "  \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n";
@@ -151,4 +148,4 @@ function export_file_extension() {
 }
 
 }
-?>
+

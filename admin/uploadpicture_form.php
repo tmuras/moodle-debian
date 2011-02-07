@@ -1,4 +1,4 @@
-<?php // $Id: uploadpicture_form.php,v 1.1.2.3 2010/05/13 01:40:36 moodler Exp $
+<?php
 
 if (!defined('MOODLE_INTERNAL')) {
     die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
@@ -12,11 +12,12 @@ class admin_uploadpicture_form extends moodleform {
 
         $mform =& $this->_form;
 
-        $this->set_upload_manager(new upload_manager('userpicturesfile', false, false, null, false, 0, true, true, false));
-
         $mform->addElement('header', 'settingsheader', get_string('upload'));
 
-        $mform->addElement('file', 'userpicturesfile', get_string('file'), 'size="40"');
+
+        $options = array();
+        $options['accepted_types'] = array('archive');
+        $mform->addElement('filepicker', 'userpicturesfile', get_string('file'), 'size="40"', $options);
         $mform->addRule('userpicturesfile', null, 'required');
 
         $choices =& $this->_customdata;
@@ -30,4 +31,4 @@ class admin_uploadpicture_form extends moodleform {
         $this->add_action_buttons(false, get_string('uploadpictures', 'admin'));
     }
 }
-?>
+

@@ -1,4 +1,4 @@
-<?php // $Id: uploaduser_form.php,v 1.4.2.8 2010/05/13 01:40:36 moodler Exp $
+<?php
 
 if (!defined('MOODLE_INTERNAL')) {
     die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
@@ -12,18 +12,16 @@ class admin_uploaduser_form1 extends moodleform {
 
         $mform =& $this->_form;
 
-        $this->set_upload_manager(new upload_manager('userfile', false, false, null, false, 0, true, true, false));
-
         $mform->addElement('header', 'settingsheader', get_string('upload'));
 
-        $mform->addElement('file', 'userfile', get_string('file'), 'size="40"');
+        $mform->addElement('filepicker', 'userfile', get_string('file'));
         $mform->addRule('userfile', null, 'required');
 
         $choices = csv_import_reader::get_delimiter_list();
         $mform->addElement('select', 'delimiter_name', get_string('csvdelimiter', 'admin'), $choices);
         if (array_key_exists('cfg', $choices)) {
             $mform->setDefault('delimiter_name', 'cfg');
-        } else if (get_string('listsep') == ';') {
+        } else if (get_string('listsep', 'langconfig') == ';') {
             $mform->setDefault('delimiter_name', 'semicolon');
         } else {
             $mform->setDefault('delimiter_name', 'comma');
@@ -38,7 +36,13 @@ class admin_uploaduser_form1 extends moodleform {
         $mform->addElement('select', 'previewrows', get_string('rowpreviewnum', 'admin'), $choices);
         $mform->setType('previewrows', PARAM_INT);
 
-        $this->add_action_buttons(false, get_string('uploadusers'));
+        $choices = array(UU_ADDNEW    => get_string('uuoptype_addnew', 'admin'),
+                         UU_ADDINC    => get_string('uuoptype_addinc', 'admin'),
+                         UU_ADD_UPDATE => get_string('uuoptype_addupdate', 'admin'),
+                         UU_UPDATE     => get_string('uuoptype_update', 'admin'));
+        $mform->addElement('select', 'uutype', get_string('uuoptype', 'admin'), $choices);
+
+        $this->add_action_buttons(false, get_string('uploadusers', 'admin'));
     }
 }
 
@@ -46,27 +50,19 @@ class admin_uploaduser_form2 extends moodleform {
     function definition (){
         global $CFG, $USER;
 
-        //no editors here - we need proper empty fields
-        $CFG->htmleditor = null;
-
         $mform   =& $this->_form;
         $columns =& $this->_customdata;
 
         // I am the template user, why should it be the administrator? we have roles now, other ppl may use this script ;-)
         $templateuser = $USER;
 
-// upload settings and file
+        // upload settings and file
         $mform->addElement('header', 'settingsheader', get_string('settings'));
-
-        $choices = array(UU_ADDNEW    => get_string('uuoptype_addnew', 'admin'),
-                         UU_ADDINC    => get_string('uuoptype_addinc', 'admin'),
-                         UU_ADD_UPDATE => get_string('uuoptype_addupdate', 'admin'),
-                         UU_UPDATE     => get_string('uuoptype_update', 'admin'));
-        $mform->addElement('select', 'uutype', get_string('uuoptype', 'admin'), $choices);
+        $mform->addElement('static', 'uutypelabel', get_string('uuoptype', 'admin') );
 
         $choices = array(0 => get_string('infilefield', 'auth'), 1 => get_string('createpasswordifneeded', 'auth'));
         $mform->addElement('select', 'uupasswordnew', get_string('uupasswordnew', 'admin'), $choices);
-        $mform->setDefault('uupasswordnew', 0);
+        $mform->setDefault('uupasswordnew', 1);
         $mform->disabledIf('uupasswordnew', 'uutype', 'eq', UU_UPDATE);
 
         $choices = array(0 => get_string('nochanges', 'admin'),
@@ -97,7 +93,7 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->disabledIf('uuallowdeletes', 'uutype', 'eq', UU_ADDINC);
 
         $mform->addElement('selectyesno', 'uunoemailduplicates', get_string('uunoemailduplicates', 'admin'));
-        $mform->setDefault('uunoemailduplicates', 0);
+        $mform->setDefault('uunoemailduplicates', 1);
 
         $choices = array(0 => get_string('no'),
                          1 => get_string('uubulknew', 'admin'),
@@ -106,7 +102,7 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->addElement('select', 'uubulk', get_string('uubulk', 'admin'), $choices);
         $mform->setDefault('uubulk', 0);
 
-// roles selection
+        // roles selection
         $showroles = false;
         foreach ($columns as $column) {
             if (preg_match('/^type\d+$/', $column)) {
@@ -119,31 +115,41 @@ class admin_uploaduser_form2 extends moodleform {
 
             $choices = uu_allowed_roles(true);
 
-            $choices[0] = get_string('uucoursedefaultrole', 'admin');
             $mform->addElement('select', 'uulegacy1', get_string('uulegacy1role', 'admin'), $choices);
-            $mform->setDefault('uulegacy1', 0);
-            unset($choices[0]);
+            if ($studentroles = get_archetype_roles('student')) {
+                foreach ($studentroles as $role) {
+                    if (isset($choices[$role->id])) {
+                        $mform->setDefault('uulegacy1', $role->id);
+                        break;
+                    }
+                }
+                unset($studentroles);
+            }
 
             $mform->addElement('select', 'uulegacy2', get_string('uulegacy2role', 'admin'), $choices);
-            if ($editteacherroles = get_roles_with_capability('moodle/legacy:editingteacher', CAP_ALLOW)) {
-                $editteacherrole = array_shift($editteacherroles);   /// Take the first one
-                $mform->setDefault('uulegacy2', $editteacherrole->id);
+            if ($editteacherroles = get_archetype_roles('editingteacher')) {
+                foreach ($editteacherroles as $role) {
+                    if (isset($choices[$role->id])) {
+                        $mform->setDefault('uulegacy2', $role->id);
+                        break;
+                    }
+                }
                 unset($editteacherroles);
-            } else {
-                $mform->setDefault('uulegacy2', $CFG->defaultcourseroleid);
             }
 
             $mform->addElement('select', 'uulegacy3', get_string('uulegacy3role', 'admin'), $choices);
-            if ($teacherroles = get_roles_with_capability('moodle/legacy:teacher', CAP_ALLOW)) {
-                $teacherrole = array_shift($teacherroles);   /// Take the first one
-                $mform->setDefault('uulegacy3', $teacherrole->id);
+            if ($teacherroles = get_archetype_roles('teacher')) {
+                foreach ($teacherroles as $role) {
+                    if (isset($choices[$role->id])) {
+                        $mform->setDefault('uulegacy3', $role->id);
+                        break;
+                    }
+                }
                 unset($teacherroles);
-            } else {
-                $mform->setDefault('uulegacy3', $CFG->defaultcourseroleid);
             }
         }
 
-// default values
+        // default values
         $mform->addElement('header', 'defaultheader', get_string('defaultvalues', 'admin'));
 
         $mform->addElement('text', 'username', get_string('username'), 'size="20"');
@@ -153,7 +159,7 @@ class admin_uploaduser_form2 extends moodleform {
         $choices = uu_allowed_auths();
         $mform->addElement('select', 'auth', get_string('chooseauthmethod','auth'), $choices);
         $mform->setDefault('auth', 'manual'); // manual is a sensible backwards compatible default
-        $mform->setHelpButton('auth', array('authchange', get_string('chooseauthmethod','auth')));
+        $mform->addHelpButton('auth', 'chooseauthmethod', 'auth');
         $mform->setAdvanced('auth');
 
         $mform->addElement('text', 'email', get_string('email'), 'maxlength="100" size="30"');
@@ -161,9 +167,6 @@ class admin_uploaduser_form2 extends moodleform {
         $choices = array(0 => get_string('emaildisplayno'), 1 => get_string('emaildisplayyes'), 2 => get_string('emaildisplaycourse'));
         $mform->addElement('select', 'maildisplay', get_string('emaildisplay'), $choices);
         $mform->setDefault('maildisplay', 2);
-
-        $choices = array(0 => get_string('emailenable'), 1 => get_string('emaildisable'));
-        $mform->addElement('select', 'emailstop', get_string('emailactive'), $choices);
 
         $choices = array(0 => get_string('textformat'), 1 => get_string('htmlformat'));
         $mform->addElement('select', 'mailformat', get_string('emailformat'), $choices);
@@ -179,14 +182,18 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->addElement('select', 'autosubscribe', get_string('autosubscribe'), $choices);
         $mform->setDefault('autosubscribe', 1);
 
-        if ($CFG->htmleditor) {
-            $choices = array(0 => get_string('texteditor'), 1 => get_string('htmleditor'));
+        $editors = editors_get_enabled();
+        if (count($editors) > 1) {
+            $choices = array();
+            $choices['0'] = get_string('texteditor');
+            $choices['1'] = get_string('htmleditor');
             $mform->addElement('select', 'htmleditor', get_string('textediting'), $choices);
             $mform->setDefault('htmleditor', 1);
         } else {
-            $mform->addElement('static', 'htmleditor', get_string('textediting'), get_string('texteditor'));
+            $mform->addElement('hidden', 'htmleditor');
+            $mform->setDefault('htmleditor', 1);
+            $mform->setType('htmleditor', PARAM_INT);
         }
-        $mform->setAdvanced('htmleditor');
 
         if (empty($CFG->enableajax)) {
             $mform->addElement('static', 'ajax', get_string('ajaxuse'), get_string('ajaxno'));
@@ -201,7 +208,7 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->setType('city', PARAM_MULTILANG);
         $mform->setDefault('city', $templateuser->city);
 
-        $mform->addElement('select', 'country', get_string('selectacountry'), get_list_of_countries());
+        $mform->addElement('select', 'country', get_string('selectacountry'), get_string_manager()->get_list_of_countries());
         $mform->setDefault('country', $templateuser->country);
         $mform->setAdvanced('country');
 
@@ -211,20 +218,21 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->setDefault('timezone', $templateuser->timezone);
         $mform->setAdvanced('timezone');
 
-        $mform->addElement('select', 'lang', get_string('preferredlanguage'), get_list_of_languages());
+        $mform->addElement('select', 'lang', get_string('preferredlanguage'), get_string_manager()->get_list_of_translations());
         $mform->setDefault('lang', $templateuser->lang);
         $mform->setAdvanced('lang');
 
-        $mform->addElement('htmleditor', 'description', get_string('userdescription'));
-        $mform->setType('description', PARAM_CLEAN);
-        $mform->setHelpButton('description', array('text', get_string('helptext')));
+        $editoroptions = array('maxfiles'=>0, 'maxbytes'=>0, 'trusttext'=>false, 'forcehttps'=>false);
+        $mform->addElement('editor', 'description', get_string('userdescription'), null, $editoroptions);
+        $mform->setType('description', PARAM_CLEANHTML);
+        $mform->addHelpButton('description', 'userdescription');
         $mform->setAdvanced('description');
 
         $mform->addElement('text', 'url', get_string('webpage'), 'maxlength="255" size="50"');
         $mform->setAdvanced('url');
 
         $mform->addElement('text', 'idnumber', get_string('idnumber'), 'maxlength="64" size="25"');
-        $mform->setType('idnumber', PARAM_CLEAN);
+        $mform->setType('idnumber', PARAM_NOTAGS);
 
         $mform->addElement('text', 'institution', get_string('institution'), 'maxlength="40" size="25"');
         $mform->setType('institution', PARAM_MULTILANG);
@@ -235,21 +243,21 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->setDefault('department', $templateuser->department);
 
         $mform->addElement('text', 'phone1', get_string('phone'), 'maxlength="20" size="25"');
-        $mform->setType('phone1', PARAM_CLEAN);
+        $mform->setType('phone1', PARAM_NOTAGS);
         $mform->setAdvanced('phone1');
 
         $mform->addElement('text', 'phone2', get_string('phone2'), 'maxlength="20" size="25"');
-        $mform->setType('phone2', PARAM_CLEAN);
+        $mform->setType('phone2', PARAM_NOTAGS);
         $mform->setAdvanced('phone2');
 
         $mform->addElement('text', 'address', get_string('address'), 'maxlength="70" size="25"');
         $mform->setType('address', PARAM_MULTILANG);
         $mform->setAdvanced('address');
 
-        /// Next the profile defaults
+        // Next the profile defaults
         profile_definition($mform);
 
-// hidden fields
+        // hidden fields
         $mform->addElement('hidden', 'iid');
         $mform->setType('iid', PARAM_INT);
 
@@ -259,7 +267,10 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->addElement('hidden', 'readcount');
         $mform->setType('readcount', PARAM_INT);
 
-        $this->add_action_buttons(true, get_string('uploadusers'));
+        $mform->addElement('hidden', 'uutype');
+        $mform->setType('uutype', PARAM_INT);
+
+        $this->add_action_buttons(true, get_string('uploadusers', 'admin'));
     }
 
     /**
@@ -303,6 +314,10 @@ class admin_uploaduser_form2 extends moodleform {
                     break;
 
                 case UU_ADDNEW:
+                    if (empty($data['uupasswordnew'])) {
+                        $errors['uupasswordnew'] = get_string('missingfield', 'error', 'password');
+                    }
+                    break;
                 case UU_ADDINC:
                     if (empty($data['uupasswordnew'])) {
                         $errors['uupasswordnew'] = get_string('missingfield', 'error', 'password');
@@ -337,5 +352,28 @@ class admin_uploaduser_form2 extends moodleform {
 
         return $errors;
     }
+
+    /**
+     * Used to reformat the data from the editor component
+     *
+     * @return stdClass
+     */
+    function get_data() {
+        $data = parent::get_data();
+
+        if ($data !== null) {
+            $data->descriptionformat = $data->description['format'];
+            $data->description = $data->description['text'];
+        }
+
+        return $data;
+    }
 }
-?>
+
+class admin_uploaduser_form3 extends moodleform {
+    function definition (){
+        global $CFG, $USER;
+        $mform =& $this->_form;
+        $this->add_action_buttons(false, get_string('uploadnewfile'));
+    }
+}

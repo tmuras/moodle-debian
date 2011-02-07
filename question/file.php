@@ -1,4 +1,4 @@
-<?php  // $Id$
+<?php
       // This script fetches files from the dataroot/questionattempt directory
       // It is based on the top-level file.php
       //
@@ -8,21 +8,21 @@
       // Syntax:      question/file.php/attemptid/questionid/filename.ext
       // Workaround:  question/file.php?file=/attemptid/questionid/filename.ext
 
+// disable moodle specific debug messages and any errors in output
+define('NO_DEBUG_DISPLAY', true);
+
     require_once('../config.php');
     require_once('../lib/filelib.php');
 
-    // disable moodle specific debug messages
-    disable_debugging();
-
-    $relativepath = get_file_argument('file.php');
+    $relativepath = get_file_argument();
     // force download for any student-submitted files to prevent XSS attacks.
     $forcedownload = 1;
 
     // relative path must start with '/', because of backup/restore!!!
     if (!$relativepath) {
-        error('No valid arguments supplied or incorrect server configuration');
+        print_error('invalidarguments');
     } else if ($relativepath{0} != '/') {
-        error('No valid arguments supplied, path does not start with slash!');
+        print_error('pathdoesnotstartslash');
     }
 
     $pathname = $CFG->dataroot.'/questionattempt'.$relativepath;
@@ -32,7 +32,7 @@
 
     // check for the right number of directories in the path
     if (count($args) != 3) {
-        error('Invalid arguments supplied');
+        print_error('invalidarguments');
     }
 
     // security: require login
@@ -47,7 +47,7 @@
 
     // security: check that the user has permission to access this file
     $haspermission = false;
-    if ($attempt = get_record("question_attempts", "id", $args[0])) {
+    if ($attempt = $DB->get_record("question_attempts", array("id" => $args[0]))) {
         $modfile = $CFG->dirroot .'/mod/'. $attempt->modulename .'/lib.php';
         $modcheckfileaccess = $attempt->modulename .'_check_file_access';
         if (file_exists($modfile)) {
@@ -71,7 +71,7 @@
         }
 
         // send the file
-        session_write_close(); // unlock session during fileserving
+        session_get_instance()->write_close(); // unlock session during fileserving
         $filename = $args[count($args)-1];
         send_file($pathname, $filename, $lifetime, $CFG->filteruploadedfiles, false, $forcedownload);
     } else {
@@ -83,4 +83,4 @@
         header('HTTP/1.0 404 not found');
         print_error('filenotfound', 'error', $CFG->wwwroot); //this is not displayed on IIS??
     }
-?>
+
