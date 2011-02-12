@@ -43,8 +43,6 @@ binary:
 	rm -r debian/moodle/usr/share/moodle/lib/smarty
 	rm -r debian/moodle/usr/share/moodle/lib/yui
 	
-	#removing file from previous version of CAS
-	rm debian/moodle/usr/share/moodle/auth/cas/CAS/CAS/PGTStorage/pgt-db.php
 	dh binary-indep --remaining
 	
 %:
