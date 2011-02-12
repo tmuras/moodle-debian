@@ -14,7 +14,6 @@ MAINTAINER := $(shell grep ^Maintainer: debian/control | sed 's/^Maintainer: //'
 binary:
 	dh binary-indep --before dh_lintian
 	#remove unnecessary licence files
-#	rm debian/moodle/usr/share/moodle/COPYING.txt
 	rm debian/moodle/usr/share/moodle/lib/adodb/license.txt
 	rm debian/moodle/usr/share/moodle/lib/editor/tinymce/tiny_mce/3.3.9.2/license.txt
 	rm debian/moodle/usr/share/moodle/lib/bennu/LICENSE.txt
@@ -28,20 +27,23 @@ binary:
 	
 	#remove unnecessary files
 	rm debian/moodle/usr/share/moodle/filter/tex/*mimetex*
-	rm debian/moodle/usr/share/moodle/search/.cvsignore
 	rm debian/moodle/usr/share/moodle/mod/chat/chatd.php
+	find debian/moodle -type f -name .cvsignore -delete
 	
 	#fix permissions
 	find debian/moodle/usr -type f -exec chmod 644 {} \;
 	find debian/moodle/usr -type d -exec chmod 755 {} \;
 	chmod 755 debian/moodle/usr/share/moodle/admin/mailout-debugger.php
-	#chmod 755 debian/moodle/usr/share/moodle/mod/wiki/ewiki/fragments/mkhuge
 	chmod 755 debian/moodle/usr/share/moodle/filter/algebra/algebra2tex.pl
 	chmod 755 debian/moodle/usr/share/moodle/admin/process_email.php
 	
 	#un-bundle libraries
 	rm -r debian/moodle/usr/share/moodle/lib/smarty
 	rm -r debian/moodle/usr/share/moodle/lib/yui
+	
+	#remove developer tools
+	rm -r debian/moodle/usr/share/moodle/lib/editor/tinymce/extra/tools
+	rm -r debian/moodle/usr/share/moodle/lib/pear/PHP
 	
 	dh binary-indep --remaining
 	

@@ -1,15 +1,10 @@
 # Moodle uses customised versions of these libraries
 moodle: embedded-php-library usr/share/moodle/lib/adodb/adodb.inc.php
-moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/tiny_mce.js
-moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/tiny_mce_popup.js
-moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/jscripts/tiny_mce/tiny_mce_src.js
+moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/tiny_mce/3.3.9.2/tiny_mce.js
+moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/tiny_mce/3.3.9.2/tiny_mce_popup.js
+moodle: embedded-javascript-library usr/share/moodle/lib/editor/tinymce/tiny_mce/3.3.9.2/tiny_mce_src.js
 moodle: embedded-php-library usr/share/moodle/lib/phpmailer/class.phpmailer.php
 moodle: embedded-php-library usr/share/moodle/lib/simpletestlib/unit_tester.php
 
 #Moodle uses markdown extra but only 'standard' version is packaged in Debian
 moodle: embedded-php-library usr/share/moodle/lib/markdown.php
-
-# Both of these are distributed under the GPLv2 or later, they are fine
-#moodle: non-free-flash usr/share/moodle/filter/mediaplugin/flvplayer.swf
-#moodle: non-free-flash usr/share/moodle/filter/mediaplugin/mp3player.swf
-#moodle: non-free-flash usr/share/moodle/lib/mp3player/mp3player.swf
