@@ -42,8 +42,6 @@ binary:
 	#un-bundle libraries
 	rm -r debian/moodle/usr/share/moodle/lib/smarty
 	rm -r debian/moodle/usr/share/moodle/lib/yui
-	rm -r debian/moodle/usr/share/moodle/lib/fpdf/font
-	rm  debian/moodle/usr/share/moodle/lib/fpdf/fpdf.php
 	rm -r debian/moodle/usr/share/moodle/lib/pclzip
 	rm debian/moodle/usr/share/moodle/lib/snoopy/*
 	
