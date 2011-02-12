@@ -43,20 +43,6 @@ binary:
 	rm -r debian/moodle/usr/share/moodle/lib/smarty
 	rm -r debian/moodle/usr/share/moodle/lib/yui
 	
-	#Remove whole mediaplugin filter as it contains flash file without the source
-	#Without that flash file, the plugin is rather useless
-	#but we keep it because it breaks Moodle if it's removed fully
-	#rm -r debian/moodle/usr/share/moodle/filter/mediaplugin/flvplayer.swf
-	#rm -r debian/moodle/usr/share/moodle/filter/mediaplugin/mp3player.swf
-	
-	#Remove non-free swf files (would need to go to contrib)
-	rm debian/moodle/usr/share/moodle/lib/flashdetect/flashupgrade.swf
-	rm debian/moodle/usr/share/moodle/lib/swfobject/flashupgrade.swf
-	rm debian/moodle/usr/share/moodle/lib/mp3player/mp3player.swf
-	
-	#this one is just deleted
-	rm debian/moodle/usr/share/moodle/lib/soap/nusoap.php
-	
 	#removing file from previous version of CAS
 	rm debian/moodle/usr/share/moodle/auth/cas/CAS/CAS/PGTStorage/pgt-db.php
 	dh binary-indep --remaining
