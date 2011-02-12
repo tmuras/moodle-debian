@@ -233,8 +233,6 @@ case "$1" in
 
         [ ! -h /usr/share/moodle/lib/yui ] && ln -s /usr/share/javascript/yui /usr/share/moodle/lib/yui
 
-	[ ! -h /usr/share/moodle/lib/pclzip ] && ln -s /usr/share/php/libphp-pclzip /usr/share/moodle/lib/pclzip
-
 	[ ! -h /usr/share/moodle/lib/snoopy/Snoopy.class.inc ] && ln -s /usr/share/php/libphp-snoopy/Snoopy.class.php /usr/share/moodle/lib/snoopy/Snoopy.class.inc
 
 	repository=/var/lib/moodle

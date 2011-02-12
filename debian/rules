@@ -42,7 +42,6 @@ binary:
 	#un-bundle libraries
 	rm -r debian/moodle/usr/share/moodle/lib/smarty
 	rm -r debian/moodle/usr/share/moodle/lib/yui
-	rm -r debian/moodle/usr/share/moodle/lib/pclzip
 	rm debian/moodle/usr/share/moodle/lib/snoopy/*
 	
 	#Remove whole mediaplugin filter as it contains flash file without the source
