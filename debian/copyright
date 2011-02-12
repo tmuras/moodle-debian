@@ -47,10 +47,14 @@ Public License can be found in /usr/share/common-licenses/GPL-2 file.
 	simpletestlib, licensed under the GPL
 	FLV player, licensed under the GPL v2 or later
 	fpdf script "Protection", licensed under the same license as fpdf
+  Spike PHPCoverage, licensed under the LGPL v2.1
+  TCPDF, licensed under the LGPL v2.1
+  XHProf, licensed under Apache v2.0 (see below)
 
 LGPL can be found in the file /usr/share/common-licenses/LGPL,
 GPL can be found in the file /usr/share/common-licenses/GPL-2 and
 /usr/share/common-licenses/GPL-3
+Apache 2.0 can be found in the file /usr/share/common-licenses/Apache-2.0
 
 --------------------------------------------------------------------------------
 fpdf License

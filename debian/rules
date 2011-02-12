@@ -24,6 +24,13 @@ binary:
 	rm debian/moodle/usr/share/moodle/lib/pear/HTTP/WebDAV/COPYING
 	rm debian/moodle/usr/share/moodle/lib/pear/HTTP/WebDAV/LICENSE
 	rm debian/moodle/usr/share/moodle/filter/mediaplugin/flvplayer.README.txt
+	rm debian/moodle/usr/share/moodle/lib/minify/LICENSE.txt
+	rm debian/moodle/usr/share/moodle/lib/spikephpcoverage/LICENSE.lgpl
+	rm debian/moodle/usr/share/moodle/lib/spikephpcoverage/LICENSE.osl
+	rm debian/moodle/usr/share/moodle/lib/spikephpcoverage/LICENSE.pear.3_01
+	rm debian/moodle/usr/share/moodle/lib/tcpdf/LICENSE.TXT
+	rm debian/moodle/usr/share/moodle/lib/tcpdf/fonts/freefont-20090104/COPYING
+	rm debian/moodle/usr/share/moodle/lib/xhprof/LICENSE
 	
 	#remove unnecessary files
 	rm debian/moodle/usr/share/moodle/filter/tex/*mimetex*
