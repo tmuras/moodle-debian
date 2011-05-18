@@ -1,0 +1,48 @@
+commit 8d5eaee1c9bea549215791cb84e68c94bab8d3fc
+Author: Tim Hunt <T.J.Hunt@open.ac.uk>
+Date:   Fri Feb 18 17:23:41 2011 +0000
+
+    MDL-25122 Quiz review page does not check and enforce separate groups mode.
+
+diff --git a/mod/quiz/review.php b/mod/quiz/review.php
+index bb24dad..d786551 100644
+--- a/mod/quiz/review.php
++++ b/mod/quiz/review.php
+@@ -78,6 +78,16 @@
+                 redirect('view.php?q=' . $quiz->id, $message);
+             } 
+         }
++
++    } else if (!has_capability('moodle/site:accessallgroups', $context) &&
++            groups_get_activity_groupmode($cm) == SEPARATEGROUPS) {
++        // Check the users have at least one group in common.
++        $teachersgroups = groups_get_activity_allowed_groups($cm);
++        $studentsgroups = groups_get_all_groups($cm->course, $attempt->userid, $cm->groupingid);
++        if (!($teachersgroups && $studentsgroups &&
++                array_intersect(array_keys($teachersgroups), array_keys($studentsgroups)))) {
++            print_error('noreview', 'quiz', 'view.php?q=' . $quiz->id);
++        }
+     }
+ 
+ /// Bits needed to print a good URL for this page.
+diff --git a/mod/quiz/reviewquestion.php b/mod/quiz/reviewquestion.php
+index 45da9f1..9d596d0 100644
+--- a/mod/quiz/reviewquestion.php
++++ b/mod/quiz/reviewquestion.php
+@@ -80,6 +80,16 @@
+         if ($attempt->userid != $USER->id) {
+             error('This is not your attempt!');
+         }
++
++    } else if (!has_capability('moodle/site:accessallgroups', $context) &&
++            groups_get_activity_groupmode($cm) == SEPARATEGROUPS) {
++        // Check the users have at least one group in common.
++        $teachersgroups = groups_get_activity_allowed_groups($cm);
++        $studentsgroups = groups_get_all_groups($cm->course, $attempt->userid, $cm->groupingid);
++        if (!($teachersgroups && $studentsgroups &&
++                array_intersect(array_keys($teachersgroups), array_keys($studentsgroups)))) {
++            print_error('noreview', 'quiz', 'view.php?q=' . $quiz->id);
++        }
+     }
+ 
+     //add_to_log($course->id, 'quiz', 'review', "review.php?id=$cm->id&amp;attempt=$attempt->id", "$quiz->id", "$cm->id");
