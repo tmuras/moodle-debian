@@ -1,3 +1,15 @@
+moodle (1.9.9.dfsg2-3) unstable; urgency=high
+
+  * Backporting security fixes from Moodle 1.9.11 and 1.9.12
+      - MSA-11-0002 Cross-site request forgery vulnerability in RSS block (MDL-18839)
+      - MSA-11-0003 Cross-site scripting vulnerability in tag autocomplete (MDL-25754)
+      - MSA-11-0008 IMS enterprise enrolment file may disclose sensitive information (MDL-26189)
+      - MSA-11-0011 Multiple cross-site scripting problems in media filter (MDL-26030)
+      - MSA-11-0015 Cross Site Scripting through URL encoding (MDL-26966)
+      - MSA-11-0013 Group/Quiz permissions issue (MDL-25122)
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Wed, 18 May 2011 20:57:59 +0100
+
 moodle (1.9.9.dfsg2-2) unstable; urgency=low
 
   * Added Romanian translation
