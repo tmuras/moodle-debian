@@ -22,17 +22,17 @@ msgstr ""
 #. Description
 #: ../templates:2001
 msgid "URL for the Moodle site:"
-msgstr "URL f??r Moodle:"
+msgstr "URL för Moodle:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
 msgid "Please enter the URL from which Moodle should serve pages."
-msgstr "Ange den URL som Moodle ska anv??nda f??r att servera sidor."
+msgstr "Ange den URL som Moodle ska använda för att servera sidor."
 
 #. Type: string
 #. Description
 #: ../templates:2001
 msgid "The moodle package does not perform any automatic web server configuration, but does provide basic configuration templates for Apache."
-msgstr "Moodlepaketet st??ller inte in n??gra webbservrar automatiskt men tillhandah??ller grundl??ggande inst??llningar f??r Apache."
+msgstr "Moodlepaketet ställer inte in några webbservrar automatiskt men tillhandahåller grundläggande inställningar för Apache."
 
