@@ -24,10 +24,10 @@ index 708c596..60b33b2 100644
          print_continue($link);
      }
 diff --git a/lib/weblib.php b/lib/weblib.php
-index 9b57dbb..51bb5da 100644
+index 6fa0a95..56e6df3 100644
 --- a/lib/weblib.php
 +++ b/lib/weblib.php
-@@ -5841,6 +5841,12 @@ function print_error($errorcode, $module='error', $link='', $a=NULL, $extralocat
+@@ -5802,6 +5802,12 @@ function print_error($errorcode, $module='error', $link='', $a=NULL, $extralocat
          }
      }
  
@@ -38,5 +38,5 @@ index 9b57dbb..51bb5da 100644
 +    }
 +
      if (!empty($CFG->errordocroot)) {
-         $errordoclink = $CFG->errordocroot.'/en';
-     } else {
+         $errordocroot = $CFG->errordocroot;
+     } else if (!empty($CFG->docroot)) {
