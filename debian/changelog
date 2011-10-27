@@ -1,3 +1,18 @@
+moodle (1.9.9.dfsg2-4) unstable; urgency=high
+
+  * Backporting security fixes from Moodle 1.9.11 and 1.9.12
+      - MSA-11-0026 Fields in user upload CSV not being escaped (MDL-28360)
+      - MSA-11-0025 Group names in user upload CSV not being escaped (MDL-28197)
+      - MSA-11-0024 Recaptcha images were being authenticated from an older server (MDL-27889)
+      - MSA-11-0020 Continue links in error messages can lead offsite (MDL-27464)
+      - MSA-11-0038 Database injection protection strengthened (MDL-29033)
+      - MSA-11-0037 Course section editing injection vulnerability (MDL-28722)
+      - MSA-11-0036 Messaging refresh vulnerability (MDL-29311)
+      - MSA-11-0032 MNET SSL validation issue (MDL-29148)
+      - MSA-11-0031 Forms API constant issue (MDL-23872)
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Thu, 27 Oct 2011 23:54:29 +0100
+
 moodle (1.9.9.dfsg2-3) unstable; urgency=high
 
   * Backporting security fixes from Moodle 1.9.11 and 1.9.12
