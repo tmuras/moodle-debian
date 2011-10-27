@@ -1,0 +1,22 @@
+commit 1ee988357f9c391045ab601a2879e812ab2ff3a9
+Author: Daren Chandisingh <daren.chandisingh@luns.net.uk>
+Date:   Wed Feb 2 10:33:16 2011 +0000
+
+    MDL-23872 Forms Library : Updated MoodleQuickForm to honour setConstant(), prevents injection.
+     - resolved conflict
+
+diff --git a/lib/formslib.php b/lib/formslib.php
+index 759f546..d0743c3 100644
+--- a/lib/formslib.php
++++ b/lib/formslib.php
+@@ -1145,6 +1145,10 @@ class MoodleQuickForm extends HTML_QuickForm_DHTMLRulesTableless {
+             }
+         }
+ 
++        if (is_array($this->_constantValues)) {
++            $unfiltered = HTML_QuickForm::arrayMerge($unfiltered, $this->_constantValues);
++        }
++
+         if ($addslashes){
+             return $this->_recursiveFilter('addslashes', $unfiltered);
+         } else {

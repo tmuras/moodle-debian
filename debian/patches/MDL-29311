@@ -1,0 +1,23 @@
+commit 97f258fabb3ebfa7acc7c02cb59de92b01710f99
+Author: Andrew Davis (andyjdavis) <andrew@moodle.com>
+Date:   Wed Sep 14 16:04:40 2011 +0800
+
+    MDL-29311 messaging: added a safety check to prevent message refreshing causing inadvertant DOS
+
+diff --git a/message/refresh.php b/message/refresh.php
+index 88532de..2ee38b7 100644
+--- a/message/refresh.php
++++ b/message/refresh.php
+@@ -19,6 +19,12 @@
+     $userfullname = strip_tags(required_param('name', PARAM_RAW));
+     $wait         = optional_param('wait', MESSAGE_DEFAULT_REFRESH, PARAM_INT);
+ 
++    if ($wait < 1) {
++        //this should not happen unless someone is manually constructing URLs
++        //allowing a wait of 0 causes continuous GET requests
++        $wait = MESSAGE_DEFAULT_REFRESH;
++    }
++
+     $stylesheetshtml = '';
+     foreach ($CFG->stylesheets as $stylesheet) {
+         $stylesheetshtml .= '<link rel="stylesheet" type="text/css" href="'.$stylesheet.'" />';

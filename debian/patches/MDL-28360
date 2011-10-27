@@ -1,0 +1,26 @@
+commit bd4f3fa5c4d38162e2b2410862ebf238a332a400
+Author: Matt Meisberger <mmeisberger@webcourseworks.com>
+Date:   Fri Jul 15 11:05:23 2011 -0500
+
+    MDL-28360 Fix for sql injection vulnerability in flat file enrollment - Matt Meisberger (WebCourseworks)
+
+diff --git a/enrol/flatfile/enrol.php b/enrol/flatfile/enrol.php
+index ca1badb..6696914 100644
+--- a/enrol/flatfile/enrol.php
++++ b/enrol/flatfile/enrol.php
+@@ -157,13 +157,13 @@ function get_access_icons($course) {
+                         continue;
+                     }
+ 
+-                    if (! $user = get_record("user", "idnumber", $fields[2]) ) {
++                    if (! $user = get_record("user", "idnumber", addslashes($fields[2])) ) {
+                         $this->log .= "Unknown user idnumber in field 3 - ignoring line\n";
+                         continue;
+                     }
+ 
+ 
+-                    if (! $course = get_record("course", "idnumber", $fields[3]) ) {
++                    if (! $course = get_record("course", "idnumber", addslashes($fields[3])) ) {
+                         $this->log .= "Unknown course idnumber in field 4 - ignoring line\n";
+                         continue;
+                     }

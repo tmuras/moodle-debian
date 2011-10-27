@@ -1,0 +1,32 @@
+commit 4a2acd8c7e6c869d5fd5aa686e6e0a3f20c97f15
+Author: Sam Hemelryk <sam@moodle.com>
+Date:   Fri Aug 26 12:48:18 2011 +1200
+
+    MDL-28722 course Fixed typo and variable use when editing a section
+
+diff --git a/course/editsection.html b/course/editsection.html
+index 2618a8a..de0f87d 100644
+--- a/course/editsection.html
++++ b/course/editsection.html
+@@ -21,7 +21,7 @@
+ </tr>
+ </table>
+ <div class="singlebutton">
+-<input type="hidden" name="id" value="<?php echo $form->id ?>" />
++<input type="hidden" name="id" value="<?php echo $id ?>" />
+ <input type="hidden" name="sesskey" value="<?php echo sesskey() ?>" />
+ <input type="submit" value="<?php print_string("savechanges") ?>" />
+ </div>
+diff --git a/course/editsection.php b/course/editsection.php
+index 038de41..cf411c2 100644
+--- a/course/editsection.php
++++ b/course/editsection.php
+@@ -54,7 +54,7 @@
+     } else {
+         $sectionname  = get_section_name($course->format);
+         $stredit      = get_string('edit', '', " $sectionname $section->section");
+-        $strsummaryof = get_string('summaryof', '', " $sectionname $form->section");
++        $strsummaryof = get_string('summaryof', '', " $sectionname $section->section");
+     }
+ 
+     print_header_simple($stredit, '', build_navigation(array(array('name' => $stredit, 'link' => null, 'type' => 'misc'))), 'theform.summary' );

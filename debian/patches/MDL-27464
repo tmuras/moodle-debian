@@ -1,0 +1,42 @@
+commit 8f9f666c902cb30ef6f519353f38c45a29fdf4a6
+Author: Matt Meisberger <mmeisberger@webcourseworks.com>
+Date:   Sat Jul 23 13:21:14 2011 +0200
+
+    MDL-27464 continuation link sometimes links off-site
+    
+    Integrating #CSTAGE-656, continuation link sometimes links off-site, into trunk.
+
+diff --git a/lib/deprecatedlib.php b/lib/deprecatedlib.php
+index 708c596..60b33b2 100644
+--- a/lib/deprecatedlib.php
++++ b/lib/deprecatedlib.php
+@@ -1677,6 +1677,12 @@ function error ($message, $link='') {
+         }
+     }
+ 
++    // when printing an error the continue button should never link offsite
++    if (stripos($link, $CFG->wwwroot) === false &&
++        stripos($link, $CFG->httpswwwroot) === false) {
++        $link = $CFG->wwwroot.'/';
++    }
++
+     if (!empty($link)) {
+         print_continue($link);
+     }
+diff --git a/lib/weblib.php b/lib/weblib.php
+index 9b57dbb..51bb5da 100644
+--- a/lib/weblib.php
++++ b/lib/weblib.php
+@@ -5841,6 +5841,12 @@ function print_error($errorcode, $module='error', $link='', $a=NULL, $extralocat
+         }
+     }
+ 
++    // when printing an error the continue button should never link offsite
++    if (stripos($link, $CFG->wwwroot) === false &&
++        stripos($link, $CFG->httpswwwroot) === false) {
++        $link = $CFG->wwwroot.'/';
++    }
++
+     if (!empty($CFG->errordocroot)) {
+         $errordoclink = $CFG->errordocroot.'/en';
+     } else {
