@@ -18,16 +18,6 @@ index 52834a5..f74967c 100755
                      } else {
                          $upt->track('enrolments', get_string('unknowngroup', 'error', $addgroup), 'error');
 
-commit 682e430ce090058889f219607711e09c634e9e90
-Author: Marina Glancy <marina@moodle.com>
-Date:   Fri Jul 8 10:10:41 2011 +0800
-
-    MDL-28197 another possible sql vulnerability injection fixed
-
-diff --git a/admin/uploaduser.php b/admin/uploaduser.php
-index f74967c..f917566 100755
---- a/admin/uploaduser.php
-+++ b/admin/uploaduser.php
 @@ -558,7 +558,7 @@ if ($formdata = $mform->is_cancelled()) {
                  continue;
              }
