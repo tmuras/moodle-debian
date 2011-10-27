@@ -1,21 +1,64 @@
-commit 0dd51bbdbd3a20836c8f1f4767555702a4ac7388
-Author: David Mudrak <david@moodle.com>
-Date:   Sun Aug 28 01:03:25 2011 +0200
-
-    MDL-29148 MNet - improved handling of a verification function return code
-
+diff --git a/debian/patches/MDL-29148 b/debian/patches/MDL-29148
+index 8dd8eb3..e69de29 100644
+--- a/debian/patches/MDL-29148
++++ b/debian/patches/MDL-29148
+@@ -1,21 +0,0 @@
+-commit 0dd51bbdbd3a20836c8f1f4767555702a4ac7388
+-Author: David Mudrak <david@moodle.com>
+-Date:   Sun Aug 28 01:03:25 2011 +0200
+-
+-    MDL-29148 MNet - improved handling of a verification function return code
+-
+-diff --git a/mnet/xmlrpc/client.php b/mnet/xmlrpc/client.php
+-index bb517d7..8cdafe0 100644
+---- a/mnet/xmlrpc/client.php
+-+++ b/mnet/xmlrpc/client.php
+-@@ -335,8 +335,8 @@ class mnet_xmlrpc_client {
+- 
+-         // ok, it's signed, but is it signed with the right certificate ?
+-         // do this *after* we check for an out of date key
+--        if (!openssl_verify($this->xmlrpcresponse, base64_decode($sig_parser->signature), 
+--                $mnet_peer->public_key)) {
+-+        $verified = openssl_verify($this->xmlrpcresponse, base64_decode($sig_parser->signature), $mnet_peer->public_key);
+-+        if ($verified != 1) {
+-             $this->error[] = 'Invalid signature';
+-         }
+- 
 diff --git a/mnet/xmlrpc/client.php b/mnet/xmlrpc/client.php
-index bb517d7..8cdafe0 100644
+index 0880a7b..8cdafe0 100644
 --- a/mnet/xmlrpc/client.php
 +++ b/mnet/xmlrpc/client.php
-@@ -335,8 +335,8 @@ class mnet_xmlrpc_client {
+@@ -149,7 +149,7 @@ class mnet_xmlrpc_client {
+             // Find methods that we subscribe to on this host
+             $sql = "
+                 SELECT
+-                    *
++                    r.id
+                 FROM
+                     {$CFG->prefix}mnet_rpc r,
+                     {$CFG->prefix}mnet_service2rpc s2r,
+@@ -161,8 +161,7 @@ class mnet_xmlrpc_client {
+                     h2s.subscribe = '1' AND
+                     h2s.hostid in ({$id_list})";
  
-         // ok, it's signed, but is it signed with the right certificate ?
-         // do this *after* we check for an out of date key
--        if (!openssl_verify($this->xmlrpcresponse, base64_decode($sig_parser->signature), 
--                $mnet_peer->public_key)) {
+-            $permission = get_record_sql($sql);
+-            if ($permission == false) {
++            if (!record_exists_sql($sql)) {
+                 global $USER;
+                 $this->error[] = '7:User with ID '. $USER->id .
+                                  ' attempted to call unauthorised method '.
+@@ -333,6 +332,14 @@ class mnet_xmlrpc_client {
+                 $this->error[] = $this->response['faultCode'] . " : " . $this->response['faultString'];
+             }
+         }
++
++        // ok, it's signed, but is it signed with the right certificate ?
++        // do this *after* we check for an out of date key
 +        $verified = openssl_verify($this->xmlrpcresponse, base64_decode($sig_parser->signature), $mnet_peer->public_key);
 +        if ($verified != 1) {
-             $this->error[] = 'Invalid signature';
-         }
- 
++            $this->error[] = 'Invalid signature';
++        }
++
+         return empty($this->error);
+     }
+ }
