@@ -11,9 +11,9 @@ moodle (1.9.9.dfsg2-4) unstable; urgency=high
       - MSA-11-0036 Messaging refresh vulnerability (MDL-29311)
       - MSA-11-0032 MNET SSL validation issue (MDL-29148)
       - MSA-11-0031 Forms API constant issue (MDL-23872)
-  * Make sure that smarty & yui symlinks are correct (closes: 603255) 
+  * Make sure that smarty & yui symlinks are correct (closes: 603255,614712) 
 
- -- Tomasz Muras <nexor1984@gmail.com>  Fri, 28 Oct 2011 12:59:41 +0100
+ -- Tomasz Muras <nexor1984@gmail.com>  Fri, 28 Oct 2011 13:29:14 +0100
 
 moodle (1.9.9.dfsg2-3) unstable; urgency=high
 
