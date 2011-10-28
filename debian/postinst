@@ -224,14 +224,17 @@ case "$1" in
 	# Allow for conflicting debian/ubuntu smarty paths..
         if [ -e /usr/share/php/smarty/libs/Smarty.class.php ]; then
             # Debian has the smarty class in /usr/share/php/smarty/libs
-            [ ! -h /usr/share/moodle/lib/smarty ] && ln -s /usr/share/php/smarty/libs /usr/share/moodle/lib/smarty
+            # Make sure the link is correct (#603255)
+            rm -rf /usr/share/moodle/lib/smarty
+            ln -s /usr/share/php/smarty/libs /usr/share/moodle/lib/smarty
         else
             # Where as Ubuntu has the smarty class in /usr/share/php/smarty
             [ ! -h /usr/share/moodle/lib/smarty ] && ln -s /usr/share/php/smarty /usr/share/moodle/lib/smarty
         fi
 
-
-        [ ! -h /usr/share/moodle/lib/yui ] && ln -s /usr/share/javascript/yui /usr/share/moodle/lib/yui
+        # Make sure the link is correct (#603255)
+        rm -rf /usr/share/moodle/lib/yui
+        ln -s /usr/share/javascript/yui /usr/share/moodle/lib/yui
 
         [ ! -h /usr/share/moodle/lib/magpie ] && ln -s /usr/share/php/magpierss /usr/share/moodle/lib/magpie
 
