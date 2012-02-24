@@ -1,16 +1,171 @@
-commit 581e8dba387f090d89382115fd850d8b44351526
+commit e311b14364719b0f7851149ee51c1a4ec732635e
 Author: Petr Skoda <commits@skodak.org>
-Date:   Fri Oct 28 19:32:07 2011 +0200
+Date:   Fri Oct 28 18:36:43 2011 +0200
 
-    MDL-29925 improve redirect url cleanup
+    MDL-29925 fix calendar parameter handling
 
+diff --git a/calendar/event.php b/calendar/event.php
+index ce524b1..5325aa4 100644
+--- a/calendar/event.php
++++ b/calendar/event.php
+@@ -49,9 +49,9 @@
+     $eventid = optional_param('id', 0, PARAM_INT);
+     $eventtype = optional_param('type', 'select', PARAM_ALPHA);
+     $urlcourse = optional_param('course', 0, PARAM_INT);
+-    $cal_y = optional_param('cal_y');
+-    $cal_m = optional_param('cal_m');
+-    $cal_d = optional_param('cal_d');
++    $cal_y = optional_param('cal_y', 0, PARAM_INT);
++    $cal_m = optional_param('cal_m', 0, PARAM_INT);
++    $cal_d = optional_param('cal_d', 0, PARAM_INT);
+ 
+     if(isguest()) {
+         // Guests cannot do anything with events
+diff --git a/calendar/set.php b/calendar/set.php
+index 0893605..ce86b75 100644
+--- a/calendar/set.php
++++ b/calendar/set.php
+@@ -41,15 +41,14 @@
+     require_once('../config.php');
+     require_once($CFG->dirroot.'/calendar/lib.php');
+ 
+-    $from = required_param('from');
+-    $var = required_param('var');
+-    $value = optional_param('value');
+-    $id = optional_param('id');
+-    $cal_d = optional_param('cal_d');
+-    $cal_m = optional_param('cal_m');
+-    $cal_y = optional_param('cal_y');
+-    $action = optional_param('action');
+-    $type = optional_param('type');
++    $from = required_param('from', PARAM_ALPHA);
++    $var = required_param('var', PARAM_ALPHA);
++    $id = optional_param('id', 0, PARAM_INT);
++    $cal_d = optional_param('cal_d', 0, PARAM_INT);
++    $cal_m = optional_param('cal_m', 0, PARAM_INT);
++    $cal_y = optional_param('cal_y', 0, PARAM_INT);
++    $action = optional_param('action', '', PARAM_ALPHA);
++    $type = optional_param('type', '', PARAM_ALPHA);
+ 
+     // Initialize the session variables
+     calendar_session_vars();
+@@ -107,7 +106,7 @@
+ 
+     switch($from) {
+         case 'event':
+-            redirect(CALENDAR_URL.'event.php?action='.$action.'&amp;type='.$type.'&amp;id='.intval($id));
++            redirect(CALENDAR_URL.'event.php?action='.$action.'&amp;type='.$type.'&amp;id='.$id);
+         break;
+         case 'month':
+             redirect(CALENDAR_URL.'view.php?view=month'.$courseid.'&cal_d='.$cal_d.'&cal_m='.$cal_m.'&cal_y='.$cal_y);
+@@ -119,7 +118,7 @@
+             redirect(CALENDAR_URL.'view.php?view=day'.$courseid.'&cal_d='.$cal_d.'&cal_m='.$cal_m.'&cal_y='.$cal_y);
+         break;
+         case 'course':
+-            redirect($CFG->wwwroot.'/course/view.php?id='.intval($id));
++            redirect($CFG->wwwroot.'/course/view.php?id='.$id);
+         break;
+         default:
+ 
+diff --git a/calendar/view.php b/calendar/view.php
+index b3245b1..0bcdb5d 100644
+--- a/calendar/view.php
++++ b/calendar/view.php
+@@ -426,7 +426,7 @@ function calendar_show_month_detailed($m, $y, $courses, $groups, $users, $course
+     }
+ 
+     // Now display all the calendar
+-    for($day = 1; $day <= $display->maxdays; ++$day, ++$dayweek) {
++    for($aday = 1; $aday <= $display->maxdays; ++$aday, ++$dayweek) {
+         if($dayweek > $display->maxwday) {
+             // We need to change week (table row)
+             echo "</tr>\n<tr>";
+@@ -436,7 +436,7 @@ function calendar_show_month_detailed($m, $y, $courses, $groups, $users, $course
+ 
+         // Reset vars
+         $cell = '';
+-        $dayhref = calendar_get_link_href(CALENDAR_URL.'view.php?view=day&amp;course='.$courseid.'&amp;', $day, $m, $y);
++        $dayhref = calendar_get_link_href(CALENDAR_URL.'view.php?view=day&amp;course='.$courseid.'&amp;', $aday, $m, $y);
+ 
+         if(CALENDAR_WEEKEND & (1 << ($dayweek % 7))) {
+             // Weekend. This is true no matter what the exact range is.
+@@ -448,35 +448,35 @@ function calendar_show_month_detailed($m, $y, $courses, $groups, $users, $course
+         }
+ 
+         // Special visual fx if an event is defined
+-        if(isset($eventsbyday[$day])) {
+-            if(count($eventsbyday[$day]) == 1) {
++        if(isset($eventsbyday[$aday])) {
++            if(count($eventsbyday[$aday]) == 1) {
+                 $title = get_string('oneevent', 'calendar');
+             }
+             else {
+-                $title = get_string('manyevents', 'calendar', count($eventsbyday[$day]));
++                $title = get_string('manyevents', 'calendar', count($eventsbyday[$aday]));
+             }
+-            $cell = '<div class="day"><a href="'.$dayhref.'" title="'.$title.'">'.$day.'</a></div>';
++            $cell = '<div class="day"><a href="'.$dayhref.'" title="'.$title.'">'.$aday.'</a></div>';
+         }
+         else {
+-            $cell = '<div class="day">'.$day.'</div>';
++            $cell = '<div class="day">'.$aday.'</div>';
+         }
+ 
+         // Special visual fx if an event spans many days
+-        if(isset($typesbyday[$day]['durationglobal'])) {
++        if(isset($typesbyday[$aday]['durationglobal'])) {
+             $class .= ' duration_global';
+         }
+-        else if(isset($typesbyday[$day]['durationcourse'])) {
++        else if(isset($typesbyday[$aday]['durationcourse'])) {
+             $class .= ' duration_course';
+         }
+-        else if(isset($typesbyday[$day]['durationgroup'])) {
++        else if(isset($typesbyday[$aday]['durationgroup'])) {
+             $class .= ' duration_group';
+         }
+-        else if(isset($typesbyday[$day]['durationuser'])) {
++        else if(isset($typesbyday[$aday]['durationuser'])) {
+             $class .= ' duration_user';
+         }
+ 
+         // Special visual fx for today
+-        if($display->thismonth && $day == $d) {
++        if($display->thismonth && $aday == $d) {
+             $class .= ' today';
+         } else {
+             $class .= ' nottoday';
+@@ -488,9 +488,9 @@ function calendar_show_month_detailed($m, $y, $courses, $groups, $users, $course
+         }
+         echo '<td'.$class.'>'.$cell;
+ 
+-        if(isset($eventsbyday[$day])) {
++        if(isset($eventsbyday[$aday])) {
+             echo '<ul class="events-new">';
+-            foreach($eventsbyday[$day] as $eventindex) {
++            foreach($eventsbyday[$aday] as $eventindex) {
+ 
+                 // If event has a class set then add it to the event <li> tag
+                 $eventclass = '';
+@@ -502,9 +502,9 @@ function calendar_show_month_detailed($m, $y, $courses, $groups, $users, $course
+             }
+             echo '</ul>';
+         }
+-        if(isset($durationbyday[$day])) {
++        if(isset($durationbyday[$aday])) {
+             echo '<ul class="events-underway">';
+-            foreach($durationbyday[$day] as $eventindex) {
++            foreach($durationbyday[$aday] as $eventindex) {
+                 echo '<li>['.format_string($events[$eventindex]->name,true).']</li>';
+             }
+             echo '</ul>';
 diff --git a/lib/weblib.php b/lib/weblib.php
-index 4f6c268..155b2b0 100644
+index 78a7ad2..36271fc 100644
 --- a/lib/weblib.php
 +++ b/lib/weblib.php
-@@ -2301,6 +2301,37 @@ function redirect($url, $message='', $delay=-1) {
-         }
-     } while (false);
+@@ -6203,8 +6203,35 @@ function redirect($url, $message='', $delay=-1) {
+ 
+     $message = clean_text($message);
  
 +    // Technically, HTTP/1.1 requires Location: header to contain the absolute path.
 +    // (In practice browsers accept relative paths - but still, might as well do it properly.)
@@ -35,22 +190,25 @@ index 4f6c268..155b2b0 100644
 +        }
 +    }
 +
-+    // Sanitise url - we can not rely on moodle_url or our URL cleaning
-+    // because they do not support all valid external URLs
++    // Sanitise url - we can not rely on our URL cleaning
++    // because it does not support all valid external URLs
 +    $url = preg_replace('/[\x00-\x1F\x7F]/', '', $url);
 +    $url = str_replace('"', '%22', $url);
-+    $encodedurl = preg_replace("/\&(?![a-zA-Z0-9#]{1,8};)/", "&amp;", $url);
+     $encodedurl = preg_replace("/\&(?![a-zA-Z0-9#]{1,8};)/", "&amp;", $url);
+-    $encodedurl = preg_replace('/^.*href="([^"]*)".*$/', "\\1", clean_text('<a href="'.$encodedurl.'" />'));
 +    $encodedurl = preg_replace('/^.*href="([^"]*)".*$/', "\\1", clean_text('<a href="'.$encodedurl.'" />', FORMAT_HTML));
-+    $url = str_replace('&amp;', '&', $encodedurl);
-+
-     if (!empty($message)) {
-         if ($delay === -1 || !is_numeric($delay)) {
-             $delay = 3;
-@@ -2309,26 +2340,6 @@ function redirect($url, $message='', $delay=-1) {
-     } else {
-         $message = get_string('pageshouldredirect');
-         $delay = 0;
--        // We are going to try to use a HTTP redirect, so we need a full URL.
+     $url = str_replace('&amp;', '&', $encodedurl);
+ 
+ /// At developer debug level. Don't redirect if errors have been printed on screen.
+@@ -6226,31 +6253,6 @@ function redirect($url, $message='', $delay=-1) {
+ 
+ /// when no message and header printed yet, try to redirect
+     if (empty($message) and !defined('HEADER_PRINTED')) {
+-
+-        // Technically, HTTP/1.1 requires Location: header to contain
+-        // the absolute path. (In practice browsers accept relative
+-        // paths - but still, might as well do it properly.)
+-        // This code turns relative into absolute.
 -        if (!preg_match('|^[a-z]+:|', $url)) {
 -            // Get host name http://www.wherever.com
 -            $hostpart = preg_replace('|^(.*?[^:/])/.*$|', '$1', $CFG->wwwroot);
@@ -70,16 +228,7 @@ index 4f6c268..155b2b0 100644
 -                $url = $newurl;
 -            }
 -        }
-     }
- 
-     if (defined('MDL_PERF') || (!empty($CFG->perfdebug) and $CFG->perfdebug > 7)) {
-@@ -2338,9 +2349,6 @@ function redirect($url, $message='', $delay=-1) {
-         }
-     }
- 
--    $encodedurl = preg_replace("/\&(?![a-zA-Z0-9#]{1,8};)/", "&amp;", $url);
--    $encodedurl = preg_replace('/^.*href="([^"]*)".*$/', "\\1", clean_text('<a href="'.$encodedurl.'" />'));
 -
-     if ($delay == 0 && !$debugdisableredirect && !headers_sent()) {
-         // workaround for IIS bug http://support.microsoft.com/kb/q176113/
-         if (session_id()) {
+         $delay = 0;
+         //try header redirection first
+         @header($_SERVER['SERVER_PROTOCOL'] . ' 303 See Other'); //302 might not work for POST requests, 303 is ignored by obsolete clients

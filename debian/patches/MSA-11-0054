@@ -1,14 +1,14 @@
-commit e94113a859015a4a80b9397957b8fc4044e2951f
+commit 8f83cfbe914b501d8d419ba10f0063c0f0a6ee5f
 Author: adrian@moodle.com <abgreeve@gmail.com>
-Date:   Tue Nov 15 10:24:18 2011 +0800
+Date:   Tue Nov 15 09:52:03 2011 +0800
 
     MDL-20627 user - Fixed viewing permission of email when sending group messages.
 
-diff --git a/lang/en/moodle.php b/lang/en/moodle.php
-index 52caf4a..9cae46d 100644
---- a/lang/en/moodle.php
-+++ b/lang/en/moodle.php
-@@ -531,6 +531,7 @@ $string['emaildisable'] = 'This email address is disabled';
+diff --git a/lang/en_utf8/moodle.php b/lang/en_utf8/moodle.php
+index 55cc552..0d8c27b 100644
+--- a/lang/en_utf8/moodle.php
++++ b/lang/en_utf8/moodle.php
+@@ -503,6 +503,7 @@ $string['emaildisable'] = 'This email address is disabled';
  $string['emaildisableclick'] = 'Click here to disable all email from being sent to this address';
  $string['emaildisplay'] = 'Email display';
  $string['emaildisplaycourse'] = 'Allow only other course members to see my email address';
@@ -17,34 +17,34 @@ index 52caf4a..9cae46d 100644
  $string['emaildisplayyes'] = 'Allow everyone to see my email address';
  $string['emailenable'] = 'This email address is enabled';
 diff --git a/user/message.html b/user/message.html
-index e9e7913..e077cf1 100644
+index ab51aa0..eaafa14 100644
 --- a/user/message.html
 +++ b/user/message.html
-@@ -34,7 +34,13 @@
- <?php
-     if (count($SESSION->emailto[$id])) {
+@@ -56,7 +56,13 @@
+             $course->teacher = get_string('defaultcourseteacher');
+         }
          foreach ($SESSION->emailto[$id] as $user) {
 -            echo '<tr><td>'.fullname($user,true).'</td><td>'.$user->email.'</td><td>';
 +            echo '<tr><td>'.fullname($user,true).'</td>';
 +            // Check to see if we should be showing the email address.
-+            if ($user->maildisplay == 0) { // 0 = don't display my email to anyone.
++            if ($user->maildisplay == 0 ) { // 0 = don't display my email to anyone.
 +                echo '<td>' . get_string('emaildisplayhidden') . '</td><td>';
 +            } else {
 +                echo '<td>'.$user->email.'</td><td>';
 +            }
-             if (empty($user->email)) {
-                 $error = get_string('emailempty');
+             if ($user->teacher) {
+                 echo '<img src="'.$CFG->pixpath.'/t/user.gif" alt="'.$course->teacher.'" title="'.$course->teacher.'"/>';
              }
 diff --git a/user/messageselect.php b/user/messageselect.php
-index a210d30..d54d26d 100644
+index 059598e..d79cd0f 100644
 --- a/user/messageselect.php
 +++ b/user/messageselect.php
-@@ -95,7 +95,7 @@ if ($data = data_submitted()) {
-     foreach ($data as $k => $v) {
+@@ -46,7 +46,7 @@
+     foreach ($_POST as $k => $v) {
          if (preg_match('/^(user|teacher)(\d+)$/',$k,$m)) {
              if (!array_key_exists($m[2],$SESSION->emailto[$id])) {
--                if ($user = $DB->get_record_select('user', "id = ?", array($m[2]), 'id,firstname,lastname,idnumber,email,mailformat,lastaccess, lang')) {
-+                if ($user = $DB->get_record_select('user', "id = ?", array($m[2]), 'id,firstname,lastname,idnumber,email,mailformat,lastaccess, lang, maildisplay')) {
+-                if ($user = get_record_select('user','id = '.$m[2],'id,firstname,lastname,idnumber,email,emailstop,mailformat,lastaccess')) {
++                if ($user = get_record_select('user','id = '.$m[2],'id,firstname,lastname,idnumber,email,emailstop,mailformat,lastaccess,maildisplay')) {
                      $SESSION->emailto[$id][$m[2]] = $user;
+                     $SESSION->emailto[$id][$m[2]]->teacher = ($m[1] == 'teacher');
                      $count++;
-                 }

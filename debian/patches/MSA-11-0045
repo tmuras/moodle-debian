@@ -1,51 +1,52 @@
-commit 10df8657c1c138c0d0ab1d4796c552fcec0c299b
+commit 408d3ca00035a8b24cc091ec93253e802e268c2d
 Author: David Mudrak <david@moodle.com>
-Date:   Fri Nov 4 09:33:58 2011 +0100
+Date:   Fri Nov 4 10:57:58 2011 +0100
 
     MDL-29977 MNet does not allow to start a remote session when masquerading as another user
 
 diff --git a/auth/mnet/auth.php b/auth/mnet/auth.php
-index b4e733c..f6938f3 100644
+index a35cc8f..cece819 100644
 --- a/auth/mnet/auth.php
 +++ b/auth/mnet/auth.php
-@@ -132,6 +132,10 @@ class auth_plugin_mnet extends auth_plugin_base {
-         global $CFG, $USER, $DB;
+@@ -170,6 +170,10 @@ class auth_plugin_mnet extends auth_plugin_base {
+         global $MNET;
          require_once $CFG->dirroot . '/mnet/xmlrpc/client.php';
  
-+        if (session_is_loggedinas()) {
++        if (!empty($USER->realuser)) {
 +            print_error('notpermittedtojumpas', 'mnet');
 +        }
 +
          // check remote login permissions
-         if (! has_capability('moodle/site:mnetlogintoremote', get_system_context())
+         if (! has_capability('moodle/site:mnetlogintoremote', get_context_instance(CONTEXT_SYSTEM))
                  or is_mnet_remote_user($USER)
 diff --git a/blocks/mnet_hosts/block_mnet_hosts.php b/blocks/mnet_hosts/block_mnet_hosts.php
-index 1af74ac..3c6916b 100644
+index 9363338..c90da58 100644
 --- a/blocks/mnet_hosts/block_mnet_hosts.php
 +++ b/blocks/mnet_hosts/block_mnet_hosts.php
-@@ -25,6 +25,13 @@ class block_mnet_hosts extends block_list {
-             return false;
+@@ -32,6 +32,14 @@ class block_mnet_hosts extends block_list {
+             return '';
          }
  
-+        if (session_is_loggedinas()) {
++        if (!empty($USER->realuser)) {
 +            $this->content = new stdClass();
-+            $this->content->footer = html_writer::tag('span',
-+                get_string('notpermittedtojumpas', 'mnet'));
++            $this->content->items = array();
++            $this->content->icons = array();
++            $this->content->footer = get_string('notpermittedtojumpas', 'mnet');
 +            return $this->content;
 +        }
 +
-         // according to start_jump_session,
-         // remote users can't on-jump
-         // so don't show this block to them
-diff --git a/lang/en/mnet.php b/lang/en/mnet.php
-index cae5f9c..bb9b476 100644
---- a/lang/en/mnet.php
-+++ b/lang/en/mnet.php
-@@ -159,6 +159,7 @@ $string['notinxmlrpcserver'] = 'Attempt to access the MNet remote client, not du
- $string['notmoodleapplication'] = 'WARNING: This is not a Moodle application, so some of the inspection methods may not work properly.';
- $string['notPEM'] = 'This key is not in PEM format. It will not work.';
- $string['notpermittedtojump'] = 'You do not have permission to begin a remote session from this Moodle server.';
+         // check for outgoing roaming permission first
+         if (!has_capability('moodle/site:mnetlogintoremote', get_context_instance(CONTEXT_SYSTEM), NULL, false)) {
+             return '';
+diff --git a/lang/en_utf8/mnet.php b/lang/en_utf8/mnet.php
+index 85845e8..b10271e 100644
+--- a/lang/en_utf8/mnet.php
++++ b/lang/en_utf8/mnet.php
+@@ -208,6 +208,7 @@ $string['addtoacl'] = 'Add to Access Control';
+ $string['accesslevel'] = 'Access Level';
+ $string['ssoaccesscontrol'] = 'SSO Access Control';
+ $string['notpermittedtojump'] = 'You do not have permission to begin a remote session from this Moodle hub.';
 +$string['notpermittedtojumpas'] = 'You can\'t begin a remote session while you are logged in as another user.';
  $string['notpermittedtoland'] = 'You do not have permission to begin a remote session.';
- $string['off'] = 'Off';
- $string['on'] = 'On';
+ $string['authfail_nosessionexists'] = 'Authorisation failed: the mnet session does not exist.';
+ $string['authfail_sessiontimedout'] = 'Authorisation failed: the mnet session has timed out.';
