@@ -1,0 +1,23 @@
+commit 3ab2851d2a59721445945d0706c58092e07e861e
+Author: Patrick Mcneill <pmcneill@berklee.com>
+Date:   Thu Nov 10 10:10:49 2011 +0530
+
+    MDL-29551 Fixing ip_in_range function
+
+diff --git a/mnet/lib.php b/mnet/lib.php
+index 060204c..94d4b86 100644
+--- a/mnet/lib.php
++++ b/mnet/lib.php
+@@ -412,10 +412,10 @@ function ip_in_range($address, $network, $mask) {
+    $lnetwork  = ip2long($network);
+    $laddress  = ip2long($address);
+ 
+-   $binnet    = str_pad( decbin($lnetwork),32,"0","STR_PAD_LEFT" );
++   $binnet    = str_pad( decbin($lnetwork), 32, "0", STR_PAD_LEFT );
+    $firstpart = substr($binnet,0,$mask);
+ 
+-   $binip     = str_pad( decbin($laddress),32,"0","STR_PAD_LEFT" );
++   $binip     = str_pad( decbin($laddress), 32, "0", STR_PAD_LEFT );
+    $firstip   = substr($binip,0,$mask);
+    return(strcmp($firstpart,$firstip)==0);
+ }

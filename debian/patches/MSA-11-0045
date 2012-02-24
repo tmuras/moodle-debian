@@ -1,0 +1,51 @@
+commit 10df8657c1c138c0d0ab1d4796c552fcec0c299b
+Author: David Mudrak <david@moodle.com>
+Date:   Fri Nov 4 09:33:58 2011 +0100
+
+    MDL-29977 MNet does not allow to start a remote session when masquerading as another user
+
+diff --git a/auth/mnet/auth.php b/auth/mnet/auth.php
+index b4e733c..f6938f3 100644
+--- a/auth/mnet/auth.php
++++ b/auth/mnet/auth.php
+@@ -132,6 +132,10 @@ class auth_plugin_mnet extends auth_plugin_base {
+         global $CFG, $USER, $DB;
+         require_once $CFG->dirroot . '/mnet/xmlrpc/client.php';
+ 
++        if (session_is_loggedinas()) {
++            print_error('notpermittedtojumpas', 'mnet');
++        }
++
+         // check remote login permissions
+         if (! has_capability('moodle/site:mnetlogintoremote', get_system_context())
+                 or is_mnet_remote_user($USER)
+diff --git a/blocks/mnet_hosts/block_mnet_hosts.php b/blocks/mnet_hosts/block_mnet_hosts.php
+index 1af74ac..3c6916b 100644
+--- a/blocks/mnet_hosts/block_mnet_hosts.php
++++ b/blocks/mnet_hosts/block_mnet_hosts.php
+@@ -25,6 +25,13 @@ class block_mnet_hosts extends block_list {
+             return false;
+         }
+ 
++        if (session_is_loggedinas()) {
++            $this->content = new stdClass();
++            $this->content->footer = html_writer::tag('span',
++                get_string('notpermittedtojumpas', 'mnet'));
++            return $this->content;
++        }
++
+         // according to start_jump_session,
+         // remote users can't on-jump
+         // so don't show this block to them
+diff --git a/lang/en/mnet.php b/lang/en/mnet.php
+index cae5f9c..bb9b476 100644
+--- a/lang/en/mnet.php
++++ b/lang/en/mnet.php
+@@ -159,6 +159,7 @@ $string['notinxmlrpcserver'] = 'Attempt to access the MNet remote client, not du
+ $string['notmoodleapplication'] = 'WARNING: This is not a Moodle application, so some of the inspection methods may not work properly.';
+ $string['notPEM'] = 'This key is not in PEM format. It will not work.';
+ $string['notpermittedtojump'] = 'You do not have permission to begin a remote session from this Moodle server.';
++$string['notpermittedtojumpas'] = 'You can\'t begin a remote session while you are logged in as another user.';
+ $string['notpermittedtoland'] = 'You do not have permission to begin a remote session.';
+ $string['off'] = 'Off';
+ $string['on'] = 'On';
