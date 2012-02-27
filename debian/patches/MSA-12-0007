@@ -59,19 +59,3 @@ Date:   Sat Dec 10 18:21:35 2011 +0100
 
     MDL-30575 more mail header cleanup
 
-diff --git a/lib/phpmailer/class.phpmailer.php b/lib/phpmailer/class.phpmailer.php
-index b67a33c..d5ccc70 100644
---- a/lib/phpmailer/class.phpmailer.php
-+++ b/lib/phpmailer/class.phpmailer.php
-@@ -1190,7 +1190,10 @@ class PHPMailer
-      */
-     function EncodeHeader ($str, $position = 'text') {
- 
--    /// Start Moodle Hack - do our own multibyte-safe header encoding
-+    /// Start Moodle Hack - do our own multibyte-safe header encoding and cleanup
-+        $str = str_replace("\r", '', $str);
-+        $str = str_replace("\n", '', $str);
-+
-         $textlib = textlib_get_instance();
-         $encoded = $textlib->encode_mimeheader($str, $this->CharSet);
-         if ($encoded !== false) {
