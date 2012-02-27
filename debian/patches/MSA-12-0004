@@ -1,26 +1,26 @@
-commit 90911c4ff98dc2078a3acef5ddf5a1a8f7e20ba5
-Author: Eloy Lafuente <stronk7@moodle.org>
-Date:   Mon Dec 12 12:33:54 2011 +0800
+commit 4ed11995247b47033d4cd58eb75bc7101a431ef5
+Author: Rajesh Taneja <rajesh@moodle.org>
+Date:   Tue Jan 3 13:48:24 2012 +0800
 
     MDL-29844 Administration: Added new config for users to login for viewing profile image
 
 diff --git a/admin/settings/security.php b/admin/settings/security.php
-index 382f3f2..bde7263 100644
+index 4f2a038..58a233d 100644
 --- a/admin/settings/security.php
 +++ b/admin/settings/security.php
-@@ -16,6 +16,7 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
+@@ -8,6 +8,7 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
      $temp->add(new admin_setting_configcheckbox('protectusernames', get_string('protectusernames', 'admin'), get_string('configprotectusernames', 'admin'), 1));
      $temp->add(new admin_setting_configcheckbox('forcelogin', get_string('forcelogin', 'admin'), get_string('configforcelogin', 'admin'), 0));
      $temp->add(new admin_setting_configcheckbox('forceloginforprofiles', get_string('forceloginforprofiles', 'admin'), get_string('configforceloginforprofiles', 'admin'), 1));
 +    $temp->add(new admin_setting_configcheckbox('forceloginforprofileimage', get_string('forceloginforprofileimage', 'admin'), get_string('forceloginforprofileimage_help', 'admin'), 0));
      $temp->add(new admin_setting_configcheckbox('opentogoogle', get_string('opentogoogle', 'admin'), get_string('configopentogoogle', 'admin'), 0));
-     $temp->add(new admin_setting_pickroles('profileroles',
-         get_string('profileroles','admin'),
-diff --git a/lang/en/admin.php b/lang/en/admin.php
-index f648a3d..749d319 100644
+ 
+     $max_upload_choices = get_max_upload_sizes();
+diff --git a/lang/en_utf8/admin.php b/lang/en_utf8/admin.php
+index 915064e..6f88a99 100644
 --- a/lang/en_utf8/admin.php
 +++ b/lang/en_utf8/admin.php
-@@ -516,6 +516,8 @@ $string['filtersettings'] = 'Manage filters';
+@@ -396,6 +396,8 @@ $string['filtersettings'] = 'Manage filters';
  $string['filtersettingsgeneral'] = 'General filter settings';
  $string['filteruploadedfiles'] = 'Filter uploaded files';
  $string['forcelogin'] = 'Force users to login';
@@ -28,37 +28,33 @@ index f648a3d..749d319 100644
 +$string['forceloginforprofileimage_help'] = 'If enabled, users must login in order to view user profile pictures and the default user picture will be used in all notification emails.';
  $string['forceloginforprofiles'] = 'Force users to login for profiles';
  $string['forcetimezone'] = 'Force default timezone';
- $string['frontpage'] = 'Front page';
-diff --git a/lib/filelib.php b/lib/filelib.php
-index af72cf7..e3b4a22 100644
---- a/lib/filelib.php
-+++ b/lib/filelib.php
-@@ -3404,8 +3404,10 @@ function file_pluginfile($relativepath, $forcedownload) {
-                 $themename = array_shift($args);
-                 $filename = array_shift($args);
-             }
--            if ((!empty($CFG->forcelogin) and !isloggedin())) {
-+            if ((!empty($CFG->forcelogin) and !isloggedin()) ||
-+                    (!empty($CFG->forceloginforprofileimage) && (!isloggedin() || isguestuser()))) {
-                 // protect images if login required and not logged in;
-+                // also if login is required for profile images and is not logged in or guest
-                 // do not use require_login() because it is expensive and not suitable here anyway
-                 $redirect = true;
-             }
-diff --git a/lib/outputcomponents.php b/lib/outputcomponents.php
-index 16f1fe2..9699647 100644
---- a/lib/outputcomponents.php
-+++ b/lib/outputcomponents.php
-@@ -276,8 +276,10 @@ class user_picture implements renderable {
-             $renderer = $page->get_renderer('core');
-         }
+ $string['framename'] = 'Frame name';
+diff --git a/user/pix.php b/user/pix.php
+index d37d18b..fa0365c 100644
+--- a/user/pix.php
++++ b/user/pix.php
+@@ -6,8 +6,10 @@
+     require_once('../config.php');
+     require_once($CFG->libdir.'/filelib.php');
  
--        if (!empty($CFG->forcelogin) and !isloggedin()) {
-+        if ((!empty($CFG->forcelogin) and !isloggedin()) ||
-+                (!empty($CFG->forceloginforprofileimage) && (!isloggedin() || isguestuser()))) {
-             // protect images if login required and not logged in;
-+            // also if login is required for profile images and is not logged in or guest
-             // do not use require_login() because it is expensive and not suitable here anyway
-             return $renderer->pix_url('u/f1');
-         }
-
+-    if (!empty($CFG->forcelogin) and !isloggedin()) {
++    if ((!empty($CFG->forcelogin) and !isloggedin()) ||
++        (!empty($CFG->forceloginforprofileimage) && (!isloggedin() || isguestuser()))) {
+         // protect images if login required and not logged in;
++        // also if login is required for profile images and is not logged in or guest
+         // do not use require_login() because it is expensive and not suitable here anyway
+         redirect($CFG->pixpath.'/u/f1.png');
+     }
+diff --git a/version.php b/version.php
+index 483f667..948d626 100644
+--- a/version.php
++++ b/version.php
+@@ -6,7 +6,7 @@
+ // This is compared against the values stored in the database to determine
+ // whether upgrades should be performed (see lib/db/*.php)
+ 
+-    $version = 2007101591.08; // YYYYMMDD      = date of the 1.9 branch (don't change)
++    $version = 2007101591.09; // YYYYMMDD      = date of the 1.9 branch (don't change)
+                               //         X     = release number 1.9.[0,1,2,3,4,5...]
+                               //          Y.YY = micro-increments between releases
+ 
