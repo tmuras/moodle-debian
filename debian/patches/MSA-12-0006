@@ -1,0 +1,19 @@
+commit f88a9ef3fb3fdd2a796a8ff4471fc8c6e9093b78
+Author: Petr Skoda <commits@skodak.org>
+Date:   Mon Jan 2 23:25:38 2012 +0100
+
+    MDL-13572 do not send messages to invalid addresses
+
+diff --git a/message/lib.php b/message/lib.php
+index 4722a15..b9c7aed 100644
+--- a/message/lib.php
++++ b/message/lib.php
+@@ -996,7 +996,7 @@ function message_post_message($userfrom, $userto, $message, $format, $messagetyp
+                 $messagehtml = NULL;
+             }
+ 
+-            if (!empty($preference->message_emailaddress)) {
++            if (!empty($preference->message_emailaddress) and validate_email($preference->message_emailaddress)) {
+                 $userto->email = $preference->message_emailaddress;   // Use custom messaging address
+             }
+ 

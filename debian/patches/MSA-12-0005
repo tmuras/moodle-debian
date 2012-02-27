@@ -1,0 +1,28 @@
+commit 75366c60ff24436aff7e0daa02fb1d46c03ac47d
+Author: adrian@moodle.com <abgreeve@gmail.com>
+Date:   Fri Dec 2 16:33:25 2011 +0800
+
+    MDL-28948 - lib - removed the hard coded key for the rc4encryt function.
+
+diff --git a/lib/moodlelib.php b/lib/moodlelib.php
+index 3711b5f..bde71c2 100644
+--- a/lib/moodlelib.php
++++ b/lib/moodlelib.php
+@@ -6029,7 +6029,7 @@ function get_list_of_currencies() {
+  * @todo Finish documenting this function
+  */
+ function rc4encrypt($data) {
+-    $password = 'nfgjeingjk';
++    $password = get_site_identifier();
+     return endecrypt($password, $data, '');
+ }
+ 
+@@ -6041,7 +6041,7 @@ function rc4encrypt($data) {
+  * @todo Finish documenting this function
+  */
+ function rc4decrypt($data) {
+-    $password = 'nfgjeingjk';
++    $password = get_site_identifier();
+     return endecrypt($password, $data, 'de');
+ }
+ 

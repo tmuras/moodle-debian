@@ -1,0 +1,77 @@
+commit 1501cc8cea9ecc316e354250cc9aed0894e3433f
+Author: Petr Skoda <commits@skodak.org>
+Date:   Sun Dec 11 23:42:32 2011 +0100
+
+    MDL-30575 yet more mail header cleanup
+
+diff --git a/lib/phpmailer/class.phpmailer.php b/lib/phpmailer/class.phpmailer.php
+index d5ccc70..53d3668 100644
+--- a/lib/phpmailer/class.phpmailer.php
++++ b/lib/phpmailer/class.phpmailer.php
+@@ -653,11 +653,11 @@ class PHPMailer
+      */
+     function AddrFormat($addr) {
+         if(empty($addr[1]))
+-            $formatted = $addr[0];
++            $formatted = preg_replace('/[\r\n]+/', '', $addr[0]); // Moodle modification
+         else
+         {
+-            $formatted = $this->EncodeHeader($addr[1], 'phrase') . " <" . 
+-                         $addr[0] . ">";
++            $formatted = $this->EncodeHeader($addr[1], 'phrase') . " <" .
++                         preg_replace('/[\r\n]+/', '', $addr[0]) . ">"; // Moodle modification
+         }
+ 
+         return $formatted;
+@@ -780,9 +780,9 @@ class PHPMailer
+ 
+         $result .= $this->HeaderLine("Date", $this->RFCDate());
+         if($this->Sender == "")
+-            $result .= $this->HeaderLine("Return-Path", trim($this->From));
++            $result .= $this->HeaderLine("Return-Path", trim(preg_replace('/[\r\n]+/', '', $this->From))); // Moodle modification
+         else
+-            $result .= $this->HeaderLine("Return-Path", trim($this->Sender));
++            $result .= $this->HeaderLine("Return-Path", trim(preg_replace('/[\r\n]+/', '', $this->Sender))); // Moodle modification
+         
+         // To be created automatically by mail()
+         if($this->Mailer != "mail")
+commit a9e3abe0b437d449a044f1e059a5d0f29601f335
+Author: Petr Skoda <commits@skodak.org>
+Date:   Sat Dec 10 18:21:35 2011 +0100
+
+    MDL-30575 more mail header cleanup
+
+@@ -1190,7 +1190,10 @@ class PHPMailer
+      */
+     function EncodeHeader ($str, $position = 'text') {
+ 
+-    /// Start Moodle Hack - do our own multibyte-safe header encoding
++    /// Start Moodle Hack - do our own multibyte-safe header encoding and cleanup
++        $str = str_replace("\r", '', $str);
++        $str = str_replace("\n", '', $str);
++
+         $textlib = textlib_get_instance();
+         $encoded = $textlib->encode_mimeheader($str, $this->CharSet);
+         if ($encoded !== false) {
+commit a9e3abe0b437d449a044f1e059a5d0f29601f335
+Author: Petr Skoda <commits@skodak.org>
+Date:   Sat Dec 10 18:21:35 2011 +0100
+
+    MDL-30575 more mail header cleanup
+
+diff --git a/lib/phpmailer/class.phpmailer.php b/lib/phpmailer/class.phpmailer.php
+index b67a33c..d5ccc70 100644
+--- a/lib/phpmailer/class.phpmailer.php
++++ b/lib/phpmailer/class.phpmailer.php
+@@ -1190,7 +1190,10 @@ class PHPMailer
+      */
+     function EncodeHeader ($str, $position = 'text') {
+ 
+-    /// Start Moodle Hack - do our own multibyte-safe header encoding
++    /// Start Moodle Hack - do our own multibyte-safe header encoding and cleanup
++        $str = str_replace("\r", '', $str);
++        $str = str_replace("\n", '', $str);
++
+         $textlib = textlib_get_instance();
+         $encoded = $textlib->encode_mimeheader($str, $this->CharSet);
+         if ($encoded !== false) {

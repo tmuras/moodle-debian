@@ -1,0 +1,62 @@
+commit 630fc6ee7ead7345d15d0fbe048cd626a119825c
+Author: adrian@moodle.com <abgreeve@gmail.com>
+Date:   Thu Dec 8 09:21:15 2011 +0800
+
+    MDL-30336 - login - Added a setting in security that allows auto complete to be set to off in password fields.
+
+diff --git a/admin/settings/security.php b/admin/settings/security.php
+index 7ab02e1..4f2a038 100644
+--- a/admin/settings/security.php
++++ b/admin/settings/security.php
+@@ -67,6 +67,7 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
+     $temp->add(new admin_setting_configcheckbox('cookiehttponly', get_string('cookiehttponly', 'admin'), get_string('configcookiehttponly', 'admin'), 0));
+     $temp->add(new admin_setting_configcheckbox('regenloginsession', get_string('regenloginsession', 'admin'), get_string('configregenloginsession', 'admin'), 1));
+     $temp->add(new admin_setting_configtext('excludeoldflashclients', get_string('excludeoldflashclients', 'admin'), get_string('configexcludeoldflashclients', 'admin'), '10.0.12', PARAM_TEXT));
++    $temp->add(new admin_setting_configcheckbox('loginpasswordautocomplete', get_string('loginpasswordautocomplete', 'admin'), get_string('loginpasswordautocomplete_help', 'admin'), 0));
+     $ADMIN->add('security', $temp);
+ 
+ 
+diff --git a/blocks/login/block_login.php b/blocks/login/block_login.php
+index d203c4b..44b174b 100644
+--- a/blocks/login/block_login.php
++++ b/blocks/login/block_login.php
+@@ -49,7 +49,12 @@ class block_login extends block_base {
+             $this->content->text .= '<input type="text" name="username" id="login_username" value="'.s($username).'" /></div>';
+ 
+             $this->content->text .= '<div class="c1 fld password"><label for="login_password">'.get_string('password').'</label>';
+-            $this->content->text .= '<input type="password" name="password" id="login_password" value="" /></div>';
++
++            if (!empty($CFG->loginpasswordautocomplete)) {
++                $this->content->text .= '<input type="password" name="password" id="login_password" value="" autocomplete="off" /></div>';
++            } else {
++                $this->content->text .= '<input type="password" name="password" id="login_password" value="" /></div>';
++            }
+ 
+             $this->content->text .= '<div class="c1 btn"><input type="submit" value="'.get_string('login').'" /></div>';
+ 
+diff --git a/lang/en_utf8/admin.php b/lang/en_utf8/admin.php
+index 7d6a64a..915064e 100644
+--- a/lang/en_utf8/admin.php
++++ b/lang/en_utf8/admin.php
+@@ -493,6 +493,8 @@ $string['location'] = 'Location';
+ $string['locationsettings'] = 'Location settings';
+ $string['log'] = 'Logs';
+ $string['loginhttps'] = 'Use HTTPS for logins';
++$string['loginpasswordautocomplete'] = 'Prevent password autocompletion on login form.';
++$string['loginpasswordautocomplete_help'] = 'Having this off will let users save their account password in their browser. Switching this setting on will result in your site no longer following XHTML strict validation rules.';
+ $string['loglifetime'] = 'Keep logs for';
+ $string['longtimenosee'] = 'Unsubscribe users from courses after';
+ $string['longtimewarning'] = '<b>Please note that this process can take a long time.</b>';
+diff --git a/login/index_form.html b/login/index_form.html
+index c1ff040..620fe81 100644
+--- a/login/index_form.html
++++ b/login/index_form.html
+@@ -35,7 +35,7 @@ if ($show_instructions) {
+             <div class="clearer"><!-- --></div>
+             <div class="form-label"><label for="password"><?php print_string("password") ?></label></div>
+             <div class="form-input">
+-              <input type="password" name="password" id="password" size="15" value="" />
++              <input type="password" name="password" id="password" size="15" value="" <?php if (!empty($CFG->loginpasswordautocomplete)) {echo 'autocomplete="off"';} ?> />
+               <input type="submit" value="<?php print_string("login") ?>" />
+               <input type="hidden" name="testcookies" value="1" />
+             </div>

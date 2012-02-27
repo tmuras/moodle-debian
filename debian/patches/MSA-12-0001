@@ -1,0 +1,28 @@
+commit c3056feed85bf7ea11c829e8756f521e50580abb
+Author: Petr Skoda <commits@skodak.org>
+Date:   Tue Dec 6 11:44:13 2011 +0100
+
+    MDL-27364 use https for recaptcha when site runs via https
+    
+    Based on solution by Rajesh Taneja.
+
+diff --git a/lib/form/recaptcha.php b/lib/form/recaptcha.php
+index 7cbc830..9b0fc2a 100644
+--- a/lib/form/recaptcha.php
++++ b/lib/form/recaptcha.php
+@@ -33,10 +33,13 @@ class MoodleQuickForm_recaptcha extends HTML_QuickForm_input {
+      * </code>
+      */
+     function MoodleQuickForm_recaptcha($elementName = null, $elementLabel = null, $attributes = null) {
++        global $CFG;
+         parent::HTML_QuickForm_input($elementName, $elementLabel, $attributes);
+         $this->_type = 'recaptcha';
+-        if (!empty($attributes['https'])) {
+-            $this->_https = $attributes['https'];
++        if (!empty($attributes['https']) or strpos($CFG->httpswwwroot, 'https:') === 0) {
++            $this->_https = true;
++        } else {
++            $this->_https = false;
+         }
+     }
+ 
