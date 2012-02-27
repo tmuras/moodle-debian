@@ -1,3 +1,24 @@
+moodle (1.9.9.dfsg2-5) unstable; urgency=high
+
+  * Backporting security fixes from Moodle 1.9.15 and 1.9.16
+    (closes: #652235)
+     - MSA-11-0054 Personal information leak
+     - MSA-11-0045 Potential to masquerade through MNet (CVE-2011-4584)
+     - MSA-11-0046 Insecure authentication transmission (CVE-2011-4585)
+     - MSA-11-0047 Possible injection attack in Calendar (CVE-2011-4586)
+     - MSA-11-0048 Password loss issue (CVE-2011-4587)
+     - MSA-11-0049 Network restriction ineffective with MNet (CVE-2011-4588)
+     - MSA-12-0007 Email injection prevention (CVE-2012-0796)
+     - MSA-12-0006 Additional email address validation (CVE-2012-0795)
+     - MSA-12-0005 Encryption enhancement (CVE-2012-0794)
+     - MSA-12-0004 Added profile image security (CVE-2012-0793)
+     - MSA-12-0003 Added password protection 
+     - MSA-12-0002 Personal information leak, previously MSA-11-0040 
+       (CVE-2011-4308 and CVE-2012-0792)
+     - MSA-12-0001 Recaptcha transmission consistency issue
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Mon, 27 Feb 2012 21:14:48 +0000
+
 moodle (1.9.9.dfsg2-4) unstable; urgency=high
 
   * Backporting security fixes from Moodle 1.9.13 and 1.9.14
