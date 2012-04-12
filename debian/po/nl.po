@@ -1,18 +1,17 @@
-# German translation of moodle.
-# Copyright (C) 2010 Holger Wansing
+# Dutch translation of moodle debconf templates.
+# Copyright (C) 2012 THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the moodle package.
-# Holger Wansing <linux@wansing-online.de>, 2010.
-#
+# Jeroen Schot <schot@a-eskwadraat.nl>, 2012.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: moodle 1.9.8-2\n"
+"Project-Id-Version: moodle 1.9.9.dfsg2-4\n"
 "Report-Msgid-Bugs-To: moodle@packages.debian.org\n"
 "POT-Creation-Date: 2010-07-18 17:42+0100\n"
-"PO-Revision-Date: 2010-07-23 22:24+0200\n"
-"Last-Translator: Holger Wansing <linux@wansing-online.de>\n"
-"Language-Team: German\n"
-"Language: \n"
+"PO-Revision-Date: 2012-02-17 17:10+0100\n"
+"Last-Translator: Jeroen Schot <schot@a-eskwadraat.nl>\n"
+"Language-Team: Debian l10n Dutch <debian-l10n-dutch@lists.debian.org>\n"
+"Language: nl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -21,13 +20,13 @@ msgstr ""
 #. Description
 #: ../templates:2001
 msgid "URL for the Moodle site:"
-msgstr "URL für die Moodle-Site:"
+msgstr "URL voor de Moodle-site:"
 
 #. Type: string
 #. Description
 #: ../templates:2001
 msgid "Please enter the URL from which Moodle should serve pages."
-msgstr "Bitte geben Sie die URL ein, von der Moodle Seiten bereitstellen soll."
+msgstr "Vanaf welke URL moet Moodle pagina's opdienen?"
 
 #. Type: string
 #. Description
@@ -36,5 +35,5 @@ msgid ""
 "The moodle package does not perform any automatic web server configuration, "
 "but does provide basic configuration templates for Apache."
 msgstr ""
-"Das Moodle-Paket führt keine automatische Webserver-Konfiguration durch, "
-"stellt jedoch einfache Konfigurationsvorlagen für Apache zur Verfügung."
+"Het moodle-pakket voert geen automatische configuratie van de webserver uit, "
+"maar het biedt wel een eenvoudige configuratietemplates voor Apache."
