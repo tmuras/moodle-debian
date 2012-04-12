@@ -1,3 +1,11 @@
+moodle (1.9.9.dfsg2-6) unstable; urgency=high
+
+  * Backporting security fixes from Moodle 1.9.17
+     - MSA-12-00013 DB activtity export does not respect groups
+         (CVE-2012-1155, closes: #668411)
+
+ -- Tomasz Muras <nexor1984@gmail.com>  Thu, 12 Apr 2012 21:55:48 +0100
+
 moodle (1.9.9.dfsg2-5.1) unstable; urgency=low
 
   * Non-maintainer upload.
